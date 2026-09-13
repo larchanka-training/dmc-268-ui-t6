@@ -44,20 +44,29 @@
 
 ## 3. C4 — уровень 1: контекст
 
+> Нотация C4, рендер через `flowchart`: родной `C4Context`/`C4Container` в Mermaid накладывает подписи рёбер друг на друга.
+
 ```mermaid
-C4Context
-  title AI Code Reviewer — контекст
-  Person(dev, "Разработчик", "Открывает PR, назначает бота ревьюером, читает замечания в GitHub")
-  Person(op, "Оператор / тимлид", "Включает бота на репозиториях, правит правила, смотрит прогоны и расход")
-  System(reviewer, "AI Code Reviewer", "Автоматическое ревью PR: контекст → LLM → одно ревью в PR")
-  System_Ext(github, "GitHub", "PR, вебхуки, check-runs, REST/GraphQL API")
-  System_Ext(llm, "LLM Provider", "Anthropic / OpenAI / self-hosted — за LLM Gateway")
-  Rel(dev, github, "открывает PR, назначает ревьюера")
-  Rel(github, reviewer, "вебхуки: pull_request, check_suite, review_thread", "HTTPS + HMAC")
-  Rel(reviewer, github, "дифф, файлы, публикация ревью, check-run", "REST v3 / GraphQL v4")
-  Rel(reviewer, llm, "контекст → находки", "HTTPS")
-  Rel(op, reviewer, "правила, прогоны, метрики", "Web UI, GitHub OAuth")
-  Rel(github, dev, "ревью бота в PR")
+flowchart LR
+  dev["<b>Разработчик</b><br/><i>[Person]</i><br/>открывает PR, назначает бота ревьюером,<br/>читает замечания в GitHub"]
+  op["<b>Оператор / тимлид</b><br/><i>[Person]</i><br/>включает бота на репозиториях,<br/>правит правила, смотрит прогоны и расход"]
+  sys["<b>AI Code Reviewer</b><br/><i>[Software System]</i><br/>контекст → LLM → одно ревью в PR"]
+  gh["<b>GitHub</b><br/><i>[External System]</i><br/>PR, вебхуки, check-runs,<br/>REST v3 / GraphQL v4"]
+  llm["<b>LLM Provider</b><br/><i>[External System]</i><br/>Anthropic / OpenAI / self-hosted<br/>за LLM Gateway"]
+
+  dev -->|"открывает PR,<br/>назначает ревьюера"| gh
+  gh -->|"вебхуки<br/>HTTPS + HMAC"| sys
+  sys -->|"дифф, файлы, публикация ревью,<br/>check-run · REST / GraphQL"| gh
+  sys -->|"контекст → находки<br/>HTTPS"| llm
+  op -->|"правила, прогоны, метрики<br/>Web UI · GitHub OAuth"| sys
+  gh -.->|"ревью бота в PR"| dev
+
+  classDef person fill:#08427b,color:#fff,stroke:#052e56
+  classDef system fill:#1168bd,color:#fff,stroke:#0b4884
+  classDef ext fill:#8a8a8a,color:#fff,stroke:#5f5f5f
+  class dev,op person
+  class sys system
+  class gh,llm ext
 ```
 
 ---
@@ -65,49 +74,61 @@ C4Context
 ## 4. C4 — уровень 2: контейнеры
 
 ```mermaid
-C4Container
-  title AI Code Reviewer — контейнеры
-  Person(dev, "Разработчик")
-  Person(op, "Оператор")
-  System_Ext(github, "GitHub")
-  System_Ext(llm, "LLM Provider")
+flowchart TB
+  dev["<b>Разработчик</b><br/><i>[Person]</i>"]
+  op["<b>Оператор</b><br/><i>[Person]</i>"]
+  gh["<b>GitHub</b><br/><i>[External System]</i>"]
+  llm["<b>LLM Provider</b><br/><i>[External System]</i>"]
 
-  Container_Boundary(sys, "AI Code Reviewer") {
-    Container(ui, "Web UI", "React 18 + Vite + TS", "SPA: прогоны, дифф, инспектор трейса, правила, метрики")
-    Container(api, "API Server", "FastAPI", "REST + SSE для UI, GitHub OAuth → JWT, конфигурация, ручной перезапуск")
-    Container(hook, "WebHook Processor", "FastAPI", "HMAC, идемпотентность по delivery id, триггер Р-10, схлопывание Р-2, ack < 500 мс")
-    Container(worker, "AI Worker", "Python + aio-pika", "Сборщик контекста (4 уровня) → LLM Gateway → постобработка → трейс")
-    Container(pub, "GitHub Publisher", "Python + aio-pika", "Валидация координат, одно ревью, check-run. v1: в процессе worker")
-    Container(coll, "Event Collector", "Python + aio-pika", "Собирает события прогонов и LLM-вызовов в usage_events / метрики. v1: в процессе api")
-    Container(sandbox, "Sandbox Runner", "Docker, --network=none", "Изолированный контейнер для SandboxEngine. Фаза 3")
-    ContainerDb(pg, "PostgreSQL 17", "SQLAlchemy 2 + Alembic", "Источник истины: workspaces, repos, code_changes, review_jobs, findings, usage_events, run_actions")
-    ContainerQueue(mq, "RabbitMQ", "AMQP 0-9-1", "reviews (direct), events (topic), DLX")
-    ContainerDb(redis, "Redis", "", "Кэш: installation-токены, блобы файлов, AST, дерево репо")
-    ContainerDb(s3, "Object Storage", "S3-совместимый (MinIO / Hetzner)", "Payload вебхуков, снимки диффов, полные контексты, трейсы")
-  }
+  subgraph sys["AI Code Reviewer"]
+    direction TB
+    ui["<b>Web UI</b><br/><i>[Container: React 18 + Vite + TS]</i><br/>прогоны, дифф, инспектор трейса,<br/>правила, метрики"]
+    api["<b>API Server</b><br/><i>[Container: FastAPI]</i><br/>REST + SSE, GitHub OAuth → JWT,<br/>конфигурация, ручной перезапуск"]
+    hook["<b>WebHook Processor</b><br/><i>[Container: FastAPI]</i><br/>HMAC, идемпотентность, триггер Р-10,<br/>схлопывание Р-2, ack < 500 мс"]
+    worker["<b>AI Worker</b><br/><i>[Container: Python + aio-pika]</i><br/>сборщик контекста (4 уровня) → LLM Gateway<br/>→ постобработка → трейс"]
+    pub["<b>GitHub Publisher</b><br/><i>[Container: Python + aio-pika]</i><br/>валидация координат, одно ревью, check-run<br/>v1: в процессе worker"]
+    coll["<b>Event Collector</b><br/><i>[Container: Python + aio-pika]</i><br/>события прогонов и LLM → usage_events<br/>v1: в процессе api"]
+    sandbox["<b>Sandbox Runner</b><br/><i>[Container: Docker, --network=none]</i><br/>SandboxEngine · фаза 3"]
+    mq[("<b>RabbitMQ</b><br/><i>[AMQP 0-9-1]</i><br/>reviews (direct), events (topic), DLX")]
+    pg[("<b>PostgreSQL 17</b><br/><i>[SQLAlchemy 2 + Alembic]</i><br/>источник истины")]
+    redis[("<b>Redis</b><br/>токены, блобы, AST, дерево репо")]
+    s3[("<b>Object Storage</b><br/><i>[S3: MinIO / Hetzner]</i><br/>payload'ы, снимки диффов, контексты, трейсы")]
+  end
 
-  Rel(dev, github, "PR, назначение ревьюера")
-  Rel(op, ui, "HTTPS")
-  Rel(ui, api, "REST + SSE", "JSON, Zod-контракты")
-  Rel(github, hook, "webhooks", "HTTPS + HMAC")
-  Rel(hook, pg, "webhook_events, code_changes, review_jobs")
-  Rel(hook, mq, "review.run", "persistent")
-  Rel(mq, worker, "review.run.fast / review.run.deep", "prefetch=1")
-  Rel(worker, github, "diff, contents, tree", "REST")
-  Rel(worker, llm, "промпт → находки")
-  Rel(worker, redis, "блобы, AST, токены")
-  Rel(worker, pg, "context_payloads, findings, run_actions")
-  Rel(worker, s3, "полный контекст, трейс")
-  Rel(worker, sandbox, "запуск контейнера", "docker API, фаза 3")
-  Rel(worker, mq, "review.publish, events.*")
-  Rel(mq, pub, "review.publish")
-  Rel(pub, github, "POST /pulls/{n}/reviews, check-run", "REST")
-  Rel(pub, pg, "comments, review_jobs.state")
-  Rel(mq, coll, "events.*")
-  Rel(coll, pg, "usage_events, агрегаты")
-  Rel(api, pg, "чтение, конфигурация")
-  Rel(api, mq, "review.run (manual rerun)")
-  Rel(api, github, "OAuth, список репозиториев installation")
+  dev -->|"PR, назначение ревьюера"| gh
+  op -->|HTTPS| ui
+  ui -->|"REST + SSE<br/>Zod-контракты"| api
+  gh -->|"webhooks<br/>HTTPS + HMAC"| hook
+
+  hook -->|"webhook_events, code_changes,<br/>review_jobs"| pg
+  hook -->|review.run| mq
+  api -->|"чтение, конфигурация"| pg
+  api -->|"review.run<br/>(rerun)"| mq
+  api -->|"OAuth, репозитории<br/>installation"| gh
+
+  mq -->|"review.run.fast / .deep<br/>prefetch=1"| worker
+  worker -->|"diff, blobs, tree · REST"| gh
+  worker -->|"промпт → находки"| llm
+  worker -->|"блобы, AST"| redis
+  worker -->|"context_payloads, findings,<br/>run_actions, usage_events"| pg
+  worker -->|"полный контекст, трейс"| s3
+  worker -.->|"docker API · фаза 3"| sandbox
+  worker -->|"review.publish, events.*"| mq
+
+  mq -->|review.publish| pub
+  pub -->|"POST /pulls/{n}/reviews,<br/>check-run · REST"| gh
+  pub -->|"comments, job.state"| pg
+  mq -->|"events.*"| coll
+  coll -->|"usage_events, агрегаты"| pg
+
+  classDef person fill:#08427b,color:#fff,stroke:#052e56
+  classDef ext fill:#8a8a8a,color:#fff,stroke:#5f5f5f
+  classDef cont fill:#438dd5,color:#fff,stroke:#2e6295
+  classDef store fill:#2f6db3,color:#fff,stroke:#1f4f85
+  class dev,op person
+  class gh,llm ext
+  class ui,api,hook,worker,pub,coll,sandbox cont
+  class mq,pg,redis,s3 store
 ```
 
 **Один образ, пять entrypoint'ов** (Р-12): `uv run python -m app.api | app.webhook | app.worker | app.publisher | app.collector`. Staging (Hetzner, одна VM, compose): `api`, `webhook`, `worker` (внутри — publisher), `postgres`, `rabbitmq`, `redis`, `minio`, `caddy` (TLS). Роль 3 разводит по сервисам — код не меняется.
