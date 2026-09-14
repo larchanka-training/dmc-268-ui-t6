@@ -1,0 +1,20 @@
+name: dmc-268-ui
+
+services:
+  ui:
+    image: ${IMAGE:?IMAGE is required}
+    ports:
+      - "80:8080"
+    restart: unless-stopped
+    pull_policy: always
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
