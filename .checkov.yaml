@@ -1,0 +1,11 @@
+compact: true
+framework:
+  - terraform
+  - dockerfile
+download-external-modules: false
+quiet: true
+soft-fail: false
+skip-path:
+  - .terraform
+  - node_modules
+  - dist
