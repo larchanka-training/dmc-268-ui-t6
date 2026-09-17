@@ -44,7 +44,7 @@ export const RunSessionSchema = z
     status: RunStatusSchema,
     startedAt: z.iso.datetime().nullable(),
     finishedAt: z.iso.datetime().nullable(),
-    attempt: z.int().positive(),
+    attempt: z.int().nonnegative(),
     cancelRequested: z.boolean(),
     pullRequest: PullRequestRefSchema,
     actionCount: z.int().nonnegative(),
@@ -80,3 +80,16 @@ export const RunListPageSchema = z.object({
   nextCursor: z.string().nullable(),
 })
 export type RunListPage = z.infer<typeof RunListPageSchema>
+
+export const RunUpdatedEventSchema = z.object({
+  runId: z.uuid(),
+  status: RunStatusSchema,
+})
+export type RunUpdatedEvent = z.infer<typeof RunUpdatedEventSchema>
+
+export const RunListQuerySchema = z.object({
+  status: RunStatusSchema.optional(),
+  repo: z.string().optional(),
+  cursor: z.string().optional(),
+})
+export type RunListQuery = z.infer<typeof RunListQuerySchema>

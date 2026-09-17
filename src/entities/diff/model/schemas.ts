@@ -61,3 +61,10 @@ export const FileSliceSchema = z.object({
   nextOffset: z.int().nonnegative().nullable(),
 })
 export type FileSlice = z.infer<typeof FileSliceSchema>
+
+export const FileSliceQuerySchema = z.object({
+  path: z.string(),
+  offset: z.int().nonnegative().default(0),
+  limit: z.int().positive().max(500).default(200),
+})
+export type FileSliceQuery = z.infer<typeof FileSliceQuerySchema>
