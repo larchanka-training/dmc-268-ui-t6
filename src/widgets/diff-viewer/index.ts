@@ -1,0 +1,5 @@
+export { DiffViewer } from './ui/DiffViewer'
+export { InlineComment } from './ui/InlineComment'
+export { useDiffViewerStore } from './model/store'
+export type { DiffViewType, DiffViewerState } from './model/store'
+export type { ContextGap } from './model/types'
