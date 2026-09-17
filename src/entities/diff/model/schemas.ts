@@ -55,7 +55,7 @@ export type RawFileDiff = z.infer<typeof RawFileDiffSchema>
 
 export const FileSliceSchema = z.object({
   path: z.string(),
-  startLine: z.int().nonnegative(),
+  startLine: z.int().positive(),
   lines: z.array(z.string()),
   totalLines: z.int().nonnegative(),
   nextOffset: z.int().nonnegative().nullable(),

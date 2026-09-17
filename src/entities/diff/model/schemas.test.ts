@@ -68,7 +68,7 @@ describe('FileSliceSchema', () => {
   it('accepts a FileSlice with nextOffset null', () => {
     const fileSlice = {
       path: 'src/a.ts',
-      startLine: 0,
+      startLine: 1,
       lines: ['line one', 'line two'],
       totalLines: 2,
       nextOffset: null,
@@ -76,10 +76,10 @@ describe('FileSliceSchema', () => {
     expect(FileSliceSchema.safeParse(fileSlice).success).toBe(true)
   })
 
-  it('rejects a FileSlice with startLine -1', () => {
+  it('rejects a FileSlice with startLine 0', () => {
     const fileSlice = {
       path: 'src/a.ts',
-      startLine: -1,
+      startLine: 0,
       lines: [],
       totalLines: 0,
       nextOffset: null,

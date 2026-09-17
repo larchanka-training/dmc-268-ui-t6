@@ -77,6 +77,7 @@ export function ActionTree(props: ActionTreeProps): JSX.Element {
       />
       {selectedAction ? (
         <Collapse
+          key={selectedAction.index}
           defaultActiveKey={['request', 'response']}
           items={[
             {

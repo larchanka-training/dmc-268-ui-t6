@@ -7,6 +7,8 @@ export type ActionTreeNode =
 export const MIN_GROUP_SIZE = 3
 
 export function groupActions(actions: RunAction[], minGroup = MIN_GROUP_SIZE): ActionTreeNode[] {
+  // A "group" of 1 action is meaningless, so clamp the caller-supplied minGroup to at least 2.
+  const threshold = Math.max(2, minGroup)
   const nodes: ActionTreeNode[] = []
   let index = 0
   while (index < actions.length) {
@@ -19,7 +21,7 @@ export function groupActions(actions: RunAction[], minGroup = MIN_GROUP_SIZE): A
       end += 1
     }
     const run = actions.slice(index, end)
-    if (run.length >= minGroup) {
+    if (run.length >= threshold) {
       nodes.push({ kind: 'group', tool: current.tool, count: run.length, actions: run })
     } else {
       for (const action of run) {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { SAMPLE_PATCH_A } from '../../../shared/fixtures/sample.patch'
+import { SAMPLE_FILE_A_LINES, SAMPLE_PATCH_A } from '../../../shared/fixtures/sample.patch'
 import type { FileSlice } from '../model/schemas'
 import { expandContext, formatHunkHeader } from './expandContext'
 import { fromPatch } from './fromPatch'
@@ -8,10 +8,12 @@ import { fromPatch } from './fromPatch'
 describe('expandContext', () => {
   it('merges a mid-file slice with its two neighbouring hunks', () => {
     const file = fromPatch(SAMPLE_PATCH_A)
+    const sliceLines = SAMPLE_FILE_A_LINES.slice(5, 10)
+    expect(sliceLines).toEqual(['five', 'six', 'seven', 'eight', 'nine'])
     const slice: FileSlice = {
       path: 'src/a.ts',
       startLine: 6,
-      lines: ['five', 'six', 'seven', 'eight', 'nine'],
+      lines: sliceLines,
       totalLines: 13,
       nextOffset: null,
     }
@@ -65,6 +67,23 @@ describe('expandContext', () => {
       oldLine: 13,
       newLine: 14,
       content: 'fourteen',
+    })
+  })
+
+  it('non-adjacent slice stays a separate chunk', () => {
+    const file = fromPatch(SAMPLE_PATCH_A)
+    const slice: FileSlice = {
+      path: 'src/a.ts',
+      startLine: 8,
+      lines: ['eight'],
+      totalLines: 13,
+      nextOffset: null,
+    }
+    const result = expandContext(file, slice)
+    expect(result.chunks.length).toBe(3)
+    expect(result.chunks[1]).toEqual({
+      header: '@@ -7,1 +8,1 @@',
+      lines: [{ type: 'context', oldLine: 7, newLine: 8, content: 'eight' }],
     })
   })
 })

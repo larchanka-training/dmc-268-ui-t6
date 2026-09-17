@@ -76,7 +76,7 @@ export function DiffViewer(props: DiffViewerProps): JSX.Element {
 
   const hunks = toHunks(file)
 
-  const widgets: Record<string, ReactNode> = {}
+  const commentsByKey = new Map<string, ReviewComment[]>()
   for (const comment of comments) {
     if (comment.file !== file.filename) {
       continue
@@ -85,14 +85,28 @@ export function DiffViewer(props: DiffViewerProps): JSX.Element {
     if (key === null) {
       continue
     }
-    const existing = widgets[key]
+    const list = commentsByKey.get(key)
+    if (list === undefined) {
+      commentsByKey.set(key, [comment])
+    } else {
+      list.push(comment)
+    }
+  }
+
+  const widgets: Record<string, ReactNode> = {}
+  for (const [key, list] of commentsByKey) {
+    const [first] = list
+    if (first === undefined) {
+      continue
+    }
     widgets[key] =
-      existing === undefined ? (
-        <InlineComment comment={comment} />
+      list.length === 1 ? (
+        <InlineComment comment={first} />
       ) : (
         <div>
-          {existing}
-          <InlineComment comment={comment} />
+          {list.map((c) => (
+            <InlineComment key={c.id} comment={c} />
+          ))}
         </div>
       )
   }

@@ -89,4 +89,18 @@ describe('groupActions', () => {
     const nodes = groupActions(actions)
     expect(nodes.map((n) => n.kind)).toEqual(['action', 'action'])
   })
+
+  it('minGroup 1 behaves like 2', () => {
+    const actions = ['a', 'a', 'b'].map((tool, index) => action(index, tool))
+    const nodes = groupActions(actions, 1)
+    expect(nodes.length).toBe(2)
+    expect(nodes[0]).toMatchObject({ kind: 'group', tool: 'a', count: 2 })
+    expect(nodes[1]).toMatchObject({ kind: 'action' })
+  })
+
+  it('minGroup 0 never yields count-1 groups', () => {
+    const actions = ['a', 'b'].map((tool, index) => action(index, tool))
+    const nodes = groupActions(actions, 0)
+    expect(nodes.map((n) => n.kind)).toEqual(['action', 'action'])
+  })
 })

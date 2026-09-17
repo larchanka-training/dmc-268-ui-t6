@@ -92,4 +92,19 @@ describe('DiffViewer', () => {
     render(<DiffViewer file={{ ...FILE, chunks: [] }} comments={[]} />)
     expect(screen.getByText('Бинарный файл или пустой дифф')).toBeTruthy()
   })
+
+  it('flattens multiple comments on the same line into one widget row', () => {
+    const threeComments: ReviewComment[] = [
+      makeComment({ id: '11111111-1111-4111-8111-111111111121', newLine: 2 }),
+      makeComment({ id: '11111111-1111-4111-8111-111111111122', newLine: 2 }),
+      makeComment({ id: '11111111-1111-4111-8111-111111111123', newLine: 2 }),
+    ]
+    const { container } = render(<DiffViewer file={FILE} comments={threeComments} />)
+    const widgetRows = container.querySelectorAll('tr.diff-widget')
+    expect(widgetRows).toHaveLength(1)
+    const row = widgetRows[0]
+    const wrapper = row?.querySelector('.diff-widget-content > div')
+    expect(wrapper?.children.length).toBe(3)
+    expect(row?.querySelectorAll('.inline-comment')).toHaveLength(3)
+  })
 })

@@ -49,13 +49,36 @@ describe('toHunks', () => {
     expect(libraryHunks).toMatchObject(toHunks(file))
   })
 
-  it('falls back to the header regex when no line carries the count', () => {
+  it('falls back to the header regex when no line carries the count (all-added chunk)', () => {
     const chunk: Chunk = {
-      header: '@@ -7 +8 @@',
-      lines: [{ type: 'context', oldLine: 7, newLine: 8, content: 'seven' }],
+      header: '@@ -0,0 +1,3 @@',
+      lines: [
+        { type: 'added', oldLine: null, newLine: 1, content: 'a' },
+        { type: 'added', oldLine: null, newLine: 2, content: 'b' },
+        { type: 'added', oldLine: null, newLine: 3, content: 'c' },
+      ],
     }
     const file: FileDiff = { filename: 'x.ts', chunks: [chunk] }
     const [hunk] = toHunks(file)
-    expect(hunk).toMatchObject({ oldStart: 7, oldLines: 1, newStart: 8, newLines: 1 })
+    expect(hunk).toMatchObject({
+      oldStart: 0,
+      oldLines: 0,
+      newStart: 1,
+      newLines: 3,
+      content: '@@ -0,0 +1,3 @@',
+    })
+  })
+
+  it('falls back to the header regex when no line carries the count (all-removed chunk)', () => {
+    const chunk: Chunk = {
+      header: '@@ -4,2 +3,0 @@',
+      lines: [
+        { type: 'removed', oldLine: 4, newLine: null, content: 'a' },
+        { type: 'removed', oldLine: 5, newLine: null, content: 'b' },
+      ],
+    }
+    const file: FileDiff = { filename: 'x.ts', chunks: [chunk] }
+    const [hunk] = toHunks(file)
+    expect(hunk).toMatchObject({ oldStart: 4, oldLines: 2, newStart: 3, newLines: 0 })
   })
 })
