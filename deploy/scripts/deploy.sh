@@ -22,6 +22,10 @@ if [[ -n "${GHCR_TOKEN:-}" ]]; then
   echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER:-github}" --password-stdin
 fi
 
+if docker inspect dmc-268-ui-bootstrap >/dev/null 2>&1; then
+  docker rm -f dmc-268-ui-bootstrap >/dev/null
+fi
+
 docker pull "${IMAGE}"
 printf 'IMAGE=%s\n' "${IMAGE}" > "${APP_DIR}/.env"
 docker compose -f "${COMPOSE_FILE}" --env-file "${APP_DIR}/.env" up -d --remove-orphans --wait --wait-timeout 90
