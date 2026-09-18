@@ -94,6 +94,7 @@ jobs:
       - docker-scan
     outputs:
       image: ${{ steps.tags.outputs.immutable }}
+      staging: ${{ steps.tags.outputs.staging }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -133,9 +134,7 @@ jobs:
           context: .
           file: Dockerfile
           push: true
-          tags: |
-            ${{ steps.tags.outputs.immutable }}
-            ${{ steps.tags.outputs.staging }}
+          tags: ${{ steps.tags.outputs.immutable }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -149,7 +148,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: read
+      packages: write
     needs: push-image
     concurrency:
       group: staging-deploy
@@ -200,6 +199,16 @@ jobs:
           chmod +x deploy/scripts/healthcheck.sh
           target="${HEALTH_URL:-http://${STAGING_HOST}/health}"
           deploy/scripts/healthcheck.sh "${target}"
+
+      - name: Promote staging tag
+        if: steps.health.outcome == 'success'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          immutable="${{ needs.push-image.outputs.image }}"
+          staging="${{ needs.push-image.outputs.staging }}"
+          docker pull "${immutable}"
+          docker tag "${immutable}" "${staging}"
+          docker push "${staging}"
 
       - name: Rollback on failed health check
         if: steps.health.outcome == 'failure'
