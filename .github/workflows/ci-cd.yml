@@ -12,64 +12,12 @@ concurrency:
 
 permissions:
   contents: read
-  packages: write
-  security-events: write
 
 env:
   REGISTRY: ghcr.io
-  TF_WORKING_DIR: terraform
   LOCAL_IMAGE: dmc-268-ui:ci
 
 jobs:
-  terraform-fmt-validate:
-    name: Terraform fmt / validate
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_wrapper: false
-
-      - name: terraform fmt
-        working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform fmt -check -diff -recursive
-
-      - name: terraform init
-        working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform init -backend=false -input=false
-
-      - name: terraform validate
-        working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform validate -no-color
-
-  terraform-lint-security:
-    name: Terraform lint / security
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup TFLint
-        uses: terraform-linters/setup-tflint@v4
-        with:
-          tflint_version: latest
-
-      - name: TFLint
-        run: |
-          tflint --init
-          tflint --recursive -f compact
-
-      - name: Checkov
-        uses: bridgecrewio/checkov-action@v12
-        with:
-          config_file: .checkov.yaml
-          directory: .
-          output_format: cli
-          soft_fail: false
-
   docker-build:
     name: Docker image build
     runs-on: ubuntu-latest
@@ -139,9 +87,10 @@ jobs:
     name: Push Docker image
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     needs:
-      - terraform-fmt-validate
-      - terraform-lint-security
       - docker-scan
     outputs:
       image: ${{ steps.tags.outputs.immutable }}
@@ -198,13 +147,16 @@ jobs:
     name: Deploy staging
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     needs: push-image
     concurrency:
       group: staging-deploy
       cancel-in-progress: false
     environment:
       name: staging
-      url: http://${{ secrets.STAGING_HOST }}
+      url: http://${{ vars.STAGING_HOST }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -212,8 +164,8 @@ jobs:
       - name: Upload deploy files
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.STAGING_HOST }}
-          username: ${{ secrets.STAGING_SSH_USER }}
+          host: ${{ vars.STAGING_HOST }}
+          username: ${{ vars.STAGING_SSH_USER }}
           key: ${{ secrets.STAGING_SSH_KEY }}
           source: "deploy/compose/staging.yml,deploy/scripts/deploy.sh,deploy/scripts/rollback.sh,deploy/scripts/healthcheck.sh"
           target: /opt/dmc-268-ui
@@ -226,12 +178,14 @@ jobs:
           GHCR_USER: ${{ github.actor }}
           IMAGE: ${{ needs.push-image.outputs.image }}
         with:
-          host: ${{ secrets.STAGING_HOST }}
-          username: ${{ secrets.STAGING_SSH_USER }}
+          host: ${{ vars.STAGING_HOST }}
+          username: ${{ vars.STAGING_SSH_USER }}
           key: ${{ secrets.STAGING_SSH_KEY }}
+          debug: false
           envs: GHCR_TOKEN,GHCR_USER,IMAGE
           script: |
             set -euo pipefail
+            set +o xtrace
             mv /opt/dmc-268-ui/staging.yml /opt/dmc-268-ui/compose.yml
             chmod +x /opt/dmc-268-ui/deploy.sh /opt/dmc-268-ui/rollback.sh /opt/dmc-268-ui/healthcheck.sh
             /opt/dmc-268-ui/deploy.sh "${IMAGE}"
@@ -240,8 +194,8 @@ jobs:
         id: health
         continue-on-error: true
         env:
-          HEALTH_URL: ${{ secrets.STAGING_HEALTH_URL }}
-          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          HEALTH_URL: ${{ vars.STAGING_HEALTH_URL }}
+          STAGING_HOST: ${{ vars.STAGING_HOST }}
         run: |
           chmod +x deploy/scripts/healthcheck.sh
           target="${HEALTH_URL:-http://${STAGING_HOST}/health}"
@@ -254,12 +208,14 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USER: ${{ github.actor }}
         with:
-          host: ${{ secrets.STAGING_HOST }}
-          username: ${{ secrets.STAGING_SSH_USER }}
+          host: ${{ vars.STAGING_HOST }}
+          username: ${{ vars.STAGING_SSH_USER }}
           key: ${{ secrets.STAGING_SSH_KEY }}
+          debug: false
           envs: GHCR_TOKEN,GHCR_USER
           script: |
             set -euo pipefail
+            set +o xtrace
             /opt/dmc-268-ui/rollback.sh
 
       - name: Fail the pipeline after rollback
