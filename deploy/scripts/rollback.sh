@@ -27,6 +27,9 @@ if [[ -n "${REQUESTED_IMAGE}" ]]; then
   IMAGE="${REQUESTED_IMAGE}"
 elif [[ -f "${PREVIOUS_FILE}" ]]; then
   IMAGE="$(awk -F= '/^current_image=/{print $2}' "${PREVIOUS_FILE}")"
+elif [[ -f "${STATE_FILE}" ]]; then
+  echo "deployment recorded but no previous release to restore" >&2
+  exit 1
 else
   restore_bootstrap
   exit 0
