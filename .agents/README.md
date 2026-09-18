@@ -5,8 +5,7 @@
 `.agents/` is the source of truth for agent rules, skills, and agent definitions
 in both `dmc-268-ui-t6` and `dmc-268-api-t6`. Harness-specific paths are symlinks
 onto it, not copies: `.claude/skills -> ../.agents/skills` and
-`.claude/agents -> ../.agents/agents` (created in T2 of this issue — treat them
-as present).
+`.claude/agents -> ../.agents/agents` (committed as symlink objects).
 
 Rationale: the course board's Definition of Ready/Done, `docs/SYSTEM_DESIGN.md`
 §15 (OQ-4), and the 2026-08-17 lecture all converge on `.agents/` over
