@@ -4,9 +4,9 @@
 |---|---|
 | Статус | рабочий каркас пайплайна |
 | Владелец | инфраструктура (роль 3) |
-| Связанные документы | `SYSTEM_DESIGN.md` (§14: Hetzner, Terraform, Docker Compose) |
+| Связанные документы | `SYSTEM_DESIGN.md` (§14), инфраструктура в репозитории [dmc-268-api-t6](https://github.com/larchanka-training/dmc-268-api-t6) |
 
-Пайплайн собирает статический React UI в OCI-образ, проверяет инфраструктурный код и выкатывает образ на staging-VM в Hetzner Cloud. Реестр — **GitHub Container Registry**: у Hetzner нет managed registry, продукт уже живёт в GitHub.
+Пайплайн собирает статический React UI в OCI-образ, сканирует его и выкатывает на staging-VM в Hetzner Cloud. Реестр — **GitHub Container Registry**. Provisioning VM (Terraform, firewall, DNS) живёт только в **API-репозитории** (`terraform/ui-staging/`).
 
 ---
 
@@ -14,13 +14,9 @@
 
 ```mermaid
 flowchart TD
-  pr["PR / push"] --> tf["terraform fmt / validate"]
-  pr --> lint["tflint + checkov"]
-  pr --> build["docker build"]
+  pr["PR / push"] --> build["docker build"]
   build --> scan["trivy: vuln / secret / misconfig"]
-  tf --> gate{"main?"}
-  lint --> gate
-  scan --> gate
+  scan --> gate{"main?"}
   gate -->|нет| stop["CI зелёный, без выката"]
   gate -->|да| prev["сохранить :staging как :staging-previous"]
   prev --> push["push :sha и :staging в GHCR"]
@@ -33,8 +29,6 @@ flowchart TD
 
 | Job | Когда | Что проверяет / делает |
 |---|---|---|
-| `Terraform fmt / validate` | PR и `main` | `terraform fmt -check`, `terraform validate` |
-| `Terraform lint / security` | PR и `main` | TFLint (recommended) + Checkov (Terraform + Dockerfile) |
 | `Docker image build` | PR и `main` | multi-stage образ `node` → `nginx-unprivileged` |
 | `Docker image security scan` | после сборки | Trivy: `CRITICAL`/`HIGH`, scanners `vuln,secret,misconfig` |
 | `Push Docker image` | только `main` | login в `ghcr.io`, сохранение прошлого `:staging`, push `:sha` и `:staging` |
@@ -67,31 +61,18 @@ GET /health
 | Auth staging pull | тот же token, только на время `docker pull` |
 | Теги | `:<git-sha>` (неизменяемый), `:staging` (текущий), `:staging-previous` (точка отката) |
 
-Имя репозитория и хост реестра заданы в Terraform (`container_registry`, `image_repository`) и выводятся в `image_repository` / `health_url`.
-
 ---
 
 ## 4. Staging (Hetzner)
 
-Соответствует §14 `SYSTEM_DESIGN.md`: одна VM, Docker Compose, наружу только HTTP(S) и SSH.
-
-Terraform поднимает:
+VM для UI поднимается Terraform-стеком `terraform/ui-staging/` в репозитории **dmc-268-api-t6**:
 
 - private network `10.20.0.0/16` + subnet `10.20.1.0/24`
 - firewall: 80, 443, ICMP; SSH только из `ssh_allowed_cidrs`
 - Debian 12 + Docker / Compose через cloud-init
-- публичный IPv4/IPv6 и статический private IP `10.20.1.10`
+- каталог `/opt/dmc-268-ui` на VM
 
-`terraform apply` — отдельная операция оператора (нужен remote state, иначе runner каждый раз создаст новую VM). CI проверяет код, но не применяет его.
-
-```bash
-cd terraform
-terraform init
-terraform plan  -var-file=environments/staging.tfvars
-terraform apply -var-file=environments/staging.tfvars
-```
-
-Токен: `HCLOUD_TOKEN`. Пример переменных: `terraform/environments/staging.tfvars.example`.
+Инструкции по `terraform apply`, DNS и remote state — [docs/INFRASTRUCTURE.md](https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/INFRASTRUCTURE.md) в API-репозитории.
 
 ---
 
@@ -103,27 +84,29 @@ terraform apply -var-file=environments/staging.tfvars
 
 ---
 
-## 6. Секреты GitHub Environment `staging`
+## 6. GitHub Environment `staging`
+
+### Secrets
 
 | Secret | Назначение |
 |---|---|
-| `STAGING_HOST` | публичный IPv4 или DNS VM |
+| `STAGING_SSH_KEY` | приватный ключ к `hcloud_ssh_key.ci` из Terraform |
+
+### Variables
+
+| Variable | Назначение |
+|---|---|
+| `STAGING_HOST` | IPv4 или FQDN из Terraform output `ssh_host` (стек `ui-staging`) |
 | `STAGING_SSH_USER` | пользователь с Docker (`root` после cloud-init) |
-| `STAGING_SSH_KEY` | приватный ключ к `hcloud_ssh_key.ci` |
 | `STAGING_HEALTH_URL` | необязательно; иначе `http://$STAGING_HOST/health` |
-| `HCLOUD_TOKEN` | только для локального / операторского `terraform apply` |
+
+`GITHUB_TOKEN` выдаёт Actions сам — в репозиторий его не кладут.
 
 ---
 
 ## 7. Локальные команды
 
 ```bash
-terraform -chdir=terraform fmt -check -recursive
-terraform -chdir=terraform init -backend=false
-terraform -chdir=terraform validate
-tflint --init && tflint --recursive
-checkov -f .checkov.yaml
-
 docker build -t dmc-268-ui:local .
 trivy image --severity CRITICAL,HIGH --exit-code 1 dmc-268-ui:local
 docker run --rm -p 8080:8080 dmc-268-ui:local

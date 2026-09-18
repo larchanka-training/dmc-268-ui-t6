@@ -11,4 +11,4 @@ npm run dev
 
 ## CI/CD
 
-GitHub Actions builds a Docker image, scans it, pushes to GHCR, and deploys to Hetzner staging with a `/health` check and automatic rollback. Design, jobs, and secrets: [docs/CICD.md](docs/CICD.md).
+GitHub Actions builds a Docker image, scans it, pushes to GHCR, and deploys to Hetzner staging with a `/health` check and automatic rollback. Design and secrets: [docs/CICD.md](docs/CICD.md). Staging VM is provisioned via Terraform in the [API repository](https://github.com/larchanka-training/dmc-268-api-t6) (`terraform/ui-staging/`).
