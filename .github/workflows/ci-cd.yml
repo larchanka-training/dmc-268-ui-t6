@@ -171,6 +171,7 @@ jobs:
           strip_components: 2
 
       - name: Deploy image
+        id: deploy
         uses: appleboy/ssh-action@v1.2.0
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -191,6 +192,7 @@ jobs:
 
       - name: Health check
         id: health
+        if: steps.deploy.outcome == 'success'
         continue-on-error: true
         env:
           HEALTH_URL: ${{ vars.STAGING_HEALTH_URL }}
@@ -201,7 +203,7 @@ jobs:
           deploy/scripts/healthcheck.sh "${target}"
 
       - name: Promote staging tag
-        if: steps.health.outcome == 'success'
+        if: steps.deploy.outcome == 'success' && steps.health.outcome == 'success'
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
           immutable="${{ needs.push-image.outputs.image }}"
@@ -210,8 +212,8 @@ jobs:
           docker tag "${immutable}" "${staging}"
           docker push "${staging}"
 
-      - name: Rollback on failed health check
-        if: steps.health.outcome == 'failure'
+      - name: Rollback on failed deploy or health check
+        if: steps.deploy.outcome == 'failure' || steps.health.outcome == 'failure'
         uses: appleboy/ssh-action@v1.2.0
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -228,7 +230,11 @@ jobs:
             /opt/dmc-268-ui/rollback.sh
 
       - name: Fail the pipeline after rollback
-        if: steps.health.outcome == 'failure'
+        if: steps.deploy.outcome == 'failure' || steps.health.outcome == 'failure'
         run: |
-          echo "staging health check failed; rollback was triggered"
+          if [[ "${{ steps.deploy.outcome }}" == "failure" ]]; then
+            echo "staging deploy failed; rollback was triggered"
+          else
+            echo "staging health check failed; rollback was triggered"
+          fi
           exit 1
