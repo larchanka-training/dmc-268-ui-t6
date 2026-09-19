@@ -36,13 +36,13 @@ Vite, React 18, TypeScript strict, Zod 4, Zustand 5, TanStack Query 5, antd 6, V
 ## Layout
 
 FSD lite (`app → pages → widgets → features → entities → shared`, imports
-only flow downward, `shared` never imports `entities`); details in the stack
-rules file in `.agents/rules/`.
+only flow downward, `shared` never imports `entities`); details in
+[.agents/rules/frontend.md](../rules/frontend.md).
 
 ## Conventions
 
 - Branches: `feat/<slug>`, `fix/<slug>`, `docs/<slug>`, `chore/<slug>`,
-  slug preferably `<issue>-<kebab-case>`.
+  `deps-update-YYYY-MM-DD`, slug preferably `<issue>-<kebab-case>`.
 - Commits: Conventional Commits, reference the issue (`(#N)` in the subject
   or `Refs #N` in the footer).
 - PR title: conventional, ≤72 characters.

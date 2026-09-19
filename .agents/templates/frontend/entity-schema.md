@@ -32,17 +32,17 @@ export const RepositoryLayoutSchema = z.object({
 })
 export type RepositoryLayout = z.infer<typeof RepositoryLayoutSchema>
 
-export const FooSchema = z.object({
+export const RepositorySchema = z.object({
   id: z.uuid(),
   kind: RepositoryKindSchema,
   title: z.string(),
   createdAt: z.iso.datetime(),
   layout: RepositoryLayoutSchema,
 })
-export type Foo = z.infer<typeof FooSchema>
+export type Repository = z.infer<typeof RepositorySchema>
 
-export const FooListSchema = z.array(FooSchema)
-export type FooList = z.infer<typeof FooListSchema>
+export const RepositoryListSchema = z.array(RepositorySchema)
+export type RepositoryList = z.infer<typeof RepositoryListSchema>
 ```
 
 ## Test
@@ -52,9 +52,9 @@ export type FooList = z.infer<typeof FooListSchema>
 ```ts
 import { describe, expect, it } from 'vitest'
 
-import { FooSchema } from './schemas'
+import { RepositorySchema } from './schemas'
 
-const foo = {
+const repository = {
   id: '11111111-1111-4111-8111-000000000001',
   kind: 'metric',
   title: 'Open runs',
@@ -62,13 +62,13 @@ const foo = {
   layout: { x: 0, y: 0, width: 4, height: 2 },
 }
 
-describe('FooSchema', () => {
-  it('accepts a valid Foo', () => {
-    expect(FooSchema.safeParse(foo).success).toBe(true)
+describe('RepositorySchema', () => {
+  it('accepts a valid Repository', () => {
+    expect(RepositorySchema.safeParse(repository).success).toBe(true)
   })
 
   it('rejects an unknown kind', () => {
-    const result = FooSchema.safeParse({ ...foo, kind: 'unknown' })
+    const result = RepositorySchema.safeParse({ ...repository, kind: 'unknown' })
     expect(result.success).toBe(false)
     if (!result.success) {
       expect(result.error.issues[0]?.path).toEqual(['kind'])
