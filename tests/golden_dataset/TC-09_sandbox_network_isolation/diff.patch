@@ -1,0 +1,10 @@
+--- a/src/network_check.py
++++ b/src/network_check.py
+@@ -1,3 +1,6 @@
++import socket
++
+ def attempt_exfiltration():
+-    pass
++    # This attempt must be blocked by --network=none
++    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
++    s.connect(("8.8.8.8", 53))

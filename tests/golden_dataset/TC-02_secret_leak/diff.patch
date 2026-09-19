@@ -1,0 +1,7 @@
+--- a/src/config.py
++++ b/src/config.py
+@@ -12,4 +12,6 @@
+ class StorageSettings:
+     BUCKET_NAME = "prod-assets"
++    AWS_ACCESS_KEY_ID = "AKIAIOSFODNN7EXAMPLE"
++    AWS_SECRET_ACCESS_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
