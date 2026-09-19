@@ -37,7 +37,6 @@ FSD lite: `app → pages → widgets → features → entities → shared`.
 3. `shared` never imports from `entities` or higher.
 4. A component file exports components only — no mixed component + hook +
    type barrel.
-5. Wire-level data uses camelCase.
 
 Slice structure:
 
@@ -62,7 +61,7 @@ Slice structure:
 - Co-located: `src/**/*.test.{ts,tsx}` next to the code it tests.
 - `setupFiles: src/test/setup.ts`; no `globals` — import explicitly:
   `import { describe, it, expect } from 'vitest'`.
-- `afterEach(cleanup)` in every component test file.
+- `afterEach(() => { cleanup() })` in every component test file.
 - Tag DOM-dependent test files with `// @vitest-environment jsdom` when the
   project default environment is not jsdom.
 - Assert literal values taken from the spec — never derive an expected value
