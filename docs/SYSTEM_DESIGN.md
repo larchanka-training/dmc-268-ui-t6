@@ -9,7 +9,7 @@
 
 **Продукт.** GitHub App, которого назначают ревьюером в pull request. После зелёного CI бот публикует одно ревью с inline-комментариями прямо в PR. Web UI показывает прогоны, трейс действий агента, метрики и расход.
 
-**Стек (зафиксирован).** Backend: Python 3.13, FastAPI, SQLAlchemy 2, Alembic, PostgreSQL 17, RabbitMQ, Redis, uv, ruff, mypy strict. Frontend: React 18, Vite, TypeScript, pnpm, Zustand + TanStack Query, Zod, Vitest. Инфра: Hetzner Cloud, Terraform, Docker Compose.
+**Стек (зафиксирован).** Backend: Python 3.13, FastAPI, SQLAlchemy 2, Alembic, PostgreSQL 17, RabbitMQ, Redis, uv, ruff, mypy strict. Frontend: React 19, Vite 8, TypeScript 5, pnpm, Zustand + TanStack Query, Zod, Vitest 5. Инфра: Hetzner Cloud, Terraform, Docker Compose.
 
 ---
 
@@ -82,7 +82,7 @@ flowchart TB
 
   subgraph sys["AI Code Reviewer"]
     direction TB
-    ui["<b>Web UI</b><br/><i>[Container: React 18 + Vite + TS]</i><br/>прогоны, дифф, инспектор трейса,<br/>правила, метрики"]
+    ui["<b>Web UI</b><br/><i>[Container: React 19 + Vite 8 + TS]</i><br/>прогоны, дифф, инспектор трейса,<br/>правила, метрики"]
     api["<b>API Server</b><br/><i>[Container: FastAPI]</i><br/>REST + SSE, GitHub OAuth → JWT,<br/>конфигурация, ручной перезапуск"]
     hook["<b>WebHook Processor</b><br/><i>[Container: FastAPI]</i><br/>HMAC, идемпотентность, триггер Р-10,<br/>схлопывание Р-2, ack < 500 мс"]
     worker["<b>AI Worker</b><br/><i>[Container: Python + aio-pika]</i><br/>сборщик контекста (4 уровня) → LLM Gateway<br/>→ постобработка → трейс"]
