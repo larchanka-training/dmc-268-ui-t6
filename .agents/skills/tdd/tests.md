@@ -12,7 +12,9 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { DiffComment } from './DiffComment'
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+})
 
 describe('DiffComment', () => {
   it('lets a user submit an inline comment on a diff line', async () => {
