@@ -11,8 +11,8 @@ hand and validate separately.
 
 ## File placement
 
-- `src/entities/widget/model/schemas.ts`
-- `src/entities/widget/model/schemas.test.ts`
+- `src/entities/repository/model/schemas.ts`
+- `src/entities/repository/model/schemas.test.ts`
 
 ## Code
 
@@ -21,23 +21,23 @@ hand and validate separately.
 ```ts
 import { z } from 'zod'
 
-export const WidgetKindSchema = z.enum(['metric', 'chart', 'table'])
-export type WidgetKind = z.infer<typeof WidgetKindSchema>
+export const RepositoryKindSchema = z.enum(['metric', 'chart', 'table'])
+export type RepositoryKind = z.infer<typeof RepositoryKindSchema>
 
-export const WidgetLayoutSchema = z.object({
+export const RepositoryLayoutSchema = z.object({
   x: z.int().nonnegative(),
   y: z.int().nonnegative(),
   width: z.int().positive(),
   height: z.int().positive(),
 })
-export type WidgetLayout = z.infer<typeof WidgetLayoutSchema>
+export type RepositoryLayout = z.infer<typeof RepositoryLayoutSchema>
 
 export const FooSchema = z.object({
   id: z.uuid(),
-  kind: WidgetKindSchema,
+  kind: RepositoryKindSchema,
   title: z.string(),
   createdAt: z.iso.datetime(),
-  layout: WidgetLayoutSchema,
+  layout: RepositoryLayoutSchema,
 })
 export type Foo = z.infer<typeof FooSchema>
 
