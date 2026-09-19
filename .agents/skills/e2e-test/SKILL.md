@@ -31,13 +31,16 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:5173/   # expect 200
 If absent, launch it and confirm a single listener:
 
 ```bash
-nohup pnpm dev > /tmp/vite-dev.log 2>&1 &
+nohup pnpm dev --strictPort > /tmp/vite-dev.log 2>&1 &
 ```
 
-An `EADDRINUSE` in the log means one was already running — kill only your
-duplicate, never the original. For a production-like check instead of HMR
-behavior, use `pnpm build && pnpm preview` (port 4173) — see
-`manual-automation`.
+`--strictPort` is required: without it, Vite never errors on a busy port —
+it logs "Port 5173 is in use, trying another one..." and silently starts on
+5174, so a duplicate server goes undetected and the browser keeps hitting
+the stale instance. With `--strictPort`, an `EADDRINUSE` in the log means
+one was already running — kill only your duplicate, never the original. For
+a production-like check instead of HMR behavior, use
+`pnpm build && pnpm preview` (port 4173) — see `manual-automation`.
 
 ## 2. Browser Tools
 
@@ -51,10 +54,12 @@ interacting — no login/OTP flow exists yet (GitHub OAuth is future work per
 
 ## 3. Scenarios for This Product
 
-Per `docs/SYSTEM_DESIGN.md` §"Frontend", the app's screens are the run list,
-the run inspector, and the diff viewer:
+Per `docs/SYSTEM_DESIGN.md` §2 (responsibility boundaries) and §12 (API ↔ UI
+contract), the app's screens are the run list, the run inspector, and the
+diff viewer:
 
-- **Run list**: the overview/feed screen loads and renders run summaries
+- **Run list** (not built in sprint 1 — `pages/runs` is a placeholder,
+  pending #31): the overview/feed screen loads and renders run summaries
   (status, repository, timestamp) without a console error.
 - **Run inspector**: opening a run from the list navigates to its trace view
   (`RunSession → RunAction`) and renders the action sequence for that run.

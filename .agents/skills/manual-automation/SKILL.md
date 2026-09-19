@@ -40,18 +40,30 @@ For a production-like check (no HMR, minified bundle) use port 4173
 
 ```bash
 nohup pnpm dev > /tmp/vite-dev.log 2>&1 &
-curl -s -o /dev/null -w "%{http_code}" http://localhost:5173/   # expect 200
+for i in $(seq 1 30); do
+  code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5173/)
+  [ "$code" = "200" ] && break
+  sleep 1
+done
+[ "$code" = "200" ] || { echo "dev server not ready after 30s"; cat /tmp/vite-dev.log; exit 1; }
 ```
 
 **Production-like check** (build first, then serve the built output):
 
 ```bash
 pnpm build && nohup pnpm preview > /tmp/vite-preview.log 2>&1 &
-curl -s -o /dev/null -w "%{http_code}" http://localhost:4173/   # expect 200
+for i in $(seq 1 30); do
+  code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:4173/)
+  [ "$code" = "200" ] && break
+  sleep 1
+done
+[ "$code" = "200" ] || { echo "preview server not ready after 30s"; cat /tmp/vite-preview.log; exit 1; }
 ```
 
 Run in background mode so the agent keeps control of the terminal; poll the
-health check (curl above) rather than sleeping a fixed amount.
+health check (readiness loop above) rather than a bare curl right after
+launch — Vite needs time to start, so an immediate request races the
+server.
 
 ### 3. Browser Automation Setup
 
