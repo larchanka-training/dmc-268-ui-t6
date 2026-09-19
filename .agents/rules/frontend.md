@@ -24,7 +24,7 @@
 | Build        | `pnpm build`                                                | pending #26 |
 
 `pnpm-lock.yaml` is committed; `packageManager` is pinned in `package.json`; Node
-≥ 20 is required. CI currently runs no lint/typecheck/tests (PR #28) — the husky
+≥ 20 is required (pending #26). CI currently runs no lint/typecheck/tests (PR #28) — the husky
 pre-push hook (pending #26) and the commands above are the gate until CI catches
 up.
 
