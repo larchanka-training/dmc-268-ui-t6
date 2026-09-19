@@ -1,0 +1,6 @@
+id: "TC-07"
+title: "Generated Service Lock Files Filtering"
+category: "IGNORE_FILTER"
+expected_verdict: "APPROVE"
+expected_findings: []
+notes: "package-lock.json changes must be ignored by the diff parser without generating any review comments."

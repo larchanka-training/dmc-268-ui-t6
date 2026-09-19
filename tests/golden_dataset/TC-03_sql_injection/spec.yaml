@@ -1,0 +1,10 @@
+id: "TC-03"
+title: "SQL Injection via String Formatting"
+category: "SECURITY"
+expected_verdict: "REQUEST_CHANGES"
+expected_findings:
+  - file: "src/db/users.py"
+    line_range: [20, 22]
+    severity: "HIGH"
+    defect_type: "sql_injection"
+    description: "User input directly formatted into raw SQL query without parameterization."
