@@ -1,0 +1,6 @@
+--- a/src/controllers/base.py
++++ b/src/controllers/base.py
+@@ -45,3 +45,4 @@
+     def handle_request(self, payload: dict):
++        self.validate_schema(payload)
+         return self.process(payload)

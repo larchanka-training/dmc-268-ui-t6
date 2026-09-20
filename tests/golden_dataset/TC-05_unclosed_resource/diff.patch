@@ -1,0 +1,9 @@
+--- a/src/reports/exporter.py
++++ b/src/reports/exporter.py
+@@ -8,3 +8,5 @@
+ def write_audit_log(events: list[str]):
+-    with open("/var/log/audit.log", "a") as f:
+-        f.write("\n".join(events))
++    f = open("/var/log/audit.log", "a")
++    f.write("\n".join(events))
++    # Missing f.close() or with context manager

@@ -1,0 +1,11 @@
+id: "TC-09"
+title: "Sandbox Zero-Network Isolation (P-4)"
+category: "SECURITY_ISOLATION"
+architecture_rule: "P-4"
+docker_flags: ["--network=none"]
+expected_socket_behavior: "BLOCKED"
+expected_findings:
+  - file: "src/network_check.py"
+    severity: "CRITICAL"
+    defect_type: "socket_connection_attempt"
+    description: "Outbound socket connection blocked by sandbox network isolation policy."

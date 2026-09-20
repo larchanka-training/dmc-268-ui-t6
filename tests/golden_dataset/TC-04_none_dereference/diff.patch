@@ -1,0 +1,7 @@
+--- a/src/services/notifications.py
++++ b/src/services/notifications.py
+@@ -15,4 +15,5 @@
+ def send_welcome_email(user_id: int):
+     user = user_repository.get_by_id(user_id)
++    email = user.profile.contact_email.lower()
+     mailer.send(to=email, subject="Welcome!")

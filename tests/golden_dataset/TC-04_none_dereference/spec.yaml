@@ -1,0 +1,10 @@
+id: "TC-04"
+title: "Unchecked NoneType / Null Dereference"
+category: "LOGIC_BUG"
+expected_verdict: "REQUEST_CHANGES"
+expected_findings:
+  - file: "src/services/notifications.py"
+    line_range: [16, 17]
+    severity: "HIGH"
+    defect_type: "none_dereference"
+    description: "Accessing user.profile attributes without checking if user or profile is None."

@@ -1,0 +1,10 @@
+--- a/src/math_utils.py
++++ b/src/math_utils.py
+@@ -10,6 +10,8 @@
+ def calculate_discount(price: float, discount_percent: float) -> float:
+     """Calculate the discounted price given the base price and percentage."""
+     if price < 0 or discount_percent < 0 or discount_percent > 100:
+         raise ValueError("Invalid price or discount percentage.")
+-    return price * (1 - discount_percent / 100)
++    discount_amount = price * (discount_percent / 100.0)
++    return round(price - discount_amount, 2)
