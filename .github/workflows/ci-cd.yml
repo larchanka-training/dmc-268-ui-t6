@@ -23,10 +23,11 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       image: ${{ steps.meta.outputs.image }}
-      tags: ${{ steps.meta.outputs.tags }}
+      immutable: ${{ steps.meta.outputs.immutable }}
+      staging: ${{ steps.meta.outputs.staging }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Set image coordinates
         id: meta
@@ -34,47 +35,48 @@ jobs:
           repo="$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
           image="${REGISTRY}/${repo}"
           echo "image=${image}" >> "${GITHUB_OUTPUT}"
-          echo "tags=${image}:${{ github.sha }}" >> "${GITHUB_OUTPUT}"
+          echo "immutable=${image}:${{ github.sha }}" >> "${GITHUB_OUTPUT}"
+          echo "staging=${image}:staging" >> "${GITHUB_OUTPUT}"
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Build image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: Dockerfile
-          load: true
-          tags: |
-            ${{ env.LOCAL_IMAGE }}
-            ${{ steps.meta.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          provenance: false
-
-  docker-scan:
-    name: Docker image security scan
-    runs-on: ubuntu-latest
-    needs: docker-build
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Rebuild image from cache
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           file: Dockerfile
           load: true
           tags: ${{ env.LOCAL_IMAGE }}
           cache-from: type=gha
+          cache-to: type=gha,mode=max
           provenance: false
 
+      - name: Export image artifact
+        run: docker save "${LOCAL_IMAGE}" | gzip > /tmp/docker-image.tar.gz
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: docker-image
+          path: /tmp/docker-image.tar.gz
+          retention-days: 1
+
+  docker-scan:
+    name: Docker image security scan
+    runs-on: ubuntu-latest
+    needs: docker-build
+    steps:
+      - name: Download image artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: docker-image
+
+      - name: Load image
+        run: gunzip -c docker-image.tar.gz | docker load
+
       - name: Trivy scan
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
         with:
           image-ref: ${{ env.LOCAL_IMAGE }}
           severity: CRITICAL,HIGH
@@ -90,30 +92,28 @@ jobs:
     permissions:
       contents: read
       packages: write
+      actions: read
     needs:
       - docker-scan
     outputs:
-      image: ${{ steps.tags.outputs.immutable }}
-      staging: ${{ steps.tags.outputs.staging }}
+      image_ref: ${{ steps.push.outputs.image_ref }}
+      staging: ${{ needs.docker-build.outputs.staging }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Download image artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: docker-image
 
       - name: Set tags
         id: tags
         run: |
           repo="$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
           image="${REGISTRY}/${repo}"
-          echo "image=${image}" >> "${GITHUB_OUTPUT}"
           echo "immutable=${image}:${{ github.sha }}" >> "${GITHUB_OUTPUT}"
-          echo "staging=${image}:staging" >> "${GITHUB_OUTPUT}"
           echo "previous=${image}:staging-previous" >> "${GITHUB_OUTPUT}"
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
       - name: Log in to Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -121,34 +121,35 @@ jobs:
 
       - name: Preserve current staging image for rollback
         run: |
-          if docker pull "${{ steps.tags.outputs.staging }}"; then
-            docker tag "${{ steps.tags.outputs.staging }}" "${{ steps.tags.outputs.previous }}"
+          if docker pull "${{ needs.docker-build.outputs.staging }}"; then
+            docker tag "${{ needs.docker-build.outputs.staging }}" "${{ steps.tags.outputs.previous }}"
             docker push "${{ steps.tags.outputs.previous }}"
           else
             echo "no existing staging image; skip previous-tag"
           fi
 
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: Dockerfile
-          push: true
-          tags: ${{ steps.tags.outputs.immutable }}
-          labels: |
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          provenance: false
+      - name: Load and push scanned image
+        id: push
+        run: |
+          gunzip -c docker-image.tar.gz | docker load
+          immutable="${{ steps.tags.outputs.immutable }}"
+          docker tag "${LOCAL_IMAGE}" "${immutable}"
+          docker push "${immutable}"
+          image_ref="$(docker inspect --format='{{index .RepoDigests 0}}' "${immutable}")"
+          if [[ -z "${image_ref}" || "${image_ref}" == "<no value>" ]]; then
+            echo "failed to resolve pushed image digest" >&2
+            exit 1
+          fi
+          echo "image_ref=${image_ref}" >> "${GITHUB_OUTPUT}"
+          echo "pushed ${image_ref}"
 
   deploy-staging:
     name: Deploy staging
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.STAGING_RUNNER }}
     permissions:
       contents: read
-      packages: write
+      packages: read
     needs: push-image
     concurrency:
       group: staging-deploy
@@ -156,31 +157,37 @@ jobs:
     environment:
       name: staging
       url: http://${{ vars.STAGING_HOST }}
+    outputs:
+      promote: ${{ steps.result.outputs.promote }}
+      image_ref: ${{ needs.push-image.outputs.image_ref }}
+      staging: ${{ needs.push-image.outputs.staging }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Upload deploy files
-        uses: appleboy/scp-action@v0.1.7
+        uses: appleboy/scp-action@917f8b81dfc1ccd331fef9e2d61bdc6c8be94634 # v0.1.7
         with:
           host: ${{ vars.STAGING_HOST }}
           username: ${{ vars.STAGING_SSH_USER }}
           key: ${{ secrets.STAGING_SSH_KEY }}
+          fingerprint: ${{ vars.STAGING_SSH_FINGERPRINT }}
           source: "deploy/compose/staging.yml,deploy/scripts/deploy.sh,deploy/scripts/rollback.sh,deploy/scripts/healthcheck.sh"
           target: /opt/dmc-268-ui
           strip_components: 2
 
       - name: Deploy image
         id: deploy
-        uses: appleboy/ssh-action@v1.2.0
+        uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USER: ${{ github.actor }}
-          IMAGE: ${{ needs.push-image.outputs.image }}
+          IMAGE: ${{ needs.push-image.outputs.image_ref }}
         with:
           host: ${{ vars.STAGING_HOST }}
           username: ${{ vars.STAGING_SSH_USER }}
           key: ${{ secrets.STAGING_SSH_KEY }}
+          fingerprint: ${{ vars.STAGING_SSH_FINGERPRINT }}
           debug: false
           envs: GHCR_TOKEN,GHCR_USER,IMAGE
           script: |
@@ -202,19 +209,9 @@ jobs:
           target="${HEALTH_URL:-http://${STAGING_HOST}/health}"
           deploy/scripts/healthcheck.sh "${target}"
 
-      - name: Promote staging tag
-        if: steps.deploy.outcome == 'success' && steps.health.outcome == 'success'
-        run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-          immutable="${{ needs.push-image.outputs.image }}"
-          staging="${{ needs.push-image.outputs.staging }}"
-          docker pull "${immutable}"
-          docker tag "${immutable}" "${staging}"
-          docker push "${staging}"
-
       - name: Rollback on failed deploy or health check
-        if: steps.deploy.outcome == 'failure' || steps.health.outcome == 'failure'
-        uses: appleboy/ssh-action@v1.2.0
+        if: always() && (steps.deploy.outcome == 'failure' || steps.health.outcome == 'failure')
+        uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USER: ${{ github.actor }}
@@ -222,12 +219,23 @@ jobs:
           host: ${{ vars.STAGING_HOST }}
           username: ${{ vars.STAGING_SSH_USER }}
           key: ${{ secrets.STAGING_SSH_KEY }}
+          fingerprint: ${{ vars.STAGING_SSH_FINGERPRINT }}
           debug: false
           envs: GHCR_TOKEN,GHCR_USER
           script: |
             set -euo pipefail
             set +o xtrace
             /opt/dmc-268-ui/rollback.sh
+
+      - name: Set promote flag
+        id: result
+        if: always()
+        run: |
+          if [[ "${{ steps.deploy.outcome }}" == "success" && "${{ steps.health.outcome }}" == "success" ]]; then
+            echo "promote=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "promote=false" >> "${GITHUB_OUTPUT}"
+          fi
 
       - name: Fail the pipeline after rollback
         if: steps.deploy.outcome == 'failure' || steps.health.outcome == 'failure'
@@ -238,3 +246,23 @@ jobs:
             echo "staging health check failed; rollback was triggered"
           fi
           exit 1
+
+  promote-staging:
+    name: Promote staging tag
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && needs.deploy-staging.outputs.promote == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    needs:
+      - push-image
+      - deploy-staging
+    steps:
+      - name: Promote scanned digest to staging
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          image_ref="${{ needs.deploy-staging.outputs.image_ref }}"
+          staging="${{ needs.push-image.outputs.staging }}"
+          docker pull "${image_ref}"
+          docker tag "${image_ref}" "${staging}"
+          docker push "${staging}"
