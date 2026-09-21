@@ -14,25 +14,28 @@
 
 ```mermaid
 flowchart TD
-  pr["PR / push"] --> build["docker build"]
+  pr["PR / push"] --> build["docker build (один раз)"]
   build --> scan["trivy: vuln / secret / misconfig"]
   scan --> gate{"main?"}
   gate -->|нет| stop["CI зелёный, без выката"]
   gate -->|да| prev["сохранить :staging как :staging-previous"]
-  prev --> push["push :sha и :staging в GHCR"]
+  prev --> push["push :sha (@digest) в GHCR"]
   push --> deploy["compose up на Hetzner staging"]
   deploy --> health["GET /health"]
-  health -->|ok| done["staging обновлён"]
+  health -->|ok| promote["promote digest → :staging"]
+  promote --> done["staging обновлён"]
   health -->|fail| rb["rollback на предыдущий образ"]
   rb --> fail["job красный"]
 ```
 
 | Job | Когда | Что проверяет / делает |
 |---|---|---|
-| `Docker image build` | PR и `main` | multi-stage образ `node` → `nginx-unprivileged` |
-| `Docker image security scan` | после сборки | Trivy: `CRITICAL`/`HIGH`, scanners `vuln,secret,misconfig` |
-| `Push Docker image` | только `main` | login в `ghcr.io`, сохранение прошлого `:staging`, push `:sha` и `:staging` |
+| `Docker image build` | PR и `main` | один build, artifact для scan/push |
+| `Docker image security scan` | после сборки | Trivy того же artifact |
+| `Push Docker image` | только `main` | push `:sha`, deploy по digest без повторной сборки |
 | `Deploy staging` | только `main` | `docker compose` на VM, внешний health check, авто-rollback |
+| `Promote staging tag` | после успешного health check | продвигает проверенный digest в `:staging` |
+| `Rollback staging` | `workflow_dispatch` | откат контейнера + синхронизация `:staging` |
 
 Ручной откат: workflow **Rollback staging** (`workflow_dispatch`). Пустой `image` → предыдущий успешный выкат; иначе тег или полный ref.
 
@@ -40,7 +43,7 @@ flowchart TD
 
 ## 2. Образ и health check
 
-Образ слушает `:8080` и отдаёт UI из `dist/`. Контракт живости:
+Образ собирается через **pnpm** с frozen lockfile и слушает `:8080`. Контракт живости:
 
 ```http
 GET /health
@@ -57,9 +60,11 @@ GET /health
 |---|---|
 | Host | `ghcr.io` |
 | Repository | `ghcr.io/<owner>/dmc-268-ui-t6` |
-| Auth CI | `GITHUB_TOKEN`, `packages: write` |
-| Auth staging pull | тот же token, только на время `docker pull` |
-| Теги | `:<git-sha>` (неизменяемый), `:staging` (текущий), `:staging-previous` (точка отката) |
+| Auth CI (push/promote) | `GITHUB_TOKEN`, `packages: write` только на runner |
+| Auth staging pull | `GITHUB_TOKEN` с `packages: read`; credential удаляется после `docker pull` |
+| Теги | `:<git-sha>` + `@sha256:…` (неизменяемый), `:staging` (текущий), `:staging-previous` (точка отката) |
+
+Deploy и rollback на VM получают read-only token; promotion `:staging` выполняется отдельным job на GitHub runner.
 
 ---
 
@@ -72,6 +77,8 @@ VM для UI поднимается Terraform-стеком `terraform/ui-staging
 - Debian 12 + Docker / Compose через cloud-init
 - каталог `/opt/dmc-268-ui` на VM
 
+**SSH из GitHub Actions:** `ubuntu-latest` имеет динамический egress; firewall Terraform разрешает только `ssh_allowed_cidrs`. Deploy/rollback jobs используют runner из `STAGING_RUNNER` (self-hosted или larger runner со **static egress IP**), CIDR которого добавлен в Terraform.
+
 Инструкции по `terraform apply`, DNS и remote state — [docs/INFRASTRUCTURE.md](https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/INFRASTRUCTURE.md) в API-репозитории.
 
 ---
@@ -79,7 +86,7 @@ VM для UI поднимается Terraform-стеком `terraform/ui-staging
 ## 5. Rollback
 
 1. **Автоматический.** Health check после выката не прошёл → `rollback.sh` поднимает образ из `.deploy-state.previous`.
-2. **Ручной.** Actions → Rollback staging. Пустой image = previous; `staging-previous` / `abc123` / полный `ghcr.io/...@sha256:...` = конкретная версия.
+2. **Ручной.** Actions → Rollback staging. Пустой image = previous; `staging-previous` / `abc123` / полный `ghcr.io/...@sha256:...` = конкретная версия. После health check workflow синхронизирует `:staging` с фактически запущенным digest.
 3. **Конкурентность.** Deploy и rollback делят группу `staging-deploy` без отмены друг друга.
 
 ---
@@ -98,6 +105,8 @@ VM для UI поднимается Terraform-стеком `terraform/ui-staging
 |---|---|
 | `STAGING_HOST` | IPv4 или FQDN из Terraform output `ssh_host` (стек `ui-staging`) |
 | `STAGING_SSH_USER` | пользователь с Docker (`root` после cloud-init) |
+| `STAGING_SSH_FINGERPRINT` | SHA256 fingerprint хоста для appleboy `scp-action` / `ssh-action` |
+| `STAGING_RUNNER` | label runner'а со static egress (например `self-hosted, staging-static`) |
 | `STAGING_HEALTH_URL` | необязательно; иначе `http://$STAGING_HOST/health` |
 
 `GITHUB_TOKEN` выдаёт Actions сам — в репозиторий его не кладут.

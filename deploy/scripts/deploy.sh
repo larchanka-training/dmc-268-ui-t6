@@ -41,4 +41,8 @@ fi
   echo "deployed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 } > "${STATE_FILE}"
 
+if [[ -n "${GHCR_TOKEN:-}" ]]; then
+  docker logout ghcr.io >/dev/null 2>&1 || true
+fi
+
 echo "deployed ${IMAGE}"

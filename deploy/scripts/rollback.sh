@@ -60,4 +60,8 @@ docker compose -f "${COMPOSE_FILE}" --env-file "${APP_DIR}/.env" up -d --remove-
   echo "rolled_back=true"
 } > "${STATE_FILE}"
 
+if [[ -n "${GHCR_TOKEN:-}" ]]; then
+  docker logout ghcr.io >/dev/null 2>&1 || true
+fi
+
 echo "rolled back to ${IMAGE}"
