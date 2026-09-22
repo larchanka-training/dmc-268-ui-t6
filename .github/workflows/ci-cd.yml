@@ -25,6 +25,7 @@ jobs:
       image: ${{ steps.meta.outputs.image }}
       immutable: ${{ steps.meta.outputs.immutable }}
       staging: ${{ steps.meta.outputs.staging }}
+      previous: ${{ steps.meta.outputs.previous }}
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -37,6 +38,7 @@ jobs:
           echo "image=${image}" >> "${GITHUB_OUTPUT}"
           echo "immutable=${image}:${{ github.sha }}" >> "${GITHUB_OUTPUT}"
           echo "staging=${image}:staging" >> "${GITHUB_OUTPUT}"
+          echo "previous=${image}:staging-previous" >> "${GITHUB_OUTPUT}"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
@@ -94,10 +96,12 @@ jobs:
       packages: write
       actions: read
     needs:
+      - docker-build
       - docker-scan
     outputs:
       image_ref: ${{ steps.push.outputs.image_ref }}
       staging: ${{ needs.docker-build.outputs.staging }}
+      previous: ${{ needs.docker-build.outputs.previous }}
     steps:
       - name: Download image artifact
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
@@ -107,10 +111,7 @@ jobs:
       - name: Set tags
         id: tags
         run: |
-          repo="$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
-          image="${REGISTRY}/${repo}"
-          echo "immutable=${image}:${{ github.sha }}" >> "${GITHUB_OUTPUT}"
-          echo "previous=${image}:staging-previous" >> "${GITHUB_OUTPUT}"
+          echo "immutable=${{ needs.docker-build.outputs.immutable }}" >> "${GITHUB_OUTPUT}"
 
       - name: Log in to Container Registry
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
@@ -118,15 +119,6 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Preserve current staging image for rollback
-        run: |
-          if docker pull "${{ needs.docker-build.outputs.staging }}"; then
-            docker tag "${{ needs.docker-build.outputs.staging }}" "${{ steps.tags.outputs.previous }}"
-            docker push "${{ steps.tags.outputs.previous }}"
-          else
-            echo "no existing staging image; skip previous-tag"
-          fi
 
       - name: Load and push scanned image
         id: push
@@ -146,7 +138,7 @@ jobs:
   deploy-staging:
     name: Deploy staging
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    runs-on: ${{ vars.STAGING_RUNNER }}
+    runs-on: ${{ fromJSON(vars.STAGING_RUNNER) }}
     permissions:
       contents: read
       packages: read
@@ -159,7 +151,7 @@ jobs:
       url: http://${{ vars.STAGING_HOST }}
     outputs:
       promote: ${{ steps.result.outputs.promote }}
-      image_ref: ${{ needs.push-image.outputs.image_ref }}
+      image_ref: ${{ steps.result.outputs.image_ref }}
       staging: ${{ needs.push-image.outputs.staging }}
     steps:
       - name: Checkout
@@ -178,7 +170,7 @@ jobs:
 
       - name: Deploy image
         id: deploy
-        uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USER: ${{ github.actor }}
@@ -210,8 +202,10 @@ jobs:
           deploy/scripts/healthcheck.sh "${target}"
 
       - name: Rollback on failed deploy or health check
+        id: rollback
         if: always() && (steps.deploy.outcome == 'failure' || steps.health.outcome == 'failure')
-        uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
+        continue-on-error: true
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USER: ${{ github.actor }}
@@ -227,23 +221,48 @@ jobs:
             set +o xtrace
             /opt/dmc-268-ui/rollback.sh
 
+      - name: Read deployed image
+        id: deployed
+        if: steps.deploy.outcome == 'success' && steps.health.outcome == 'success'
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        with:
+          host: ${{ vars.STAGING_HOST }}
+          username: ${{ vars.STAGING_SSH_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          fingerprint: ${{ vars.STAGING_SSH_FINGERPRINT }}
+          debug: false
+          capture_stdout: true
+          script: |
+            awk -F= '/^current_image=/{print $2; exit}' /opt/dmc-268-ui/.deploy-state
+
       - name: Set promote flag
         id: result
         if: always()
         run: |
+          deployed_ref="${{ steps.deployed.outputs.stdout }}"
           if [[ "${{ steps.deploy.outcome }}" == "success" && "${{ steps.health.outcome }}" == "success" ]]; then
+            if [[ -z "${deployed_ref}" ]]; then
+              echo "deployed image reference is empty; refusing to promote registry tags" >&2
+              echo "promote=false" >> "${GITHUB_OUTPUT}"
+              exit 1
+            fi
+            echo "image_ref=${deployed_ref}" >> "${GITHUB_OUTPUT}"
             echo "promote=true" >> "${GITHUB_OUTPUT}"
           else
             echo "promote=false" >> "${GITHUB_OUTPUT}"
           fi
 
       - name: Fail the pipeline after rollback
-        if: steps.deploy.outcome == 'failure' || steps.health.outcome == 'failure'
+        if: always() && (steps.deploy.outcome == 'failure' || steps.health.outcome == 'failure')
         run: |
           if [[ "${{ steps.deploy.outcome }}" == "failure" ]]; then
             echo "staging deploy failed; rollback was triggered"
           else
             echo "staging health check failed; rollback was triggered"
+          fi
+          if [[ "${{ steps.rollback.outcome }}" == "failure" ]]; then
+            echo "rollback failed" >&2
+            exit 1
           fi
           exit 1
 
@@ -258,11 +277,23 @@ jobs:
       - push-image
       - deploy-staging
     steps:
-      - name: Promote scanned digest to staging
+      - name: Promote verified digest to staging
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
           image_ref="${{ needs.deploy-staging.outputs.image_ref }}"
           staging="${{ needs.push-image.outputs.staging }}"
+          previous="${{ needs.push-image.outputs.previous }}"
+          if [[ -z "${image_ref}" ]]; then
+            echo "deployed image reference is empty; refusing to promote registry tags" >&2
+            exit 1
+          fi
           docker pull "${image_ref}"
+          if docker pull "${staging}"; then
+            docker tag "${staging}" "${previous}"
+            docker push "${previous}"
+          else
+            echo "no existing staging image; skip previous-tag"
+          fi
           docker tag "${image_ref}" "${staging}"
           docker push "${staging}"
+          echo "promoted ${image_ref} to ${staging}"
