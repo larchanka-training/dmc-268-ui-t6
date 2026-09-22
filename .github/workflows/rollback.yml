@@ -23,14 +23,18 @@ concurrency:
 jobs:
   rollback:
     name: Rollback staging
-    runs-on: ${{ vars.STAGING_RUNNER }}
+    runs-on: ${{ fromJSON(vars.STAGING_RUNNER) }}
+    permissions:
+      contents: read
+      packages: read
     environment:
       name: staging
       url: http://${{ vars.STAGING_HOST }}
     outputs:
-      image_ref: ${{ steps.deployed.outputs.stdout }}
+      image_ref: ${{ steps.target.outputs.image_ref }}
       staging: ${{ steps.meta.outputs.staging }}
       previous: ${{ steps.meta.outputs.previous }}
+      promote: ${{ steps.result.outputs.promote }}
     steps:
       - name: Set image coordinates
         id: meta
@@ -45,7 +49,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - name: Resolve image
+      - name: Resolve requested ref
         id: image
         env:
           REQUESTED: ${{ inputs.image }}
@@ -62,12 +66,77 @@ jobs:
             echo "ref=" >> "${GITHUB_OUTPUT}"
           fi
 
+      - name: Read previous deploy from VM
+        if: steps.image.outputs.ref == ''
+        id: vm_previous
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        with:
+          host: ${{ vars.STAGING_HOST }}
+          username: ${{ vars.STAGING_SSH_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          fingerprint: ${{ vars.STAGING_SSH_FINGERPRINT }}
+          debug: false
+          capture_stdout: true
+          script: |
+            awk -F= '/^current_image=/{print $2; exit}' /opt/dmc-268-ui/.deploy-state.previous
+
+      - name: Resolve rollback target to digest
+        id: target
+        env:
+          REQUESTED_REF: ${{ steps.image.outputs.ref }}
+          VM_PREVIOUS: ${{ steps.vm_previous.outputs.stdout }}
+          STAGING_PREVIOUS: ${{ steps.meta.outputs.previous }}
+        run: |
+          set -euo pipefail
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+          if [[ -n "${REQUESTED_REF}" ]]; then
+            candidate="${REQUESTED_REF}"
+          elif [[ -n "${VM_PREVIOUS}" ]]; then
+            candidate="${VM_PREVIOUS}"
+          else
+            candidate="${STAGING_PREVIOUS}"
+          fi
+
+          if [[ -z "${candidate}" ]]; then
+            echo "bootstrap=true" >> "${GITHUB_OUTPUT}"
+            echo "no rollback target; will restore bootstrap container"
+            exit 0
+          fi
+
+          if [[ "${candidate}" == *'@sha256:'* ]]; then
+            if ! docker pull "${candidate}"; then
+              echo "failed to pull ${candidate}" >&2
+              exit 1
+            fi
+            image_ref="${candidate}"
+          else
+            if ! docker pull "${candidate}"; then
+              if [[ -z "${REQUESTED_REF}" && -z "${VM_PREVIOUS}" ]]; then
+                echo "bootstrap=true" >> "${GITHUB_OUTPUT}"
+                echo "registry previous tag missing; will restore bootstrap container"
+                exit 0
+              fi
+              echo "failed to pull ${candidate}" >&2
+              exit 1
+            fi
+            image_ref="$(docker inspect --format='{{index .RepoDigests 0}}' "${candidate}")"
+          fi
+
+          if [[ -z "${image_ref}" || "${image_ref}" == "<no value>" ]]; then
+            echo "failed to resolve rollback target to immutable digest for ${candidate}" >&2
+            exit 1
+          fi
+
+          echo "image_ref=${image_ref}" >> "${GITHUB_OUTPUT}"
+          echo "resolved rollback target ${image_ref}"
+
       - name: Rollback
-        uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USER: ${{ github.actor }}
-          IMAGE: ${{ steps.image.outputs.ref }}
+          IMAGE: ${{ steps.target.outputs.image_ref }}
         with:
           host: ${{ vars.STAGING_HOST }}
           username: ${{ vars.STAGING_SSH_USER }}
@@ -85,6 +154,7 @@ jobs:
             fi
 
       - name: Health check
+        id: health
         env:
           HEALTH_URL: ${{ vars.STAGING_HEALTH_URL }}
           STAGING_HOST: ${{ vars.STAGING_HOST }}
@@ -95,18 +165,51 @@ jobs:
 
       - name: Read deployed image
         id: deployed
-        uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
+        if: steps.health.outcome == 'success'
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ vars.STAGING_HOST }}
           username: ${{ vars.STAGING_SSH_USER }}
           key: ${{ secrets.STAGING_SSH_KEY }}
           fingerprint: ${{ vars.STAGING_SSH_FINGERPRINT }}
           debug: false
+          capture_stdout: true
           script: |
             awk -F= '/^current_image=/{print $2; exit}' /opt/dmc-268-ui/.deploy-state
 
+      - name: Set promote flag
+        id: result
+        if: always()
+        run: |
+          if [[ "${{ steps.health.outcome }}" != "success" ]]; then
+            echo "promote=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          if [[ "${{ steps.target.outputs.bootstrap }}" == "true" ]]; then
+            echo "promote=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          deployed_ref="${{ steps.deployed.outputs.stdout }}"
+          expected_ref="${{ steps.target.outputs.image_ref }}"
+          if [[ -z "${deployed_ref}" ]]; then
+            echo "deployed image reference is empty; refusing to promote registry tags" >&2
+            echo "promote=false" >> "${GITHUB_OUTPUT}"
+            exit 1
+          fi
+          if [[ "${deployed_ref}" != "${expected_ref}" ]]; then
+            echo "deployed image ${deployed_ref} does not match resolved target ${expected_ref}" >&2
+            echo "promote=false" >> "${GITHUB_OUTPUT}"
+            exit 1
+          fi
+          echo "promote=true" >> "${GITHUB_OUTPUT}"
+
+      - name: Fail on health check error
+        if: steps.health.outcome == 'failure'
+        run: exit 1
+
   promote-staging:
     name: Promote staging tag
+    if: needs.rollback.outputs.promote == 'true'
     needs: rollback
     permissions:
       contents: read
@@ -120,13 +223,16 @@ jobs:
           staging="${{ needs.rollback.outputs.staging }}"
           previous="${{ needs.rollback.outputs.previous }}"
           if [[ -z "${image_ref}" ]]; then
-            echo "deployed image reference is empty" >&2
+            echo "deployed image reference is empty; refusing to promote registry tags" >&2
             exit 1
           fi
+          docker pull "${image_ref}"
           if docker pull "${staging}"; then
             docker tag "${staging}" "${previous}"
             docker push "${previous}"
+          else
+            echo "no existing staging image; skip previous-tag"
           fi
-          docker pull "${image_ref}"
           docker tag "${image_ref}" "${staging}"
           docker push "${staging}"
+          echo "promoted ${image_ref} to ${staging}"
