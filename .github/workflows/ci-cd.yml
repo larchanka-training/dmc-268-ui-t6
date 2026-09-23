@@ -141,7 +141,7 @@ jobs:
     runs-on: ${{ fromJSON(vars.STAGING_RUNNER) }}
     permissions:
       contents: read
-      packages: read
+      packages: write
     needs: push-image
     concurrency:
       group: staging-deploy
@@ -252,35 +252,11 @@ jobs:
             echo "promote=false" >> "${GITHUB_OUTPUT}"
           fi
 
-      - name: Fail the pipeline after rollback
-        if: always() && (steps.deploy.outcome == 'failure' || steps.health.outcome == 'failure')
-        run: |
-          if [[ "${{ steps.deploy.outcome }}" == "failure" ]]; then
-            echo "staging deploy failed; rollback was triggered"
-          else
-            echo "staging health check failed; rollback was triggered"
-          fi
-          if [[ "${{ steps.rollback.outcome }}" == "failure" ]]; then
-            echo "rollback failed" >&2
-            exit 1
-          fi
-          exit 1
-
-  promote-staging:
-    name: Promote staging tag
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && needs.deploy-staging.outputs.promote == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    needs:
-      - push-image
-      - deploy-staging
-    steps:
       - name: Promote verified digest to staging
+        if: steps.result.outputs.promote == 'true'
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-          image_ref="${{ needs.deploy-staging.outputs.image_ref }}"
+          image_ref="${{ steps.result.outputs.image_ref }}"
           staging="${{ needs.push-image.outputs.staging }}"
           previous="${{ needs.push-image.outputs.previous }}"
           if [[ -z "${image_ref}" ]]; then
@@ -297,3 +273,17 @@ jobs:
           docker tag "${image_ref}" "${staging}"
           docker push "${staging}"
           echo "promoted ${image_ref} to ${staging}"
+
+      - name: Fail the pipeline after rollback
+        if: always() && (steps.deploy.outcome == 'failure' || steps.health.outcome == 'failure')
+        run: |
+          if [[ "${{ steps.deploy.outcome }}" == "failure" ]]; then
+            echo "staging deploy failed; rollback was triggered"
+          else
+            echo "staging health check failed; rollback was triggered"
+          fi
+          if [[ "${{ steps.rollback.outcome }}" == "failure" ]]; then
+            echo "rollback failed" >&2
+            exit 1
+          fi
+          exit 1

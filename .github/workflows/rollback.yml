@@ -78,7 +78,9 @@ jobs:
           debug: false
           capture_stdout: true
           script: |
-            awk -F= '/^current_image=/{print $2; exit}' /opt/dmc-268-ui/.deploy-state.previous
+            if [[ -f /opt/dmc-268-ui/.deploy-state.previous ]]; then
+              awk -F= '/^current_image=/{print $2; exit}' /opt/dmc-268-ui/.deploy-state.previous
+            fi
 
       - name: Resolve rollback target to digest
         id: target
