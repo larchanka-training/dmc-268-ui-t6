@@ -12,12 +12,13 @@
 готов. Каркас (папки, схемы, адаптеры, два виджета, мок) уже в `main`;
 документ описывает то, что реализовано, и явно помечает, что осталось открытым.
 
-**Стек.** React 19.3.0, Vite 8.3.0 (rolldown), TypeScript 6.0.3 (потолок — 6.0.x: peer
-typescript-eslint `typescript >=4.8.4 <6.1.0`; переход на 7.x — #47),
+**Стек.** React 19.3.0, Vite 8.3.0 (rolldown), TypeScript 7.0.2 — компилятор `tsc`, рядом 6.0.3
+для typescript-eslint (peer `typescript >=4.8.4 <6.1.0`; side-by-side, Ф-11, #47),
 pnpm 12, antd 6.6.5, react-diff-view 3.3.3, Zod 4.6.5, Zustand 5.0.15,
 TanStack Query 5.103.2, Vitest 5.0.1, jsdom 30.1.1, Testing Library 16.3.3. Версии — самые свежие
 стабильные на 2026-09-19, выбраны ролью 5 в отсутствие ответа команды (Ф-11);
-TypeScript поднят до 6.0.3 2026-09-24 (#49); antd, TanStack Query и jsdom — патчи от 2026-09-24.
+TypeScript поднят до 6.0.3 2026-09-24 (#49), компилятор — до 7.0.2 в тот же день (#47);
+antd, TanStack Query и jsdom — патчи от 2026-09-24.
 
 ---
 
@@ -35,7 +36,7 @@ TypeScript поднят до 6.0.3 2026-09-24 (#49); antd, TanStack Query и jsd
 | Ф-8  | Дифф по проводу — сырой unified diff на файл; парсинг клиентом за адаптером                                                                                     | замена diff-библиотеки = замена одного адаптера (§6).                                                                                                                                                       |
 | Ф-9  | Новый эндпоинт `GET /api/runs/{id}/files?path&offset&limit`                                                                                                     | дочитывание контекста порциями; путь внесён в [SD §12][sd-12] (§5, п. 7).                                                                                                                                   |
 | Ф-10 | JSON на проводе — camelCase                                                                                                                                     | Zod-схемы фронта — источник истины — [SD §12][sd-12]; иначе трансформер на каждом ответе.                                                                                                                   |
-| Ф-11 | Самые свежие стабильные версии (React 19.3, Vite 8.3, Vitest 5.0, TS 6.0.3 — потолок 6.0.x) — решение роли 5 при отсутствии ответа команды; уточнено 2026-09-24 | peer-совместимость проверена по npm registry; TS 7 держит typescript-eslint (peer `typescript >=4.8.4 <6.1.0`) — потолок 6.0.x, переход на 7.x в #47; расхождения с PR #26/#33 — предложениями в их тредах. |
+| Ф-11 | Самые свежие стабильные версии (React 19.3, Vite 8.3, Vitest 5.0, TS 7.0.2, линтер — 6.0.3) — решение роли 5 при отсутствии ответа команды; уточнено 2026-09-24 | peer-совместимость проверена по npm registry; у TS 7.0 нет JS API — typescript-eslint (peer `typescript >=4.8.4 <6.1.0`) на 6.0.x, рядом с 7.0 — #47; расхождения с PR #26/#33 — предложениями в их тредах. |
 | Ф-12 | react-router 8 / Mantine 9 только названы, не установлены                                                                                                       | экранов в спринте нет (non-goal); React 19.3 их peer-требования (≥ 19.2) выполняет.                                                                                                                         |
 | Ф-13 | Стили: antd tokens для темизации + CSS Modules для layout-контейнеров; Tailwind — нет                                                                           | один источник цветов/отступов, layout без рантайма; stylelint-override для `*.module.css` — [решение техлида][tl-2026-09-24-46] (§3).                                                                       |
 
@@ -43,6 +44,18 @@ TypeScript поднят до 6.0.3 2026-09-24 (#49); antd, TanStack Query и jsd
 «6.x»: у TypeScript 7.0 нет JS API компилятора, поэтому peer typescript-eslint остаётся
 `typescript >=4.8.4 <6.1.0` ([typescript-eslint#10940][tse-10940]) — специфер в `package.json`
 тильдовый (`~6.0.3`), каретка пустила бы 6.1.x за пределы диапазона. Переход на 7.x — #47.
+
+Ф-11 уточнено 2026-09-24 (#47): компилятор — TypeScript 7.0.2 по схеме side-by-side из
+[анонса TS 7.0][ts-7.0-side-by-side]. В `package.json` два пакета:
+`"@typescript/native": "npm:typescript@^7.0.2"` даёт бинарь `tsc`, поэтому `check-types` и `build`
+(`tsc -b`) идут на нативном компиляторе, в том числе в Docker-сборке на `node:22-alpine`;
+`"typescript": "npm:@typescript/typescript6@~6.0.2"` — обёртка, которая реэкспортирует
+`typescript@6.0.3` и ставит только бинарь `tsc6`, так что `require('typescript')` в
+typescript-eslint получает JS API 6.0. Тильда — по той же причине, что в #49. Внутренняя
+зависимость обёртки (`typescript@^6`) держится на 6.0.3 только lockfile'ом. Остаток #47 — убрать
+обёртку и оставить один `typescript@7`, когда typescript-eslint поддержит TS 7
+([typescript-eslint#10940][tse-10940]; прототип — draft [typescript-eslint#12803][tse-12803]
+под API TS 7.1).
 
 Ф-3 пересмотрено 2026-09-24: в [SD §8.2][sd-8.2] `completed` уже означает GitHub `check_suite` /
 `check_run completed` («завершён с любым исходом»), и второй смысл у этого слова ведёт к
@@ -538,7 +551,9 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
 
 ## 11. Открытые вопросы / follow-ups
 
-- **TypeScript 7** — #47 (ждёт поддержки TS 7 в typescript-eslint); промежуточный бамп 5.9.3 → 6.0.3 сделан в #49.
+- **TypeScript 7** — #47: компилятор уже 7.0.2, но typescript-eslint работает на 6.0.3 через обёртку
+  `@typescript/typescript6` (Ф-11); убрать её, когда typescript-eslint поддержит TS 7
+  ([typescript-eslint#10940][tse-10940]).
 - **`steiger`** — FSD-линтер, форматирует нарушения правил §1 автоматически; не подключён.
 - **`PORT` в `vite.config.ts`** — нужен `@types/node` в `tsconfig.node.json` (роль 4); не сделано.
   С TS 6.0 `types` по умолчанию `[]`, поэтому пакет придётся назвать в `types` явно.
@@ -591,6 +606,8 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
 [sd-12]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md#12-контракт-api--ui
 [sd-14]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md#14-развёртывание-v1
 [tse-10940]: https://github.com/typescript-eslint/typescript-eslint/issues/10940
+[tse-12803]: https://github.com/typescript-eslint/typescript-eslint/pull/12803
+[ts-7.0-side-by-side]: https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/#running-side-by-side-with-typescript-6.0
 [tl-2026-09-24]: https://github.com/larchanka-training/dmc-268-api-t6/issues/19#issuecomment-5813179201
 [tl-2026-09-24-10]: https://github.com/larchanka-training/dmc-268-api-t6/issues/19#issuecomment-5817060000
 [tl-2026-09-24-46]: https://github.com/larchanka-training/dmc-268-ui-t6/issues/46#issuecomment-5819780647
