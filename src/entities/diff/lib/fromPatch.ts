@@ -27,6 +27,9 @@ export function chunksFromHunks(hunks: HunkData[]): Chunk[] {
 }
 
 export function fromPatch(raw: RawFileDiff): FileDiff {
+  if (raw.patch === null) {
+    return FileDiffSchema.parse({ filename: raw.filename, chunks: [], hasPatch: false })
+  }
   let parsed
   try {
     parsed = parseDiff(raw.patch)
@@ -38,10 +41,11 @@ export function fromPatch(raw: RawFileDiff): FileDiff {
     throw new Error(`unparseable patch for ${raw.filename}`)
   }
   if (file.isBinary) {
-    return FileDiffSchema.parse({ filename: raw.filename, chunks: [] })
+    return FileDiffSchema.parse({ filename: raw.filename, chunks: [], hasPatch: true })
   }
   return FileDiffSchema.parse({
     filename: raw.filename,
     chunks: chunksFromHunks(file.hunks),
+    hasPatch: true,
   })
 }

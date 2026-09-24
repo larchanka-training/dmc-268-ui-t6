@@ -45,5 +45,6 @@ export function expandContext(file: FileDiff, slice: FileSlice): FileDiff {
   return FileDiffSchema.parse({
     filename: file.filename,
     chunks: chunksFromHunks(merged),
+    hasPatch: true,
   })
 }

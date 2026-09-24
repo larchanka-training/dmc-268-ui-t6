@@ -93,6 +93,12 @@ describe('DiffViewer', () => {
     expect(screen.getByText('Бинарный файл или пустой дифф')).toBeTruthy()
   })
 
+  it('renders a "no diff" placeholder for a summary-only file (hasPatch: false)', () => {
+    render(<DiffViewer file={{ ...FILE, chunks: [], hasPatch: false }} comments={[]} />)
+    expect(screen.getByText('Без диффа')).toBeTruthy()
+    expect(screen.queryByText('Бинарный файл или пустой дифф')).toBeNull()
+  })
+
   it('flattens multiple comments on the same line into one widget row', () => {
     const threeComments: ReviewComment[] = [
       makeComment({ id: '11111111-1111-4111-8111-111111111121', newLine: 2 }),

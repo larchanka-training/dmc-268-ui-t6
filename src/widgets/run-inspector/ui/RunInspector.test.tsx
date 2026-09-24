@@ -16,6 +16,7 @@ const RUN: RunSession = {
   finishedAt: '2026-09-18T11:55:12.000Z',
   attempt: 1,
   cancelRequested: false,
+  summaryOnly: false,
   pullRequest: {
     repo: 'larchanka-training/dmc-268-ui-t6',
     number: 34,

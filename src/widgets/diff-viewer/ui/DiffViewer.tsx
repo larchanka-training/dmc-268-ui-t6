@@ -70,6 +70,10 @@ export function DiffViewer(props: DiffViewerProps): JSX.Element {
   const viewType = useDiffViewerStore((s) => s.viewType)
   const setViewType = useDiffViewerStore((s) => s.setViewType)
 
+  if (!file.hasPatch) {
+    return <Typography.Text type="secondary">Без диффа</Typography.Text>
+  }
+
   if (file.chunks.length === 0) {
     return <Typography.Text type="secondary">Бинарный файл или пустой дифф</Typography.Text>
   }

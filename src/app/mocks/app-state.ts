@@ -1,7 +1,7 @@
 import { makeDuoActions } from '../../entities/run'
 import type { RunAction, RunSession } from '../../entities/run'
 import { fromPatch } from '../../entities/diff'
-import type { FileDiff } from '../../entities/diff'
+import type { FileDiff, RawFileDiff } from '../../entities/diff'
 import type { ReviewComment } from '../../entities/review'
 import { SAMPLE_PATCHES } from '../../shared/fixtures/sample.patch'
 
@@ -20,6 +20,7 @@ const COMPLETED_ID = '11111111-1111-4111-8111-000000000004'
 const FAILED_ID = '11111111-1111-4111-8111-000000000005'
 const CANCELLED_ID = '11111111-1111-4111-8111-000000000006'
 const SKIPPED_ID = '11111111-1111-4111-8111-000000000007'
+const SUMMARY_ONLY_ID = '11111111-1111-4111-8111-000000000008'
 
 export const mockRunSessions: RunSession[] = [
   {
@@ -31,6 +32,7 @@ export const mockRunSessions: RunSession[] = [
     finishedAt: null,
     attempt: 1,
     cancelRequested: false,
+    summaryOnly: false,
     pullRequest: {
       repo: REPO,
       number: 31,
@@ -50,6 +52,7 @@ export const mockRunSessions: RunSession[] = [
     finishedAt: null,
     attempt: 1,
     cancelRequested: false,
+    summaryOnly: false,
     pullRequest: {
       repo: REPO,
       number: 32,
@@ -69,6 +72,7 @@ export const mockRunSessions: RunSession[] = [
     finishedAt: null,
     attempt: 1,
     cancelRequested: false,
+    summaryOnly: false,
     pullRequest: {
       repo: REPO,
       number: 33,
@@ -88,6 +92,7 @@ export const mockRunSessions: RunSession[] = [
     finishedAt: '2026-09-18T11:55:12.000Z',
     attempt: 1,
     cancelRequested: false,
+    summaryOnly: false,
     pullRequest: {
       repo: REPO,
       number: 34,
@@ -107,6 +112,7 @@ export const mockRunSessions: RunSession[] = [
     finishedAt: '2026-09-18T10:45:00.000Z',
     attempt: 3,
     cancelRequested: false,
+    summaryOnly: false,
     pullRequest: {
       repo: REPO,
       number: 35,
@@ -126,6 +132,7 @@ export const mockRunSessions: RunSession[] = [
     finishedAt: '2026-09-18T09:10:00.000Z',
     attempt: 1,
     cancelRequested: true,
+    summaryOnly: false,
     pullRequest: {
       repo: REPO,
       number: 36,
@@ -145,6 +152,7 @@ export const mockRunSessions: RunSession[] = [
     finishedAt: '2026-09-18T08:00:00.000Z',
     attempt: 1,
     cancelRequested: false,
+    summaryOnly: false,
     pullRequest: {
       repo: REPO,
       number: 37,
@@ -155,6 +163,33 @@ export const mockRunSessions: RunSession[] = [
     actionCount: 1,
     errorCode: 'no_reviewable_changes',
   },
+]
+
+export const mockSummaryOnlyRun: RunSession = {
+  id: SUMMARY_ONLY_ID,
+  engine: 'deep',
+  model: 'claude-sonnet-5',
+  status: 'succeeded',
+  startedAt: '2026-09-18T07:00:00.000Z',
+  finishedAt: '2026-09-18T07:20:00.000Z',
+  attempt: 1,
+  cancelRequested: false,
+  summaryOnly: true,
+  pullRequest: {
+    repo: REPO,
+    number: 38,
+    title: 'feat: large cross-cutting refactor',
+    url: pullRequestUrl(38),
+    headSha: 'aaaa8888aaaa8888aaaa8888aaaa8888aaaa8888',
+  },
+  actionCount: 20,
+  errorCode: null,
+}
+
+export const mockSummaryOnlyDiff: RawFileDiff[] = [
+  { filename: 'src/big-one.ts', patch: null },
+  { filename: 'src/big-two.ts', patch: null },
+  { filename: 'src/big-three.ts', patch: null },
 ]
 
 export const mockFileDiffs: FileDiff[] = SAMPLE_PATCHES.map(fromPatch)

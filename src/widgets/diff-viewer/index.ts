@@ -1,4 +1,5 @@
 export { DiffViewer } from './ui/DiffViewer'
+export { RunDiff } from './ui/RunDiff'
 export { InlineComment } from './ui/InlineComment'
 export { useDiffViewerStore } from './model/store'
 export type { DiffViewType, DiffViewerState } from './model/store'

@@ -8,6 +8,12 @@ describe('diffApi', () => {
     expect(diffApi.diff.response.safeParse(SAMPLE_PATCHES).success).toBe(true)
   })
 
+  it('accepts a summary-only diff response with patch: null', () => {
+    expect(diffApi.diff.response.safeParse([{ filename: 'src/big.ts', patch: null }]).success).toBe(
+      true,
+    )
+  })
+
   it('applies default offset/limit to a file slice query', () => {
     expect(diffApi.files.query.parse({ path: 'a' })).toEqual({
       path: 'a',
