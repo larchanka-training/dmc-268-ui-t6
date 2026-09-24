@@ -247,15 +247,15 @@ sequenceDiagram
 // entities/run — RunStatus: 7 значений, RunSession, RunAction, RunListPage
 RunStatusSchema = enum(queued|running|publishing|succeeded|failed|cancelled|skipped)
 RunSession = { id, engine: fast|deep, model, status, startedAt, finishedAt,
-  attempt, cancelRequested, pullRequest: PullRequestRef, actionCount, errorCode }
+  attempt, cancelRequested, summaryOnly, pullRequest: PullRequestRef, actionCount, errorCode }
 RunAction = { id, runId, index, tool, request: unknown, response: unknown|null,
   responseRef, startedAt, durationMs }
 RunListPage = { items: RunSession[], nextCursor }
 
 // entities/diff — DiffLine, Chunk, FileDiff, RawFileDiff (wire), FileSlice
 DiffLine = { type: context|added|removed, oldLine, newLine, content }
-FileDiff = { filename, chunks: Chunk[] }        // клиентская модель, единственный вход DiffViewer
-RawFileDiff = { filename, patch }               // провод: GET /api/runs/{id}/diff
+FileDiff = { filename, chunks: Chunk[], hasPatch }  // клиентская модель, единственный вход DiffViewer
+RawFileDiff = { filename, patch: string|null }      // провод: GET /api/runs/{id}/diff
 
 // entities/review
 ReviewComment = { id, file, oldLine, newLine, endLine, body, ruleName,
@@ -269,6 +269,13 @@ ReviewComment = { id, file, oldLine, newLine, endLine, body, ruleName,
   `newLine` не `null`; `removed` ⇒ `newLine = null`, `oldLine` не `null`;
 - `ReviewComment`: хотя бы одна из `oldLine`/`newLine` не `null`;
 - `RunSession`: `finishedAt ≠ null` ⇒ `status` — терминальный (`succeeded|failed|cancelled|skipped`).
+
+Summary-only прогон (дифф больше 3 000 строк, Р-15 в [SD §1][sd-1], контракт — [SD §12][sd-12],
+решение 10 техлида [от 2026-09-24][tl-2026-09-24-10]): снимок диффа хранит только список файлов,
+поэтому `GET /api/runs/{id}/diff` отдаёт `[{ filename, patch: null }]`, а `RunSession` приходит с
+`summaryOnly: true`. Отсюда `RawFileDiff.patch` — `string | null` (отсутствие поля по-прежнему
+отклоняется), `RunSession.summaryOnly` — обязательный `boolean`, как `cancelRequested`. Связь «`summaryOnly`
+⇔ все `patch: null`» схемы не проверяют: это два разных ответа API, её держит UI (§6).
 
 Отклонения от схем issue:
 
@@ -345,6 +352,7 @@ off; }` для SSE, либо в документе фиксируется cross-
 | `DiffViewer`      | `ui/DiffViewer.tsx`      | `file: FileDiff`, `comments: ReviewComment[]`, `totalLines?: number`, `onLoadMore?: (gap: ContextGap) => void` |
 | `InlineComment`   | `ui/InlineComment.tsx`   | комментарий, привязанный к строке диффа (виджет `react-diff-view`)                                             |
 | `LoadMoreContext` | `ui/LoadMoreContext.tsx` | кнопка дочитывания контекста в зазоре между хунками                                                            |
+| `RunDiff`         | `ui/RunDiff.tsx`         | `summaryOnly: boolean`, `files: FileDiff[]`, `comments: ReviewComment[]` — дифф прогона целиком                |
 
 Поток данных:
 
@@ -363,6 +371,17 @@ flowchart LR
 `expandContext` для дозагрузки. `expandContext` (`src/entities/diff/lib/expandContext.ts`)
 строит хунк из `FileSlice.lines` через `textLinesToHunk`, вычисляет `oldStart` смещением от
 ближайшего предыдущего хунка и сливает его в существующие через `insertHunk`.
+
+`patch: null` `fromPatch` не парсит: возвращает `{ filename, chunks: [], hasPatch: false }`. Для
+строкового `patch` `hasPatch: true`, в том числе у бинарного файла (`chunks: []`), а непарсящаяся
+строка по-прежнему бросает ошибку. Флаг отделяет «диффа нет в снимке» от «бинарный или пустой
+дифф»: `DiffViewer` проверяет `hasPatch` раньше и показывает «Без диффа».
+
+Summary-only прогон рисует `RunDiff`: при `summaryOnly: true` — `Alert` «Дифф слишком большой»
+(больше 3 000 строк, построчного ревью нет) и список имён файлов, без `DiffViewer` и хунков; при
+`false` — `DiffViewer` на каждый файл (имя файла он выводит и комментарии по
+`comment.file` фильтрует сам). `RunDiff` получает флаг, а не весь `RunSession`, — виджет не зависит от
+`entities/run`. Страницы, которая передаёт `run.summaryOnly` в `RunDiff`, пока нет (§11).
 
 Ключ привязки комментария — `commentKey` (`src/entities/diff/lib/commentKey.ts`), реализует
 правило N/I/D:
@@ -429,6 +448,8 @@ next.newStart - startLine }`; хвостовой зазор после посл�
 
 - `mockRunSessions` — 7 сессий, по одной на каждый статус (включая «зависший» `running`);
 - `mockFileDiffs` — 2 диффа, полученных прогоном фикстур-патчей через `fromPatch`;
+- `mockSummaryOnlyRun` + `mockSummaryOnlyDiff` — summary-only прогон (`summaryOnly: true`) и его
+  провод `/diff`: 3 файла с `patch: null`; в `mockRunSessions` не входит (там по одному прогону на статус);
 - `mockReviewComments` — 3 комментария (два — с `ruleName`, один — без);
 - `mockRunActions` — 34 действия в Duo-подобной последовательности (`makeDuoActions`,
   `src/entities/run/lib/duoActions.fixture.ts`: `get_pull_request`, `get_diff`, 19× `get_tree`,
@@ -446,6 +467,7 @@ next.newStart - startLine }`; хвостовой зазор после посл�
   "finishedAt": "2026-09-18T11:55:12.000Z",
   "attempt": 1,
   "cancelRequested": false,
+  "summaryOnly": false,
   "actionCount": 34,
   "errorCode": null
 }
@@ -514,8 +536,8 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
   над `entities/*/api`, код не написан.
 - **Экраны 3–5** (репозитории, правила, метрики) — области [SD §2][sd-2], не реализованные в этом
   спринте; `src/pages/` содержит только плейсхолдеры для двух реализованных областей.
-- **Summary-only прогоны** (diff > 3000 строк, [SD §12][sd-12]) — `/diff` отдаёт `patch: null`, у `RunSession`
-  флаг `summaryOnly`; схемы и просмотрщик ещё не поддерживают — #42.
+- **Summary-only прогоны** (diff > 3000 строк, [SD §12][sd-12]) — схемы, адаптер и `RunDiff` поддерживают
+  с #42 (§4, §6); страницы, которая берёт `run.summaryOnly` и передаёт его в `RunDiff`, ещё нет.
 - **`POST /api/runs/{id}/rerun`** — есть в [SD §12][sd-12], отсутствует в `src/shared/api/endpoints.ts`
   (`endpoints.runs` содержит только `cancel`) — добавить эндпоинт в контракт до реализации UI
   повторного запуска.
@@ -558,3 +580,4 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
 [sd-12]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md#12-контракт-api--ui
 [sd-14]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md#14-развёртывание-v1
 [tl-2026-09-24]: https://github.com/larchanka-training/dmc-268-api-t6/issues/19#issuecomment-5813179201
+[tl-2026-09-24-10]: https://github.com/larchanka-training/dmc-268-api-t6/issues/19#issuecomment-5817060000
