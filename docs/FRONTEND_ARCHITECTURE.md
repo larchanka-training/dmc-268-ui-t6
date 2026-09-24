@@ -25,7 +25,7 @@ TanStack Query 5.103.1, Vitest 5.0.1, jsdom 30.1.0, Testing Library 16.3.3. Ве
 | ---- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
 | Ф-1  | FSD (lite) вместо Clean Architecture                                                                                     | UI-клиент без доменной логики; FSD — фронтенд-реализация чистой архитектуры (лекция), см. §1.                                      |
 | Ф-2  | UI-кит antd 6.6.4                                                                                                        | Tree/Collapse/Descriptions из коробки, peer react ≥ 18, проверено proof-run; подтверждение командой — §3.                          |
-| Ф-3  | RunStatus — 7 значений (`completed` вместо `succeeded`, + `publishing/cancelled/skipped`)                                | UI «зависание/retry/отмена»; согласовано с ERD роли 6 и [SD §6.4][sd-6.4].                                                         |
+| Ф-3  | RunStatus — 7 значений (`succeeded`, + `publishing/cancelled/skipped`); пересмотрено 2026-09-24                          | UI «зависание/retry/отмена»; согласовано с ERD роли 6 и [SD §6.4][sd-6.4]; `succeeded` — [решение техлида][tl-2026-09-24].         |
 | Ф-4  | `RunAction.response \| null` + `responseRef`                                                                             | тела инструментов > 64 КБ выносятся отдельным запросом.                                                                            |
 | Ф-5  | Внешний ключ `runId`, тип `RunSession`                                                                                   | одно имя во всём контракте (`ReviewJob`/`Run`/`RunSession` в [SD][sd] — одна сущность).                                            |
 | Ф-6  | Привязка комментария — пара `oldLine \| null` / `newLine \| null`                                                        | бэкенд мапит `side/line_start`; ключ виджета выводится из пары (§6).                                                               |
@@ -35,6 +35,11 @@ TanStack Query 5.103.1, Vitest 5.0.1, jsdom 30.1.0, Testing Library 16.3.3. Ве
 | Ф-10 | JSON на проводе — camelCase                                                                                              | Zod-схемы фронта — источник истины — [SD §12][sd-12]; иначе трансформер на каждом ответе.                                          |
 | Ф-11 | Самые свежие стабильные версии (React 19.3, Vite 8.3, Vitest 5.0, TS 5.9) — решение роли 5 при отсутствии ответа команды | peer-совместимость проверена по npm registry; TS 7 держит typescript-eslint; расхождения с PR #26/#33 — предложениями в их тредах. |
 | Ф-12 | react-router 8 / Mantine 9 только названы, не установлены                                                                | экранов в спринте нет (non-goal); React 19.3 их peer-требования (≥ 19.2) выполняет.                                                |
+
+Ф-3 пересмотрено 2026-09-24: в [SD §8.2][sd-8.2] `completed` уже означает GitHub `check_suite` /
+`check_run completed` («завершён с любым исходом»), и второй смысл у этого слова ведёт к
+ошибкам. Поэтому успешный статус прогона — `succeeded` везде: домен, PG enum, API и Zod
+фронтенда.
 
 ---
 
@@ -240,7 +245,7 @@ sequenceDiagram
 
 ```ts
 // entities/run — RunStatus: 7 значений, RunSession, RunAction, RunListPage
-RunStatusSchema = enum(queued|running|publishing|completed|failed|cancelled|skipped)
+RunStatusSchema = enum(queued|running|publishing|succeeded|failed|cancelled|skipped)
 RunSession = { id, engine: fast|deep, model, status, startedAt, finishedAt,
   attempt, cancelRequested, pullRequest: PullRequestRef, actionCount, errorCode }
 RunAction = { id, runId, index, tool, request: unknown, response: unknown|null,
@@ -263,7 +268,7 @@ ReviewComment = { id, file, oldLine, newLine, endLine, body, ruleName,
 - `DiffLine`: `context` ⇒ `oldLine` и `newLine` оба не `null`; `added` ⇒ `oldLine = null`,
   `newLine` не `null`; `removed` ⇒ `newLine = null`, `oldLine` не `null`;
 - `ReviewComment`: хотя бы одна из `oldLine`/`newLine` не `null`;
-- `RunSession`: `finishedAt ≠ null` ⇒ `status` — терминальный (`completed|failed|cancelled|skipped`).
+- `RunSession`: `finishedAt ≠ null` ⇒ `status` — терминальный (`succeeded|failed|cancelled|skipped`).
 
 Отклонения от схем issue:
 
@@ -305,7 +310,7 @@ newLine` (`RIGHT→newLine`, `LEFT→oldLine`), `line_end → endLine`. — ро
 7. Новый эндпоинт `GET /api/runs/{id}/files?path&offset&limit` → `FileSlice` для дочитывания
    контекста; для прогонов старше TTL blob-кэша — `404`/`410`, UI покажет «контекст недоступен». —
    роль 6.
-8. Статусы в DTO: `succeeded → completed`; `publishing` добавить в [SD §12][sd-12]; `POST /cancel` отдаёт
+8. Статусы в DTO: `publishing` добавить в [SD §12][sd-12]; `POST /cancel` отдаёт
    `RunSession` со `status: cancelled` или `cancelRequested: true`. — роль 1 и роль 6.
 9. `GET /api/stream` (SSE `run.updated`) — payload минимум `{ runId, status }`. — роль 6.
 10. Неточности [SD][sd], которые нужно поправить или подтвердить: [§2][sd-2] «фронт не парсит
@@ -397,10 +402,10 @@ next.newStart - startLine }`; хвостовой зазор после посл�
 | Группа                      | Статусы                                       |
 | --------------------------- | --------------------------------------------- |
 | Активные (`isActive`)       | `queued`, `running`, `publishing`             |
-| Терминальные (`isTerminal`) | `completed`, `failed`, `cancelled`, `skipped` |
+| Терминальные (`isTerminal`) | `succeeded`, `failed`, `cancelled`, `skipped` |
 
 Цвета `Tag` (`statusColor`): `queued → default`, `running → processing`, `publishing → blue`,
-`completed → success`, `failed → error`, `cancelled → warning`, `skipped → default`.
+`succeeded → success`, `failed → error`, `cancelled → warning`, `skipped → default`.
 
 «Зависший» `running` — `isStaleRunning`: `status === 'running'`, `finishedAt === null`,
 `startedAt` старше 10 минут (`STALE_RUNNING_MS`) — порог совпадает с порогом реконсилера в [SD §6.4][sd-6.4]
@@ -430,7 +435,7 @@ next.newStart - startLine }`; хвостовой зазор после посл�
 {
   "id": "11111111-1111-4111-8111-000000000004",
   "engine": "deep",
-  "status": "completed",
+  "status": "succeeded",
   "startedAt": "2026-09-18T11:50:00.000Z",
   "finishedAt": "2026-09-18T11:55:12.000Z",
   "attempt": 1,
@@ -522,7 +527,7 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
 | Zod-схемы `DiffLine`, `FileDiff`, `ReviewComment`, `RunSession`, `RunAction` выписаны   | §4; код — `src/entities/{diff,review,run}/model/schemas.ts`                  |
 | Отдельный раздел с требованием к API, передан ролям 6 и 1                               | §5 (публикация комментариев — открыта, см. §5)                               |
 | Компоненты просмотрщика диффа: подсветка, инлайн-комментарий, дозагрузка контекста      | §6; код — `src/widgets/diff-viewer/`                                         |
-| Инспектор прогонов: шапка, дерево, схлопывание, статусы queued/running/completed/failed | §7; код — `src/widgets/run-inspector/` (статусов фактически 7, см. §4 и Ф-3) |
+| Инспектор прогонов: шапка, дерево, схлопывание, статусы queued/running/succeeded/failed | §7; код — `src/widgets/run-inspector/` (статусов фактически 7, см. §4 и Ф-3) |
 | Мок состояния приложения с заполненными данными                                         | §8; код — `src/app/mocks/app-state.ts`                                       |
 | Базовые компоненты для кодовых блоков и диффов (или структура папок)                    | §6, §1 (дерево `src/widgets/diff-viewer/`)                                   |
 | Логирование фронтенда названо, конфигурация через env зафиксирована                     | §9                                                                           |
@@ -540,6 +545,8 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
 [sd-1]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md#1-решения
 [sd-2]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md#2-границы-ответственности
 [sd-6.4]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md#64-состояния-run
+[sd-8.2]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md#82-github-события-и-права
 [sd-11]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md#11-данные-согласование-с-erd-роли-6
 [sd-12]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md#12-контракт-api--ui
 [sd-14]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md#14-развёртывание-v1
+[tl-2026-09-24]: https://github.com/larchanka-training/dmc-268-api-t6/issues/19#issuecomment-5813179201
