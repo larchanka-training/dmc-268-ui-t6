@@ -1,20 +1,17 @@
-import { useState } from 'react'
+import { RouterProvider } from 'react-router'
+
+import { QueryProvider, UiProvider } from './app/providers'
+import { createAppRouter } from './app/routes'
+
+const router = createAppRouter()
 
 export function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <div style={{ fontFamily: 'sans-serif', padding: '2rem', textAlign: 'center' }}>
-      <h1>DMC-268 Team 6 UI</h1>
-      <p>React + TypeScript + Vite</p>
-      <button
-        onClick={() => {
-          setCount((current) => current + 1)
-        }}
-      >
-        Count is {count}
-      </button>
-    </div>
+    <UiProvider>
+      <QueryProvider>
+        <RouterProvider router={router} />
+      </QueryProvider>
+    </UiProvider>
   )
 }
 
