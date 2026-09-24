@@ -258,9 +258,33 @@ jobs:
           key: ${{ steps.target.outputs.mode == 'terraform' && secrets.STAGING_SSH_KEY || '' }}
           password: ${{ steps.target.outputs.mode == 'course' && secrets.VPS_DMC268_P || '' }}
           fingerprint: ${{ vars.STAGING_SSH_FINGERPRINT }}
-          source: 'deploy/compose/staging.yml,deploy/scripts/deploy.sh,deploy/scripts/rollback.sh,deploy/scripts/healthcheck.sh'
+          source: 'deploy/compose/staging.yml,deploy/scripts/provision.sh,deploy/scripts/deploy.sh,deploy/scripts/rollback.sh,deploy/scripts/healthcheck.sh'
           target: ${{ steps.target.outputs.app_dir }}
           strip_components: 2
+
+      # Docker on a bare host and, in edge mode, the shared network. The edge proxy itself is
+      # deployed only by the API repo.
+      - name: Prepare host
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        env:
+          APP_DIR: ${{ steps.target.outputs.app_dir }}
+          EDGE_NETWORK: ${{ steps.target.outputs.deploy_mode == 'edge' && 'dmc268-edge' || '' }}
+        with:
+          host: ${{ steps.target.outputs.host }}
+          port: ${{ steps.target.outputs.port }}
+          username: ${{ steps.target.outputs.mode == 'course' && secrets.VPS_DMC268_U || vars.STAGING_SSH_USER }}
+          key: ${{ steps.target.outputs.mode == 'terraform' && secrets.STAGING_SSH_KEY || '' }}
+          password: ${{ steps.target.outputs.mode == 'course' && secrets.VPS_DMC268_P || '' }}
+          fingerprint: ${{ vars.STAGING_SSH_FINGERPRINT }}
+          debug: false
+          envs: APP_DIR,EDGE_NETWORK
+          script: |
+            set -euo pipefail
+            set +o xtrace
+            cd "${APP_DIR}"
+            mv staging.yml compose.yml
+            chmod +x provision.sh deploy.sh rollback.sh healthcheck.sh
+            ./provision.sh
 
       - name: Deploy image
         id: deploy
@@ -282,10 +306,7 @@ jobs:
           script: |
             set -euo pipefail
             set +o xtrace
-            cd "${APP_DIR}"
-            mv staging.yml compose.yml
-            chmod +x deploy.sh rollback.sh healthcheck.sh
-            ./deploy.sh "${IMAGE}"
+            "${APP_DIR}/deploy.sh" "${IMAGE}"
 
       - name: Health check
         id: health
