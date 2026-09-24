@@ -205,9 +205,11 @@ jobs:
           REQUESTED_REF: ${{ steps.image.outputs.ref }}
           VM_PREVIOUS_STDOUT: ${{ steps.vm_previous.outputs.stdout }}
           STAGING_PREVIOUS: ${{ steps.meta.outputs.previous }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
         run: |
           set -euo pipefail
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
 
           # capture_stdout also returns drone-ssh's own banner (and any stderr lines): only the
           # keyed line counts. No keyed line means no .deploy-state.previous on the VM.
