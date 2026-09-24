@@ -8,7 +8,7 @@ client for the code-review product; consumes the FastAPI backend
 
 ## Stack
 
-Vite 8, React 19, TypeScript 5 strict, Zod 4, Zustand 5, TanStack Query 5, antd 6, Vitest 5.
+Vite 8, React 19, TypeScript 6 strict, Zod 4, Zustand 5, TanStack Query 5, antd 6, Vitest 5.
 
 ## Non-negotiables
 
