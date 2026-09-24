@@ -44,12 +44,13 @@ export type Chunk = z.infer<typeof ChunkSchema>
 export const FileDiffSchema = z.object({
   filename: z.string(),
   chunks: z.array(ChunkSchema),
+  hasPatch: z.boolean(),
 })
 export type FileDiff = z.infer<typeof FileDiffSchema>
 
 export const RawFileDiffSchema = z.object({
   filename: z.string(),
-  patch: z.string(),
+  patch: z.string().nullable(),
 })
 export type RawFileDiff = z.infer<typeof RawFileDiffSchema>
 

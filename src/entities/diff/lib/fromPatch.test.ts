@@ -54,4 +54,13 @@ describe('fromPatch', () => {
       /unparseable patch for src\/a\.ts/,
     )
   })
+
+  it('sets hasPatch true for a parsed string patch', () => {
+    expect(fromPatch(SAMPLE_PATCH_A).hasPatch).toBe(true)
+  })
+
+  it('returns an empty, unparsed FileDiff with hasPatch false for patch: null', () => {
+    const result = fromPatch({ filename: 'src/summary.ts', patch: null })
+    expect(result).toEqual({ filename: 'src/summary.ts', chunks: [], hasPatch: false })
+  })
 })

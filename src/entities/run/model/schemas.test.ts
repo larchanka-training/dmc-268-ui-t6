@@ -22,6 +22,7 @@ const runSession = {
   finishedAt: null,
   attempt: 1,
   cancelRequested: false,
+  summaryOnly: false,
   pullRequest,
   actionCount: 0,
   errorCode: null,
@@ -66,6 +67,22 @@ describe('RunSessionSchema', () => {
 
   it('rejects engine value agent', () => {
     expect(RunSessionSchema.safeParse({ ...runSession, engine: 'agent' }).success).toBe(false)
+  })
+
+  it('accepts summaryOnly: true', () => {
+    const result = RunSessionSchema.safeParse({ ...runSession, summaryOnly: true })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.summaryOnly).toBe(true)
+    }
+  })
+
+  it('rejects a RunSession missing summaryOnly', () => {
+    const result = RunSessionSchema.safeParse({ ...runSession, summaryOnly: undefined })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues[0]?.path).toEqual(['summaryOnly'])
+    }
   })
 })
 

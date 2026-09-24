@@ -8,7 +8,7 @@ import {
   groupActions,
   isStaleRunning,
 } from '../../entities/run'
-import { FileDiffSchema, commentKey } from '../../entities/diff'
+import { FileDiffSchema, RawFileDiffSchema, commentKey, fromPatch } from '../../entities/diff'
 import type { FileDiff } from '../../entities/diff'
 import { ReviewCommentSchema } from '../../entities/review'
 
@@ -18,6 +18,8 @@ import {
   mockReviewComments,
   mockRunActions,
   mockRunSessions,
+  mockSummaryOnlyDiff,
+  mockSummaryOnlyRun,
   mockUiState,
 } from './app-state'
 
@@ -107,6 +109,24 @@ describe('mockRunActions', () => {
     const withResponseRef = mockRunActions.filter((action) => action.responseRef !== null)
     expect(withResponseRef.length).toBe(2)
     expect(withResponseRef.every((action) => action.response === null)).toBe(true)
+  })
+})
+
+describe('mockSummaryOnlyRun', () => {
+  it('validates through RunSessionSchema and is marked summaryOnly', () => {
+    const result = RunSessionSchema.safeParse(mockSummaryOnlyRun)
+    expect(result.success).toBe(true)
+    expect(mockSummaryOnlyRun.summaryOnly).toBe(true)
+  })
+})
+
+describe('mockSummaryOnlyDiff', () => {
+  it('validates through RawFileDiffSchema and maps to files with hasPatch: false', () => {
+    const result = z.array(RawFileDiffSchema).safeParse(mockSummaryOnlyDiff)
+    expect(result.success).toBe(true)
+    mockSummaryOnlyDiff.forEach((raw) => {
+      expect(fromPatch(raw).hasPatch).toBe(false)
+    })
   })
 })
 

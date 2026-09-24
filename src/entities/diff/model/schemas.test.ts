@@ -39,11 +39,13 @@ describe('FileDiffSchema', () => {
           lines: [{ type: 'context', oldLine: 10, newLine: 11, content: 'line ten' }],
         },
       ],
+      hasPatch: true,
     }
     const result = FileDiffSchema.safeParse(fileDiff)
     expect(result.success).toBe(true)
     if (result.success) {
       expect(result.data.chunks.length).toBe(2)
+      expect(result.data.hasPatch).toBe(true)
     }
   })
 })
@@ -60,6 +62,14 @@ describe('RawFileDiffSchema', () => {
     expect(result.success).toBe(false)
     if (!result.success) {
       expect(result.error.issues[0]?.path).toEqual(['patch'])
+    }
+  })
+
+  it('accepts a RawFileDiff with patch: null', () => {
+    const result = RawFileDiffSchema.safeParse({ filename: 'src/a.ts', patch: null })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.patch).toBeNull()
     }
   })
 })

@@ -46,6 +46,7 @@ export const RunSessionSchema = z
     finishedAt: z.iso.datetime().nullable(),
     attempt: z.int().nonnegative(),
     cancelRequested: z.boolean(),
+    summaryOnly: z.boolean(),
     pullRequest: PullRequestRefSchema,
     actionCount: z.int().nonnegative(),
     errorCode: z.string().nullable(),

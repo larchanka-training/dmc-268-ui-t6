@@ -58,7 +58,7 @@ describe('toHunks', () => {
         { type: 'added', oldLine: null, newLine: 3, content: 'c' },
       ],
     }
-    const file: FileDiff = { filename: 'x.ts', chunks: [chunk] }
+    const file: FileDiff = { filename: 'x.ts', chunks: [chunk], hasPatch: true }
     const [hunk] = toHunks(file)
     expect(hunk).toMatchObject({
       oldStart: 0,
@@ -77,7 +77,7 @@ describe('toHunks', () => {
         { type: 'removed', oldLine: 5, newLine: null, content: 'b' },
       ],
     }
-    const file: FileDiff = { filename: 'x.ts', chunks: [chunk] }
+    const file: FileDiff = { filename: 'x.ts', chunks: [chunk], hasPatch: true }
     const [hunk] = toHunks(file)
     expect(hunk).toMatchObject({ oldStart: 4, oldLines: 2, newStart: 3, newLines: 0 })
   })
