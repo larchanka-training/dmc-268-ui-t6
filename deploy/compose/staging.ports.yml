@@ -1,0 +1,5 @@
+# Dedicated host (Terraform): publish the UI on host port 80.
+services:
+  ui:
+    ports:
+      - '80:8080'
