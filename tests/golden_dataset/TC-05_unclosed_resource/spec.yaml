@@ -1,10 +1,10 @@
-id: "TC-05"
-title: "Unclosed File Resource Leak"
-category: "RESOURCE_LEAK"
-expected_verdict: "COMMENT"
+id: 'TC-05'
+title: 'Unclosed File Resource Leak'
+category: 'RESOURCE_LEAK'
+expected_verdict: 'COMMENT'
 expected_findings:
-  - file: "src/reports/exporter.py"
+  - file: 'src/reports/exporter.py'
     line_range: [10, 11]
-    severity: "MEDIUM"
-    defect_type: "unclosed_resource"
-    description: "File descriptor opened without a with-statement context manager or explicit close."
+    severity: 'MEDIUM'
+    defect_type: 'unclosed_resource'
+    description: 'File descriptor opened without a with-statement context manager or explicit close.'
