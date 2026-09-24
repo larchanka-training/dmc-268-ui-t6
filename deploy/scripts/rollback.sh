@@ -8,6 +8,14 @@ PREVIOUS_FILE="${STATE_FILE}.previous"
 REQUESTED_IMAGE="${1:-}"
 BOOTSTRAP_NAME="${BOOTSTRAP_NAME:-dmc-268-ui-bootstrap}"
 BOOTSTRAP_IMAGE="${BOOTSTRAP_IMAGE:-nginx:1.27-alpine}"
+# auto: a failed deploy is being undone; the failed image must not become the rollback target.
+# manual: an operator rolls back a release; it becomes the previous release (mirrors :staging-previous).
+ROLLBACK_MODE="${ROLLBACK_MODE:-manual}"
+
+if [[ "${ROLLBACK_MODE}" != "auto" && "${ROLLBACK_MODE}" != "manual" ]]; then
+  echo "ROLLBACK_MODE must be auto or manual, got: ${ROLLBACK_MODE}" >&2
+  exit 1
+fi
 
 restore_bootstrap() {
   if [[ -f "${COMPOSE_FILE}" && -f "${APP_DIR}/.env" ]]; then
@@ -54,7 +62,7 @@ docker pull "${IMAGE}"
 printf 'IMAGE=%s\n' "${IMAGE}" > "${APP_DIR}/.env"
 docker compose -f "${COMPOSE_FILE}" --env-file "${APP_DIR}/.env" up -d --remove-orphans --wait --wait-timeout 90
 
-if [[ -f "${STATE_FILE}" ]]; then
+if [[ "${ROLLBACK_MODE}" == "manual" && -f "${STATE_FILE}" ]]; then
   cp "${STATE_FILE}" "${PREVIOUS_FILE}"
 fi
 

@@ -32,7 +32,7 @@ fi
 
 if ! docker compose -f "${COMPOSE_FILE}" --env-file "${APP_DIR}/.env" up -d --remove-orphans --wait --wait-timeout 90; then
   echo "compose up failed; rolling back" >&2
-  "${ROLLBACK_SCRIPT}"
+  ROLLBACK_MODE=auto "${ROLLBACK_SCRIPT}"
   exit 1
 fi
 

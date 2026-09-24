@@ -219,7 +219,7 @@ jobs:
           script: |
             set -euo pipefail
             set +o xtrace
-            /opt/dmc-268-ui/rollback.sh
+            ROLLBACK_MODE=auto /opt/dmc-268-ui/rollback.sh
 
       - name: Read deployed image
         id: deployed
