@@ -23,6 +23,8 @@ concurrency:
 jobs:
   rollback:
     name: Rollback staging
+    # workflow_dispatch can target any branch; only main may use the staging SSH credentials.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -399,7 +401,7 @@ jobs:
 
   promote-staging:
     name: Promote staging tag
-    if: needs.rollback.outputs.promote == 'true'
+    if: github.ref == 'refs/heads/main' && needs.rollback.outputs.promote == 'true'
     needs: rollback
     permissions:
       contents: read
