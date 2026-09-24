@@ -1,7 +1,8 @@
 # DRAFT proposed by role 7 (issue #18) — role 1 owns `AGENTS.md`; this file is NOT `AGENTS.md`
 
-Frontend variant — the api repo carries its own draft at the same path. Role 1 can adopt
-this content as-is for `dmc-268-ui-t6/AGENTS.md`.
+Frontend variant — the api repo carries its own draft at the same path. Role 1: copy the
+sections below this header, from `## Project` through `## What NOT to do`, into the root
+`AGENTS.md` of `dmc-268-ui-t6`; the DRAFT header and `## Note for role 1` stay out of it.
 
 ## Project
 
@@ -11,38 +12,47 @@ client for the code-review product; consumes the FastAPI backend
 
 ## Stack
 
-Vite, React 18, TypeScript strict, Zod 4, Zustand 5, TanStack Query 5, antd 6, Vitest 3.2.
+Vite 8, React 19, TypeScript 5 strict, Zod 4, Zustand 5, TanStack Query 5, antd 6, Vitest 5.
 
 ## Non-negotiables
 
+<!-- SYNC: non-negotiables mirror .agents/rules/frontend.md §1 (Zod rule: §4) -->
+
 - Always use pnpm for dependencies (never npm/yarn).
 - Never `--no-verify`.
+- Run the gates before claiming done: `pnpm lint`, `pnpm check-types`,
+  `pnpm format:check`, `pnpm test`, `pnpm build`.
 - No new dependency without a line in the PR body.
+- Never edit files owned by another open PR without a comment there.
 - Unknown external input goes through Zod at the boundary — never trust an
   API response's shape without parsing it.
 
 ## Commands
 
-| Task         | Command                                                     | Source      |
-| ------------ | ----------------------------------------------------------- | ----------- |
-| Install      | `pnpm install` (bootstrap pnpm once: `npm install -g pnpm`) | main        |
-| Dev server   | `pnpm dev`                                                  | main        |
-| Lint         | `pnpm lint`                                                 | pending #26 |
-| Format check | `pnpm format:check`                                         | pending #26 |
-| Typecheck    | `pnpm check-types`                                          | pending #26 |
-| Test         | `pnpm test`                                                 | pending #31 |
-| Build        | `pnpm build`                                                | pending #26 |
+<!-- SYNC: commands table mirrors .agents/rules/frontend.md §2 -->
+
+| Task         | Command                                                     | Source         |
+| ------------ | ----------------------------------------------------------- | -------------- |
+| Install      | `pnpm install` (bootstrap pnpm once: `npm install -g pnpm`) | `package.json` |
+| Dev server   | `pnpm dev`                                                  | `package.json` |
+| Lint         | `pnpm lint`                                                 | `package.json` |
+| Format       | `pnpm format`                                               | `package.json` |
+| Format check | `pnpm format:check`                                         | `package.json` |
+| Typecheck    | `pnpm check-types`                                          | `package.json` |
+| Test         | `pnpm test`                                                 | `package.json` |
+| Build        | `pnpm build`                                                | `package.json` |
 
 ## Layout
 
 FSD lite (`app → pages → widgets → features → entities → shared`, imports
 only flow downward, `shared` never imports `entities`); details in
-[.agents/rules/frontend.md](../rules/frontend.md).
+`.agents/rules/frontend.md`.
 
 ## Conventions
 
-- Branches: `feat/<slug>`, `fix/<slug>`, `docs/<slug>`, `chore/<slug>`,
-  `deps-update-YYYY-MM-DD`, slug preferably `<issue>-<kebab-case>`.
+- Branches: `feat/<slug>`, `fix/<slug>`, `docs/<slug>`, `chore/<slug>` (also for
+  `refactor`/`test`/`ci`/`perf`/`style` work), `deps-update-YYYY-MM-DD`, slug
+  preferably `<issue>-<kebab-case>`.
 - Commits: Conventional Commits, reference the issue (`(#N)` in the subject
   or `Refs #N` in the footer).
 - PR title: conventional, ≤72 characters.

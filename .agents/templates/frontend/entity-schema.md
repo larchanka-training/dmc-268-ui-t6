@@ -1,18 +1,16 @@
 # Entity schema (Zod)
 
-Requires: #26 (tooling), #31 (FSD layout, vitest)
-
 ## When to use
 
 A new entity slice needs a shape for data that crosses the API boundary (a
-list response, a websocket event, a form payload). Zod is the single source
+list response, an SSE event, a form payload). Zod is the single source
 of truth: infer the TypeScript type from the schema, never write the type by
 hand and validate separately.
 
 ## File placement
 
-- `src/entities/repository/model/schemas.ts`
-- `src/entities/repository/model/schemas.test.ts`
+- `src/entities/sample-tile/model/schemas.ts`
+- `src/entities/sample-tile/model/schemas.test.ts`
 
 ## Code
 
@@ -21,28 +19,28 @@ hand and validate separately.
 ```ts
 import { z } from 'zod'
 
-export const RepositoryKindSchema = z.enum(['metric', 'chart', 'table'])
-export type RepositoryKind = z.infer<typeof RepositoryKindSchema>
+export const SampleTileKindSchema = z.enum(['metric', 'chart', 'table'])
+export type SampleTileKind = z.infer<typeof SampleTileKindSchema>
 
-export const RepositoryLayoutSchema = z.object({
+export const SampleTileLayoutSchema = z.object({
   x: z.int().nonnegative(),
   y: z.int().nonnegative(),
   width: z.int().positive(),
   height: z.int().positive(),
 })
-export type RepositoryLayout = z.infer<typeof RepositoryLayoutSchema>
+export type SampleTileLayout = z.infer<typeof SampleTileLayoutSchema>
 
-export const RepositorySchema = z.object({
+export const SampleTileSchema = z.object({
   id: z.uuid(),
-  kind: RepositoryKindSchema,
+  kind: SampleTileKindSchema,
   title: z.string(),
   createdAt: z.iso.datetime(),
-  layout: RepositoryLayoutSchema,
+  layout: SampleTileLayoutSchema,
 })
-export type Repository = z.infer<typeof RepositorySchema>
+export type SampleTile = z.infer<typeof SampleTileSchema>
 
-export const RepositoryListSchema = z.array(RepositorySchema)
-export type RepositoryList = z.infer<typeof RepositoryListSchema>
+export const SampleTileListSchema = z.array(SampleTileSchema)
+export type SampleTileList = z.infer<typeof SampleTileListSchema>
 ```
 
 ## Test
@@ -52,9 +50,9 @@ export type RepositoryList = z.infer<typeof RepositoryListSchema>
 ```ts
 import { describe, expect, it } from 'vitest'
 
-import { RepositorySchema } from './schemas'
+import { SampleTileSchema } from './schemas'
 
-const repository = {
+const sampleTile = {
   id: '11111111-1111-4111-8111-000000000001',
   kind: 'metric',
   title: 'Open runs',
@@ -62,13 +60,13 @@ const repository = {
   layout: { x: 0, y: 0, width: 4, height: 2 },
 }
 
-describe('RepositorySchema', () => {
-  it('accepts a valid Repository', () => {
-    expect(RepositorySchema.safeParse(repository).success).toBe(true)
+describe('SampleTileSchema', () => {
+  it('accepts a valid SampleTile', () => {
+    expect(SampleTileSchema.safeParse(sampleTile).success).toBe(true)
   })
 
   it('rejects an unknown kind', () => {
-    const result = RepositorySchema.safeParse({ ...repository, kind: 'unknown' })
+    const result = SampleTileSchema.safeParse({ ...sampleTile, kind: 'unknown' })
     expect(result.success).toBe(false)
     if (!result.success) {
       expect(result.error.issues[0]?.path).toEqual(['kind'])
@@ -79,12 +77,16 @@ describe('RepositorySchema', () => {
 
 ## Checklist
 
-- `z.uuid()` / `z.iso.datetime()` / `z.int()` — never `z.string().uuid()` or
-  `z.number().int()` (zod 4 `no-deprecated`).
+- `z.uuid()`, `z.iso.datetime()` (the string-method forms are `@deprecated`, so
+  `no-deprecated` fires). `z.int()` over the legacy `z.number().int()` (a
+  convention, as in main's schemas).
 - One schema per concept; compose nested shapes as separate exported schemas,
   not inline object literals.
 - Export the inferred type next to its schema (`export type X = z.infer<typeof XSchema>`).
-- A `<Name>ListSchema` wraps a page/collection response — do not reuse the
-  singular schema's name for both.
+- Paged list responses are an envelope, as in `RunListPageSchema`:
+  `<Name>ListPageSchema = z.object({ items: z.array(XSchema), nextCursor: z.string().nullable() })`.
+  Use a bare `z.array` only for unpaged lists.
+- `SampleTileListSchema` above is unpaged (the full set in one response, no
+  cursor), so a bare array is right; a paged endpoint uses the envelope.
 - Test asserts `safeParse().success` as a literal `true`/`false` and, for the
   rejection case, one literal `issues[0]?.path`.

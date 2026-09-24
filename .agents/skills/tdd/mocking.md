@@ -1,5 +1,7 @@
 # When to Mock
 
+Examples are illustrative and not gate-checked. The proven patterns are in `.agents/templates/frontend/`.
+
 Mock at **system boundaries** only:
 
 - HTTP calls to the backend API
@@ -27,34 +29,39 @@ Pass external dependencies in rather than creating them internally:
 
 ```ts
 // Easy to mock
-function submitFinding(finding: Finding, api: ReviewApiClient) {
-  return api.postFinding(finding)
+export function loadRun(id: string, api: RunApiClient) {
+  return api.getRun(id)
 }
 
 // Hard to mock
-function submitFinding(finding: Finding) {
-  return fetch('/api/findings', { method: 'POST', body: JSON.stringify(finding) })
+export function loadRunDirect(id: string) {
+  return fetch(`/runs/${id}`)
 }
 ```
 
 **2. Prefer SDK-style interfaces over generic fetchers** — `getRun(id)`,
-`listFindings(runId)`, `postComment(draft)` are each independently mockable;
+`listRuns()`, `listActions(runId)` are each independently mockable;
 a single `fetch(endpoint, options)` forces conditional logic inside the mock.
 
 ## Fake adapters over mocks, for ports
 
-When code is written against a port (a small interface such as `VcsProvider`
-or a repository-shaped client), prefer an in-memory **fake implementation**
-of the port over mocking each call with `vi.fn()`:
+When code is written against a port (a small client interface over the `runApi`
+descriptors in `entities/run/api`), prefer an in-memory **fake implementation**
+of the port, e.g. in `entities/run/lib/`, over mocking each call with `vi.fn()`:
 
 ```ts
-// fakes/inMemoryReviewApi.ts
-export function createInMemoryReviewApi(seed: RunSummary[]): ReviewApiClient {
-  const runs = new Map(seed.map((r) => [r.runId, r]))
+import type { RunListPage, RunSession } from '../model/schemas'
+
+export interface RunApiClient {
+  getRun: (id: string) => Promise<RunSession | null>
+  listRuns: () => Promise<RunListPage>
+}
+
+export function createInMemoryRunApi(seed: RunSession[]): RunApiClient {
+  const runs = new Map(seed.map((r) => [r.id, r]))
   return {
-    getRun: async (id) => runs.get(id) ?? null,
-    listFindings: async () => [],
-    postComment: async (draft) => ({ ...draft, id: 'c_1' }),
+    getRun: (id) => Promise.resolve(runs.get(id) ?? null),
+    listRuns: () => Promise.resolve({ items: [...runs.values()], nextCursor: null }),
   }
 }
 ```

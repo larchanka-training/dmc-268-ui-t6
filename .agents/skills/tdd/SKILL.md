@@ -12,11 +12,13 @@ metadata:
 TDD is the red → green loop. This skill makes that loop produce tests worth
 keeping: what a good test is, where tests go, the anti-patterns, the rules.
 
-Tests are Vitest 3, co-located as `*.test.ts(x)`, with explicit imports (no
+Tests are Vitest 5, co-located as `*.test.ts(x)`, with explicit imports (no
 globals: `import { describe, it, expect, vi } from 'vitest'`). Tag
 DOM-dependent files with `// @vitest-environment jsdom` and call
 `afterEach(() => { cleanup() })` from `@testing-library/react` in component
 tests. See the stack rules file in `.agents/rules/` for full conventions.
+Start from the proven templates in `.agents/templates/frontend/` (entity
+schema, pure function, widget component, Zustand store).
 
 ## What a good test is
 
