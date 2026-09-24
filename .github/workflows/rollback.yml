@@ -35,7 +35,7 @@ jobs:
       name: staging
       url: ${{ steps.target.outputs.base_url }}
     outputs:
-      image_ref: ${{ steps.digest.outputs.image_ref }}
+      image_ref: ${{ steps.result.outputs.image_ref }}
       staging: ${{ steps.meta.outputs.staging }}
       previous: ${{ steps.meta.outputs.previous }}
       promote: ${{ steps.result.outputs.promote }}
@@ -383,33 +383,49 @@ jobs:
           debug: false
           capture_stdout: true
           envs: APP_DIR
+          # One keyed line: restore_bootstrap removes .deploy-state, which leaves the marker.
           script: |
-            awk -F= '/^current_image=/{print $2; exit}' "${APP_DIR}/.deploy-state"
+            state="${APP_DIR}/.deploy-state"
+            if [[ -f "${state}" ]]; then
+              awk -F= '/^current_image=/{print "current_image=" $2; exit}' "${state}"
+            else
+              echo "bootstrap=true"
+            fi
 
       - name: Set promote flag
         id: result
         if: always()
+        env:
+          HEALTH_OUTCOME: ${{ steps.health.outcome }}
+          EXPECTED_BOOTSTRAP: ${{ steps.digest.outputs.bootstrap }}
+          EXPECTED_IMAGE: ${{ steps.digest.outputs.image_ref }}
+          DEPLOYED_STDOUT: ${{ steps.deployed.outputs.stdout }}
         run: |
-          if [[ "${{ steps.health.outcome }}" != "success" ]]; then
+          if [[ "${HEALTH_OUTCOME}" != "success" ]]; then
             echo "promote=false" >> "${GITHUB_OUTPUT}"
             exit 0
           fi
-          if [[ "${{ steps.digest.outputs.bootstrap }}" == "true" ]]; then
+          # capture_stdout also returns drone-ssh's own banner (and any stderr lines): only the
+          # keyed lines count.
+          deployed="$(awk '/^current_image=/ { sub(/^current_image=/, ""); sub(/\r$/, ""); print; exit }' <<< "${DEPLOYED_STDOUT}")"
+          vm_bootstrap="$(awk '{ sub(/\r$/, "") } $0 == "bootstrap=true" { print "true"; exit }' <<< "${DEPLOYED_STDOUT}")"
+          if [[ "${vm_bootstrap}" == "true" && -z "${deployed}" && "${EXPECTED_BOOTSTRAP}" == "true" ]]; then
+            echo "staging runs the bootstrap container; skip registry promotion"
             echo "promote=false" >> "${GITHUB_OUTPUT}"
             exit 0
           fi
-          deployed_ref="${{ steps.deployed.outputs.stdout }}"
-          expected_ref="${{ steps.digest.outputs.image_ref }}"
-          if [[ -z "${deployed_ref}" ]]; then
-            echo "deployed image reference is empty; refusing to promote registry tags" >&2
+          if [[ "${vm_bootstrap}" == "true" || -z "${deployed}" ]]; then
+            echo "staging reports ${deployed:-no image}${vm_bootstrap:+ and the bootstrap marker}, expected ${EXPECTED_IMAGE:-the bootstrap container}; refusing to promote registry tags" >&2
             echo "promote=false" >> "${GITHUB_OUTPUT}"
             exit 1
           fi
-          if [[ "${deployed_ref}" != "${expected_ref}" ]]; then
-            echo "deployed image ${deployed_ref} does not match resolved target ${expected_ref}" >&2
+          if [[ "${EXPECTED_BOOTSTRAP}" == "true" || "${deployed}" != "${EXPECTED_IMAGE}" ]]; then
+            echo "staging runs ${deployed}, not the resolved target ${EXPECTED_IMAGE:-(bootstrap)}; refusing to promote registry tags" >&2
             echo "promote=false" >> "${GITHUB_OUTPUT}"
             exit 1
           fi
+          echo "staging runs ${deployed}"
+          echo "image_ref=${deployed}" >> "${GITHUB_OUTPUT}"
           echo "promote=true" >> "${GITHUB_OUTPUT}"
 
       - name: Fail on health check error
