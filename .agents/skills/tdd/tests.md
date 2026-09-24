@@ -1,11 +1,14 @@
 # Good and Bad Tests
 
+Examples are illustrative and not gate-checked. The proven patterns are in `.agents/templates/frontend/`.
+
 ## Good Tests
 
 **Integration-style**: test through real interfaces, not mocks of internal
 parts.
 
 ```tsx
+// @vitest-environment jsdom
 // GOOD: tests observable behavior
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -87,17 +90,17 @@ re-deriving the shape from the schema itself:
 
 ```ts
 import { describe, it, expect } from 'vitest'
-import { RunSummarySchema } from './schemas'
+import { RunUpdatedEventSchema } from './schemas'
 
-describe('RunSummarySchema', () => {
-  it('accepts a valid run summary', () => {
-    const ok = { runId: 'r_1', status: 'completed', findingCount: 4 }
-    expect(RunSummarySchema.safeParse(ok).success).toBe(true)
+describe('RunUpdatedEventSchema', () => {
+  it('accepts a valid run-updated event', () => {
+    const ok = { runId: '11111111-1111-4111-8111-000000000001', status: 'completed' }
+    expect(RunUpdatedEventSchema.safeParse(ok).success).toBe(true)
   })
 
   it('rejects an unknown status literal', () => {
-    const bad = { runId: 'r_1', status: 'bogus', findingCount: 4 }
-    expect(RunSummarySchema.safeParse(bad).success).toBe(false)
+    const bad = { runId: '11111111-1111-4111-8111-000000000001', status: 'bogus' }
+    expect(RunUpdatedEventSchema.safeParse(bad).success).toBe(false)
   })
 })
 ```

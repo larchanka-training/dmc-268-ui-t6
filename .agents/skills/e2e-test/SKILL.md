@@ -39,27 +39,30 @@ it logs "Port 5173 is in use, trying another one..." and silently starts on
 5174, so a duplicate server goes undetected and the browser keeps hitting
 the stale instance. With `--strictPort`, an `EADDRINUSE` in the log means
 one was already running — kill only your duplicate, never the original. For
-a production-like check instead of HMR behavior, use
-`pnpm build && pnpm preview` (port 4173) — see `manual-automation`.
+a production-like check instead of HMR behavior, use the preview snippet in
+`manual-automation` step 2 (port 4173).
 
 ## 2. Browser Tools
 
 Use whichever is available in the session, preferring the Chrome DevTools
-MCP tools (`chrome-devtools_new_page`, snapshot, click, fill, evaluate) when
-present, falling back to the Claude-in-Chrome tools
-(`mcp__claude-in-chrome__navigate`, `find`, `computer`, `javascript_tool`)
-otherwise. Navigate to `http://localhost:5173/` and snapshot before
+MCP tools (`new_page`, snapshot, click, fill, evaluate) when present, falling
+back to the Claude-in-Chrome tools (`navigate`, `find`, `computer`,
+`javascript_tool`) otherwise. Navigate to `http://localhost:5173/` and snapshot before
 interacting — no login/OTP flow exists yet (GitHub OAuth is future work per
 `docs/SYSTEM_DESIGN.md`), so don't invent selectors for one.
 
 ## 3. Scenarios for This Product
 
+Status on main (db5cf78): `App.tsx` is a placeholder; no page mounts the
+widgets and there is no router. Browser e2e has nothing product-specific to
+verify, so cover widgets with component tests (tdd skill) until `pages/*` land.
+
 Per `docs/SYSTEM_DESIGN.md` §2 (responsibility boundaries) and §12 (API ↔ UI
 contract), the app's screens are the run list, the run inspector, and the
 diff viewer:
 
-- **Run list** (not built in sprint 1 — `pages/runs` is a placeholder,
-  pending #31): the overview/feed screen loads and renders run summaries
+- **Run list** (not built in sprint 1 — placeholder on main:
+  `src/pages/runs/.gitkeep`): the overview/feed screen loads and renders run summaries
   (status, repository, timestamp) without a console error.
 - **Run inspector**: opening a run from the list navigates to its trace view
   (`RunSession → RunAction`) and renders the action sequence for that run.
@@ -74,7 +77,8 @@ selectors only once the corresponding UI exists — do not pre-invent
 
 Screenshots are for the human's record only — the model can't reliably read
 them. Assert programmatically instead, preferring `data-testid` or visible
-text over CSS structure:
+text over CSS structure. The snippet below is illustrative — replace its
+selectors with real ones once the screen exists:
 
 ```js
 ;() =>
@@ -111,5 +115,7 @@ Include the exact commands/selectors used so the run is reproducible.
   selecting one.
 - A snapshot of a long run list can be large — prefer targeted
   `evaluate`/`data-testid` queries over parsing the full a11y tree.
-- Vite's dev server serves modules over HTTP with hashed chunk URLs on
-  rebuild — a stale reference to a chunk filename in a log is not a bug.
+- Vite's dev server serves unbundled modules; their `?v=`/`?t=` query strings
+  change on HMR updates and dependency re-optimization — a stale module URL in
+  a log is not a bug. Hashed chunk names exist only in `pnpm build` output
+  (the preview server).

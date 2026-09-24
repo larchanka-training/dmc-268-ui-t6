@@ -19,15 +19,17 @@ mechanics, `e2e-test` for what to check.
 
 ### 1. Port Management
 
-**Check if port 5173 (dev) is in use:**
+**Check if port 5173 (dev) or 4173 (preview) is in use:**
 
 ```bash
-lsof -nP -iTCP:5173 -sTCP:LISTEN
+lsof -nP -iTCP:5173 -sTCP:LISTEN   # dev
+lsof -nP -iTCP:4173 -sTCP:LISTEN   # preview
 ```
 
-**If a listener is present:** treat it as the running app — Vite HMR
-reloads on code changes, so do not stop it just to pick up new code. Only
-stop it if it's unresponsive (health check below fails).
+**If a listener is present:** treat it as the running app (dev only — a
+preview listener serves the last build) — Vite HMR reloads on code changes,
+so do not stop it just to pick up new code. Only stop it if it's unresponsive
+(health check below fails).
 
 **If the port is free:** proceed to application launch.
 
@@ -39,7 +41,8 @@ For a production-like check (no HMR, minified bundle) use port 4173
 **Dev server** (default for interactive testing):
 
 ```bash
-nohup pnpm dev > /tmp/vite-dev.log 2>&1 &
+lsof -nP -iTCP:5173 -sTCP:LISTEN && { echo "5173 busy: reuse the running dev server"; exit 1; }
+nohup pnpm dev --strictPort > /tmp/vite-dev.log 2>&1 &
 for i in $(seq 1 30); do
   code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5173/)
   [ "$code" = "200" ] && break
@@ -48,10 +51,12 @@ done
 [ "$code" = "200" ] || { echo "dev server not ready after 30s"; cat /tmp/vite-dev.log; exit 1; }
 ```
 
-**Production-like check** (build first, then serve the built output):
+**Production-like check** (build in the foreground, then serve the built output):
 
 ```bash
-pnpm build && nohup pnpm preview > /tmp/vite-preview.log 2>&1 &
+lsof -nP -iTCP:4173 -sTCP:LISTEN && { echo "4173 busy: reuse it or stop your own instance first"; exit 1; }
+pnpm build || exit 1
+nohup pnpm preview --port 4173 --strictPort > /tmp/vite-preview.log 2>&1 &
 for i in $(seq 1 30); do
   code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:4173/)
   [ "$code" = "200" ] && break
@@ -59,6 +64,10 @@ for i in $(seq 1 30); do
 done
 [ "$code" = "200" ] || { echo "preview server not ready after 30s"; cat /tmp/vite-preview.log; exit 1; }
 ```
+
+`--strictPort` makes a busy port fail loudly (exit 1) instead of drifting to
+the next port; the `lsof` guard before each launch is what keeps the loop from
+reading a stale listener.
 
 Run in background mode so the agent keeps control of the terminal; poll the
 health check (readiness loop above) rather than a bare curl right after
@@ -74,9 +83,8 @@ server.
 ### 4. Navigation
 
 This is a client-rendered SPA with no login/OTP flow today — skip any
-credentials/auth step. Navigate directly to the screen under test via UI
-interaction (clicking through the run list) rather than guessing routes
-that may not exist yet.
+credentials/auth step. Navigate to the screen under test through the UI
+once a page exists, rather than guessing routes that may not exist yet.
 
 ### 5. Testing Execution
 
@@ -94,8 +102,8 @@ Use whichever browser tool surface is loaded in the session:
 - Wait for elements before interacting instead of guessing timing.
 - Take a screenshot at key steps for the human's record only.
 - Check console messages for JS errors after every interaction.
-- Verify network requests to the backend API complete (2xx), not just that
-  the UI stopped spinning.
+- Once the app calls the API, verify network requests to the backend complete
+  (2xx), not just that the UI stopped spinning.
 - Use script evaluation for assertions — see `e2e-test` for the DOM-state
   assertion style used in this product.
 

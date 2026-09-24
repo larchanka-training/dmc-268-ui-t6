@@ -1,7 +1,5 @@
 # Pure function over a const tuple (entity `lib/`)
 
-Requires: #26 (tooling), #31 (FSD layout, vitest)
-
 ## When to use
 
 A small, dependency-free mapping from an entity's finite value set (a status,

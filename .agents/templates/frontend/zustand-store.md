@@ -1,7 +1,5 @@
 # Widget-local Zustand store
 
-Requires: #26 (tooling), #31 (FSD layout, vitest)
-
 ## When to use
 
 UI state owned by one widget only (selection, expanded rows, an active

@@ -1,7 +1,5 @@
 # Widget UI component
 
-Requires: #26 (tooling), #31 (FSD layout, vitest)
-
 ## When to use
 
 A presentational piece owned by one widget: typed props in, JSX out, no
