@@ -42,6 +42,21 @@ if [[ "${DEPLOY_MODE}" == "edge" && ! "${EDGE_ALIAS:-}" =~ ^[a-z0-9]+(-[a-z0-9]+
 fi
 COMPOSE=(docker compose -p "${COMPOSE_PROJECT}" -f "${COMPOSE_FILE}" -f "${APP_DIR}/compose.${DEPLOY_MODE}.yml" --env-file "${ENV_FILE}")
 
+# Per-run registry credentials: API and UI deploys share the root account on the course VPS, so
+# docker login must not touch /root/.docker/config.json. A rollback started from here reuses it.
+# Set up after the checks above: a rejected call makes no docker call at all.
+DOCKER_CONFIG="$(mktemp -d)"
+export DOCKER_CONFIG
+
+logout_registry() {
+  docker logout ghcr.io >/dev/null 2>&1 || true
+}
+cleanup_registry() {
+  logout_registry
+  rm -rf "${DOCKER_CONFIG}"
+}
+trap cleanup_registry EXIT
+
 if [[ -f "${STATE_FILE}" ]]; then
   cp "${STATE_FILE}" "${STATE_FILE}.previous"
 fi
@@ -63,13 +78,13 @@ if ! "${COMPOSE[@]}" up -d --remove-orphans --wait --wait-timeout 90; then
   exit 1
 fi
 
+# The host is a shared root account: drop the GHCR credential right after the last pull
+# (compose up pulls again because of pull_policy: always). The EXIT trap stays as a fallback.
+logout_registry
+
 {
   echo "current_image=${IMAGE}"
   echo "deployed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 } > "${STATE_FILE}"
-
-if [[ -n "${GHCR_TOKEN:-}" ]]; then
-  docker logout ghcr.io >/dev/null 2>&1 || true
-fi
 
 echo "deployed ${IMAGE}"
