@@ -11,7 +11,7 @@ Rationale: the course board's Definition of Ready/Done, [`SYSTEM_DESIGN.md`
 §15][sd-15] (OQ-4), and the 2026-08-17 lecture all converge on `.agents/` over
 `docs/agents/`. Codex reads `.agents/skills` natively; Claude Code reads
 `.claude/skills` — the symlink lets one file tree serve both without
-duplication. Decided in #32 (2026-09-24), closing SYSTEM_DESIGN §15 OQ-4.
+duplication. Decided in #32 (2026-09-24); this answers SYSTEM_DESIGN §15 OQ-4.
 
 ## Harness matrix
 
@@ -85,7 +85,8 @@ how _we_ build, not what the bot reviews.
 
 ## AGENTS.md
 
-`AGENTS.md` is the root entry point; role 1 (tech lead) owns it, changes go
+`AGENTS.md` is the root entry point (Gemini CLI loads it only with the
+`context.fileName` setting above); role 1 (tech lead) owns it, changes go
 through a PR. `CLAUDE.md` only imports it.
 
 [sd-15]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md#15-%D0%BE%D1%82%D0%BA%D1%80%D1%8B%D1%82%D1%8B%D0%B5-%D0%B2%D0%BE%D0%BF%D1%80%D0%BE%D1%81%D1%8B-%D0%B4%D0%BB%D1%8F-%D0%BA%D0%BE%D0%BC%D0%B0%D0%BD%D0%B4%D1%8B
