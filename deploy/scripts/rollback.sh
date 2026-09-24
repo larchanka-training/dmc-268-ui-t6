@@ -35,10 +35,15 @@ if [[ -n "${REQUESTED_IMAGE}" ]]; then
   IMAGE="${REQUESTED_IMAGE}"
 elif [[ -f "${PREVIOUS_FILE}" ]]; then
   IMAGE="$(awk -F= '/^current_image=/{print $2}' "${PREVIOUS_FILE}")"
-elif [[ -f "${STATE_FILE}" ]]; then
+elif [[ "${ROLLBACK_MODE}" == "auto" && -f "${STATE_FILE}" ]]; then
+  # A first release that failed only the external health check keeps running: the placeholder
+  # would not serve the app either.
   echo "deployment recorded but no previous release to restore" >&2
   exit 1
 else
+  # Nothing deployed yet, or manual: rollback.yml sends no image only when neither the VM nor
+  # the registry has a previous release, so the placeholder comes back.
+  echo "no previous release; restoring bootstrap" >&2
   restore_bootstrap
   exit 0
 fi
