@@ -13,7 +13,7 @@ ENV_FILE="${APP_DIR}/.env"
 REQUESTED_IMAGE="${1:-}"
 COMPOSE_PROJECT="${COMPOSE_PROJECT:-$(basename "${APP_DIR}")}"
 BOOTSTRAP_NAME="${BOOTSTRAP_NAME:-${COMPOSE_PROJECT}-bootstrap}"
-BOOTSTRAP_IMAGE="${BOOTSTRAP_IMAGE:-nginx:1.27-alpine}"
+BOOTSTRAP_IMAGE="${BOOTSTRAP_IMAGE:-nginx:1.30-alpine}"
 EDGE_NETWORK="${EDGE_NETWORK:-dmc268-edge}"
 # auto: a failed deploy is being undone; the failed image must not become the rollback target.
 # manual: an operator rolls back a release; it becomes the previous release (mirrors :staging-previous).
