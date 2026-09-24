@@ -1,9 +1,9 @@
 # CI/CD — Web UI (команда 6)
 
-| | |
-|---|---|
-| Статус | рабочий каркас пайплайна |
-| Владелец | инфраструктура (роль 3) |
+|                     |                                                                                                                               |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Статус              | рабочий каркас пайплайна                                                                                                      |
+| Владелец            | инфраструктура (роль 3)                                                                                                       |
 | Связанные документы | `SYSTEM_DESIGN.md` (§14), инфраструктура в репозитории [dmc-268-api-t6](https://github.com/larchanka-training/dmc-268-api-t6) |
 
 Пайплайн собирает статический React UI в OCI-образ, сканирует его и выкатывает на staging-VM в Hetzner Cloud. Реестр — **GitHub Container Registry**. Provisioning VM (Terraform, firewall, DNS) живёт только в **API-репозитории** (`terraform/ui-staging/`).
@@ -27,14 +27,14 @@ flowchart TD
   rb --> fail["job красный; ошибка rollback видна отдельно"]
 ```
 
-| Job | Когда | Что проверяет / делает |
-|---|---|---|
-| `Docker image build` | PR и `main` | один build, artifact для scan/push |
-| `Docker image security scan` | после сборки | Trivy того же artifact |
-| `Push Docker image` | только `main` | push `:sha`, resolve digest (тот же artifact, что прошёл Trivy) |
-| `Deploy staging` | только `main` | `docker compose` по digest на VM, внешний health check, авто-rollback |
-| `Promote staging tag` | после успешного health check | `:staging-previous` ← `:staging`; `:staging` ← проверенный digest |
-| `Rollback staging` | `workflow_dispatch` | откат контейнера + синхронизация `:staging` |
+| Job                          | Когда                        | Что проверяет / делает                                                |
+| ---------------------------- | ---------------------------- | --------------------------------------------------------------------- |
+| `Docker image build`         | PR и `main`                  | один build, artifact для scan/push                                    |
+| `Docker image security scan` | после сборки                 | Trivy того же artifact                                                |
+| `Push Docker image`          | только `main`                | push `:sha`, resolve digest (тот же artifact, что прошёл Trivy)       |
+| `Deploy staging`             | только `main`                | `docker compose` по digest на VM, внешний health check, авто-rollback |
+| `Promote staging tag`        | после успешного health check | `:staging-previous` ← `:staging`; `:staging` ← проверенный digest     |
+| `Rollback staging`           | `workflow_dispatch`          | откат контейнера + синхронизация `:staging`                           |
 
 Ручной откат: workflow **Rollback staging** (`workflow_dispatch`). Пустой `image` → предыдущий успешный выкат; иначе тег или полный ref.
 
@@ -55,13 +55,13 @@ GET /health
 
 ## 3. Container Registry
 
-| Параметр | Значение |
-|---|---|
-| Host | `ghcr.io` |
-| Repository | `ghcr.io/<owner>/dmc-268-ui-t6` |
-| Auth CI (push/promote) | `GITHUB_TOKEN`, `packages: write` только на runner |
-| Auth staging pull | `GITHUB_TOKEN` с `packages: read`; credential удаляется после `docker pull` |
-| Теги | `:<git-sha>` + `@sha256:…` (deploy), `:staging` (текущий), `:staging-previous` (точка отката) |
+| Параметр               | Значение                                                                                      |
+| ---------------------- | --------------------------------------------------------------------------------------------- |
+| Host                   | `ghcr.io`                                                                                     |
+| Repository             | `ghcr.io/<owner>/dmc-268-ui-t6`                                                               |
+| Auth CI (push/promote) | `GITHUB_TOKEN`, `packages: write` только на runner                                            |
+| Auth staging pull      | `GITHUB_TOKEN` с `packages: read`; credential удаляется после `docker pull`                   |
+| Теги                   | `:<git-sha>` + `@sha256:…` (deploy), `:staging` (текущий), `:staging-previous` (точка отката) |
 
 Deploy и rollback на VM получают read-only token; promotion `:staging` выполняется отдельным job на GitHub runner **только после** успешного health check.
 
@@ -107,8 +107,8 @@ VM для UI поднимается Terraform-стеком `terraform/ui-staging
 
 `runs-on` вычисляется **до** запуска job, поэтому selector runner'а хранится на уровне **repository** или **organization**, а не Environment.
 
-| Variable | Где задать | Назначение |
-|---|---|---|
+| Variable         | Где задать                                                                           | Назначение                                                               |
+| ---------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
 | `STAGING_RUNNER` | Repository или Organization → Settings → Secrets and variables → Actions → Variables | JSON-массив labels runner'а, например `["self-hosted","staging-static"]` |
 
 Workflow использует `runs-on: ${{ fromJSON(vars.STAGING_RUNNER) }}` — каждый элемент массива становится отдельной label.
@@ -117,18 +117,18 @@ Workflow использует `runs-on: ${{ fromJSON(vars.STAGING_RUNNER) }}` �
 
 #### Secrets
 
-| Secret | Назначение |
-|---|---|
+| Secret            | Назначение                                        |
+| ----------------- | ------------------------------------------------- |
 | `STAGING_SSH_KEY` | приватный ключ к `hcloud_ssh_key.ci` из Terraform |
 
 #### Variables
 
-| Variable | Назначение |
-|---|---|
-| `STAGING_HOST` | IPv4 или FQDN из Terraform output `ssh_host` (стек `ui-staging`) |
-| `STAGING_SSH_USER` | пользователь с Docker (`root` после cloud-init) |
+| Variable                  | Назначение                                                        |
+| ------------------------- | ----------------------------------------------------------------- |
+| `STAGING_HOST`            | IPv4 или FQDN из Terraform output `ssh_host` (стек `ui-staging`)  |
+| `STAGING_SSH_USER`        | пользователь с Docker (`root` после cloud-init)                   |
 | `STAGING_SSH_FINGERPRINT` | SHA256 fingerprint хоста для appleboy `scp-action` / `ssh-action` |
-| `STAGING_HEALTH_URL` | необязательно; иначе `http://$STAGING_HOST/health` |
+| `STAGING_HEALTH_URL`      | необязательно; иначе `http://$STAGING_HOST/health`                |
 
 `GITHUB_TOKEN` выдаёт Actions сам — в репозиторий его не кладут.
 

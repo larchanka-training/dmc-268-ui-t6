@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       image:
-        description: "Image tag or digest. Leave empty to restore the previous successful deploy."
+        description: 'Image tag or digest. Leave empty to restore the previous successful deploy.'
         required: false
         type: string
       reason:
-        description: "Why staging is being rolled back"
+        description: 'Why staging is being rolled back'
         required: true
         type: string
 
