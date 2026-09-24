@@ -1,10 +1,10 @@
-id: "TC-02"
-title: "Hardcoded AWS Credentials"
-category: "SECURITY"
-expected_verdict: "REQUEST_CHANGES"
+id: 'TC-02'
+title: 'Hardcoded AWS Credentials'
+category: 'SECURITY'
+expected_verdict: 'REQUEST_CHANGES'
 expected_findings:
-  - file: "src/config.py"
+  - file: 'src/config.py'
     line_range: [14, 15]
-    severity: "CRITICAL"
-    defect_type: "secret_leak"
-    description: "Hardcoded AWS Access Key or Secret Key detected in source code."
+    severity: 'CRITICAL'
+    defect_type: 'secret_leak'
+    description: 'Hardcoded AWS Access Key or Secret Key detected in source code.'
