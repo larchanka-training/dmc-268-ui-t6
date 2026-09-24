@@ -258,7 +258,7 @@ jobs:
           key: ${{ steps.target.outputs.mode == 'terraform' && secrets.STAGING_SSH_KEY || '' }}
           password: ${{ steps.target.outputs.mode == 'course' && secrets.VPS_DMC268_P || '' }}
           fingerprint: ${{ vars.STAGING_SSH_FINGERPRINT }}
-          source: 'deploy/compose/staging.yml,deploy/scripts/provision.sh,deploy/scripts/deploy.sh,deploy/scripts/rollback.sh,deploy/scripts/healthcheck.sh'
+          source: 'deploy/compose/staging.yml,deploy/compose/staging.ports.yml,deploy/compose/staging.edge.yml,deploy/scripts/provision.sh,deploy/scripts/deploy.sh,deploy/scripts/rollback.sh,deploy/scripts/healthcheck.sh,deploy/scripts/env-file.sh'
           target: ${{ steps.target.outputs.app_dir }}
           strip_components: 2
 
@@ -283,7 +283,9 @@ jobs:
             set +o xtrace
             cd "${APP_DIR}"
             mv staging.yml compose.yml
-            chmod +x provision.sh deploy.sh rollback.sh healthcheck.sh
+            mv staging.ports.yml compose.ports.yml
+            mv staging.edge.yml compose.edge.yml
+            chmod +x provision.sh deploy.sh rollback.sh healthcheck.sh env-file.sh
             ./provision.sh
 
       - name: Deploy image
@@ -294,6 +296,8 @@ jobs:
           GHCR_USER: ${{ github.actor }}
           IMAGE: ${{ needs.push-image.outputs.image_ref }}
           APP_DIR: ${{ steps.target.outputs.app_dir }}
+          DEPLOY_MODE: ${{ steps.target.outputs.deploy_mode }}
+          EDGE_ALIAS: ${{ steps.target.outputs.edge_alias }}
         with:
           host: ${{ steps.target.outputs.host }}
           port: ${{ steps.target.outputs.port }}
@@ -302,7 +306,7 @@ jobs:
           password: ${{ steps.target.outputs.mode == 'course' && secrets.VPS_DMC268_P || '' }}
           fingerprint: ${{ vars.STAGING_SSH_FINGERPRINT }}
           debug: false
-          envs: GHCR_TOKEN,GHCR_USER,IMAGE,APP_DIR
+          envs: GHCR_TOKEN,GHCR_USER,IMAGE,APP_DIR,DEPLOY_MODE,EDGE_ALIAS
           script: |
             set -euo pipefail
             set +o xtrace
@@ -327,6 +331,8 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USER: ${{ github.actor }}
           APP_DIR: ${{ steps.target.outputs.app_dir }}
+          DEPLOY_MODE: ${{ steps.target.outputs.deploy_mode }}
+          EDGE_ALIAS: ${{ steps.target.outputs.edge_alias }}
         with:
           host: ${{ steps.target.outputs.host }}
           port: ${{ steps.target.outputs.port }}
@@ -335,7 +341,7 @@ jobs:
           password: ${{ steps.target.outputs.mode == 'course' && secrets.VPS_DMC268_P || '' }}
           fingerprint: ${{ vars.STAGING_SSH_FINGERPRINT }}
           debug: false
-          envs: GHCR_TOKEN,GHCR_USER,APP_DIR
+          envs: GHCR_TOKEN,GHCR_USER,APP_DIR,DEPLOY_MODE,EDGE_ALIAS
           script: |
             set -euo pipefail
             set +o xtrace
