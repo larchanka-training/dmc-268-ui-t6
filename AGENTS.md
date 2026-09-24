@@ -12,7 +12,7 @@ Vite 8, React 19, TypeScript 5 strict, Zod 4, Zustand 5, TanStack Query 5, antd 
 
 ## Non-negotiables
 
-<!-- SYNC: non-negotiables mirror .agents/rules/frontend.md §1 (Zod rule: §4) -->
+<!-- SYNC: mirrors .agents/rules/frontend.md §1 (Zod rule: §4); the rules file is authoritative — change both together -->
 
 - Always use pnpm for dependencies (never npm/yarn).
 - Never `--no-verify`.
@@ -25,7 +25,7 @@ Vite 8, React 19, TypeScript 5 strict, Zod 4, Zustand 5, TanStack Query 5, antd 
 
 ## Commands
 
-<!-- SYNC: commands table mirrors .agents/rules/frontend.md §2 -->
+<!-- SYNC: mirrors .agents/rules/frontend.md §2; the rules file is authoritative — change both together -->
 
 | Task         | Command                                                     | Source         |
 | ------------ | ----------------------------------------------------------- | -------------- |
@@ -50,7 +50,7 @@ only flow downward, `shared` never imports `entities`); details in
   `refactor`/`test`/`ci`/`perf`/`style` work), `deps-update-YYYY-MM-DD`, slug
   preferably `<issue>-<kebab-case>`.
 - Commits: Conventional Commits, reference the issue (`(#N)` in the subject
-  or `Refs #N` in the footer).
+  or `Refs #N` in the footer; `Refs owner/repo#N` for another repo's issue).
 - PR title: conventional, ≤72 characters.
 - PR body: `What` / `Why` / `How to verify` / `Refs`, in that order.
 - One approving review required before merge.

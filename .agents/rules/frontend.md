@@ -11,7 +11,7 @@
 
 ## 2. Commands
 
-<!-- SYNC: commands table mirrored in AGENTS.md § Commands -->
+<!-- SYNC: commands table mirrored in AGENTS.md § Commands — change both together -->
 
 | Task         | Command                                                     | Source         |
 | ------------ | ----------------------------------------------------------- | -------------- |
