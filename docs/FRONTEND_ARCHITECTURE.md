@@ -2,18 +2,18 @@
 
 |                     |                                                                                                                                                                 |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Статус              | **черновик на утверждение командой**                                                                                                                            |
+| Статус              | **утверждён**: PR #31 (approve 2026-09-19, смержен 2026-09-20); изменения — PR со строкой Ф-n в §0                                                              |
 | Владелец            | инженер 2, frontend-архитектура (роль 5)                                                                                                                        |
 | Связанные документы | [`SYSTEM_DESIGN.md`][sd] (роль 1, канон в `dmc-268-api-t6`), `BACKEND_ARCHITECTURE.md` / api PR #4 (роль 6, ERD), тулинг PR #26 (роль 4), инфра PR #28 (роль 3) |
 | Нумерация решений   | `Ф-1…` (frontend), не пересекается с `Р-n` [SD §1][sd-1]                                                                                                        |
 
 **Что это.** Документ фиксирует архитектуру клиента `dmc-268-ui-t6`: слои, состояние, UI-кит,
 контракт данных и требования к API, которые frontend выставляет backend'у до того, как тот
-готов. Каркас (папки, схемы, адаптеры, два виджета, мок) уже в ветке `17-frontend-architecture`;
+готов. Каркас (папки, схемы, адаптеры, два виджета, мок) уже в `main`;
 документ описывает то, что реализовано, и явно помечает, что осталось открытым.
 
-**Стек.** React 19.3.0, Vite 8.3.0 (rolldown), TypeScript 5.9.3 (TS 7 заблокирован peer-диапазоном
-typescript-eslint из PR #26), pnpm 12, antd 6.6.4, react-diff-view 3.3.3, Zod 4.6.5, Zustand 5.0.15,
+**Стек.** React 19.3.0, Vite 8.3.0 (rolldown), TypeScript 5.9.3 (бамп до 6.0.x — #49, до 7 — #47),
+pnpm 12, antd 6.6.4, react-diff-view 3.3.3, Zod 4.6.5, Zustand 5.0.15,
 TanStack Query 5.103.1, Vitest 5.0.1, jsdom 30.1.0, Testing Library 16.3.3. Версии — самые свежие
 стабильные на 2026-09-19, выбраны ролью 5 в отсутствие ответа команды (Ф-11).
 
@@ -199,7 +199,8 @@ sequenceDiagram
 
 Аргументы: `Tree`/`Collapse`/`Descriptions`/`Tag` закрывают инспектор прогонов без вёрстки с нуля
 (см. `RunHeader.tsx`, `ActionTree.tsx`); peer `react ≥ 18` — без бампа React; библиотека
-проверена в proof-run под jsdom (`docs/reports/proof-run.md`, (d)); высокая узнаваемость —
+проверена в proof-run роли 5 под jsdom (2026-09-18, п. (d); лабораторный отчёт, в репозиторий не
+входит); высокая узнаваемость —
 ревьюер видит стандартные паттерны, а не самодельные компоненты.
 
 Альтернатива — **Mantine 9.6.1** (peer `react ^19.2` — выполняется после бампа T10): не выбрана,
@@ -227,8 +228,8 @@ sequenceDiagram
   в `UiProvider`, в компонентах — `theme.useToken()`.
 - Layout — `*.module.css` рядом с компонентом; классы в camelCase (`styles.fileHeader`), классы antd
   переопределяются только через `:global(.ant-…)`. `stylelint.config.js` несёт override для
-  `**/*.module.css` (camelCase или `ant-*`, `:global`/`:local`, `composes`); обычные `.css` остаются
-  под kebab-case `stylelint-config-standard`.
+  `**/*.module.css`: camelCase, `ant-*` только внутри `:global(...)` (голый `.ant-btn` — ошибка
+  линта), `:local`, `composes`; обычные `.css` остаются под kebab-case `stylelint-config-standard`.
 
 Рассмотренные варианты:
 
@@ -303,10 +304,8 @@ Summary-only прогон (дифф больше 3 000 строк, Р-15 в [SD 
 
 ## 5. Требования к API
 
-Ниже — 10 пунктов, которые фронт выставляет backend'у. Текст ниже предназначен для публикации
-комментарием в PR #30 (`https://github.com/larchanka-training/dmc-268-ui-t6/pull/30`) и в api PR
-#4 (`https://github.com/larchanka-training/dmc-268-api-t6/pull/4`) — на момент написания документа
-комментарии ещё **не отправлены**, требуется отдельное решение о публикации.
+Ниже — 10 пунктов, которые фронт выставляет backend'у. Текст опубликован 2026-09-18
+комментариями в [PR #30][req-ui-30] и [api PR #4][req-api-4].
 
 **Статус на 2026-09-24.** Техлид принял требования и внёс их в [SD][sd] (api PR #15, решения —
 api#19): п. 2, 4, 6, 7, 8, 9 — в [§12][sd-12]; п. 10 — в [§2][sd-2], [§12][sd-12] и [§14][sd-14] (UI —
@@ -324,7 +323,7 @@ attempt/cancelRequested/startedAt/finishedAt/errorCode` из `runs`, `model` и�
 4. `GET /api/runs/{id}/diff` возвращает `RawFileDiff[]`; `patch` — вывод `git diff` на файл,
    обязан начинаться со строки `diff --git a/<path> b/<path>` и содержать `---`/`+++` — без них
    `gitdiff-parser` не привязывает hunks к файлу (подтверждено чтением исходника и proof-run,
-   `docs/reports/proof-run.md`, (a)). — роль 6.
+   п. (a)). — роль 6.
 5. `GET /api/runs/{id}/comments` возвращает `ReviewComment[]`; `side/line_start` → `oldLine/
 newLine` (`RIGHT→newLine`, `LEFT→oldLine`), `line_end → endLine`. — роль 6.
 6. `GET /api/runs/{id}/actions` возвращает `RunAction[]`; `response` инлайн ≤ 64 КБ, иначе —
@@ -343,8 +342,8 @@ newLine` (`RIGHT→newLine`, `LEFT→oldLine`), `line_end → endLine`. — ро
 
 Координация с ролями 3 и 4 (не входит в 10 пунктов выше, отдельные заметки):
 
-- роль 4 (PR #26): `src/vite-env.d.ts` уже в репозитории; `@types/node` в `tsconfig.node.json`
-  понадобится для чтения `PORT` из `process.env` в `vite.config.ts` — после мержа #26;
+- роль 4: `@types/node` в `tsconfig.node.json` понадобится для чтения `PORT` из `process.env` в
+  `vite.config.ts` — follow-up (§11);
 - роль 3 (PR #28): `docker/nginx.conf` сейчас не проксирует `/api/` и `/api/stream`; при
   `VITE_API_BASE_URL=/api` (same-origin) нужен `location /api/ { proxy_pass …; proxy_buffering
 off; }` для SSE, либо в документе фиксируется cross-origin вариант с CORS на бэкенде — решить с
@@ -497,7 +496,7 @@ issue прямо выносит подключение логирования з
 `/api`) — same-origin по умолчанию, требует на проде `location /api/` в nginx (координация с
 ролью 3, см. §5). `PORT` для dev/preview — **зафиксированное в этом документе требование**, не
 код: чтение `process.env.PORT` в `vite.config.ts` нуждается в `@types/node` в
-`tsconfig.node.json`, который меняет роль 4 (PR #26) — follow-up после его мержа (§11). Прод-порт
+`tsconfig.node.json` — follow-up (§11). Прод-порт
 — зона ответственности инфры (роль 3, PR #28, сейчас `:8080` захардкожен).
 
 **Роутер.** Назван **react-router 8** (8.4.0, peer react ≥ 19.2.7 — выполняется), не установлен —
@@ -515,17 +514,16 @@ issue прямо выносит подключение логирования з
 - `groupActions` на 34-действенной Duo-фикстуре — ожидание 6 узлов (2 группы: `get_tree`×19,
   `get_blob`×11 + 4 одиночных: `get_pull_request`×2, `get_diff`, `post_review`);
 - `src/app/mocks/app-state.test.ts` — валидация всего мока схемами;
-- 2 smoke-теста под jsdom: `DiffViewer.test.tsx`, `RunInspector.test.tsx`.
+- тесты компонентов под jsdom: `DiffViewer.test.tsx`, `RunDiff.test.tsx`, `RunInspector.test.tsx`.
 
-Команды: `pnpm test` (запускает `vitest run`, работает уже сейчас). Итого 83 теста в 16 файлах
-(`pnpm test`, 2026-09-18). После мержа PR #26 добавляются `pnpm lint`, `pnpm check-types`,
-`pnpm build` — они настраиваются ролью 4, в этой ветке не выполняются.
+Гейты (`AGENTS.md`): `pnpm lint`, `pnpm check-types`, `pnpm format:check`, `pnpm test` (`vitest run`),
+`pnpm build`. Итого 97 тестов в 17 файлах (`pnpm test`, 2026-09-24).
 
 Vitest настроен без `globals`, поэтому RTL не чистит DOM сама — в jsdom-тестах (`DiffViewer.test.tsx`,
-`RunInspector.test.tsx`) `afterEach(cleanup)` вызывается явно.
+`RunDiff.test.tsx`, `RunInspector.test.tsx`) `afterEach(cleanup)` вызывается явно.
 
-jsdom-стабы (`src/test/setup.ts`, подключён через `test.setupFiles` в `vite.config.ts`,
-`docs/reports/proof-run.md`, (d)): `window.matchMedia` (нужен `Descriptions`/`useBreakpoint`
+jsdom-стабы (`src/test/setup.ts`, подключён через `test.setupFiles` в `vite.config.ts`;
+proof-run, п. (d)): `window.matchMedia` (нужен `Descriptions`/`useBreakpoint`
 antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-list`) — jsdom 30.1.0 их не
 предоставляет.
 
@@ -533,11 +531,9 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
 
 ## 11. Открытые вопросы / follow-ups
 
-- **TypeScript 7** — когда typescript-eslint снимет peer `<6.1.0` (роль 4).
-- **После мержа #26** — rebase, единый набор пинов (предложение в #26).
+- **TypeScript 7** — #47 (ждёт поддержки TS 7 в typescript-eslint); промежуточный бамп до 6.0.x — #49.
 - **`steiger`** — FSD-линтер, форматирует нарушения правил §1 автоматически; не подключён.
-- **`PORT` в `vite.config.ts`** — код после мержа PR #26 и добавления `@types/node` в
-  `tsconfig.node.json` (роль 4).
+- **`PORT` в `vite.config.ts`** — нужен `@types/node` в `tsconfig.node.json` (роль 4); не сделано.
 - **SSE-мост** (§2) — `EventSource`-подписка и `invalidateQueries` не реализованы, только
   спроектированы.
 - **Fetch-клиент и авторизация** — JWT/OAuth ([SD §12][sd-12]: `POST /auth/github/callback` → JWT,
@@ -550,8 +546,6 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
 - **`POST /api/runs/{id}/rerun`** — есть в [SD §12][sd-12], отсутствует в `src/shared/api/endpoints.ts`
   (`endpoints.runs` содержит только `cancel`) — добавить эндпоинт в контракт до реализации UI
   повторного запуска.
-- **Ребейз после мержа #26** — тулинг (ESLint/Prettier/Stylelint/Husky/pnpm-lock) изменит файлы
-  конфигурации; после мержа — ребейз ветки и регенерация lockfile.
 
 ---
 
@@ -559,25 +553,25 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
 
 | Пункт AC/DoD issue #17                                                                  | Где в этом документе / коде                                                  |
 | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `FRONTEND_ARCHITECTURE.md` подан пул-реквестом                                          | этот файл, ветка `17-frontend-architecture`                                  |
+| `FRONTEND_ARCHITECTURE.md` подан пул-реквестом                                          | этот файл, PR #31                                                            |
 | Структура слоёв обоснована, есть схема и правила зависимостей                           | §1                                                                           |
 | Разделение состояния: Zustand vs серверный кэш, TanStack Query — дополнение, не замена  | §2                                                                           |
 | UI-кит назван и обоснован, альтернатива рассмотрена, выбор — на команду                 | §3; выбор подтверждён техлидом в #46 — Ф-2                                   |
 | Zod-схемы `DiffLine`, `FileDiff`, `ReviewComment`, `RunSession`, `RunAction` выписаны   | §4; код — `src/entities/{diff,review,run}/model/schemas.ts`                  |
-| Отдельный раздел с требованием к API, передан ролям 6 и 1                               | §5 (публикация комментариев — открыта, см. §5)                               |
+| Отдельный раздел с требованием к API, передан ролям 6 и 1                               | §5; опубликовано комментариями в PR #30 и api PR #4                          |
 | Компоненты просмотрщика диффа: подсветка, инлайн-комментарий, дозагрузка контекста      | §6; код — `src/widgets/diff-viewer/`                                         |
 | Инспектор прогонов: шапка, дерево, схлопывание, статусы queued/running/succeeded/failed | §7; код — `src/widgets/run-inspector/` (статусов фактически 7, см. §4 и Ф-3) |
 | Мок состояния приложения с заполненными данными                                         | §8; код — `src/app/mocks/app-state.ts`                                       |
 | Базовые компоненты для кодовых блоков и диффов (или структура папок)                    | §6, §1 (дерево `src/widgets/diff-viewer/`)                                   |
 | Логирование фронтенда названо, конфигурация через env зафиксирована                     | §9                                                                           |
-| Пул-реквест отревьюен минимум одним участником команды                                  | вне PR — организационный шаг                                                 |
-| `FRONTEND_ARCHITECTURE.md` смержен в `main`                                             | вне PR — организационный шаг                                                 |
-| Базовые компоненты/структура папок для диффов в репозитории                             | код на ветке, см. §1                                                         |
+| Пул-реквест отревьюен минимум одним участником команды                                  | PR #31: approve `createunix` 2026-09-19                                      |
+| `FRONTEND_ARCHITECTURE.md` смержен в `main`                                             | PR #31, 2026-09-20                                                           |
+| Базовые компоненты/структура папок для диффов в репозитории                             | `src/widgets/diff-viewer/`, см. §1                                           |
 | Мок состояния в репозитории                                                             | `src/app/mocks/app-state.ts`                                                 |
-| ПР отревьюен, замечания учтены/отклонены в треде                                        | вне PR                                                                       |
-| Требование к API диффа передано ролям 6 и 1 письменно                                   | §5 — текст готов, публикация не решена                                       |
-| Линтеры и сборка проходят на ветке (в объёме, настроенном ролью 4)                      | вне PR — зависит от мержа PR #26                                             |
-| Статус задачи в Projects #12 обновлён                                                   | вне PR                                                                       |
+| ПР отревьюен, замечания учтены/отклонены в треде                                        | PR #31: approve без замечаний, тредов нет                                    |
+| Требование к API диффа передано ролям 6 и 1 письменно                                   | §5; комментарии в PR #30 и api PR #4 (2026-09-18)                            |
+| Линтеры и сборка проходят на ветке (в объёме, настроенном ролью 4)                      | проходят в `main` — гейты §10                                                |
+| Статус задачи в Projects #12 обновлён                                                   | issue #17 закрыт 2026-09-20, в Projects — Done                               |
 | Решения, требующие консенсуса (UI-кит, стилевая парадигма), вынесены на команду         | вынесены в #46, решены техлидом 2026-09-24 — Ф-2, Ф-13 (§0, §3)              |
 
 [sd]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md
@@ -591,3 +585,5 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
 [tl-2026-09-24]: https://github.com/larchanka-training/dmc-268-api-t6/issues/19#issuecomment-5813179201
 [tl-2026-09-24-10]: https://github.com/larchanka-training/dmc-268-api-t6/issues/19#issuecomment-5817060000
 [tl-2026-09-24-46]: https://github.com/larchanka-training/dmc-268-ui-t6/issues/46#issuecomment-5819780647
+[req-ui-30]: https://github.com/larchanka-training/dmc-268-ui-t6/pull/30#issuecomment-5725153632
+[req-api-4]: https://github.com/larchanka-training/dmc-268-api-t6/pull/4#issuecomment-5725153769
