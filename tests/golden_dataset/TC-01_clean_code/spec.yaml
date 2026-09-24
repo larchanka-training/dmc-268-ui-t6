@@ -1,5 +1,5 @@
-id: "TC-01"
-title: "Clean Code Refactoring"
-category: "CLEAN_MR"
-expected_verdict: "APPROVE"
+id: 'TC-01'
+title: 'Clean Code Refactoring'
+category: 'CLEAN_MR'
+expected_verdict: 'APPROVE'
 expected_findings: []

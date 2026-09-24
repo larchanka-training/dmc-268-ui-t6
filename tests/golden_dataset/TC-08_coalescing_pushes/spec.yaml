@@ -1,13 +1,13 @@
-id: "TC-08"
-title: "Coalescing Rapid Pushes (P-2)"
-category: "INFRASTRUCTURE_COALESCING"
-architecture_rule: "P-2"
-coalescing_key: "(installation_id, repo_id, pr_number)"
+id: 'TC-08'
+title: 'Coalescing Rapid Pushes (P-2)'
+category: 'INFRASTRUCTURE_COALESCING'
+architecture_rule: 'P-2'
+coalescing_key: '(installation_id, repo_id, pr_number)'
 expected_events:
-  - sha: "sha_1"
-    expected_status: "cancelled"
-  - sha: "sha_2"
-    expected_status: "cancelled"
-  - sha: "sha_3"
-    expected_status: "succeeded"
+  - sha: 'sha_1'
+    expected_status: 'cancelled'
+  - sha: 'sha_2'
+    expected_status: 'cancelled'
+  - sha: 'sha_3'
+    expected_status: 'succeeded'
 expected_reviews_count: 1

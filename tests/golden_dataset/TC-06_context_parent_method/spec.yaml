@@ -1,6 +1,6 @@
-id: "TC-06"
-title: "Context-Aware Method Resolution"
-category: "CONTEXT_AWARENESS"
-expected_verdict: "APPROVE"
+id: 'TC-06'
+title: 'Context-Aware Method Resolution'
+category: 'CONTEXT_AWARENESS'
+expected_verdict: 'APPROVE'
 expected_findings: []
-notes: "validate_schema is defined on parent BaseController above the diff. Reviewer must not report missing method."
+notes: 'validate_schema is defined on parent BaseController above the diff. Reviewer must not report missing method.'
