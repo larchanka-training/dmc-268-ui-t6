@@ -1,8 +1,4 @@
-# DRAFT proposed by role 7 (issue #18) — role 1 owns `AGENTS.md`; this file is NOT `AGENTS.md`
-
-Frontend variant — the api repo carries its own draft at the same path. Role 1: copy the
-sections below this header, from `## Project` through `## What NOT to do`, into the root
-`AGENTS.md` of `dmc-268-ui-t6`; the DRAFT header and `## Note for role 1` stay out of it.
+# AGENTS.md — dmc-268-ui-t6
 
 ## Project
 
@@ -62,10 +58,15 @@ only flow downward, `shared` never imports `entities`); details in
 
 ## Where the details live
 
+- `.agents/README.md` — layout, harness matrix, sync map.
 - `.agents/rules/` — stack and git-workflow rules.
 - `.agents/skills/` — agent skills (agent-loop, code-review, tdd,
   pull-request, planning-and-task-breakdown, qa, e2e-test, manual-automation).
+- `.agents/agents/` — agent definitions.
 - `.agents/templates/` — code/test templates with proof blocks.
+- `docs/FRONTEND_ARCHITECTURE.md` — FSD conventions in full.
+- [`SYSTEM_DESIGN.md`](https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md) —
+  product architecture (`dmc-268-api-t6`, `main`).
 
 ## What NOT to do
 
@@ -75,7 +76,3 @@ only flow downward, `shared` never imports `entities`); details in
 - Do not import sideways or upward across FSD layers.
 - Do not skip the gates (`pnpm lint`, `pnpm check-types`, `pnpm format:check`,
   `pnpm test`, `pnpm build`) before claiming a task done.
-
-## Note for role 1
-
-`CLAUDE.md` should be the single line `@AGENTS.md`.
