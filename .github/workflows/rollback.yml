@@ -277,6 +277,26 @@ jobs:
             chmod +x provision.sh deploy.sh rollback.sh healthcheck.sh env-file.sh
             ./provision.sh
 
+      - name: Wait for the edge certificate
+        if: steps.target.outputs.deploy_mode == 'edge'
+        env:
+          BASE_URL: ${{ steps.target.outputs.base_url }}
+        run: |
+          # On a first run Let's Encrypt may still be issuing the edge certificates, which can outlast
+          # the health check window (in CI/CD a failed health check triggers an automatic rollback).
+          # Wait here, before any app change, until the TLS handshake succeeds (any HTTP status, 502
+          # included).
+          deadline=$((SECONDS + 180))
+          until curl -s -o /dev/null --max-time 10 "${BASE_URL}/"; do
+            if (( SECONDS >= deadline )); then
+              echo "no valid TLS certificate for ${BASE_URL} after 180 s; check DNS and the edge proxy (API repo) logs" >&2
+              curl -sS -o /dev/null --max-time 10 "${BASE_URL}/" || true
+              exit 1
+            fi
+            sleep 5
+          done
+          echo "TLS handshake with ${BASE_URL} succeeded"
+
       - name: Rollback
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         env:
@@ -308,7 +328,23 @@ jobs:
         id: health
         env:
           HEALTH_URL: ${{ steps.target.outputs.health_url }}
+          BASE_URL: ${{ steps.target.outputs.base_url }}
+          BOOTSTRAP: ${{ steps.digest.outputs.bootstrap }}
         run: |
+          if [[ "${BOOTSTRAP}" == "true" ]]; then
+            # The bootstrap nginx has no /health; it must answer 200 on /.
+            url="${BASE_URL}/"
+            if ! code="$(curl -fsS -o /dev/null -w '%{http_code}' --retry 12 --retry-delay 5 --retry-all-errors --max-time 5 "${url}")"; then
+              echo "bootstrap check failed on ${url} (HTTP ${code:-none})" >&2
+              exit 1
+            fi
+            if [[ "${code}" != "200" ]]; then
+              echo "bootstrap returned HTTP ${code} on ${url}, expected 200" >&2
+              exit 1
+            fi
+            echo "bootstrap check passed: HTTP ${code} on ${url}"
+            exit 0
+          fi
           chmod +x deploy/scripts/healthcheck.sh
           deploy/scripts/healthcheck.sh "${HEALTH_URL}"
 
