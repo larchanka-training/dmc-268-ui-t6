@@ -1,0 +1,14 @@
+# Shared course VPS: no host port. The UI joins the edge proxy network (deployed by the API
+# repo) as EDGE_ALIAS (<service>-<env>, e.g. ui-staging); the proxy dials <alias>:8080. The UI
+# is a single service, so it needs no project network of its own.
+services:
+  ui:
+    networks:
+      edge:
+        aliases:
+          - ${EDGE_ALIAS:?EDGE_ALIAS is required}
+
+networks:
+  edge:
+    name: dmc268-edge
+    external: true

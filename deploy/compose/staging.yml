@@ -1,10 +1,9 @@
-name: dmc-268-ui
-
+# Base stack. The project name comes from deploy.sh (-p <app dir basename>), the published port
+# or the edge network from an override: compose.ports.yml (dedicated host) or compose.edge.yml
+# (course VPS).
 services:
   ui:
     image: ${IMAGE:?IMAGE is required}
-    ports:
-      - '80:8080'
     restart: unless-stopped
     pull_policy: always
     healthcheck:
