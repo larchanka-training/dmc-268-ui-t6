@@ -14,6 +14,32 @@ describe('endpoints', () => {
     expect(endpoints.runs.cancel('x').method).toBe('POST')
   })
 
+  it('builds auth endpoints correctly', () => {
+    expect(endpoints.auth.githubCallback()).toEqual({
+      method: 'POST',
+      path: '/auth/github/callback',
+    })
+    expect(endpoints.auth.me()).toEqual({
+      method: 'GET',
+      path: '/auth/me',
+    })
+  })
+
+  it('builds repository endpoints correctly', () => {
+    expect(endpoints.repos.list()).toEqual({
+      method: 'GET',
+      path: '/repos',
+    })
+    expect(endpoints.repos.connect()).toEqual({
+      method: 'POST',
+      path: '/repos',
+    })
+    expect(endpoints.repos.update('repo-123')).toEqual({
+      method: 'PATCH',
+      path: '/repos/repo-123',
+    })
+  })
+
   it('resolves a URL against a base with a trailing slash', () => {
     expect(resolveUrl('/api/', endpoints.stream())).toBe('/api/stream')
   })
