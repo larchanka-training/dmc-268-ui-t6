@@ -11,7 +11,7 @@
 
 ## 2. Commands
 
-<!-- SYNC: commands table mirrored in .agents/proposals/agents-md-draft.md § Commands -->
+<!-- SYNC: commands table mirrored in AGENTS.md § Commands -->
 
 | Task         | Command                                                     | Source         |
 | ------------ | ----------------------------------------------------------- | -------------- |
@@ -94,7 +94,6 @@ slice imports (§3) are not linted; check them by hand in every review.
 - [`SYSTEM_DESIGN.md`][sd] — product architecture (`dmc-268-api-t6`, `main`).
 - `docs/FRONTEND_ARCHITECTURE.md` — FSD conventions in full.
 - `.agents/skills/` — skill catalog (frontmatter contract in `.agents/README.md`).
-- `AGENTS.md` (pending role 1) — cross-tool entry point; see
-  `.agents/proposals/agents-md-draft.md` for the draft.
+- `AGENTS.md` — cross-tool entry point (decided in #32).
 
 [sd]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md
