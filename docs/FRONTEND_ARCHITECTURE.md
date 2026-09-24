@@ -1,11 +1,11 @@
 # FRONTEND_ARCHITECTURE — AI Code Reviewer (команда 6)
 
-|                     |                                                                                                                                 |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Статус              | **черновик на утверждение командой**                                                                                            |
-| Владелец            | инженер 2, frontend-архитектура (роль 5)                                                                                        |
-| Связанные документы | `SYSTEM_DESIGN.md` (роль 1), `BACKEND_ARCHITECTURE.md` / api PR #4 (роль 6, ERD), тулинг PR #26 (роль 4), инфра PR #28 (роль 3) |
-| Нумерация решений   | `Ф-1…` (frontend), не пересекается с `Р-n` SD                                                                                   |
+|                     |                                                                                                                                                                 |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Статус              | **черновик на утверждение командой**                                                                                                                            |
+| Владелец            | инженер 2, frontend-архитектура (роль 5)                                                                                                                        |
+| Связанные документы | [`SYSTEM_DESIGN.md`][sd] (роль 1, канон в `dmc-268-api-t6`), `BACKEND_ARCHITECTURE.md` / api PR #4 (роль 6, ERD), тулинг PR #26 (роль 4), инфра PR #28 (роль 3) |
+| Нумерация решений   | `Ф-1…` (frontend), не пересекается с `Р-n` [SD §1][sd-1]                                                                                                        |
 
 **Что это.** Документ фиксирует архитектуру клиента `dmc-268-ui-t6`: слои, состояние, UI-кит,
 контракт данных и требования к API, которые frontend выставляет backend'у до того, как тот
@@ -25,14 +25,14 @@ TanStack Query 5.103.1, Vitest 5.0.1, jsdom 30.1.0, Testing Library 16.3.3. Ве
 | ---- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
 | Ф-1  | FSD (lite) вместо Clean Architecture                                                                                     | UI-клиент без доменной логики; FSD — фронтенд-реализация чистой архитектуры (лекция), см. §1.                                      |
 | Ф-2  | UI-кит antd 6.6.4                                                                                                        | Tree/Collapse/Descriptions из коробки, peer react ≥ 18, проверено proof-run; подтверждение командой — §3.                          |
-| Ф-3  | RunStatus — 7 значений (`completed` вместо `succeeded`, + `publishing/cancelled/skipped`)                                | UI «зависание/retry/отмена»; согласовано с ERD роли 6 и SD §6.4.                                                                   |
+| Ф-3  | RunStatus — 7 значений (`completed` вместо `succeeded`, + `publishing/cancelled/skipped`)                                | UI «зависание/retry/отмена»; согласовано с ERD роли 6 и [SD §6.4][sd-6.4].                                                         |
 | Ф-4  | `RunAction.response \| null` + `responseRef`                                                                             | тела инструментов > 64 КБ выносятся отдельным запросом.                                                                            |
-| Ф-5  | Внешний ключ `runId`, тип `RunSession`                                                                                   | одно имя во всём контракте (`ReviewJob`/`Run`/`RunSession` в SD — одна сущность).                                                  |
+| Ф-5  | Внешний ключ `runId`, тип `RunSession`                                                                                   | одно имя во всём контракте (`ReviewJob`/`Run`/`RunSession` в [SD][sd] — одна сущность).                                            |
 | Ф-6  | Привязка комментария — пара `oldLine \| null` / `newLine \| null`                                                        | бэкенд мапит `side/line_start`; ключ виджета выводится из пары (§6).                                                               |
 | Ф-7  | TanStack Query — серверный кэш; Zustand — UI-состояние, стор живёт в виджете                                             | `shared` не знает о домене; SSE → invalidateQueries (§2).                                                                          |
 | Ф-8  | Дифф по проводу — сырой unified diff на файл; парсинг клиентом за адаптером                                              | замена diff-библиотеки = замена одного адаптера (§6).                                                                              |
-| Ф-9  | Новый эндпоинт `GET /api/runs/{id}/files?path&offset&limit`                                                              | дочитывание контекста порциями; в SD пути нет (§5, п. 7).                                                                          |
-| Ф-10 | JSON на проводе — camelCase                                                                                              | Zod-схемы фронта — источник истины — SD §12 L597; иначе трансформер на каждом ответе.                                              |
+| Ф-9  | Новый эндпоинт `GET /api/runs/{id}/files?path&offset&limit`                                                              | дочитывание контекста порциями; в [SD §12][sd-12] пути нет (§5, п. 7).                                                             |
+| Ф-10 | JSON на проводе — camelCase                                                                                              | Zod-схемы фронта — источник истины — [SD §12][sd-12]; иначе трансформер на каждом ответе.                                          |
 | Ф-11 | Самые свежие стабильные версии (React 19.3, Vite 8.3, Vitest 5.0, TS 5.9) — решение роли 5 при отсутствии ответа команды | peer-совместимость проверена по npm registry; TS 7 держит typescript-eslint; расхождения с PR #26/#33 — предложениями в их тредах. |
 | Ф-12 | react-router 8 / Mantine 9 только названы, не установлены                                                                | экранов в спринте нет (non-goal); React 19.3 их peer-требования (≥ 19.2) выполняет.                                                |
 
@@ -60,9 +60,9 @@ flowchart TD
 - файл компонента экспортирует только компоненты — следствие `react-refresh` (тулинг PR #26):
   вспомогательные функции и типы выносятся в соседние `lib`/`model` файлы.
 
-Область SD §2 → срез FSD (в этом спринте реализованы две из пяти):
+Область [SD §2][sd-2] → срез FSD (в этом спринте реализованы две из пяти):
 
-| Область SD §2                                    | Срез                                                      |
+| Область [SD §2][sd-2]                            | Срез                                                      |
 | ------------------------------------------------ | --------------------------------------------------------- |
 | Карточка прогона с диффом и инлайн-комментариями | `entities/diff`, `entities/review`, `widgets/diff-viewer` |
 | Инспектор трейса (`RunSession → RunAction`)      | `entities/run`, `widgets/run-inspector`                   |
@@ -267,16 +267,16 @@ ReviewComment = { id, file, oldLine, newLine, endLine, body, ruleName,
 
 Отклонения от схем issue:
 
-| Поле issue                       | Стало                                                       | Причина                                                                                 |
-| -------------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `RunSession.status` — 4 значения | 7 значений                                                  | статусы `publishing`/`cancelled`/`skipped` нужны UI; согласовано с ERD роли 6 и SD §6.4 |
-| `RunSession.agent`               | `engine: 'fast'\|'deep'`                                    | ERD роли 6 называет поле `Engine`; «agent» — термин из Duo, не наш домен                |
-| `RunSession.jobId`               | удалено                                                     | в системе job = run, поле дублировало бы `id`                                           |
-| `RunSession` +                   | `attempt`, `cancelRequested`, `errorCode`                   | статусы «зависание/retry/отмена» из issue §6 не выразить без этих полей                 |
-| `RunAction.sessionId`            | `runId`                                                     | единое имя внешнего ключа во всём контракте                                             |
-| `RunAction.response`             | `response \| null` + `responseRef`                          | тела ответов инструментов > 64 КБ выносятся отдельным запросом                          |
-| `ReviewComment` +                | `endLine`, `severity`, `category`, `title`                  | поля есть в ERD роли 6 (`Finding`); UI показывает severity в списке                     |
-| — (новые типы)                   | `RawFileDiff`, `FileSlice`, `RunListPage`, `PullRequestRef` | провод диффа, пагинация списка, дочитывание контекста                                   |
+| Поле issue                       | Стало                                                       | Причина                                                                                           |
+| -------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `RunSession.status` — 4 значения | 7 значений                                                  | статусы `publishing`/`cancelled`/`skipped` нужны UI; согласовано с ERD роли 6 и [SD §6.4][sd-6.4] |
+| `RunSession.agent`               | `engine: 'fast'\|'deep'`                                    | ERD роли 6 называет поле `Engine`; «agent» — термин из Duo, не наш домен                          |
+| `RunSession.jobId`               | удалено                                                     | в системе job = run, поле дублировало бы `id`                                                     |
+| `RunSession` +                   | `attempt`, `cancelRequested`, `errorCode`                   | статусы «зависание/retry/отмена» из issue §6 не выразить без этих полей                           |
+| `RunAction.sessionId`            | `runId`                                                     | единое имя внешнего ключа во всём контракте                                                       |
+| `RunAction.response`             | `response \| null` + `responseRef`                          | тела ответов инструментов > 64 КБ выносятся отдельным запросом                                    |
+| `ReviewComment` +                | `endLine`, `severity`, `category`, `title`                  | поля есть в ERD роли 6 (`Finding`); UI показывает severity в списке                               |
+| — (новые типы)                   | `RawFileDiff`, `FileSlice`, `RunListPage`, `PullRequestRef` | провод диффа, пагинация списка, дочитывание контекста                                             |
 
 ---
 
@@ -287,9 +287,9 @@ ReviewComment = { id, file, oldLine, newLine, endLine, body, ruleName,
 #4 (`https://github.com/larchanka-training/dmc-268-api-t6/pull/4`) — на момент написания документа
 комментарии ещё **не отправлены**, требуется отдельное решение о публикации.
 
-1. JSON на проводе — camelCase; Zod-схемы фронта источник истины (SD §12, L597). — роль 6.
+1. JSON на проводе — camelCase; Zod-схемы фронта источник истины ([SD §12][sd-12]). — роль 6.
 2. `GET /api/runs?status&repo&cursor` возвращает `RunListPage` (конверт с `nextCursor`), а не голый
-   массив — поправка к SD §12 (L602 сейчас указывает `RunSession[]`). — роль 1.
+   массив — поправка к [SD §12][sd-12] (там сейчас `RunSession[]`). — роль 1.
 3. `GET /api/runs/{id}` возвращает `RunSession`, собранный из ERD роли 6: `id/status/engine/
 attempt/cancelRequested/startedAt/finishedAt/errorCode` из `runs`, `model` из последнего
    `UsageEvent.model`, `actionCount` из `count(run_actions)`, `pullRequest` из `code_changes`. —
@@ -305,13 +305,14 @@ newLine` (`RIGHT→newLine`, `LEFT→oldLine`), `line_end → endLine`. — ро
 7. Новый эндпоинт `GET /api/runs/{id}/files?path&offset&limit` → `FileSlice` для дочитывания
    контекста; для прогонов старше TTL blob-кэша — `404`/`410`, UI покажет «контекст недоступен». —
    роль 6.
-8. Статусы в DTO: `succeeded → completed`; `publishing` добавить в SD §12; `POST /cancel` отдаёт
+8. Статусы в DTO: `succeeded → completed`; `publishing` добавить в [SD §12][sd-12]; `POST /cancel` отдаёт
    `RunSession` со `status: cancelled` или `cancelRequested: true`. — роль 1 и роль 6.
 9. `GET /api/stream` (SSE `run.updated`) — payload минимум `{ runId, status }`. — роль 6.
-10. Неточности SD, которые нужно поправить или подтвердить: §2 (L39) «фронт не парсит дифф» — фронт
-    парсит библиотекой (`react-diff-view`) за адаптером, а не вручную; терминология `ReviewJob`
-    (§11) / `Run` (ERD роли 6) / `RunSession` (§2, §12) — зафиксировать как одну и ту же сущность;
-    §14 (caddy) расходится с PR #28 (nginx) — уточнить прод-раздачу. — роль 1.
+10. Неточности [SD][sd], которые нужно поправить или подтвердить: [§2][sd-2] «фронт не парсит
+    дифф» — фронт парсит библиотекой (`react-diff-view`) за адаптером, а не вручную; терминология
+    `ReviewJob` ([§11][sd-11]) / `Run` (ERD роли 6) / `RunSession` ([§2][sd-2], [§12][sd-12]) —
+    зафиксировать как одну и ту же сущность; [§14][sd-14] (caddy) расходится с PR #28 (nginx) —
+    уточнить прод-раздачу. — роль 1.
 
 Координация с ролями 3 и 4 (не входит в 10 пунктов выше, отдельные заметки):
 
@@ -402,7 +403,7 @@ next.newStart - startLine }`; хвостовой зазор после посл�
 `completed → success`, `failed → error`, `cancelled → warning`, `skipped → default`.
 
 «Зависший» `running` — `isStaleRunning`: `status === 'running'`, `finishedAt === null`,
-`startedAt` старше 10 минут (`STALE_RUNNING_MS`) — порог совпадает с порогом реконсилера в SD §6.4
+`startedAt` старше 10 минут (`STALE_RUNNING_MS`) — порог совпадает с порогом реконсилера в [SD §6.4][sd-6.4]
 (`queued` старше 10 мин без сообщения → повтор публикации).
 
 Хуки под cancel/retry в контракте уже есть, UI для них — вне спринта: `cancelRequested: boolean`
@@ -497,12 +498,12 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
   `tsconfig.node.json` (роль 4).
 - **SSE-мост** (§2) — `EventSource`-подписка и `invalidateQueries` не реализованы, только
   спроектированы.
-- **Fetch-клиент и авторизация** — JWT/OAuth (SD §12: `POST /auth/github/callback` → JWT,
+- **Fetch-клиент и авторизация** — JWT/OAuth ([SD §12][sd-12]: `POST /auth/github/callback` → JWT,
   `Authorization: Bearer` на всех `/api/*`) — в этом документе описаны как слой, который появится
   над `entities/*/api`, код не написан.
-- **Экраны 3–5** (репозитории, правила, метрики) — области SD §2, не реализованные в этом
+- **Экраны 3–5** (репозитории, правила, метрики) — области [SD §2][sd-2], не реализованные в этом
   спринте; `src/pages/` содержит только плейсхолдеры для двух реализованных областей.
-- **`POST /api/runs/{id}/rerun`** — есть в SD §12, отсутствует в `src/shared/api/endpoints.ts`
+- **`POST /api/runs/{id}/rerun`** — есть в [SD §12][sd-12], отсутствует в `src/shared/api/endpoints.ts`
   (`endpoints.runs` содержит только `cancel`) — добавить эндпоинт в контракт до реализации UI
   повторного запуска.
 - **Ребейз после мержа #26** — тулинг (ESLint/Prettier/Stylelint/Husky/pnpm-lock) изменит файлы
@@ -534,3 +535,11 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
 | Линтеры и сборка проходят на ветке (в объёме, настроенном ролью 4)                      | вне PR — зависит от мержа PR #26                                             |
 | Статус задачи в Projects #12 обновлён                                                   | вне PR                                                                       |
 | Решения, требующие консенсуса (UI-кит, стилевая парадигма), вынесены на команду         | §3, оба callout'а «Требует решения команды»                                  |
+
+[sd]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md
+[sd-1]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md#1-решения
+[sd-2]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md#2-границы-ответственности
+[sd-6.4]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md#64-состояния-run
+[sd-11]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md#11-данные-согласование-с-erd-роли-6
+[sd-12]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md#12-контракт-api--ui
+[sd-14]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md#14-развёртывание-v1

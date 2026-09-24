@@ -49,7 +49,7 @@ MCP tools (`new_page`, snapshot, click, fill, evaluate) when present, falling
 back to the Claude-in-Chrome tools (`navigate`, `find`, `computer`,
 `javascript_tool`) otherwise. Navigate to `http://localhost:5173/` and snapshot before
 interacting — no login/OTP flow exists yet (GitHub OAuth is future work per
-`docs/SYSTEM_DESIGN.md`), so don't invent selectors for one.
+[`SYSTEM_DESIGN.md` §12][sd-12]), so don't invent selectors for one.
 
 ## 3. Scenarios for This Product
 
@@ -57,7 +57,7 @@ Status on main (db5cf78): `App.tsx` is a placeholder; no page mounts the
 widgets and there is no router. Browser e2e has nothing product-specific to
 verify, so cover widgets with component tests (tdd skill) until `pages/*` land.
 
-Per `docs/SYSTEM_DESIGN.md` §2 (responsibility boundaries) and §12 (API ↔ UI
+Per [`SYSTEM_DESIGN.md` §2][sd-2] (responsibility boundaries) and [§12][sd-12] (API ↔ UI
 contract), the app's screens are the run list, the run inspector, and the
 diff viewer:
 
@@ -119,3 +119,6 @@ Include the exact commands/selectors used so the run is reproducible.
   change on HMR updates and dependency re-optimization — a stale module URL in
   a log is not a bug. Hashed chunk names exist only in `pnpm build` output
   (the preview server).
+
+[sd-2]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md#2-%D0%B3%D1%80%D0%B0%D0%BD%D0%B8%D1%86%D1%8B-%D0%BE%D1%82%D0%B2%D0%B5%D1%82%D1%81%D1%82%D0%B2%D0%B5%D0%BD%D0%BD%D0%BE%D1%81%D1%82%D0%B8
+[sd-12]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md#12-%D0%BA%D0%BE%D0%BD%D1%82%D1%80%D0%B0%D0%BA%D1%82-api--ui
