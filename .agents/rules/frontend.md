@@ -91,8 +91,10 @@ slice imports (§3) are not linted; check them by hand in every review.
 
 ## 7. References
 
-- `docs/SYSTEM_DESIGN.md` — product architecture (this repo, `main`).
+- [`SYSTEM_DESIGN.md`][sd] — product architecture (`dmc-268-api-t6`, `main`).
 - `docs/FRONTEND_ARCHITECTURE.md` — FSD conventions in full.
 - `.agents/skills/` — skill catalog (frontmatter contract in `.agents/README.md`).
 - `AGENTS.md` (pending role 1) — cross-tool entry point; see
   `.agents/proposals/agents-md-draft.md` for the draft.
+
+[sd]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md
