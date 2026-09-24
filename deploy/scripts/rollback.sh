@@ -65,6 +65,26 @@ if [[ "${DEPLOY_MODE}" == "edge" && ! "${EDGE_ALIAS:-}" =~ ^[a-z0-9]+(-[a-z0-9]+
 fi
 COMPOSE=(docker compose -p "${COMPOSE_PROJECT}" -f "${COMPOSE_FILE}" -f "${APP_DIR}/compose.${DEPLOY_MODE}.yml" --env-file "${ENV_FILE}")
 
+# Per-run registry credentials (see deploy.sh). Started by deploy.sh, the rollback inherits its
+# DOCKER_CONFIG, which still holds the login needed to pull the previous image.
+OWN_DOCKER_CONFIG=""
+if [[ -z "${DOCKER_CONFIG:-}" ]]; then
+  DOCKER_CONFIG="$(mktemp -d)"
+  OWN_DOCKER_CONFIG="${DOCKER_CONFIG}"
+  export DOCKER_CONFIG
+fi
+
+logout_registry() {
+  docker logout ghcr.io >/dev/null 2>&1 || true
+}
+cleanup_registry() {
+  logout_registry
+  if [[ -n "${OWN_DOCKER_CONFIG}" ]]; then
+    rm -rf "${OWN_DOCKER_CONFIG}"
+  fi
+}
+trap cleanup_registry EXIT
+
 if [[ -n "${REQUESTED_IMAGE}" ]]; then
   IMAGE="${REQUESTED_IMAGE}"
 elif [[ -f "${PREVIOUS_FILE}" ]]; then
@@ -101,6 +121,9 @@ docker pull "${IMAGE}"
 write_compose_env_file "${ENV_FILE}" "${IMAGE}" "${DEPLOY_MODE}" "${EDGE_ALIAS:-}"
 "${COMPOSE[@]}" up -d --remove-orphans --wait --wait-timeout 90
 
+# Shared root account: drop the GHCR credential after the last pull (compose up, pull_policy: always).
+logout_registry
+
 if [[ "${ROLLBACK_MODE}" == "manual" && -f "${STATE_FILE}" ]]; then
   cp "${STATE_FILE}" "${PREVIOUS_FILE}"
 fi
@@ -110,9 +133,5 @@ fi
   echo "deployed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "rolled_back=true"
 } > "${STATE_FILE}"
-
-if [[ -n "${GHCR_TOKEN:-}" ]]; then
-  docker logout ghcr.io >/dev/null 2>&1 || true
-fi
 
 echo "rolled back to ${IMAGE}"
