@@ -7,15 +7,15 @@ const ALL_STATUSES: RunStatus[] = [
   'queued',
   'running',
   'publishing',
-  'completed',
+  'succeeded',
   'failed',
   'cancelled',
   'skipped',
 ]
 
 describe('isTerminal', () => {
-  it('is true for completed, failed, cancelled, skipped', () => {
-    expect(isTerminal('completed')).toBe(true)
+  it('is true for succeeded, failed, cancelled, skipped', () => {
+    expect(isTerminal('succeeded')).toBe(true)
     expect(isTerminal('failed')).toBe(true)
     expect(isTerminal('cancelled')).toBe(true)
     expect(isTerminal('skipped')).toBe(true)
@@ -51,7 +51,7 @@ describe('isStaleRunning', () => {
 
   it('is false for a terminal status even if old', () => {
     const startedAt = new Date(now.getTime() - 40 * 60 * 1000).toISOString()
-    expect(isStaleRunning({ status: 'completed', startedAt, finishedAt: null }, now)).toBe(false)
+    expect(isStaleRunning({ status: 'succeeded', startedAt, finishedAt: null }, now)).toBe(false)
   })
 
   it('is false when startedAt is null', () => {
@@ -63,7 +63,7 @@ describe('isStaleRunning', () => {
 
 describe('statusColor', () => {
   it('maps known statuses to antd Tag colors', () => {
-    expect(statusColor('completed')).toBe('success')
+    expect(statusColor('succeeded')).toBe('success')
     expect(statusColor('failed')).toBe('error')
     expect(statusColor('running')).toBe('processing')
   })

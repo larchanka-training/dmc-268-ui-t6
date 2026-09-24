@@ -83,7 +83,7 @@ export const mockRunSessions: RunSession[] = [
     id: COMPLETED_ID,
     engine: 'deep',
     model: 'claude-sonnet-5',
-    status: 'completed',
+    status: 'succeeded',
     startedAt: '2026-09-18T11:50:00.000Z',
     finishedAt: '2026-09-18T11:55:12.000Z',
     attempt: 1,

@@ -4,7 +4,7 @@ export const RunStatusSchema = z.enum([
   'queued',
   'running',
   'publishing',
-  'completed',
+  'succeeded',
   'failed',
   'cancelled',
   'skipped',
@@ -12,7 +12,7 @@ export const RunStatusSchema = z.enum([
 export type RunStatus = z.infer<typeof RunStatusSchema>
 
 export const TERMINAL_RUN_STATUSES = [
-  'completed',
+  'succeeded',
   'failed',
   'cancelled',
   'skipped',
