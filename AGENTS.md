@@ -67,6 +67,7 @@ only flow downward, `shared` never imports `entities`); details in
 - `docs/FRONTEND_ARCHITECTURE.md` — FSD conventions in full.
 - [`SYSTEM_DESIGN.md`](https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md) —
   product architecture (`dmc-268-api-t6`, `main`).
+- `CLAUDE.md` only imports this file — edit `AGENTS.md`.
 
 ## What NOT to do
 
