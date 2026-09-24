@@ -48,12 +48,13 @@ antd, TanStack Query и jsdom — патчи от 2026-09-24.
 Ф-11 уточнено 2026-09-24 (#47): компилятор — TypeScript 7.0.2 по схеме side-by-side из
 [анонса TS 7.0][ts-7.0-side-by-side]. В `package.json` два пакета:
 `"@typescript/native": "npm:typescript@^7.0.2"` даёт бинарь `tsc`, поэтому `check-types` и `build`
-(`tsc -b`) идут на нативном компиляторе, в том числе в Docker-сборке на `node:22-alpine`;
+(`tsc -b`) идут на нативном компиляторе, в том числе в Docker-сборке на `node:24-alpine`;
 `"typescript": "npm:@typescript/typescript6@~6.0.2"` — обёртка, которая реэкспортирует
 `typescript@6.0.3` и ставит только бинарь `tsc6`, так что `require('typescript')` в
 typescript-eslint получает JS API 6.0. Тильда — по той же причине, что в #49. Внутренняя
-зависимость обёртки (`typescript@^6`) держится на 6.0.3 только lockfile'ом. Остаток #47 — убрать
-обёртку и оставить один `typescript@7`, когда typescript-eslint поддержит TS 7
+зависимость обёртки (`typescript@^6`) держится на 6.0.3 только lockfile'ом. #47 закрыт этим шагом
+(решение техлида 2026-09-24); follow-up без отдельной задачи — убрать обёртку и оставить один
+`typescript@7`, когда typescript-eslint поддержит TS 7
 ([typescript-eslint#10940][tse-10940]; прототип — draft [typescript-eslint#12803][tse-12803]
 под API TS 7.1).
 
@@ -551,9 +552,10 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
 
 ## 11. Открытые вопросы / follow-ups
 
-- **TypeScript 7** — #47: компилятор уже 7.0.2, но typescript-eslint работает на 6.0.3 через обёртку
-  `@typescript/typescript6` (Ф-11); убрать её, когда typescript-eslint поддержит TS 7
-  ([typescript-eslint#10940][tse-10940]).
+- **TypeScript 7, остаток** — компилятор уже 7.0.2 (#47 закрыт), но typescript-eslint работает на 6.0.3
+  через обёртку `@typescript/typescript6` (Ф-11); убрать её, когда typescript-eslint поддержит TS 7
+  ([typescript-eslint#10940][tse-10940]). Отдельной задачи нет; сигнал —
+  `npm view typescript-eslint peerDependencies` начинает допускать 7.x.
 - **`steiger`** — FSD-линтер, форматирует нарушения правил §1 автоматически; не подключён.
 - **`PORT` в `vite.config.ts`** — нужен `@types/node` в `tsconfig.node.json` (роль 4); не сделано.
   С TS 6.0 `types` по умолчанию `[]`, поэтому пакет придётся назвать в `types` явно.
