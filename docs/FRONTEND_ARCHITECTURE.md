@@ -14,10 +14,10 @@
 
 **Стек.** React 19.3.0, Vite 8.3.0 (rolldown), TypeScript 6.0.3 (потолок — 6.0.x: peer
 typescript-eslint `typescript >=4.8.4 <6.1.0`; переход на 7.x — #47),
-pnpm 12, antd 6.6.4, react-diff-view 3.3.3, Zod 4.6.5, Zustand 5.0.15,
-TanStack Query 5.103.1, Vitest 5.0.1, jsdom 30.1.0, Testing Library 16.3.3. Версии — самые свежие
+pnpm 12, antd 6.6.5, react-diff-view 3.3.3, Zod 4.6.5, Zustand 5.0.15,
+TanStack Query 5.103.2, Vitest 5.0.1, jsdom 30.1.1, Testing Library 16.3.3. Версии — самые свежие
 стабильные на 2026-09-19, выбраны ролью 5 в отсутствие ответа команды (Ф-11);
-TypeScript поднят до 6.0.3 2026-09-24 (#49).
+TypeScript поднят до 6.0.3 2026-09-24 (#49); antd, TanStack Query и jsdom — патчи от 2026-09-24.
 
 ---
 
