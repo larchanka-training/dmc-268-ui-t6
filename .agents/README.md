@@ -15,13 +15,17 @@ duplication. Decided in #32 (2026-09-24), closing SYSTEM_DESIGN §15 OQ-4.
 
 ## Harness matrix
 
-| Harness     | Reads                                                            | Notes                                                                                                                                            |
-| ----------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Claude Code | `.claude/skills`, `.claude/agents` (symlinks)                    | skills + agents via symlinks; rules only via skill links or `AGENTS.md`                                                                          |
-| Codex       | `AGENTS.md`, `.agents/skills`                                    | `agents/` is not loaded (Codex agents are `.codex/agents/*.toml`)                                                                                |
-| Cursor      | `AGENTS.md` (root and nested)                                    | manual `@`-reference to `.agents/**`                                                                                                             |
-| Gemini CLI  | `GEMINI.md` only, by default                                     | add `AGENTS.md` to `context.fileName` in project `.gemini/settings.json` or user `~/.gemini/settings.json`; manual `@`-reference to `.agents/**` |
-| Copilot     | `AGENTS.md`: cloud agent, code review, VS Code Chat, Copilot CLI | not read by Visual Studio or by JetBrains / Eclipse Copilot Chat                                                                                 |
+| Harness     | Reads                                                                            | Notes                                                                                                                                            |
+| ----------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Claude Code | `CLAUDE.md` (imports `AGENTS.md`), `.claude/skills`, `.claude/agents` (symlinks) | skills + agents via symlinks                                                                                                                     |
+| Codex       | `AGENTS.md`, `.agents/skills`                                                    | `agents/` is not loaded (Codex agents are `.codex/agents/*.toml`)                                                                                |
+| Cursor      | `AGENTS.md` (root and nested)                                                    | manual `@`-reference to `.agents/**`                                                                                                             |
+| Gemini CLI  | `GEMINI.md` only, by default                                                     | add `AGENTS.md` to `context.fileName` in project `.gemini/settings.json` or user `~/.gemini/settings.json`; manual `@`-reference to `.agents/**` |
+| Copilot     | `AGENTS.md`: cloud agent, code review, VS Code Chat, Copilot CLI                 | not read by Visual Studio or by JetBrains / Eclipse Copilot Chat                                                                                 |
+
+Copilot's cloud agent and Copilot CLI also accept a root `CLAUDE.md`; which file wins when both
+exist, and whether its `@AGENTS.md` line is resolved, is not documented. `CLAUDE.md` holds no
+rules of its own either way.
 
 ## Sub-agents across harnesses
 
@@ -82,6 +86,6 @@ how _we_ build, not what the bot reviews.
 ## AGENTS.md
 
 `AGENTS.md` is the root entry point; role 1 (tech lead) owns it, changes go
-through a PR.
+through a PR. `CLAUDE.md` only imports it.
 
 [sd-15]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md#15-%D0%BE%D1%82%D0%BA%D1%80%D1%8B%D1%82%D1%8B%D0%B5-%D0%B2%D0%BE%D0%BF%D1%80%D0%BE%D1%81%D1%8B-%D0%B4%D0%BB%D1%8F-%D0%BA%D0%BE%D0%BC%D0%B0%D0%BD%D0%B4%D1%8B
