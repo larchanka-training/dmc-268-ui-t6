@@ -545,11 +545,17 @@ jobs:
 
       - name: Promote verified digest to staging
         if: steps.guard.outputs.promote == 'true'
+        env:
+          DEPLOYED_IMAGE: ${{ needs.deploy-staging.outputs.image_ref }}
+          STAGING_TAG: ${{ needs.push-image.outputs.staging }}
+          PREVIOUS_TAG: ${{ needs.push-image.outputs.previous }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
         run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-          image_ref="${{ needs.deploy-staging.outputs.image_ref }}"
-          staging="${{ needs.push-image.outputs.staging }}"
-          previous="${{ needs.push-image.outputs.previous }}"
+          echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
+          image_ref="${DEPLOYED_IMAGE}"
+          staging="${STAGING_TAG}"
+          previous="${PREVIOUS_TAG}"
           if [[ -z "${image_ref}" ]]; then
             echo "deployed image reference is empty; refusing to promote registry tags" >&2
             exit 1
