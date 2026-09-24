@@ -94,7 +94,7 @@ import { RunUpdatedEventSchema } from './schemas'
 
 describe('RunUpdatedEventSchema', () => {
   it('accepts a valid run-updated event', () => {
-    const ok = { runId: '11111111-1111-4111-8111-000000000001', status: 'completed' }
+    const ok = { runId: '11111111-1111-4111-8111-000000000001', status: 'succeeded' }
     expect(RunUpdatedEventSchema.safeParse(ok).success).toBe(true)
   })
 
