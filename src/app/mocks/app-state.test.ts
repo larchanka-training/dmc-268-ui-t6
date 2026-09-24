@@ -78,7 +78,7 @@ describe('mockReviewComments', () => {
 })
 
 describe('mockRunActions', () => {
-  it('validates against the completed run and groups as expected', () => {
+  it('validates against the succeeded run and groups as expected', () => {
     const result = z.array(RunActionSchema).safeParse(mockRunActions)
     expect(result.success).toBe(true)
     expect(mockRunActions.length).toBe(34)
@@ -87,12 +87,12 @@ describe('mockRunActions', () => {
       expect(action.index).toBe(position)
     })
 
-    const completed = mockRunSessions.find((r) => r.status === 'completed')
-    if (completed === undefined) {
-      throw new Error('completed session missing from mockRunSessions')
+    const succeeded = mockRunSessions.find((r) => r.status === 'succeeded')
+    if (succeeded === undefined) {
+      throw new Error('succeeded session missing from mockRunSessions')
     }
-    expect(mockRunActions.every((action) => action.runId === completed.id)).toBe(true)
-    expect(completed.actionCount).toBe(34)
+    expect(mockRunActions.every((action) => action.runId === succeeded.id)).toBe(true)
+    expect(succeeded.actionCount).toBe(34)
 
     const nodes = groupActions(mockRunActions)
     expect(nodes.map((n) => n.kind)).toEqual([

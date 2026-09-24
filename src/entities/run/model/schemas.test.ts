@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { RunActionSchema, RunListPageSchema, RunSessionSchema } from './schemas'
+import { RunActionSchema, RunListPageSchema, RunSessionSchema, RunStatusSchema } from './schemas'
 
 const UUID = '0f3b2c1e-6a1d-4c8b-9e2f-1a2b3c4d5e6f'
 const ISO = '2026-09-18T10:00:00.000Z'
@@ -27,22 +27,40 @@ const runSession = {
   errorCode: null,
 }
 
+describe('RunStatusSchema', () => {
+  it('has exactly the 7 run statuses, in order', () => {
+    expect(RunStatusSchema.options).toEqual([
+      'queued',
+      'running',
+      'publishing',
+      'succeeded',
+      'failed',
+      'cancelled',
+      'skipped',
+    ])
+  })
+
+  it('accepts succeeded', () => {
+    expect(RunStatusSchema.safeParse('succeeded').success).toBe(true)
+  })
+})
+
 describe('RunSessionSchema', () => {
   it('accepts a valid RunSession with status running and finishedAt null', () => {
     expect(RunSessionSchema.safeParse(runSession).success).toBe(true)
   })
 
-  it('rejects status succeeded (not part of the 7-value enum)', () => {
-    expect(RunSessionSchema.safeParse({ ...runSession, status: 'succeeded' }).success).toBe(false)
+  it('rejects an unknown status (not part of the 7-value enum)', () => {
+    expect(RunSessionSchema.safeParse({ ...runSession, status: 'unknown' }).success).toBe(false)
   })
 
   it('rejects finishedAt set while status is running', () => {
     expect(RunSessionSchema.safeParse({ ...runSession, finishedAt: ISO }).success).toBe(false)
   })
 
-  it('accepts finishedAt set while status is completed', () => {
+  it('accepts finishedAt set while status is succeeded', () => {
     expect(
-      RunSessionSchema.safeParse({ ...runSession, status: 'completed', finishedAt: ISO }).success,
+      RunSessionSchema.safeParse({ ...runSession, status: 'succeeded', finishedAt: ISO }).success,
     ).toBe(true)
   })
 

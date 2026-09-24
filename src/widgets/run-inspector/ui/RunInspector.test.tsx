@@ -11,7 +11,7 @@ const RUN: RunSession = {
   id: '22222222-2222-4222-8222-000000000001',
   engine: 'deep',
   model: 'claude-sonnet-5',
-  status: 'completed',
+  status: 'succeeded',
   startedAt: '2026-09-18T11:50:00.000Z',
   finishedAt: '2026-09-18T11:55:12.000Z',
   attempt: 1,
@@ -43,7 +43,7 @@ describe('RunInspector', () => {
     render(<RunInspector run={RUN} actions={ACTIONS} now={NOW} />)
     expect(screen.getByText('deep')).toBeTruthy()
     expect(screen.getByText('claude-sonnet-5')).toBeTruthy()
-    expect(screen.getByText('completed')).toBeTruthy()
+    expect(screen.getByText('succeeded')).toBeTruthy()
     expect(screen.getByText('5 мин 12 с')).toBeTruthy()
     const link = screen.getByText('#34 feat: inspector')
     expect(link.closest('a')?.getAttribute('href')).toBe(RUN.pullRequest.url)

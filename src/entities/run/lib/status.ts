@@ -31,7 +31,7 @@ export function statusColor(
       return 'processing'
     case 'publishing':
       return 'blue'
-    case 'completed':
+    case 'succeeded':
       return 'success'
     case 'failed':
       return 'error'
