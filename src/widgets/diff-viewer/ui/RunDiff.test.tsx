@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { diffApi, fromPatch } from '../../../entities/diff'
 import { RunSessionSchema } from '../../../entities/run'
-import { SAMPLE_PATCHES } from '../../../shared/fixtures/sample.patch'
+import { SAMPLE_PATCH_A, SAMPLE_PATCHES } from '../../../shared/fixtures/sample.patch'
 import { useDiffViewerStore } from '../model/store'
 import { RunDiff } from './RunDiff'
 
@@ -77,6 +77,27 @@ describe('RunDiff', () => {
 
     expect(screen.getAllByText('src/a.ts').length).toBeGreaterThan(0)
     expect(screen.getAllByText('README.md').length).toBeGreaterThan(0)
+    expect(container.querySelectorAll('.diff-line').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Дифф слишком большой')).toBeNull()
+  })
+
+  it('renders a per-file "no diff" placeholder alongside full diffs in the same normal run', () => {
+    const run = RunSessionSchema.parse({
+      ...SUMMARY_ONLY_RUN_WIRE,
+      id: '33333333-3333-4333-8333-000000000003',
+      summaryOnly: false,
+    })
+    const files = diffApi.diff.response
+      .parse([SAMPLE_PATCH_A, { filename: 'docs/huge.md', patch: null }])
+      .map(fromPatch)
+
+    const { container } = render(
+      <RunDiff summaryOnly={run.summaryOnly} files={files} comments={[]} />,
+    )
+
+    expect(screen.getByText('docs/huge.md')).toBeTruthy()
+    expect(screen.getByText('Без диффа')).toBeTruthy()
+    expect(screen.getAllByText('src/a.ts').length).toBeGreaterThan(0)
     expect(container.querySelectorAll('.diff-line').length).toBeGreaterThan(0)
     expect(screen.queryByText('Дифф слишком большой')).toBeNull()
   })

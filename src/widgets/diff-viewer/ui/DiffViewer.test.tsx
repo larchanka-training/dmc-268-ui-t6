@@ -91,12 +91,14 @@ describe('DiffViewer', () => {
   it('renders a placeholder for a binary or empty diff', () => {
     render(<DiffViewer file={{ ...FILE, chunks: [] }} comments={[]} />)
     expect(screen.getByText('Бинарный файл или пустой дифф')).toBeTruthy()
+    expect(screen.getByText(FILE.filename)).toBeTruthy()
   })
 
   it('renders a "no diff" placeholder for a summary-only file (hasPatch: false)', () => {
     render(<DiffViewer file={{ ...FILE, chunks: [], hasPatch: false }} comments={[]} />)
     expect(screen.getByText('Без диффа')).toBeTruthy()
     expect(screen.queryByText('Бинарный файл или пустой дифф')).toBeNull()
+    expect(screen.getByText(FILE.filename)).toBeTruthy()
   })
 
   it('flattens multiple comments on the same line into one widget row', () => {

@@ -71,11 +71,21 @@ export function DiffViewer(props: DiffViewerProps): JSX.Element {
   const setViewType = useDiffViewerStore((s) => s.setViewType)
 
   if (!file.hasPatch) {
-    return <Typography.Text type="secondary">Без диффа</Typography.Text>
+    return (
+      <div>
+        <Typography.Text strong>{file.filename}</Typography.Text>
+        <Typography.Text type="secondary">Без диффа</Typography.Text>
+      </div>
+    )
   }
 
   if (file.chunks.length === 0) {
-    return <Typography.Text type="secondary">Бинарный файл или пустой дифф</Typography.Text>
+    return (
+      <div>
+        <Typography.Text strong>{file.filename}</Typography.Text>
+        <Typography.Text type="secondary">Бинарный файл или пустой дифф</Typography.Text>
+      </div>
+    )
   }
 
   const hunks = toHunks(file)
