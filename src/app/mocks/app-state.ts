@@ -3,6 +3,8 @@ import type { RunAction, RunSession } from '../../entities/run'
 import { fromPatch } from '../../entities/diff'
 import type { FileDiff, RawFileDiff } from '../../entities/diff'
 import type { ReviewComment } from '../../entities/review'
+import type { Repository } from '../../entities/repository'
+import type { User } from '../../entities/user'
 import { SAMPLE_PATCHES } from '../../shared/fixtures/sample.patch'
 
 export const MOCK_NOW = '2026-09-18T12:00:00.000Z'
@@ -261,3 +263,54 @@ export const mockUiState: MockUiState = {
     expandedRanges: {},
   },
 }
+
+export const mockCurrentUser: User = {
+  id: 'usr_skvertl_01',
+  login: 'skvertl',
+  name: 'Denis Skvertl',
+  avatarUrl: 'https://avatars.githubusercontent.com/u/114473628?v=4',
+  email: 'skvertl@users.noreply.github.com',
+  provider: 'github',
+}
+
+export const mockRepositories: Repository[] = [
+  {
+    id: 'repo-001',
+    name: 'dmc-268-ui-t6',
+    fullName: 'larchanka-training/dmc-268-ui-t6',
+    url: 'https://github.com/larchanka-training/dmc-268-ui-t6',
+    defaultBranch: 'main',
+    enabled: true,
+    defaultEngine: 'fast',
+    waitForCi: true,
+    maxComments: 10,
+    createdAt: '2026-09-18T10:00:00.000Z',
+    updatedAt: '2026-09-18T12:00:00.000Z',
+  },
+  {
+    id: 'repo-002',
+    name: 'dmc-268-api-t6',
+    fullName: 'larchanka-training/dmc-268-api-t6',
+    url: 'https://github.com/larchanka-training/dmc-268-api-t6',
+    defaultBranch: 'main',
+    enabled: true,
+    defaultEngine: 'deep',
+    waitForCi: true,
+    maxComments: 15,
+    createdAt: '2026-09-18T10:30:00.000Z',
+    updatedAt: '2026-09-18T12:00:00.000Z',
+  },
+  {
+    id: 'repo-003',
+    name: 'dmc-268-infra-t6',
+    fullName: 'larchanka-training/dmc-268-infra-t6',
+    url: 'https://github.com/larchanka-training/dmc-268-infra-t6',
+    defaultBranch: 'master',
+    enabled: false,
+    defaultEngine: 'fast',
+    waitForCi: false,
+    maxComments: 5,
+    createdAt: '2026-09-18T11:00:00.000Z',
+    updatedAt: '2026-09-18T12:00:00.000Z',
+  },
+]

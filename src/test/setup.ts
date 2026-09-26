@@ -1,7 +1,12 @@
 // Vitest setup for jsdom tests. jsdom 30 provides neither `window.matchMedia`
 // (needed by antd `Descriptions`/Grid via responsiveObserver) nor `ResizeObserver`
 // (needed by `@rc-component/virtual-list` inside antd `Tree`). Both are stubbed here.
-import { vi } from 'vitest'
+import { cleanup } from '@testing-library/react'
+import { afterEach, vi } from 'vitest'
+
+afterEach(() => {
+  cleanup()
+})
 
 class ResizeObserverStub {
   observe(): void {
