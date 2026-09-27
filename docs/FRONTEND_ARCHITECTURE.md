@@ -405,8 +405,9 @@ newLine` (`RIGHT→newLine`, `LEFT→oldLine`), `line_end → endLine`. — ро
   `vite.config.ts` — follow-up (§11);
 - роль 3 (PR #28): `docker/nginx.conf` сейчас не проксирует `/api/` и `/api/stream`; при
   `VITE_API_BASE_URL=/api` (same-origin) нужен `location /api/ { proxy_pass …; proxy_buffering
-off; }` для SSE, либо в документе фиксируется cross-origin вариант с CORS на бэкенде — решить с
-  ролями 3 и 6.
+off; }` для SSE, либо в документе фиксируется cross-origin вариант с CORS на бэкенде — **решено**
+  (api#20, 28.09): один origin, хост UI проксирует `/api/*` в API (`proxy_buffering off` для SSE),
+  CORS не нужен; настройка — larchanka-training/dmc-268-api-t6#35.
 
 ---
 
