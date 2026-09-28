@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useAuthStore } from '../../features/auth'
@@ -10,11 +11,13 @@ describe('CallbackPage', () => {
     useAuthStore.setState({
       token: null,
       user: null,
+      workspaces: [],
       isAuthenticated: false,
     })
   })
 
   afterEach(() => {
+    cleanup()
     vi.restoreAllMocks()
   })
 
@@ -27,14 +30,26 @@ describe('CallbackPage', () => {
     })
   })
 
-  it('processes code and triggers onSuccess when code is present', async () => {
-    window.history.pushState({}, '', '/auth/callback?code=mock_code_123')
+  it('renders CallbackPage inside StrictMode and exchanges code exactly once', async () => {
+    window.history.pushState({}, '', '/auth/callback?code=test_code_strict&state=xyz')
+
+    const handleCallbackSpy = vi.fn().mockResolvedValue(undefined)
+    useAuthStore.setState({
+      handleCallback: handleCallbackSpy,
+    })
 
     const onSuccess = vi.fn()
-    render(<CallbackPage onSuccess={onSuccess} />)
+
+    render(
+      <React.StrictMode>
+        <CallbackPage onSuccess={onSuccess} />
+      </React.StrictMode>,
+    )
 
     await waitFor(() => {
-      expect(onSuccess).toHaveBeenCalled()
+      expect(handleCallbackSpy).toHaveBeenCalledTimes(1)
+      expect(handleCallbackSpy).toHaveBeenCalledWith('test_code_strict', 'xyz')
+      expect(onSuccess).toHaveBeenCalledTimes(1)
     })
   })
 })

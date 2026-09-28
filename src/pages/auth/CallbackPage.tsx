@@ -1,5 +1,5 @@
 import { Button, Card, Flex, Layout, Result, Spin, Typography, theme } from 'antd'
-import { useEffect, useState, type FC } from 'react'
+import { useEffect, useRef, useState, type FC } from 'react'
 
 import { useAuthStore } from '../../features/auth'
 
@@ -15,49 +15,50 @@ export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError }) => {
   const handleCallback = useAuthStore((state) => state.handleCallback)
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const processedRef = useRef(false)
 
   useEffect(() => {
-    let isMounted = true
+    if (processedRef.current) return
+    processedRef.current = true
 
     async function processCode() {
       if (typeof window === 'undefined') return
 
       const urlParams = new URLSearchParams(window.location.search)
       const code = urlParams.get('code')
+      const state = urlParams.get('state')
+
+      // Clean query parameters from address bar immediately
+      try {
+        window.history.replaceState(null, '', window.location.pathname)
+      } catch {
+        // Ignore replaceState errors in restricted environments
+      }
 
       if (!code) {
-        if (isMounted) {
-          setStatus('error')
-          setErrorMessage('Отсутствует код авторизации (code параметр не найден)')
-        }
+        setStatus('error')
+        setErrorMessage('Отсутствует код авторизации (code параметр не найден)')
+        onError?.(new Error('Missing code'))
         return
       }
 
       try {
-        await handleCallback(code)
-        if (isMounted) {
-          setStatus('success')
-          if (onSuccess) {
-            onSuccess()
-          } else {
-            window.location.href = '/repositories'
-          }
+        await handleCallback(code, state)
+        setStatus('success')
+        if (onSuccess) {
+          onSuccess()
+        } else {
+          window.location.href = '/repositories'
         }
       } catch (err) {
-        if (isMounted) {
-          const msg = err instanceof Error ? err.message : 'Не удалось завершить авторизацию'
-          setStatus('error')
-          setErrorMessage(msg)
-          onError?.(err instanceof Error ? err : new Error(msg))
-        }
+        const msg = err instanceof Error ? err.message : 'Не удалось завершить авторизацию'
+        setStatus('error')
+        setErrorMessage(msg)
+        onError?.(err instanceof Error ? err : new Error(msg))
       }
     }
 
     void processCode()
-
-    return () => {
-      isMounted = false
-    }
   }, [handleCallback, onSuccess, onError])
 
   return (
@@ -93,7 +94,11 @@ export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError }) => {
               <Button
                 key="back"
                 onClick={() => {
-                  window.location.href = '/login'
+                  if (onError) {
+                    onError(new Error(errorMessage ?? 'Auth error'))
+                  } else {
+                    window.location.href = '/login'
+                  }
                 }}
                 type="primary"
               >

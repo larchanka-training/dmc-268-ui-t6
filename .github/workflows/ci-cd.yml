@@ -50,6 +50,9 @@ jobs:
           file: Dockerfile
           load: true
           tags: ${{ env.LOCAL_IMAGE }}
+          build-args: |
+            VITE_GITHUB_CLIENT_ID=${{ vars.VITE_GITHUB_CLIENT_ID }}
+            VITE_GITHUB_APP_SLUG=${{ vars.VITE_GITHUB_APP_SLUG }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false

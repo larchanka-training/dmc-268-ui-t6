@@ -2,64 +2,65 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import type { Repository } from '../../../entities/repository'
+import { RepositoryList } from './RepositoryList'
+
 afterEach(() => {
   cleanup()
 })
 
-import type { Repository } from '../../../entities/repository'
-import { RepositoryList } from './RepositoryList'
-
 const mockRepos: Repository[] = [
   {
-    id: 'repo-1',
-    name: 'dmc-268-ui-t6',
+    id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
     fullName: 'larchanka-training/dmc-268-ui-t6',
     url: 'https://github.com/larchanka-training/dmc-268-ui-t6',
     defaultBranch: 'main',
     enabled: true,
     defaultEngine: 'fast',
-    waitForCi: true,
+    waitForCi: 'auto',
     maxComments: 10,
+    reviewEvent: 'COMMENT',
   },
   {
-    id: 'repo-2',
-    name: 'dmc-268-api-t6',
+    id: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
     fullName: 'larchanka-training/dmc-268-api-t6',
     url: 'https://github.com/larchanka-training/dmc-268-api-t6',
     defaultBranch: 'master',
     enabled: false,
     defaultEngine: 'deep',
-    waitForCi: false,
+    waitForCi: 'never',
     maxComments: 5,
+    reviewEvent: 'REQUEST_CHANGES',
   },
 ]
 
 describe('RepositoryList', () => {
-  it('renders repository items with branch tags and status switches', () => {
+  it('renders repository items with branch tags, CI badges, and status switches', () => {
     const handleToggle = vi.fn()
-    const handleConnect = vi.fn()
 
-    render(
-      <RepositoryList
-        onConnectClick={handleConnect}
-        onToggleEnabled={handleToggle}
-        repositories={mockRepos}
-      />,
-    )
+    render(<RepositoryList onToggleEnabled={handleToggle} repositories={mockRepos} />)
 
     expect(screen.getByText('larchanka-training/dmc-268-ui-t6')).toBeDefined()
     expect(screen.getByText('larchanka-training/dmc-268-api-t6')).toBeDefined()
     expect(screen.getByText('main')).toBeDefined()
     expect(screen.getByText('master')).toBeDefined()
+    expect(screen.getByText('Auto (Ждёт CI)')).toBeDefined()
+    expect(screen.getByText('Never (Без ожидания)')).toBeDefined()
   })
 
-  it('filters repositories by search input', () => {
+  it('filters repositories by search input matching full and short name', () => {
     render(<RepositoryList repositories={mockRepos} />)
 
     const searchInput = screen.getByPlaceholderText('Поиск по названию...')
-    fireEvent.change(searchInput, { target: { value: 'ui' } })
+    fireEvent.change(searchInput, { target: { value: 'ui-t6' } })
 
     expect(screen.getByText('larchanka-training/dmc-268-ui-t6')).toBeDefined()
     expect(screen.queryByText('larchanka-training/dmc-268-api-t6')).toBeNull()
+  })
+
+  it('renders empty state when repositories array is empty', () => {
+    render(<RepositoryList repositories={[]} />)
+    expect(screen.getByText(/Репозитории ещё не подключены/i)).toBeDefined()
+    expect(screen.getByRole('link', { name: /Установить GitHub App/i })).toBeDefined()
   })
 })

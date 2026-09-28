@@ -1,68 +1,86 @@
 import { describe, expect, it } from 'vitest'
 
-import { ConnectRepositorySchema, RepositorySchema, UpdateRepositorySchema } from './schemas'
+import { RepositorySchema, UpdateRepositorySchema } from './schemas'
 
 describe('RepositorySchema', () => {
-  it('parses valid repository object with defaults', () => {
-    const raw = {
-      id: 'repo-1',
-      name: 'dmc-268-ui-t6',
-      fullName: 'larchanka-training/dmc-268-ui-t6',
-      url: 'https://github.com/larchanka-training/dmc-268-ui-t6',
-    }
-    const parsed = RepositorySchema.parse(raw)
-    expect(parsed).toEqual({
-      id: 'repo-1',
-      name: 'dmc-268-ui-t6',
-      fullName: 'larchanka-training/dmc-268-ui-t6',
-      url: 'https://github.com/larchanka-training/dmc-268-ui-t6',
-      defaultBranch: 'main',
-      enabled: true,
-      defaultEngine: 'fast',
-      waitForCi: true,
-      maxComments: 10,
+  const validRepo = {
+    id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+    fullName: 'larchanka-training/dmc-268-ui-t6',
+    url: 'https://github.com/larchanka-training/dmc-268-ui-t6',
+    defaultBranch: 'main',
+    enabled: true,
+    defaultEngine: 'fast' as const,
+    waitForCi: 'auto' as const,
+    maxComments: 10,
+    reviewEvent: 'COMMENT' as const,
+  }
+
+  it('parses valid repository object', () => {
+    const parsed = RepositorySchema.parse(validRepo)
+    expect(parsed).toEqual(validRepo)
+  })
+
+  it('accepts deep engine and REQUEST_CHANGES reviewEvent', () => {
+    const parsed = RepositorySchema.parse({
+      ...validRepo,
+      defaultEngine: 'deep',
+      waitForCi: 'always',
+      reviewEvent: 'REQUEST_CHANGES',
     })
+    expect(parsed.defaultEngine).toBe('deep')
+    expect(parsed.waitForCi).toBe('always')
+    expect(parsed.reviewEvent).toBe('REQUEST_CHANGES')
   })
 
-  it('rejects invalid maxComments', () => {
-    const raw = {
-      id: 'repo-1',
-      name: 'test',
-      fullName: 'org/test',
-      url: 'https://github.com/org/test',
-      maxComments: 0,
-    }
-    expect(() => RepositorySchema.parse(raw)).toThrow()
-  })
-})
-
-describe('ConnectRepositorySchema', () => {
-  it('validates owner/repo format and applies defaults', () => {
-    const input = {
-      fullName: 'facebook/react',
-    }
-    const parsed = ConnectRepositorySchema.parse(input)
-    expect(parsed.fullName).toBe('facebook/react')
-    expect(parsed.defaultBranch).toBe('main')
-    expect(parsed.defaultEngine).toBe('fast')
-    expect(parsed.waitForCi).toBe(true)
-    expect(parsed.maxComments).toBe(10)
+  it('rejects maxComments greater than 10', () => {
+    expect(() =>
+      RepositorySchema.parse({
+        ...validRepo,
+        maxComments: 11,
+      }),
+    ).toThrow()
   })
 
-  it('fails on invalid repository format without slash', () => {
-    expect(() => ConnectRepositorySchema.parse({ fullName: 'just-repo' })).toThrow()
+  it('rejects maxComments less than 1', () => {
+    expect(() =>
+      RepositorySchema.parse({
+        ...validRepo,
+        maxComments: 0,
+      }),
+    ).toThrow()
+  })
+
+  it('rejects boolean waitForCi', () => {
+    expect(() =>
+      RepositorySchema.parse({
+        ...validRepo,
+        waitForCi: true,
+      }),
+    ).toThrow()
   })
 })
 
 describe('UpdateRepositorySchema', () => {
-  it('allows partial updates', () => {
+  it('allows partial updates with valid values', () => {
     const parsed = UpdateRepositorySchema.parse({
       enabled: false,
       defaultEngine: 'deep',
+      waitForCi: 'never',
+      maxComments: 5,
+      reviewEvent: 'REQUEST_CHANGES',
     })
-    expect(parsed).toEqual({
-      enabled: false,
-      defaultEngine: 'deep',
-    })
+    expect(parsed.enabled).toBe(false)
+    expect(parsed.defaultEngine).toBe('deep')
+    expect(parsed.waitForCi).toBe('never')
+    expect(parsed.maxComments).toBe(5)
+    expect(parsed.reviewEvent).toBe('REQUEST_CHANGES')
+  })
+
+  it('rejects maxComments greater than 10', () => {
+    expect(() =>
+      UpdateRepositorySchema.parse({
+        maxComments: 11,
+      }),
+    ).toThrow()
   })
 })

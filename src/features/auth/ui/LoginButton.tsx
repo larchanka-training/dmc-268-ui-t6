@@ -2,6 +2,7 @@ import { GithubOutlined, UserOutlined } from '@ant-design/icons'
 import { Button, Flex } from 'antd'
 import type { FC } from 'react'
 
+import { USE_MOCKS } from '../../../shared/config/env'
 import { useAuthStore } from '../model/store'
 
 export interface LoginButtonProps {
@@ -9,7 +10,10 @@ export interface LoginButtonProps {
   size?: 'small' | 'middle' | 'large'
 }
 
-export const LoginButton: FC<LoginButtonProps> = ({ showMockButton = true, size = 'middle' }) => {
+export const LoginButton: FC<LoginButtonProps> = ({
+  showMockButton = USE_MOCKS,
+  size = 'middle',
+}) => {
   const loginWithGitHub = useAuthStore((state) => state.loginWithGitHub)
   const loginAsMockUser = useAuthStore((state) => state.loginAsMockUser)
   const isLoading = useAuthStore((state) => state.isLoading)

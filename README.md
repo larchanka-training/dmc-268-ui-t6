@@ -22,9 +22,25 @@ pnpm install
 
 ## Run
 
+Запуск dev-сервера фронтенда:
+
 ```bash
 pnpm dev
 ```
+
+Dev-сервер Vite настроен с прокси `server.proxy` для `/api` на локальный API (`http://localhost:8000`).
+Для совместной работы фронтенда и бэкенда:
+
+1. В репозитории `dmc-268-api-t6` запустить бэкенд:
+   ```bash
+   uv run uvicorn app.main:app --reload
+   ```
+   (сервер слушает `http://localhost:8000`).
+2. В репозитории `dmc-268-ui-t6` запустить `pnpm dev`. Запросы к `/api/*` прозрачно проксируются на бэкенд в рамках единого origin, что позволяет работать с `HttpOnly` refresh-cookie без настройки CORS.
+3. Переменные окружения:
+   - `VITE_GITHUB_CLIENT_ID` — Client ID зарегистрированного GitHub App для входа;
+   - `VITE_GITHUB_APP_SLUG` — Slug зарегистрированного GitHub App для формирования ссылки подключения репозиториев;
+   - `VITE_USE_MOCKS` — при `true` включает мок-транспорт для автономной работы фронтенда.
 
 ## Build
 

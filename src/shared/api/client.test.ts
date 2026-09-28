@@ -1,14 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import {
-  AUTH_TOKEN_KEY,
-  apiClient,
-  ApiError,
-  getStoredToken,
-  setOnUnauthorized,
-  setStoredToken,
-} from './client'
+import { apiClient, ApiError, getAccessToken, setAccessToken, setOnUnauthorized } from './client'
 import type { Endpoint } from './endpoints'
 
 describe('apiClient', () => {
@@ -16,24 +9,25 @@ describe('apiClient', () => {
   const testEndpoint: Endpoint = { method: 'GET', path: '/test' }
 
   beforeEach(() => {
-    localStorage.clear()
+    setAccessToken(null)
+    vi.restoreAllMocks()
   })
 
   afterEach(() => {
     globalThis.fetch = originalFetch
-    vi.restoreAllMocks()
+    setAccessToken(null)
   })
 
-  it('manages token storage correctly', () => {
-    expect(getStoredToken()).toBeNull()
-    setStoredToken('sample-jwt-token')
-    expect(getStoredToken()).toBe('sample-jwt-token')
-    setStoredToken(null)
-    expect(getStoredToken()).toBeNull()
+  it('manages in-memory access token correctly', () => {
+    expect(getAccessToken()).toBeNull()
+    setAccessToken('sample-jwt-token')
+    expect(getAccessToken()).toBe('sample-jwt-token')
+    setAccessToken(null)
+    expect(getAccessToken()).toBeNull()
   })
 
-  it('adds Authorization Bearer header when token is stored', async () => {
-    localStorage.setItem(AUTH_TOKEN_KEY, 'stored-token')
+  it('adds Authorization Bearer header when token is in memory', async () => {
+    setAccessToken('in-memory-token')
 
     const mockFetch = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ ok: true }), {
@@ -52,22 +46,71 @@ describe('apiClient', () => {
     ]
     expect(requestUrl).toBeDefined()
     const headers = new Headers(requestInit?.headers)
-    expect(headers.get('Authorization')).toBe('Bearer stored-token')
+    expect(headers.get('Authorization')).toBe('Bearer in-memory-token')
+    expect(requestInit?.credentials).toBe('include')
     expect(result).toEqual({ ok: true })
   })
 
-  it('handles 401 Unauthorized by invoking the callback', async () => {
+  it('handles 401 by attempting refresh and retrying request on success', async () => {
+    setAccessToken('expired-token')
+
+    const mockFetch = vi
+      .fn()
+      // First call to /test returns 401
+      .mockResolvedValueOnce(
+        new Response('Unauthorized', {
+          status: 401,
+          statusText: 'Unauthorized',
+        }),
+      )
+      // Call to /api/auth/refresh returns 200 with new token
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ accessToken: 'refreshed-token' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      )
+      // Retried call to /test returns 200
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      )
+
+    globalThis.fetch = mockFetch
+
+    const result = await apiClient<{ success: boolean }>(testEndpoint)
+    expect(result).toEqual({ success: true })
+    expect(getAccessToken()).toBe('refreshed-token')
+  })
+
+  it('handles 401 when refresh fails by clearing token and invoking onUnauthorized', async () => {
     const onUnauthorized = vi.fn()
     setOnUnauthorized(onUnauthorized)
+    setAccessToken('expired-token')
 
-    globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response('Unauthorized', {
-        status: 401,
-        statusText: 'Unauthorized',
-      }),
-    )
+    const mockFetch = vi
+      .fn()
+      // First call to /test returns 401
+      .mockResolvedValueOnce(
+        new Response('Unauthorized', {
+          status: 401,
+          statusText: 'Unauthorized',
+        }),
+      )
+      // Call to /api/auth/refresh returns 401
+      .mockResolvedValueOnce(
+        new Response('Refresh Expired', {
+          status: 401,
+          statusText: 'Unauthorized',
+        }),
+      )
+
+    globalThis.fetch = mockFetch
 
     await expect(apiClient(testEndpoint)).rejects.toThrow(ApiError)
+    expect(getAccessToken()).toBeNull()
     expect(onUnauthorized).toHaveBeenCalled()
   })
 

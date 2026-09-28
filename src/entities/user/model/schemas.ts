@@ -1,25 +1,33 @@
 import { z } from 'zod'
 
 export const UserSchema = z.object({
-  id: z.string(),
+  id: z.number().int(),
   login: z.string().min(1),
-  name: z.string().nullable().default(null),
-  avatarUrl: z.string().nullable().default(null),
-  email: z.string().nullable().default(null),
-  provider: z.string().default('github'),
+  name: z.string().nullable(),
+  avatarUrl: z.string().nullable(),
 })
 export type User = z.infer<typeof UserSchema>
 
-export const AuthTokensSchema = z.object({
-  accessToken: z.string().min(1),
-  refreshToken: z.string().optional(),
-  tokenType: z.string().default('Bearer'),
-  expiresIn: z.int().optional(),
+export const WorkspaceSchema = z.object({
+  id: z.uuid(),
+  name: z.string().min(1),
+  installationId: z.number().int(),
 })
-export type AuthTokens = z.infer<typeof AuthTokensSchema>
+export type Workspace = z.infer<typeof WorkspaceSchema>
 
-export const AuthCallbackResponseSchema = z.object({
-  token: z.string().min(1),
-  user: UserSchema.optional(),
+export const MeSchema = z.object({
+  id: z.number().int(),
+  login: z.string().min(1),
+  name: z.string().nullable(),
+  avatarUrl: z.string().nullable(),
+  workspaces: z.array(WorkspaceSchema),
 })
-export type AuthCallbackResponse = z.infer<typeof AuthCallbackResponseSchema>
+export type Me = z.infer<typeof MeSchema>
+
+export const AuthSessionSchema = z.object({
+  accessToken: z.string().min(1),
+  tokenType: z.literal('Bearer'),
+  expiresIn: z.number().int().min(1),
+  user: UserSchema,
+})
+export type AuthSession = z.infer<typeof AuthSessionSchema>

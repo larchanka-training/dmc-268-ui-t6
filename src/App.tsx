@@ -1,15 +1,23 @@
+import { useMemo } from 'react'
 import { RouterProvider } from 'react-router'
 
+import { initMockTransport } from './app/mocks/mockTransport'
 import { QueryProvider, UiProvider } from './app/providers'
 import { createAppRouter } from './app/routes'
 
-const router = createAppRouter()
+initMockTransport()
 
-export function App() {
+export interface AppProps {
+  router?: ReturnType<typeof createAppRouter>
+}
+
+export function App({ router }: AppProps = {}) {
+  const activeRouter = useMemo(() => router ?? createAppRouter(), [router])
+
   return (
     <UiProvider>
       <QueryProvider>
-        <RouterProvider router={router} />
+        <RouterProvider router={activeRouter} />
       </QueryProvider>
     </UiProvider>
   )

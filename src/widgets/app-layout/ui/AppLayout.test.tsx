@@ -1,10 +1,14 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import { AppLayout } from './AppLayout'
 
 describe('AppLayout', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
   it('renders header, navigation items and main content', () => {
     render(
       <AppLayout currentPath="/repositories">

@@ -1,158 +1,253 @@
 import { create } from 'zustand'
 
-import type { User } from '../../../entities/user'
-import { AuthCallbackResponseSchema, UserSchema } from '../../../entities/user'
+import type { User, Workspace } from '../../../entities/user'
+import { AuthSessionSchema, MeSchema } from '../../../entities/user'
 import {
   apiClient,
-  getStoredToken,
+  getAccessToken,
+  refreshAccessToken,
+  setAccessToken,
   setOnUnauthorized,
-  setStoredToken,
 } from '../../../shared/api/client'
 import { endpoints } from '../../../shared/api/endpoints'
-import { GITHUB_CLIENT_ID } from '../../../shared/config/env'
+import { GITHUB_CLIENT_ID, USE_MOCKS } from '../../../shared/config/env'
+
+export const STATE_STORAGE_KEY = 'dmc_auth_oauth_state'
+
+export function generateRandomState(): string {
+  const bytes = new Uint8Array(32)
+  crypto.getRandomValues(bytes)
+  let binary = ''
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte)
+  }
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
 
 export const MOCK_USER: User = {
-  id: 'usr_skvertl_01',
+  id: 114473628,
   login: 'skvertl',
   name: 'Denis Skvertl',
   avatarUrl: 'https://avatars.githubusercontent.com/u/114473628?v=4',
-  email: 'skvertl@users.noreply.github.com',
-  provider: 'github',
 }
+
+export const MOCK_WORKSPACES: Workspace[] = [
+  {
+    id: '123e4567-e89b-12d3-a456-426614174000',
+    name: 'larchanka-training',
+    installationId: 12345,
+  },
+]
 
 export const MOCK_TOKEN = 'mock_jwt_token_skvertl_dmc'
 
 export interface AuthState {
   token: string | null
   user: User | null
+  workspaces: Workspace[]
   isLoading: boolean
   error: string | null
   isAuthenticated: boolean
 
   loginWithGitHub: () => void
-  handleCallback: (code: string) => Promise<void>
+  handleCallback: (code: string, state?: string | null) => Promise<void>
   loginAsMockUser: () => void
-  logout: () => void
+  logout: () => Promise<void>
   initAuth: () => Promise<void>
 }
 
-export const useAuthStore = create<AuthState>((set) => {
-  const initialToken = getStoredToken()
+export const useAuthStore = create<AuthState>((set) => ({
+  token: null,
+  user: null,
+  workspaces: [],
+  isLoading: false,
+  error: null,
+  isAuthenticated: false,
 
-  return {
-    token: initialToken,
-    user: initialToken ? MOCK_USER : null,
-    isLoading: false,
-    error: null,
-    isAuthenticated: Boolean(initialToken),
+  loginWithGitHub: () => {
+    if (typeof window === 'undefined') return
 
-    loginWithGitHub: () => {
-      if (typeof window === 'undefined') return
-
-      const redirectUri = `${window.location.origin}/auth/callback`
-      if (!GITHUB_CLIENT_ID || GITHUB_CLIENT_ID === 'dmc_mock_client_id') {
-        // Mock redirect for development without GitHub OAuth app configured
+    const redirectUri = `${window.location.origin}/auth/callback`
+    if (!GITHUB_CLIENT_ID) {
+      if (USE_MOCKS) {
         window.location.href = `${redirectUri}?code=mock_code_123`
-        return
+      }
+      return
+    }
+
+    const state = generateRandomState()
+    try {
+      sessionStorage.setItem(STATE_STORAGE_KEY, state)
+    } catch {
+      // Ignore sessionStorage errors
+    }
+
+    const params = new URLSearchParams({
+      client_id: GITHUB_CLIENT_ID,
+      redirect_uri: redirectUri,
+      state,
+    })
+    window.location.href = `https://github.com/login/oauth/authorize?${params.toString()}`
+  },
+
+  handleCallback: async (code: string, state?: string | null) => {
+    set({ isLoading: true, error: null })
+    try {
+      let savedState: string | null = null
+      try {
+        savedState = sessionStorage.getItem(STATE_STORAGE_KEY)
+        sessionStorage.removeItem(STATE_STORAGE_KEY)
+      } catch {
+        // Ignore storage errors
       }
 
-      const params = new URLSearchParams({
-        client_id: GITHUB_CLIENT_ID,
-        redirect_uri: redirectUri,
-        scope: 'read:user,repo',
-      })
-      window.location.href = `https://github.com/login/oauth/authorize?${params.toString()}`
-    },
-
-    handleCallback: async (code: string) => {
-      set({ isLoading: true, error: null })
-      try {
-        let token = MOCK_TOKEN
-        let user = MOCK_USER
-
-        try {
-          const res = await apiClient<unknown>(endpoints.auth.githubCallback(), {
-            body: { code },
+      if (savedState !== null) {
+        if (!state || state !== savedState) {
+          setAccessToken(null)
+          set({
+            token: null,
+            user: null,
+            workspaces: [],
+            isAuthenticated: false,
+            isLoading: false,
+            error: 'Invalid OAuth state parameter (CSRF protection)',
           })
-          const parsed = AuthCallbackResponseSchema.parse(res)
-          token = parsed.token
-          if (parsed.user) {
-            user = parsed.user
-          }
-        } catch {
-          // If backend is offline or mock code passed, fallback gracefully to mock user
-          if (code.startsWith('mock_')) {
-            token = MOCK_TOKEN
-            user = MOCK_USER
-          } else {
-            // Still fallback to mock session with warning rather than blocking developer
-            token = `token_${code}`
-            user = { ...MOCK_USER, login: 'github-user' }
-          }
+          throw new Error('Invalid OAuth state parameter')
         }
+      }
 
-        setStoredToken(token)
+      // If mock mode is enabled and mock code is passed without real client ID
+      if (USE_MOCKS && code.startsWith('mock_')) {
+        setAccessToken(MOCK_TOKEN)
         set({
-          token,
-          user,
+          token: MOCK_TOKEN,
+          user: MOCK_USER,
+          workspaces: MOCK_WORKSPACES,
           isAuthenticated: true,
           isLoading: false,
           error: null,
         })
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Ошибка аутентификации'
-        set({ isLoading: false, error: message })
-        throw err
+        return
       }
-    },
 
-    loginAsMockUser: () => {
-      setStoredToken(MOCK_TOKEN)
+      // Real code exchange via POST /api/auth/github/callback
+      const res = await apiClient<unknown>(endpoints.auth.githubCallback(), {
+        body: { code },
+      })
+      const parsed = AuthSessionSchema.parse(res)
+
+      setAccessToken(parsed.accessToken)
       set({
-        token: MOCK_TOKEN,
-        user: MOCK_USER,
+        token: parsed.accessToken,
+        user: parsed.user,
         isAuthenticated: true,
         isLoading: false,
         error: null,
       })
-    },
-
-    logout: () => {
-      setStoredToken(null)
+    } catch (err) {
+      setAccessToken(null)
+      const message = err instanceof Error ? err.message : 'Ошибка аутентификации'
       set({
         token: null,
         user: null,
+        workspaces: [],
+        isAuthenticated: false,
+        isLoading: false,
+        error: message,
+      })
+      throw err
+    }
+  },
+
+  loginAsMockUser: () => {
+    if (!USE_MOCKS && import.meta.env.MODE !== 'test') return
+    setAccessToken(MOCK_TOKEN)
+    set({
+      token: MOCK_TOKEN,
+      user: MOCK_USER,
+      workspaces: MOCK_WORKSPACES,
+      isAuthenticated: true,
+      isLoading: false,
+      error: null,
+    })
+  },
+
+  logout: async () => {
+    try {
+      if (getAccessToken()) {
+        await apiClient(endpoints.auth.logout())
+      }
+    } catch {
+      // Ignore network errors on logout
+    } finally {
+      setAccessToken(null)
+      set({
+        token: null,
+        user: null,
+        workspaces: [],
         isAuthenticated: false,
         isLoading: false,
         error: null,
       })
-    },
+    }
+  },
 
-    initAuth: async () => {
-      const storedToken = getStoredToken()
-      if (!storedToken) {
-        set({ token: null, user: null, isAuthenticated: false })
+  initAuth: async () => {
+    // If mock mode is explicitly on and mock user is in memory
+    if (USE_MOCKS && getAccessToken() === MOCK_TOKEN) {
+      set({
+        token: MOCK_TOKEN,
+        user: MOCK_USER,
+        workspaces: MOCK_WORKSPACES,
+        isAuthenticated: true,
+        isLoading: false,
+      })
+      return
+    }
+
+    set({ isLoading: true, error: null })
+    try {
+      const newToken = await refreshAccessToken()
+      if (!newToken) {
+        set({
+          token: null,
+          user: null,
+          workspaces: [],
+          isAuthenticated: false,
+          isLoading: false,
+        })
         return
       }
 
-      set({ isLoading: true, token: storedToken })
-      try {
-        const res = await apiClient<unknown>(endpoints.auth.me(), { token: storedToken })
-        const user = UserSchema.parse(res)
-        set({ user, isAuthenticated: true, isLoading: false })
-      } catch {
-        // If /auth/me is not reachable, retain mock user if token matches mock token
-        if (storedToken === MOCK_TOKEN) {
-          set({ user: MOCK_USER, isAuthenticated: true, isLoading: false })
-        } else {
-          set({ user: null, isAuthenticated: true, isLoading: false })
-        }
-      }
-    },
-  }
-})
+      const res = await apiClient<unknown>(endpoints.auth.me(), { token: newToken })
+      const me = MeSchema.parse(res)
+      set({
+        token: newToken,
+        user: {
+          id: me.id,
+          login: me.login,
+          name: me.name,
+          avatarUrl: me.avatarUrl,
+        },
+        workspaces: me.workspaces,
+        isAuthenticated: true,
+        isLoading: false,
+        error: null,
+      })
+    } catch {
+      setAccessToken(null)
+      set({
+        token: null,
+        user: null,
+        workspaces: [],
+        isAuthenticated: false,
+        isLoading: false,
+      })
+    }
+  },
+}))
 
 // Automatically connect 401 unauthorized handler to logout
 setOnUnauthorized(() => {
-  useAuthStore.getState().logout()
+  void useAuthStore.getState().logout()
 })

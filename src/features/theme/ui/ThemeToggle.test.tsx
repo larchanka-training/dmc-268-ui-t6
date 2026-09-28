@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { useThemeStore } from '../model/store'
 import { ThemeToggle } from './ThemeToggle'
@@ -8,6 +8,10 @@ import { ThemeToggle } from './ThemeToggle'
 describe('ThemeToggle', () => {
   beforeEach(() => {
     useThemeStore.setState({ mode: 'light' })
+  })
+
+  afterEach(() => {
+    cleanup()
   })
 
   it('renders and toggles theme on click', () => {

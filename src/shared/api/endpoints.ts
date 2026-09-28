@@ -8,11 +8,12 @@ export interface Endpoint {
 export const endpoints = {
   auth: {
     githubCallback: (): Endpoint => ({ method: 'POST', path: '/auth/github/callback' }),
+    refresh: (): Endpoint => ({ method: 'POST', path: '/auth/refresh' }),
     me: (): Endpoint => ({ method: 'GET', path: '/auth/me' }),
+    logout: (): Endpoint => ({ method: 'POST', path: '/auth/logout' }),
   },
   repos: {
     list: (): Endpoint => ({ method: 'GET', path: '/repos' }),
-    connect: (): Endpoint => ({ method: 'POST', path: '/repos' }),
     detail: (id: string): Endpoint => ({ method: 'GET', path: `/repos/${id}` }),
     update: (id: string): Endpoint => ({ method: 'PATCH', path: `/repos/${id}` }),
   },

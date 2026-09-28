@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { MOCK_USER, useAuthStore } from '../model/store'
 import { UserMenu } from './UserMenu'
@@ -11,6 +11,10 @@ describe('UserMenu', () => {
       user: null,
       isAuthenticated: false,
     })
+  })
+
+  afterEach(() => {
+    cleanup()
   })
 
   it('renders nothing when not authenticated', () => {

@@ -1,10 +1,11 @@
 import { API_BASE_URL } from '../config/env'
 import type { Endpoint } from './endpoints'
-import { resolveUrl } from './endpoints'
+import { endpoints, resolveUrl } from './endpoints'
 
 export interface RequestOptions extends Omit<RequestInit, 'method' | 'body'> {
   body?: unknown
   token?: string | null
+  _isRetry?: boolean
 }
 
 export class ApiError extends Error {
@@ -18,37 +19,84 @@ export class ApiError extends Error {
   }
 }
 
+let inMemoryAccessToken: string | null = null
 let authErrorHandler: (() => void) | null = null
 
-export function setOnUnauthorized(handler: () => void) {
+export type MockTransportHandler = (endpoint: Endpoint, options: RequestOptions) => unknown
+
+let mockTransportHandler: MockTransportHandler | null = null
+
+export function setMockTransport(handler: MockTransportHandler | null): void {
+  mockTransportHandler = handler
+}
+
+export function getAccessToken(): string | null {
+  return inMemoryAccessToken
+}
+
+export function setAccessToken(token: string | null): void {
+  inMemoryAccessToken = token
+}
+
+export function setOnUnauthorized(handler: () => void): void {
   authErrorHandler = handler
 }
 
-export const AUTH_TOKEN_KEY = 'dmc_auth_token'
+let refreshPromise: Promise<string | null> | null = null
 
-export function getStoredToken(): string | null {
-  try {
-    return localStorage.getItem(AUTH_TOKEN_KEY)
-  } catch {
-    return null
+export async function refreshAccessToken(): Promise<string | null> {
+  if (refreshPromise) {
+    return refreshPromise
   }
-}
 
-export function setStoredToken(token: string | null): void {
-  try {
-    if (token) {
-      localStorage.setItem(AUTH_TOKEN_KEY, token)
-    } else {
-      localStorage.removeItem(AUTH_TOKEN_KEY)
+  refreshPromise = (async () => {
+    try {
+      const url = resolveUrl(API_BASE_URL, endpoints.auth.refresh())
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      })
+
+      if (!res.ok) {
+        setAccessToken(null)
+        authErrorHandler?.()
+        return null
+      }
+
+      const data = (await res.json()) as { accessToken?: string }
+      if (data.accessToken) {
+        setAccessToken(data.accessToken)
+        return data.accessToken
+      }
+
+      setAccessToken(null)
+      authErrorHandler?.()
+      return null
+    } catch {
+      setAccessToken(null)
+      authErrorHandler?.()
+      return null
+    } finally {
+      refreshPromise = null
     }
-  } catch {
-    // Ignore storage errors in restricted contexts
-  }
+  })()
+
+  return refreshPromise
 }
 
 export async function apiClient<T>(endpoint: Endpoint, options: RequestOptions = {}): Promise<T> {
+  if (mockTransportHandler) {
+    const mockResult = await mockTransportHandler(endpoint, options)
+    if (mockResult !== undefined) {
+      return mockResult as T
+    }
+  }
+
   const url = resolveUrl(API_BASE_URL, endpoint)
-  const token = options.token !== undefined ? options.token : getStoredToken()
+  const token = options.token !== undefined ? options.token : getAccessToken()
 
   const headers = new Headers(options.headers)
 
@@ -71,10 +119,25 @@ export async function apiClient<T>(endpoint: Endpoint, options: RequestOptions =
     method: endpoint.method,
     headers,
     body,
+    credentials: options.credentials ?? 'include',
   })
 
+  // Handle 401 Unauthorized with token refresh for non-auth endpoints
   if (response.status === 401) {
-    authErrorHandler?.()
+    const isAuthEndpoint = endpoint.path.startsWith('/auth/')
+    if (!isAuthEndpoint && !options._isRetry) {
+      const newToken = await refreshAccessToken()
+      if (newToken) {
+        return apiClient<T>(endpoint, {
+          ...options,
+          token: newToken,
+          _isRetry: true,
+        })
+      }
+    } else {
+      setAccessToken(null)
+      authErrorHandler?.()
+    }
   }
 
   if (!response.ok) {

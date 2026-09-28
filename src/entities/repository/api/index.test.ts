@@ -1,17 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import {
-  connectRepository,
-  fetchRepositories,
-  fetchRepository,
-  repoApi,
-  updateRepository,
-} from './index'
+import { fetchRepositories, fetchRepository, repoApi, updateRepository } from './index'
 
 describe('repoApi schema mappings', () => {
   it('maps endpoints to correct definitions', () => {
     expect(repoApi.list.endpoint().path).toBe('/repos')
-    expect(repoApi.connect.endpoint().method).toBe('POST')
     expect(repoApi.detail.endpoint('123').path).toBe('/repos/123')
     expect(repoApi.update.endpoint('123').method).toBe('PATCH')
   })
@@ -28,23 +21,21 @@ describe('repository API client methods', () => {
     globalThis.fetch = originalFetch
   })
 
-  it('fetchRepositories returns validated repositories', async () => {
-    const mockData = [
-      {
-        id: 'repo-1',
-        name: 'test-repo',
-        fullName: 'org/test-repo',
-        url: 'https://github.com/org/test-repo',
-        defaultBranch: 'main',
-        enabled: true,
-        defaultEngine: 'fast',
-        waitForCi: true,
-        maxComments: 10,
-      },
-    ]
+  const sampleRepo = {
+    id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+    fullName: 'org/test-repo',
+    url: 'https://github.com/org/test-repo',
+    defaultBranch: 'main',
+    enabled: true,
+    defaultEngine: 'fast' as const,
+    waitForCi: 'auto' as const,
+    maxComments: 10,
+    reviewEvent: 'COMMENT' as const,
+  }
 
+  it('fetchRepositories returns validated repositories', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify(mockData), {
+      new Response(JSON.stringify([sampleRepo]), {
         status: 200,
         statusText: 'OK',
       }),
@@ -52,85 +43,41 @@ describe('repository API client methods', () => {
 
     const result = await fetchRepositories()
     expect(result).toHaveLength(1)
-    expect(result[0]?.name).toBe('test-repo')
+    expect(result[0]?.fullName).toBe('org/test-repo')
+    expect(result[0]?.waitForCi).toBe('auto')
   })
 
-  it('connectRepository posts validated payload', async () => {
-    const returnedRepo = {
-      id: 'repo-2',
-      name: 'new-repo',
-      fullName: 'org/new-repo',
-      url: 'https://github.com/org/new-repo',
-      defaultBranch: 'main',
-      enabled: true,
-      defaultEngine: 'fast',
-      waitForCi: true,
-      maxComments: 10,
-    }
-
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify(returnedRepo), {
-        status: 201,
-        statusText: 'Created',
+  it('fetchRepository returns single repository', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(sampleRepo), {
+        status: 200,
+        statusText: 'OK',
       }),
     )
-    globalThis.fetch = fetchMock
 
-    const res = await connectRepository({ fullName: 'org/new-repo' })
-    expect(res.fullName).toBe('org/new-repo')
-    const callArgs = fetchMock.mock.calls[0] as [string, RequestInit | undefined] | undefined
-    expect(callArgs).toBeDefined()
-    expect(callArgs?.[0]).toContain('/repos')
-    expect(callArgs?.[1]?.method).toBe('POST')
+    const result = await fetchRepository('a1b2c3d4-e5f6-7890-abcd-ef1234567890')
+    expect(result.id).toBe('a1b2c3d4-e5f6-7890-abcd-ef1234567890')
   })
 
-  it('updateRepository sends patch request', async () => {
+  it('updateRepository sends patch and returns updated repository', async () => {
     const updated = {
-      id: 'repo-1',
-      name: 'test-repo',
-      fullName: 'org/test-repo',
-      url: 'https://github.com/org/test-repo',
-      defaultBranch: 'main',
+      ...sampleRepo,
       enabled: false,
-      defaultEngine: 'deep',
-      waitForCi: false,
       maxComments: 5,
     }
 
-    const fetchMock = vi.fn().mockResolvedValue(
+    globalThis.fetch = vi.fn().mockResolvedValue(
       new Response(JSON.stringify(updated), {
         status: 200,
         statusText: 'OK',
       }),
     )
-    globalThis.fetch = fetchMock
 
-    const res = await updateRepository('repo-1', { enabled: false, defaultEngine: 'deep' })
-    expect(res.enabled).toBe(false)
-    expect(res.defaultEngine).toBe('deep')
-  })
-
-  it('fetchRepository returns single repository', async () => {
-    const mockRepo = {
-      id: 'repo-1',
-      name: 'test-repo',
-      fullName: 'org/test-repo',
-      url: 'https://github.com/org/test-repo',
-      defaultBranch: 'main',
-      enabled: true,
-      defaultEngine: 'fast',
-      waitForCi: true,
-      maxComments: 10,
-    }
-
-    globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify(mockRepo), {
-        status: 200,
-        statusText: 'OK',
-      }),
-    )
-
-    const res = await fetchRepository('repo-1')
-    expect(res.id).toBe('repo-1')
+    const result = await updateRepository('a1b2c3d4-e5f6-7890-abcd-ef1234567890', {
+      enabled: false,
+      maxComments: 5,
+    })
+    expect(result.enabled).toBe(false)
+    expect(result.maxComments).toBe(5)
   })
 })

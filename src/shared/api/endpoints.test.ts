@@ -19,9 +19,17 @@ describe('endpoints', () => {
       method: 'POST',
       path: '/auth/github/callback',
     })
+    expect(endpoints.auth.refresh()).toEqual({
+      method: 'POST',
+      path: '/auth/refresh',
+    })
     expect(endpoints.auth.me()).toEqual({
       method: 'GET',
       path: '/auth/me',
+    })
+    expect(endpoints.auth.logout()).toEqual({
+      method: 'POST',
+      path: '/auth/logout',
     })
   })
 
@@ -30,9 +38,9 @@ describe('endpoints', () => {
       method: 'GET',
       path: '/repos',
     })
-    expect(endpoints.repos.connect()).toEqual({
-      method: 'POST',
-      path: '/repos',
+    expect(endpoints.repos.detail('repo-123')).toEqual({
+      method: 'GET',
+      path: '/repos/repo-123',
     })
     expect(endpoints.repos.update('repo-123')).toEqual({
       method: 'PATCH',

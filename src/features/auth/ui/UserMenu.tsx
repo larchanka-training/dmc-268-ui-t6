@@ -19,11 +19,9 @@ export const UserMenu: FC = () => {
       label: (
         <Flex vertical>
           <Text strong>{user.name ?? user.login}</Text>
-          {user.email ? (
-            <Text style={{ fontSize: 12 }} type="secondary">
-              {user.email}
-            </Text>
-          ) : null}
+          <Text style={{ fontSize: 12 }} type="secondary">
+            ID: {user.id}
+          </Text>
         </Flex>
       ),
     },
@@ -36,7 +34,7 @@ export const UserMenu: FC = () => {
       key: 'logout',
       label: 'Выйти',
       onClick: () => {
-        logout()
+        void logout()
       },
     },
   ]
