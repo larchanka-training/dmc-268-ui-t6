@@ -1,5 +1,5 @@
 import { CheckCircleOutlined, RobotOutlined } from '@ant-design/icons'
-import { Card, Flex, Layout, List, Typography, theme } from 'antd'
+import { Alert, Card, Flex, Layout, List, Typography, theme } from 'antd'
 import type { FC } from 'react'
 
 import { LoginButton, useAuthStore } from '../../features/auth'
@@ -15,9 +15,10 @@ export const LoginPage: FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const { token } = theme.useToken()
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   const user = useAuthStore((state) => state.user)
+  const authError = useAuthStore((state) => state.error)
 
   const features = [
-    'Автоматический триггер ревью по назначению бота и успешному CI',
+    'Автоматический триггер ревью по метке ai-review и успешному CI',
     'Два движка анализа: быстрый DiffEngine и изолированный SandboxEngine',
     'Публикация концентрированных замечаний прямо в pull request',
     'Инспектор трейса действий LLM и интерактивный просмотрщик диффа',
@@ -86,6 +87,10 @@ export const LoginPage: FC<LoginPageProps> = ({ onLoginSuccess }) => {
           style={{ marginBottom: 32 }}
         />
 
+        {authError ? (
+          <Alert showIcon style={{ marginBottom: 16 }} title={authError} type="error" />
+        ) : null}
+
         {isAuthenticated ? (
           <Flex vertical gap="small">
             <Text strong>Вы уже авторизованы как {user?.login ?? 'пользователь'}</Text>
@@ -107,10 +112,10 @@ export const LoginPage: FC<LoginPageProps> = ({ onLoginSuccess }) => {
             </div>
           </Flex>
         ) : (
-          <Flex vertical align="center" gap="middle">
-            <LoginButton showMockButton={true} size="large" />
+          <Flex align="center" gap="middle" vertical>
+            <LoginButton size="large" />
             <Text style={{ fontSize: 12 }} type="secondary">
-              Авторизуясь через GitHub, вы предоставляете доступ к чтению профиля и репозиториев
+              Вход выполняется через GitHub App бота-ревьюера
             </Text>
           </Flex>
         )}

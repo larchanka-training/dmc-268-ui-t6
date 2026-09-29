@@ -71,6 +71,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (!GITHUB_CLIENT_ID) {
       if (USE_MOCKS) {
         window.location.href = `${redirectUri}?code=mock_code_123`
+      } else {
+        set({ error: 'Вход не настроен (VITE_GITHUB_CLIENT_ID)' })
       }
       return
     }
@@ -101,21 +103,6 @@ export const useAuthStore = create<AuthState>((set) => ({
         // Ignore storage errors
       }
 
-      if (savedState !== null) {
-        if (!state || state !== savedState) {
-          setAccessToken(null)
-          set({
-            token: null,
-            user: null,
-            workspaces: [],
-            isAuthenticated: false,
-            isLoading: false,
-            error: 'Invalid OAuth state parameter (CSRF protection)',
-          })
-          throw new Error('Invalid OAuth state parameter')
-        }
-      }
-
       // If mock mode is enabled and mock code is passed without real client ID
       if (USE_MOCKS && code.startsWith('mock_')) {
         setAccessToken(MOCK_TOKEN)
@@ -128,6 +115,19 @@ export const useAuthStore = create<AuthState>((set) => ({
           error: null,
         })
         return
+      }
+
+      if (!savedState || !state || state !== savedState) {
+        setAccessToken(null)
+        set({
+          token: null,
+          user: null,
+          workspaces: [],
+          isAuthenticated: false,
+          isLoading: false,
+          error: 'Недействительный параметр безопасности state (защита от CSRF)',
+        })
+        throw new Error('Invalid OAuth state parameter')
       }
 
       // Real code exchange via POST /api/auth/github/callback

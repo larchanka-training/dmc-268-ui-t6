@@ -1,16 +1,17 @@
 import { Button, Card, Flex, Layout, Result, Spin, Typography, theme } from 'antd'
 import { useEffect, useRef, useState, type FC } from 'react'
 
-import { useAuthStore } from '../../features/auth'
+import { STATE_STORAGE_KEY, useAuthStore } from '../../features/auth'
 
 const { Text } = Typography
 
 export interface CallbackPageProps {
   onSuccess?: () => void
   onError?: (err: Error) => void
+  onBackToLogin?: () => void
 }
 
-export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError }) => {
+export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError, onBackToLogin }) => {
   const { token } = theme.useToken()
   const handleCallback = useAuthStore((state) => state.handleCallback)
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
@@ -25,6 +26,8 @@ export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError }) => {
       if (typeof window === 'undefined') return
 
       const urlParams = new URLSearchParams(window.location.search)
+      const oauthError = urlParams.get('error')
+      const oauthErrorDesc = urlParams.get('error_description')
       const code = urlParams.get('code')
       const state = urlParams.get('state')
 
@@ -35,10 +38,30 @@ export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError }) => {
         // Ignore replaceState errors in restricted environments
       }
 
-      if (!code) {
+      if (oauthError) {
+        try {
+          sessionStorage.removeItem(STATE_STORAGE_KEY)
+        } catch {
+          // Ignore storage errors
+        }
         setStatus('error')
-        setErrorMessage('Отсутствует код авторизации (code параметр не найден)')
-        onError?.(new Error('Missing code'))
+        const msg =
+          oauthErrorDesc ??
+          (oauthError === 'access_denied'
+            ? 'Доступ отклонён пользователем на стороне GitHub'
+            : `Ошибка авторизации GitHub: ${oauthError}`)
+        setErrorMessage(msg)
+        return
+      }
+
+      if (!code) {
+        try {
+          sessionStorage.removeItem(STATE_STORAGE_KEY)
+        } catch {
+          // Ignore storage errors
+        }
+        setStatus('error')
+        setErrorMessage('Отсутствует код авторизации (параметр code не найден)')
         return
       }
 
@@ -54,12 +77,11 @@ export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError }) => {
         const msg = err instanceof Error ? err.message : 'Не удалось завершить авторизацию'
         setStatus('error')
         setErrorMessage(msg)
-        onError?.(err instanceof Error ? err : new Error(msg))
       }
     }
 
     void processCode()
-  }, [handleCallback, onSuccess, onError])
+  }, [handleCallback, onSuccess])
 
   return (
     <Layout
@@ -94,7 +116,9 @@ export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError }) => {
               <Button
                 key="back"
                 onClick={() => {
-                  if (onError) {
+                  if (onBackToLogin) {
+                    onBackToLogin()
+                  } else if (onError) {
                     onError(new Error(errorMessage ?? 'Auth error'))
                   } else {
                     window.location.href = '/login'

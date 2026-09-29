@@ -52,4 +52,22 @@ describe('CallbackPage', () => {
       expect(onSuccess).toHaveBeenCalledTimes(1)
     })
   })
+
+  it('displays user-friendly error and clears state when GitHub returns error=access_denied', async () => {
+    sessionStorage.setItem('dmc_auth_oauth_state', 'active_state')
+    window.history.pushState({}, '', '/auth/callback?error=access_denied')
+
+    const onBackToLogin = vi.fn()
+    render(<CallbackPage onBackToLogin={onBackToLogin} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Ошибка авторизации')).toBeDefined()
+      expect(screen.getByText('Доступ отклонён пользователем на стороне GitHub')).toBeDefined()
+      expect(sessionStorage.getItem('dmc_auth_oauth_state')).toBeNull()
+    })
+
+    const backButton = screen.getByRole('button', { name: /вернуться к экрану входа/i })
+    backButton.click()
+    expect(onBackToLogin).toHaveBeenCalledTimes(1)
+  })
 })

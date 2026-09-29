@@ -77,6 +77,23 @@ describe('useAuthStore', () => {
     expect(getAccessToken()).toBeNull()
   })
 
+  it('handleCallback without saved state in sessionStorage rejects (login CSRF protection)', async () => {
+    sessionStorage.clear()
+
+    const mockFetch = vi.fn()
+    globalThis.fetch = mockFetch
+
+    await expect(
+      useAuthStore.getState().handleCallback('attacker_code', 'attacker_state'),
+    ).rejects.toThrow('Invalid OAuth state parameter')
+
+    expect(mockFetch).not.toHaveBeenCalled()
+    const state = useAuthStore.getState()
+    expect(state.isAuthenticated).toBe(false)
+    expect(state.token).toBeNull()
+    expect(getAccessToken()).toBeNull()
+  })
+
   it('handleCallback fails closed on backend error without creating session', async () => {
     sessionStorage.setItem(STATE_STORAGE_KEY, 'valid_state')
 

@@ -22,5 +22,12 @@ describe('LoginPage', () => {
     render(<LoginPage />)
     expect(screen.getByText('AI Code Reviewer')).toBeDefined()
     expect(screen.getByRole('button', { name: /войти через github/i })).toBeDefined()
+    expect(screen.queryByRole('button', { name: /демо-вход/i })).toBeNull()
+  })
+
+  it('renders error alert when auth store has an error', () => {
+    useAuthStore.setState({ error: 'Вход не настроен (VITE_GITHUB_CLIENT_ID)' })
+    render(<LoginPage />)
+    expect(screen.getByText('Вход не настроен (VITE_GITHUB_CLIENT_ID)')).toBeDefined()
   })
 })

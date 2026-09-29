@@ -1,8 +1,8 @@
 import { GithubOutlined, UserOutlined } from '@ant-design/icons'
-import { Button, Flex } from 'antd'
+import { Button, Flex, Tooltip } from 'antd'
 import type { FC } from 'react'
 
-import { USE_MOCKS } from '../../../shared/config/env'
+import { GITHUB_CLIENT_ID, USE_MOCKS } from '../../../shared/config/env'
 import { useAuthStore } from '../model/store'
 
 export interface LoginButtonProps {
@@ -18,18 +18,31 @@ export const LoginButton: FC<LoginButtonProps> = ({
   const loginAsMockUser = useAuthStore((state) => state.loginAsMockUser)
   const isLoading = useAuthStore((state) => state.isLoading)
 
+  const isConfigured = Boolean(GITHUB_CLIENT_ID || USE_MOCKS)
+
+  const githubBtn = (
+    <Button
+      aria-label="Войти через GitHub"
+      disabled={!isConfigured}
+      icon={<GithubOutlined />}
+      loading={isLoading}
+      onClick={loginWithGitHub}
+      size={size}
+      type="primary"
+    >
+      Войти через GitHub
+    </Button>
+  )
+
   return (
     <Flex align="center" gap="middle" wrap="wrap">
-      <Button
-        aria-label="Войти через GitHub"
-        icon={<GithubOutlined />}
-        loading={isLoading}
-        onClick={loginWithGitHub}
-        size={size}
-        type="primary"
-      >
-        Войти через GitHub
-      </Button>
+      {!isConfigured ? (
+        <Tooltip title="Вход не настроен (VITE_GITHUB_CLIENT_ID)">
+          <span>{githubBtn}</span>
+        </Tooltip>
+      ) : (
+        githubBtn
+      )}
 
       {showMockButton ? (
         <Button
