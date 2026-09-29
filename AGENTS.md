@@ -66,6 +66,8 @@ only flow downward, `shared` never imports `entities`); details in
 - `.agents/agents/` — agent definitions.
 - `.agents/templates/` — code/test templates with proof blocks.
 - `docs/FRONTEND_ARCHITECTURE.md` — FSD conventions in full.
+- [`TEST_PLAN.md`](https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/TEST_PLAN.md) —
+  canonical cross-repository test strategy and validated PR corpus (`dmc-268-api-t6`, `main`).
 - [`SYSTEM_DESIGN.md`](https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md) —
   product architecture (`dmc-268-api-t6`, `main`).
 - `CLAUDE.md` only imports this file — edit `AGENTS.md`.
