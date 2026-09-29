@@ -44,8 +44,18 @@ describe('RepositoryList', () => {
     expect(screen.getByText('larchanka-training/dmc-268-api-t6')).toBeDefined()
     expect(screen.getByText('main')).toBeDefined()
     expect(screen.getByText('master')).toBeDefined()
-    expect(screen.getByText('Auto (Ждёт CI)')).toBeDefined()
-    expect(screen.getByText('Never (Без ожидания)')).toBeDefined()
+    expect(screen.getByText('Auto')).toBeDefined()
+    expect(screen.getByText('Never')).toBeDefined()
+  })
+
+  it('renders settings button with unique per-row aria-label', () => {
+    render(<RepositoryList repositories={mockRepos} />)
+    expect(
+      screen.getByRole('button', { name: 'Настройки larchanka-training/dmc-268-ui-t6' }),
+    ).toBeDefined()
+    expect(
+      screen.getByRole('button', { name: 'Настройки larchanka-training/dmc-268-api-t6' }),
+    ).toBeDefined()
   })
 
   it('filters repositories by search input matching full and short name', () => {
@@ -61,6 +71,6 @@ describe('RepositoryList', () => {
   it('renders empty state when repositories array is empty', () => {
     render(<RepositoryList repositories={[]} />)
     expect(screen.getByText(/Репозитории ещё не подключены/i)).toBeDefined()
-    expect(screen.getByRole('link', { name: /Установить GitHub App/i })).toBeDefined()
+    expect(screen.getByText(/Установить GitHub App/i)).toBeDefined()
   })
 })

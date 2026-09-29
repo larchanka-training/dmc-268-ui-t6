@@ -80,4 +80,27 @@ describe('repository API client methods', () => {
     expect(result.enabled).toBe(false)
     expect(result.maxComments).toBe(5)
   })
+
+  it('updateRepository throws validation error if empty patch object is provided', async () => {
+    await expect(updateRepository('a1b2c3d4-e5f6-7890-abcd-ef1234567890', {})).rejects.toThrow()
+  })
+
+  it('updateRepository sends only specified fields in body to the endpoint', async () => {
+    let capturedBody: unknown
+    globalThis.fetch = vi.fn().mockImplementation((_url, init: RequestInit) => {
+      capturedBody = JSON.parse(init.body as string)
+      return Promise.resolve(
+        new Response(JSON.stringify({ ...sampleRepo, enabled: false }), {
+          status: 200,
+          statusText: 'OK',
+        }),
+      )
+    })
+
+    await updateRepository('a1b2c3d4-e5f6-7890-abcd-ef1234567890', {
+      enabled: false,
+    })
+
+    expect(capturedBody).toEqual({ enabled: false })
+  })
 })

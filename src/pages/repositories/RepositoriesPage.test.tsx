@@ -1,8 +1,25 @@
 // @vitest-environment jsdom
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { App } from 'antd'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { RepositoriesPage } from './RepositoriesPage'
+
+function renderWithClient(ui: React.ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  })
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <App>{ui}</App>
+    </QueryClientProvider>,
+  )
+}
 
 describe('RepositoriesPage', () => {
   const originalFetch = globalThis.fetch
@@ -36,7 +53,7 @@ describe('RepositoriesPage', () => {
       }),
     )
 
-    render(<RepositoriesPage />)
+    renderWithClient(<RepositoriesPage />)
 
     await waitFor(() => {
       expect(screen.getByText('Подключенные репозитории')).toBeDefined()
@@ -47,7 +64,7 @@ describe('RepositoriesPage', () => {
   it('renders error alert when api fetch fails', async () => {
     globalThis.fetch = vi.fn().mockRejectedValue(new Error('Network error on load'))
 
-    render(<RepositoriesPage />)
+    renderWithClient(<RepositoriesPage />)
 
     await waitFor(() => {
       expect(screen.getByText('Ошибка загрузки данных')).toBeDefined()

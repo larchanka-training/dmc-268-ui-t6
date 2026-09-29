@@ -22,6 +22,7 @@ import {
   Switch,
   Table,
   Tag,
+  Tooltip,
   Typography,
 } from 'antd'
 import { useMemo, useState, type FC } from 'react'
@@ -55,9 +56,11 @@ export const RepositoryList: FC<RepositoryListProps> = ({
   const [search, setSearch] = useState('')
   const [filterActive, setFilterActive] = useState<'all' | 'active'>('all')
   const [editingRepo, setEditingRepo] = useState<Repository | null>(null)
+  const [saving, setSaving] = useState(false)
   const [form] = Form.useForm<UpdateRepositoryInput>()
 
-  const appInstallUrl = GITHUB_APP_SLUG
+  const isAppConfigured = Boolean(GITHUB_APP_SLUG)
+  const appInstallUrl = isAppConfigured
     ? `https://github.com/apps/${GITHUB_APP_SLUG}/installations/new`
     : 'https://github.com/apps'
 
@@ -87,12 +90,63 @@ export const RepositoryList: FC<RepositoryListProps> = ({
     if (!editingRepo) return
     try {
       const values = await form.validateFields()
-      await onUpdateRepository?.(editingRepo.id, values)
+      const patch: UpdateRepositoryInput = {}
+      if (values.enabled !== undefined && values.enabled !== editingRepo.enabled) {
+        patch.enabled = values.enabled
+      }
+      if (
+        values.defaultEngine !== undefined &&
+        values.defaultEngine !== editingRepo.defaultEngine
+      ) {
+        patch.defaultEngine = values.defaultEngine
+      }
+      if (values.waitForCi !== undefined && values.waitForCi !== editingRepo.waitForCi) {
+        patch.waitForCi = values.waitForCi
+      }
+      if (values.maxComments !== undefined && values.maxComments !== editingRepo.maxComments) {
+        patch.maxComments = values.maxComments
+      }
+      if (values.reviewEvent !== undefined && values.reviewEvent !== editingRepo.reviewEvent) {
+        patch.reviewEvent = values.reviewEvent
+      }
+
+      if (Object.keys(patch).length > 0) {
+        setSaving(true)
+        await onUpdateRepository?.(editingRepo.id, patch)
+      }
       setEditingRepo(null)
     } catch {
-      // Form validation error
+      // Keep modal open if validation or update fails
+    } finally {
+      setSaving(false)
     }
   }
+
+  const connectButton = (
+    <Button
+      disabled={!isAppConfigured}
+      href={isAppConfigured ? appInstallUrl : undefined}
+      icon={<PlusOutlined />}
+      rel="noopener noreferrer"
+      target="_blank"
+      type="primary"
+    >
+      Подключить репозиторий
+    </Button>
+  )
+
+  const emptyConnectButton = (
+    <Button
+      disabled={!isAppConfigured}
+      href={isAppConfigured ? appInstallUrl : undefined}
+      icon={<GithubOutlined />}
+      rel="noopener noreferrer"
+      target="_blank"
+      type="primary"
+    >
+      Установить GitHub App
+    </Button>
+  )
 
   const columns = [
     {
@@ -139,11 +193,11 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       render: (wait: WaitForCi) => {
         switch (wait) {
           case 'auto':
-            return <Badge status="processing" text="Auto (Ждёт CI)" />
+            return <Badge status="processing" text="Auto" />
           case 'always':
-            return <Badge status="success" text="Always (Всегда)" />
+            return <Badge status="success" text="Always" />
           case 'never':
-            return <Badge status="default" text="Never (Без ожидания)" />
+            return <Badge status="default" text="Never" />
           default:
             return <Badge status="default" text={wait} />
         }
@@ -181,7 +235,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       key: 'actions',
       render: (_: unknown, record: Repository) => (
         <Button
-          aria-label="Настройки репозитория"
+          aria-label={`Настройки ${record.fullName}`}
           icon={<SettingOutlined />}
           onClick={() => {
             openSettings(record)
@@ -201,15 +255,13 @@ export const RepositoryList: FC<RepositoryListProps> = ({
           <Button icon={<ReloadOutlined />} onClick={onRefresh}>
             Обновить
           </Button>
-          <Button
-            href={appInstallUrl}
-            icon={<PlusOutlined />}
-            rel="noopener noreferrer"
-            target="_blank"
-            type="primary"
-          >
-            Подключить репозиторий
-          </Button>
+          {!isAppConfigured ? (
+            <Tooltip title="Инсталляция недоступна: не задан VITE_GITHUB_APP_SLUG">
+              <span>{connectButton}</span>
+            </Tooltip>
+          ) : (
+            connectButton
+          )}
         </Space>
       }
       title={
@@ -253,15 +305,13 @@ export const RepositoryList: FC<RepositoryListProps> = ({
           description="Репозитории ещё не подключены. Установите GitHub App для предоставления доступа к вашим репозиториям."
           image={Empty.PRESENTED_IMAGE_SIMPLE}
         >
-          <Button
-            href={appInstallUrl}
-            icon={<GithubOutlined />}
-            rel="noopener noreferrer"
-            target="_blank"
-            type="primary"
-          >
-            Установить GitHub App
-          </Button>
+          {!isAppConfigured ? (
+            <Tooltip title="Инсталляция недоступна: не задан VITE_GITHUB_APP_SLUG">
+              <span>{emptyConnectButton}</span>
+            </Tooltip>
+          ) : (
+            emptyConnectButton
+          )}
         </Empty>
       ) : (
         <Table
@@ -275,6 +325,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       )}
 
       <Modal
+        confirmLoading={saving}
         okText="Сохранить"
         onCancel={() => {
           setEditingRepo(null)
@@ -315,7 +366,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
               { type: 'number', min: 1, max: 10, message: 'Число от 1 до 10' },
             ]}
           >
-            <InputNumber max={10} min={1} style={{ width: '100%' }} />
+            <InputNumber max={10} min={1} precision={0} style={{ width: '100%' }} />
           </Form.Item>
 
           <Form.Item

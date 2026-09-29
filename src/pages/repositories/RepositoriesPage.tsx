@@ -1,5 +1,6 @@
-import { Alert, Button, Flex, message } from 'antd'
-import { useCallback, useEffect, useState, type FC } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Alert, App, Button, Flex } from 'antd'
+import type { FC } from 'react'
 
 import {
   fetchRepositories,
@@ -15,88 +16,69 @@ export interface RepositoriesPageProps {
 }
 
 export const RepositoriesPage: FC<RepositoriesPageProps> = ({ onNavigate }) => {
-  const [repositories, setRepositories] = useState<Repository[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { message } = App.useApp()
+  const queryClient = useQueryClient()
 
-  const loadRepositories = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const data = await fetchRepositories()
-      setRepositories(data)
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Не удалось загрузить репозитории'
-      setError(msg)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const {
+    data: repositories = [],
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ['repositories'],
+    queryFn: fetchRepositories,
+  })
 
-  useEffect(() => {
-    let ignore = false
-
-    async function load() {
-      try {
-        const data = await fetchRepositories()
-        if (!ignore) {
-          setRepositories(data)
-        }
-      } catch (err) {
-        if (!ignore) {
-          const msg = err instanceof Error ? err.message : 'Не удалось загрузить репозитории'
-          setError(msg)
-        }
-      } finally {
-        if (!ignore) {
-          setLoading(false)
-        }
-      }
-    }
-
-    void load()
-
-    return () => {
-      ignore = true
-    }
-  }, [])
+  const updateMutation = useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: UpdateRepositoryInput }) =>
+      updateRepository(id, patch),
+    onSuccess: (updated) => {
+      queryClient.setQueryData<Repository[]>(['repositories'], (prev) =>
+        prev ? prev.map((r) => (r.id === updated.id ? updated : r)) : [updated],
+      )
+    },
+  })
 
   const handleToggleEnabled = async (id: string, enabled: boolean) => {
-    // Optimistic update
-    setRepositories((prev) => prev.map((repo) => (repo.id === id ? { ...repo, enabled } : repo)))
+    const previous = queryClient.getQueryData<Repository[]>(['repositories'])
+    queryClient.setQueryData<Repository[]>(['repositories'], (prev) =>
+      prev?.map((repo) => (repo.id === id ? { ...repo, enabled } : repo)),
+    )
     try {
-      await updateRepository(id, { enabled })
-      message.success(`Статус репозитория обновлен: ${enabled ? 'активен' : 'на паузе'}`)
+      await updateMutation.mutateAsync({ id, patch: { enabled } })
+      void message.success(`Статус репозитория обновлен: ${enabled ? 'активен' : 'на паузе'}`)
     } catch (err) {
-      // Revert on error
-      setRepositories((prev) =>
-        prev.map((repo) => (repo.id === id ? { ...repo, enabled: !enabled } : repo)),
-      )
-      message.error(err instanceof Error ? err.message : 'Не удалось изменить статус репозитория')
+      queryClient.setQueryData(['repositories'], previous)
+      const msg = err instanceof Error ? err.message : 'Не удалось изменить статус репозитория'
+      void message.error(msg)
     }
   }
 
   const handleUpdateRepository = async (id: string, patch: UpdateRepositoryInput) => {
     try {
-      const updated = await updateRepository(id, patch)
-      setRepositories((prev) => prev.map((repo) => (repo.id === id ? updated : repo)))
-      message.success('Настройки репозитория успешно сохранены')
+      await updateMutation.mutateAsync({ id, patch })
+      void message.success('Настройки репозитория успешно сохранены')
     } catch (err) {
-      message.error(err instanceof Error ? err.message : 'Не удалось сохранить настройки')
+      const msg = err instanceof Error ? err.message : 'Не удалось сохранить настройки'
+      void message.error(msg)
+      throw err
     }
   }
 
   return (
     <AppLayout currentPath="/repositories" onNavigate={onNavigate}>
-      <Flex vertical gap="middle">
-        {error ? (
+      <Flex gap="middle" vertical>
+        {isError ? (
           <Alert
             action={
-              <Button onClick={() => void loadRepositories()} size="small" type="primary">
+              <Button onClick={() => void refetch()} size="small" type="primary">
                 Повторить попытку
               </Button>
             }
-            description={error}
+            description={
+              error instanceof Error ? error.message : 'Не удалось загрузить список репозиториев'
+            }
             showIcon
             title="Ошибка загрузки данных"
             type="error"
@@ -104,16 +86,14 @@ export const RepositoriesPage: FC<RepositoriesPageProps> = ({ onNavigate }) => {
         ) : null}
 
         <RepositoryList
-          loading={loading}
+          loading={isLoading}
           onRefresh={() => {
-            void loadRepositories()
+            void refetch()
           }}
           onToggleEnabled={(id, enabled) => {
             void handleToggleEnabled(id, enabled)
           }}
-          onUpdateRepository={(id, patch) => {
-            void handleUpdateRepository(id, patch)
-          }}
+          onUpdateRepository={(id, patch) => handleUpdateRepository(id, patch)}
           repositories={repositories}
         />
       </Flex>
