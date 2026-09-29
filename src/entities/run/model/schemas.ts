@@ -33,6 +33,9 @@ export const PullRequestRefSchema = z.object({
   title: z.string(),
   url: z.url(),
   headSha: z.string(),
+  author: z.string().nullable().optional(),
+  headRef: z.string().nullable().optional(),
+  baseRef: z.string().nullable().optional(),
 })
 export type PullRequestRef = z.infer<typeof PullRequestRefSchema>
 

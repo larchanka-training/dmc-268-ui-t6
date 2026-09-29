@@ -1,21 +1,11 @@
-import { useState } from 'react'
+import type { JSX } from 'react'
 
-export function App() {
-  const [count, setCount] = useState(0)
+// Временный демо-стенд: маршрут появится на T15. Сейчас он нужен, чтобы
+// посмотреть экран деталей PR на моках до мержа PR #55. Удаляется на T15.
+import { RunDetailHarness } from './app/ui/RunDetailHarness'
 
-  return (
-    <div style={{ fontFamily: 'sans-serif', padding: '2rem', textAlign: 'center' }}>
-      <h1>DMC-268 Team 6 UI</h1>
-      <p>React + TypeScript + Vite</p>
-      <button
-        onClick={() => {
-          setCount((current) => current + 1)
-        }}
-      >
-        Count is {count}
-      </button>
-    </div>
-  )
+export function App(): JSX.Element {
+  return <RunDetailHarness />
 }
 
 export default App
