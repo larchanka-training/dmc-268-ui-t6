@@ -41,6 +41,7 @@ const { Text, Link } = Typography
 export interface RepositoryListProps {
   repositories: Repository[]
   loading?: boolean
+  updatingRepoId?: string
   onToggleEnabled?: (id: string, enabled: boolean) => void
   onUpdateRepository?: (id: string, patch: UpdateRepositoryInput) => Promise<void> | void
   onRefresh?: () => void
@@ -49,6 +50,7 @@ export interface RepositoryListProps {
 export const RepositoryList: FC<RepositoryListProps> = ({
   repositories,
   loading = false,
+  updatingRepoId,
   onToggleEnabled,
   onUpdateRepository,
   onRefresh,
@@ -225,6 +227,8 @@ export const RepositoryList: FC<RepositoryListProps> = ({
         <Switch
           checked={enabled}
           checkedChildren="Активен"
+          disabled={updatingRepoId === record.id}
+          loading={updatingRepoId === record.id}
           onChange={(checked) => onToggleEnabled?.(record.id, checked)}
           unCheckedChildren="Пауза"
         />

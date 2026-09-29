@@ -1,11 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, App, Button, Flex } from 'antd'
 import type { FC } from 'react'
 
 import {
-  fetchRepositories,
-  updateRepository,
-  type Repository,
+  useRepositories,
+  useUpdateRepository,
   type UpdateRepositoryInput,
 } from '../../entities/repository'
 import { RepositoryList } from '../../widgets/repository-list'
@@ -16,39 +14,16 @@ export interface RepositoriesPageProps {
 
 export const RepositoriesPage: FC<RepositoriesPageProps> = () => {
   const { message } = App.useApp()
-  const queryClient = useQueryClient()
 
-  const {
-    data: repositories = [],
-    isLoading,
-    isError,
-    error,
-    refetch,
-  } = useQuery({
-    queryKey: ['repositories'],
-    queryFn: fetchRepositories,
-  })
+  const { data: repositories = [], isLoading, isError, error, refetch } = useRepositories()
 
-  const updateMutation = useMutation({
-    mutationFn: ({ id, patch }: { id: string; patch: UpdateRepositoryInput }) =>
-      updateRepository(id, patch),
-    onSuccess: (updated) => {
-      queryClient.setQueryData<Repository[]>(['repositories'], (prev) =>
-        prev ? prev.map((r) => (r.id === updated.id ? updated : r)) : [updated],
-      )
-    },
-  })
+  const updateMutation = useUpdateRepository()
 
   const handleToggleEnabled = async (id: string, enabled: boolean) => {
-    const previous = queryClient.getQueryData<Repository[]>(['repositories'])
-    queryClient.setQueryData<Repository[]>(['repositories'], (prev) =>
-      prev?.map((repo) => (repo.id === id ? { ...repo, enabled } : repo)),
-    )
     try {
       await updateMutation.mutateAsync({ id, patch: { enabled } })
       void message.success(`Статус репозитория обновлен: ${enabled ? 'активен' : 'на паузе'}`)
     } catch (err) {
-      queryClient.setQueryData(['repositories'], previous)
       const msg = err instanceof Error ? err.message : 'Не удалось изменить статус репозитория'
       void message.error(msg)
     }
@@ -93,6 +68,7 @@ export const RepositoriesPage: FC<RepositoriesPageProps> = () => {
         }}
         onUpdateRepository={(id, patch) => handleUpdateRepository(id, patch)}
         repositories={repositories}
+        updatingRepoId={updateMutation.isPending ? updateMutation.variables.id : undefined}
       />
     </Flex>
   )
