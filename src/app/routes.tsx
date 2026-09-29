@@ -13,6 +13,7 @@ import {
 import { useAuthStore } from '../features/auth'
 import { USE_MOCKS } from '../shared/config/env'
 import { AppLayout } from '../widgets/app-layout'
+import styles from './routes.module.css'
 import {
   mockFileDiffs,
   mockReviewComments,
@@ -35,7 +36,7 @@ const ReviewPage = lazy(() =>
 )
 
 export const PageFallback: FC = () => (
-  <Flex align="center" justify="center" style={{ minHeight: '60vh' }}>
+  <Flex align="center" className={styles.fallbackContainer} justify="center">
     <Spin size="large" />
   </Flex>
 )
@@ -45,7 +46,7 @@ export const RouteErrorFallback: FC = () => {
   const msg = error instanceof Error ? error.message : 'Непредвиденная ошибка приложения'
 
   return (
-    <Flex align="center" justify="center" style={{ minHeight: '100vh', padding: 24 }}>
+    <Flex align="center" className={styles.errorContainer} justify="center">
       <Result
         extra={
           <Button onClick={() => (window.location.href = '/repositories')} type="primary">
@@ -82,7 +83,7 @@ export const ProtectedLayout: FC = () => {
 
   if (!initialized || isLoading) {
     return (
-      <Flex align="center" justify="center" style={{ minHeight: '100vh' }}>
+      <Flex align="center" className={styles.fullPageContainer} justify="center">
         <Spin size="large" />
       </Flex>
     )

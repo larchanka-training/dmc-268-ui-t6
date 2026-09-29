@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { createMemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import App from './App'
+import { createRoutes } from './app/routes'
 import { useAuthStore } from './features/auth'
 import { setAccessToken } from './shared/api/client'
 
@@ -241,5 +243,93 @@ describe('App root integration and protected routes', () => {
     expect(screen.queryByRole('button', { name: /войти через github/i })).toBeNull()
     expect(useAuthStore.getState().isAuthenticated).toBe(true)
     expect(reposCallCount).toBe(2)
+  })
+
+  it('preserves sidebar collapsed state across page navigation', async () => {
+    window.history.pushState({}, '', '/repositories')
+    const mockUser = {
+      id: 114473628,
+      login: 'skvertl',
+      name: 'Denis',
+      avatarUrl: null,
+      workspaces: [],
+    }
+    const mockRepo = {
+      id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+      fullName: 'larchanka-training/dmc-268-ui-t6',
+      url: 'https://github.com/larchanka-training/dmc-268-ui-t6',
+      defaultBranch: 'main',
+      enabled: true,
+      defaultEngine: 'fast',
+      waitForCi: 'auto',
+      maxComments: 10,
+      reviewEvent: 'COMMENT',
+    }
+
+    globalThis.fetch = vi.fn().mockImplementation((url: RequestInfo | URL) => {
+      const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url
+      if (urlStr.includes('/auth/refresh')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              accessToken: 'jwt_token_valid',
+              tokenType: 'Bearer',
+              expiresIn: 900,
+              user: mockUser,
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          ),
+        )
+      }
+      if (urlStr.includes('/auth/me')) {
+        return Promise.resolve(
+          new Response(JSON.stringify(mockUser), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        )
+      }
+      if (urlStr.includes('/repos')) {
+        return Promise.resolve(
+          new Response(JSON.stringify([mockRepo]), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        )
+      }
+      return Promise.resolve(new Response('{}', { status: 200 }))
+    })
+
+    const router = createMemoryRouter(createRoutes(), {
+      initialEntries: ['/repositories'],
+    })
+
+    render(<App router={router} />)
+
+    // Wait for repositories page to load
+    await waitFor(() => {
+      expect(screen.getByText('Подключенные репозитории')).toBeDefined()
+    })
+
+    // Initially menu is expanded, collapse button has aria-label "Свернуть меню"
+    const collapseBtn = screen.getByRole('button', { name: 'Свернуть меню' })
+    fireEvent.click(collapseBtn)
+
+    // Menu is collapsed, button becomes "Развернуть меню"
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Развернуть меню' })).toBeDefined()
+    })
+
+    // Click on "Прогоны" in the sidebar menu
+    const runsMenuItem = screen.getByText('Прогоны')
+    fireEvent.click(runsMenuItem)
+
+    // Wait for RunsPage to render
+    await waitFor(() => {
+      expect(screen.getByText('Инспектор прогонов AI Review')).toBeDefined()
+    })
+
+    // Verify sidebar remains collapsed
+    expect(screen.getByRole('button', { name: 'Развернуть меню' })).toBeDefined()
   })
 })

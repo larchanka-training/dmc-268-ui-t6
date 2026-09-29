@@ -7,7 +7,6 @@ import { RunInspector } from '../../widgets/run-inspector'
 const { Title, Text } = Typography
 
 export interface RunsPageProps {
-  onNavigate?: (path: string) => void
   runSessions?: RunSession[]
   runActions?: RunAction[]
 }

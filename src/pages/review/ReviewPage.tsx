@@ -9,7 +9,6 @@ import { DiffViewer } from '../../widgets/diff-viewer'
 const { Title, Text } = Typography
 
 export interface ReviewPageProps {
-  onNavigate?: (path: string) => void
   fileDiffs?: FileDiff[]
   reviewComments?: ReviewComment[]
 }

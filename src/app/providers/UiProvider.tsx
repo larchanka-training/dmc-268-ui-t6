@@ -6,13 +6,15 @@ import { useThemeStore } from '../../features/theme'
 
 const ThemeBodySync: FC = () => {
   const { token } = theme.useToken()
+  const mode = useThemeStore((state) => state.mode)
 
   useEffect(() => {
     if (typeof document !== 'undefined') {
       document.body.style.backgroundColor = token.colorBgLayout
       document.body.style.color = token.colorText
+      document.documentElement.style.colorScheme = mode
     }
-  }, [token])
+  }, [token, mode])
 
   return null
 }

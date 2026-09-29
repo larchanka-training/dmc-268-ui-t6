@@ -1,0 +1,12 @@
+.fallbackContainer {
+  min-height: 60vh;
+}
+
+.fullPageContainer {
+  min-height: 100vh;
+}
+
+.errorContainer {
+  min-height: 100vh;
+  padding: 24px;
+}

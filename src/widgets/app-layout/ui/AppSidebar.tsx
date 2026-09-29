@@ -8,6 +8,8 @@ import {
 import { Button, Layout, Menu, theme } from 'antd'
 import { useState, type FC } from 'react'
 
+import styles from './AppLayout.module.css'
+
 const { Sider } = Layout
 
 export interface AppSidebarProps {
@@ -57,11 +59,12 @@ export const AppSidebar: FC<AppSidebarProps> = ({ currentPath = '/repositories',
       width={220}
     >
       <div
-        style={{
-          padding: '12px 16px',
-          display: 'flex',
-          justifyContent: collapsed ? 'center' : 'flex-end',
-        }}
+        className={[
+          styles.sidebarToggle,
+          collapsed ? styles.sidebarToggleCollapsed : styles.sidebarToggleExpanded,
+        ]
+          .filter(Boolean)
+          .join(' ')}
       >
         <Button
           aria-label={collapsed ? 'Развернуть меню' : 'Свернуть меню'}

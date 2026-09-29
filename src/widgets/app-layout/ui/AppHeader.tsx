@@ -4,6 +4,7 @@ import type { FC, ReactNode } from 'react'
 
 import { LoginButton, UserMenu, useAuthStore } from '../../../features/auth'
 import { ThemeToggle } from '../../../features/theme'
+import styles from './AppLayout.module.css'
 
 const { Header } = Layout
 const { Title, Text } = Typography
@@ -18,27 +19,20 @@ export const AppHeader: FC<AppHeaderProps> = ({ extra }) => {
 
   return (
     <Header
+      className={styles.header}
       style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '0 24px',
         background: token.colorBgContainer,
         borderBottom: `1px solid ${token.colorBorderSecondary}`,
-        height: 64,
-        position: 'sticky',
-        top: 0,
-        zIndex: 100,
       }}
     >
       <Flex align="center" gap="middle">
         <Flex align="center" gap="small">
           <RobotOutlined style={{ fontSize: 24, color: token.colorPrimary }} />
-          <Title level={4} style={{ margin: 0, whiteSpace: 'nowrap' }}>
+          <Title className={styles.headerTitle} level={4}>
             AI Code Reviewer
           </Title>
         </Flex>
-        <Text style={{ fontSize: 12 }} type="secondary">
+        <Text className={styles.headerSubtext} type="secondary">
           Team 6
         </Text>
       </Flex>
