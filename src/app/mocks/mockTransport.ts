@@ -1,5 +1,6 @@
-import { setMockTransport } from '../../shared/api/client'
+import { ApiError, setMockTransport } from '../../shared/api/client'
 import { USE_MOCKS } from '../../shared/config/env'
+import type { Repository } from '../../entities/repository'
 import { mockCurrentUser, mockRepositories } from './app-state'
 
 export function initMockTransport(): void {
@@ -7,22 +8,28 @@ export function initMockTransport(): void {
 
   setMockTransport((endpoint, options) => {
     if (endpoint.path === '/repos' && endpoint.method === 'GET') {
-      return mockRepositories
+      return mockRepositories.map((r) => ({ ...r }))
     }
 
     if (endpoint.path.startsWith('/repos/') && endpoint.method === 'GET') {
       const id = endpoint.path.replace('/repos/', '')
-      return mockRepositories.find((r) => r.id === id) ?? null
+      const repo = mockRepositories.find((r) => r.id === id)
+      if (!repo) {
+        throw new ApiError(404, 'Not Found', { message: 'Repository not found' })
+      }
+      return { ...repo }
     }
 
     if (endpoint.path.startsWith('/repos/') && endpoint.method === 'PATCH') {
       const id = endpoint.path.replace('/repos/', '')
-      const repo = mockRepositories.find((r) => r.id === id)
-      if (repo && options.body && typeof options.body === 'object') {
-        Object.assign(repo, options.body)
-        return repo
+      const index = mockRepositories.findIndex((r) => r.id === id)
+      if (index === -1) {
+        throw new ApiError(404, 'Not Found', { message: 'Repository not found' })
       }
-      return repo ?? null
+      if (options.body && typeof options.body === 'object') {
+        mockRepositories[index] = { ...mockRepositories[index], ...options.body } as Repository
+      }
+      return { ...mockRepositories[index] }
     }
 
     if (endpoint.path === '/auth/me' && endpoint.method === 'GET') {

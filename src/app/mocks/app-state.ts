@@ -273,7 +273,7 @@ export const mockCurrentUser: User = {
 
 export const mockRepositories: Repository[] = [
   {
-    id: '00000000-0000-0000-0000-000000000001',
+    id: '22222222-2222-4222-8222-000000000001',
     fullName: 'larchanka-training/dmc-268-ui-t6',
     url: 'https://github.com/larchanka-training/dmc-268-ui-t6',
     defaultBranch: 'main',
@@ -284,7 +284,7 @@ export const mockRepositories: Repository[] = [
     reviewEvent: 'COMMENT',
   },
   {
-    id: '00000000-0000-0000-0000-000000000002',
+    id: '22222222-2222-4222-8222-000000000002',
     fullName: 'larchanka-training/dmc-268-api-t6',
     url: 'https://github.com/larchanka-training/dmc-268-api-t6',
     defaultBranch: 'main',
@@ -295,7 +295,7 @@ export const mockRepositories: Repository[] = [
     reviewEvent: 'REQUEST_CHANGES',
   },
   {
-    id: '00000000-0000-0000-0000-000000000003',
+    id: '22222222-2222-4222-8222-000000000003',
     fullName: 'larchanka-training/dmc-268-infra-t6',
     url: 'https://github.com/larchanka-training/dmc-268-infra-t6',
     defaultBranch: 'master',
