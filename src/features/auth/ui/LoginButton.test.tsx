@@ -8,8 +8,8 @@ import { LoginButton } from './LoginButton'
 describe('LoginButton', () => {
   beforeEach(() => {
     useAuthStore.setState({
-      token: null,
-      user: null,
+      isLoading: false,
+      error: null,
       isAuthenticated: false,
     })
   })

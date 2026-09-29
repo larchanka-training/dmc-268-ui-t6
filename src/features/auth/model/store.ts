@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 
-import type { User, Workspace } from '../../../entities/user'
-import { AuthSessionSchema, MeSchema } from '../../../entities/user'
+import { AuthSessionSchema } from '../../../entities/user'
 import {
   apiClient,
   getAccessToken,
@@ -24,27 +23,15 @@ export function generateRandomState(): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-export const MOCK_USER: User = {
-  id: 114473628,
-  login: 'skvertl',
-  name: 'Denis Skvertl',
-  avatarUrl: 'https://avatars.githubusercontent.com/u/114473628?v=4',
-}
-
-export const MOCK_WORKSPACES: Workspace[] = [
-  {
-    id: '123e4567-e89b-12d3-a456-426614174000',
-    name: 'larchanka-training',
-    installationId: 12345,
-  },
-]
-
 export const MOCK_TOKEN = 'mock_jwt_token_skvertl_dmc'
 
+let onLogoutCallback: (() => void) | null = null
+
+export function setOnLogout(callback: () => void): void {
+  onLogoutCallback = callback
+}
+
 export interface AuthState {
-  token: string | null
-  user: User | null
-  workspaces: Workspace[]
   isLoading: boolean
   error: string | null
   isAuthenticated: boolean
@@ -59,9 +46,6 @@ export interface AuthState {
 let isLoggingOut = false
 
 export const useAuthStore = create<AuthState>((set) => ({
-  token: null,
-  user: null,
-  workspaces: [],
   isLoading: false,
   error: null,
   isAuthenticated: false,
@@ -109,9 +93,6 @@ export const useAuthStore = create<AuthState>((set) => ({
       if (USE_MOCKS && code.startsWith('mock_')) {
         setAccessToken(MOCK_TOKEN)
         set({
-          token: MOCK_TOKEN,
-          user: MOCK_USER,
-          workspaces: MOCK_WORKSPACES,
           isAuthenticated: true,
           isLoading: false,
           error: null,
@@ -122,9 +103,6 @@ export const useAuthStore = create<AuthState>((set) => ({
       if (!savedState || !state || state !== savedState) {
         setAccessToken(null)
         set({
-          token: null,
-          user: null,
-          workspaces: [],
           isAuthenticated: false,
           isLoading: false,
           error: 'Недействительный параметр безопасности state (защита от CSRF)',
@@ -140,8 +118,6 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       setAccessToken(parsed.accessToken)
       set({
-        token: parsed.accessToken,
-        user: parsed.user,
         isAuthenticated: true,
         isLoading: false,
         error: null,
@@ -150,9 +126,6 @@ export const useAuthStore = create<AuthState>((set) => ({
       setAccessToken(null)
       const message = err instanceof Error ? err.message : 'Ошибка аутентификации'
       set({
-        token: null,
-        user: null,
-        workspaces: [],
         isAuthenticated: false,
         isLoading: false,
         error: message,
@@ -165,9 +138,6 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (!USE_MOCKS && import.meta.env.MODE !== 'test') return
     setAccessToken(MOCK_TOKEN)
     set({
-      token: MOCK_TOKEN,
-      user: MOCK_USER,
-      workspaces: MOCK_WORKSPACES,
       isAuthenticated: true,
       isLoading: false,
       error: null,
@@ -184,10 +154,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     } finally {
       isLoggingOut = false
       setAccessToken(null)
+      onLogoutCallback?.()
       set({
-        token: null,
-        user: null,
-        workspaces: [],
         isAuthenticated: false,
         isLoading: false,
         error: null,
@@ -199,9 +167,6 @@ export const useAuthStore = create<AuthState>((set) => ({
     // If mock mode is explicitly on and mock user is in memory
     if (USE_MOCKS && getAccessToken() === MOCK_TOKEN) {
       set({
-        token: MOCK_TOKEN,
-        user: MOCK_USER,
-        workspaces: MOCK_WORKSPACES,
         isAuthenticated: true,
         isLoading: false,
       })
@@ -213,26 +178,13 @@ export const useAuthStore = create<AuthState>((set) => ({
       const newToken = await refreshAccessToken()
       if (!newToken) {
         set({
-          token: null,
-          user: null,
-          workspaces: [],
           isAuthenticated: false,
           isLoading: false,
         })
         return
       }
 
-      const res = await apiClient<unknown>(endpoints.auth.me(), { token: newToken })
-      const me = MeSchema.parse(res)
       set({
-        token: newToken,
-        user: {
-          id: me.id,
-          login: me.login,
-          name: me.name,
-          avatarUrl: me.avatarUrl,
-        },
-        workspaces: me.workspaces,
         isAuthenticated: true,
         isLoading: false,
         error: null,
@@ -240,9 +192,6 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch {
       setAccessToken(null)
       set({
-        token: null,
-        user: null,
-        workspaces: [],
         isAuthenticated: false,
         isLoading: false,
       })

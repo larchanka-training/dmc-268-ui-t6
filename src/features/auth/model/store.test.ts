@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { getAccessToken, setAccessToken } from '../../../shared/api/client'
-import { STATE_STORAGE_KEY, useAuthStore } from './store'
+import { getAccessToken, setAccessToken, setMockTransport } from '../../../shared/api/client'
+import { MOCK_TOKEN, STATE_STORAGE_KEY, setOnLogout, useAuthStore } from './store'
 
 describe('useAuthStore', () => {
   const originalFetch = globalThis.fetch
@@ -10,10 +10,8 @@ describe('useAuthStore', () => {
   beforeEach(() => {
     sessionStorage.clear()
     setAccessToken(null)
+    setMockTransport(null)
     useAuthStore.setState({
-      token: null,
-      user: null,
-      workspaces: [],
       isAuthenticated: false,
       isLoading: false,
       error: null,
@@ -25,6 +23,7 @@ describe('useAuthStore', () => {
     globalThis.fetch = originalFetch
     sessionStorage.clear()
     setAccessToken(null)
+    setMockTransport(null)
   })
 
   it('handleCallback verifies state and creates session on successful exchange', async () => {
@@ -54,9 +53,7 @@ describe('useAuthStore', () => {
 
     const state = useAuthStore.getState()
     expect(state.isAuthenticated).toBe(true)
-    expect(state.token).toBe('access_jwt_backend')
     expect(getAccessToken()).toBe('access_jwt_backend')
-    expect(state.user?.login).toBe('skvertl')
     expect(sessionStorage.getItem(STATE_STORAGE_KEY)).toBeNull()
   })
 
@@ -73,7 +70,6 @@ describe('useAuthStore', () => {
     expect(mockFetch).not.toHaveBeenCalled()
     const state = useAuthStore.getState()
     expect(state.isAuthenticated).toBe(false)
-    expect(state.token).toBeNull()
     expect(getAccessToken()).toBeNull()
   })
 
@@ -90,7 +86,6 @@ describe('useAuthStore', () => {
     expect(mockFetch).not.toHaveBeenCalled()
     const state = useAuthStore.getState()
     expect(state.isAuthenticated).toBe(false)
-    expect(state.token).toBeNull()
     expect(getAccessToken()).toBeNull()
   })
 
@@ -111,16 +106,15 @@ describe('useAuthStore', () => {
 
     const state = useAuthStore.getState()
     expect(state.isAuthenticated).toBe(false)
-    expect(state.token).toBeNull()
     expect(getAccessToken()).toBeNull()
   })
 
-  it('logout calls POST /api/auth/logout and clears in-memory session', async () => {
+  it('logout calls POST /api/auth/logout, clears token and invokes onLogout callback', async () => {
+    const onLogout = vi.fn()
+    setOnLogout(onLogout)
     setAccessToken('active_token')
     useAuthStore.setState({
-      token: 'active_token',
       isAuthenticated: true,
-      user: { id: 1, login: 'user', name: null, avatarUrl: null },
     })
 
     const mockFetch = vi.fn().mockResolvedValue(
@@ -139,16 +133,14 @@ describe('useAuthStore', () => {
 
     const state = useAuthStore.getState()
     expect(state.isAuthenticated).toBe(false)
-    expect(state.token).toBeNull()
     expect(getAccessToken()).toBeNull()
+    expect(onLogout).toHaveBeenCalled()
   })
 
   it('logout calls POST /api/auth/logout even when in-memory token is null to clear server cookie', async () => {
     setAccessToken(null)
     useAuthStore.setState({
-      token: null,
       isAuthenticated: false,
-      user: null,
     })
 
     const mockFetch = vi.fn().mockResolvedValue(
@@ -166,54 +158,65 @@ describe('useAuthStore', () => {
     )
   })
 
-  it('initAuth restores user and workspaces when refresh succeeds', async () => {
-    const mockFetch = vi
-      .fn()
-      // POST /auth/refresh returns 200
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            accessToken: 'new_token_123',
-            tokenType: 'Bearer',
-            expiresIn: 900,
-          }),
-          {
-            status: 200,
-            headers: { 'content-type': 'application/json' },
-          },
-        ),
-      )
-      // GET /auth/me returns 200
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
+  it('initAuth sets isAuthenticated: true when refresh succeeds with complete AuthSession fixture', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          accessToken: 'new_token_123',
+          tokenType: 'Bearer',
+          expiresIn: 900,
+          user: {
             id: 114473628,
             login: 'skvertl',
             name: 'Denis',
             avatarUrl: null,
-            workspaces: [
-              {
-                id: '123e4567-e89b-12d3-a456-426614174000',
-                name: 'team-6',
-                installationId: 999,
-              },
-            ],
-          }),
-          {
-            status: 200,
-            headers: { 'content-type': 'application/json' },
           },
-        ),
-      )
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        },
+      ),
+    )
     globalThis.fetch = mockFetch
 
     await useAuthStore.getState().initAuth()
 
     const state = useAuthStore.getState()
     expect(state.isAuthenticated).toBe(true)
-    expect(state.token).toBe('new_token_123')
-    expect(state.user?.login).toBe('skvertl')
-    expect(state.workspaces).toHaveLength(1)
+    expect(getAccessToken()).toBe('new_token_123')
+  })
+
+  it('initAuth in mock mode with mock token restores session without network fetch', async () => {
+    const fetchSpy = vi.fn()
+    globalThis.fetch = fetchSpy
+
+    setMockTransport((endpoint) => {
+      if (endpoint.path === '/auth/refresh') {
+        return {
+          accessToken: MOCK_TOKEN,
+          tokenType: 'Bearer',
+          expiresIn: 900,
+          user: {
+            id: 114473628,
+            login: 'skvertl',
+            name: 'Denis',
+            avatarUrl: null,
+          },
+        }
+      }
+      return undefined
+    })
+
+    // No token in memory initially
+    setAccessToken(null)
+
+    await useAuthStore.getState().initAuth()
+
+    const state = useAuthStore.getState()
+    expect(state.isAuthenticated).toBe(true)
+    expect(getAccessToken()).toBe(MOCK_TOKEN)
+    expect(fetchSpy).not.toHaveBeenCalled()
   })
 
   it('initAuth leaves session unauthenticated when refresh fails', async () => {
@@ -228,7 +231,6 @@ describe('useAuthStore', () => {
 
     const state = useAuthStore.getState()
     expect(state.isAuthenticated).toBe(false)
-    expect(state.token).toBeNull()
-    expect(state.user).toBeNull()
+    expect(getAccessToken()).toBeNull()
   })
 })

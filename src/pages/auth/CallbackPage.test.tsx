@@ -9,9 +9,8 @@ import { CallbackPage } from './CallbackPage'
 describe('CallbackPage', () => {
   beforeEach(() => {
     useAuthStore.setState({
-      token: null,
-      user: null,
-      workspaces: [],
+      isLoading: false,
+      error: null,
       isAuthenticated: false,
     })
   })

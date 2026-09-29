@@ -2,6 +2,7 @@ import { CheckCircleOutlined, RobotOutlined } from '@ant-design/icons'
 import { Alert, Card, Flex, Layout, List, Typography, theme } from 'antd'
 import type { FC } from 'react'
 
+import { useMe } from '../../entities/user'
 import { LoginButton, useAuthStore } from '../../features/auth'
 import { ThemeToggle } from '../../features/theme'
 
@@ -14,8 +15,8 @@ export interface LoginPageProps {
 export const LoginPage: FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const { token } = theme.useToken()
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
-  const user = useAuthStore((state) => state.user)
   const authError = useAuthStore((state) => state.error)
+  const { data: user } = useMe(isAuthenticated)
 
   const features = [
     'Автоматический триггер ревью по метке ai-review и успешному CI',

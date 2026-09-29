@@ -12,18 +12,27 @@ import {
 } from './client'
 import type { Endpoint } from './endpoints'
 
+const mockUserFixture = {
+  id: 114473628,
+  login: 'skvertl',
+  name: 'Denis Skvertl',
+  avatarUrl: null,
+}
+
 describe('apiClient', () => {
   const originalFetch = globalThis.fetch
   const testEndpoint: Endpoint = { method: 'GET', path: '/test' }
 
   beforeEach(() => {
     setAccessToken(null)
+    setMockTransport(null)
     vi.restoreAllMocks()
   })
 
   afterEach(() => {
     globalThis.fetch = originalFetch
     setAccessToken(null)
+    setMockTransport(null)
   })
 
   it('manages in-memory access token correctly', () => {
@@ -59,7 +68,7 @@ describe('apiClient', () => {
     expect(result).toEqual({ ok: true })
   })
 
-  it('handles 401 by attempting refresh and retrying request on success', async () => {
+  it('handles 401 by attempting refresh and retrying request on success with user fixture', async () => {
     setAccessToken('expired-token')
 
     const mockFetch = vi
@@ -71,13 +80,14 @@ describe('apiClient', () => {
           statusText: 'Unauthorized',
         }),
       )
-      // Call to /api/auth/refresh returns 200 with new token conforming to schema
+      // Call to /api/auth/refresh returns 200 with new token conforming to AuthSession schema
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify({
             accessToken: 'refreshed-token',
             tokenType: 'Bearer',
             expiresIn: 900,
+            user: mockUserFixture,
           }),
           {
             status: 200,
@@ -100,23 +110,21 @@ describe('apiClient', () => {
     expect(getAccessToken()).toBe('refreshed-token')
   })
 
-  it('handles 401 when refresh fails by clearing token and invoking onUnauthorized', async () => {
+  it('triggers onUnauthorized and resets token when refresh returns 401', async () => {
     const onUnauthorized = vi.fn()
     setOnUnauthorized(onUnauthorized)
     setAccessToken('expired-token')
 
     const mockFetch = vi
       .fn()
-      // First call to /test returns 401
       .mockResolvedValueOnce(
         new Response('Unauthorized', {
           status: 401,
           statusText: 'Unauthorized',
         }),
       )
-      // Call to /api/auth/refresh returns 401
       .mockResolvedValueOnce(
-        new Response('Refresh Expired', {
+        new Response('Invalid refresh cookie', {
           status: 401,
           statusText: 'Unauthorized',
         }),
@@ -129,7 +137,7 @@ describe('apiClient', () => {
     expect(onUnauthorized).toHaveBeenCalled()
   })
 
-  it('handles 401 when refresh response fails Zod schema validation', async () => {
+  it('rejects and resets token when refresh response does not match RefreshResponseSchema', async () => {
     const onUnauthorized = vi.fn()
     setOnUnauthorized(onUnauthorized)
     setAccessToken('expired-token')
@@ -164,6 +172,7 @@ describe('apiClient', () => {
           accessToken: 'mock_refreshed_token',
           tokenType: 'Bearer',
           expiresIn: 900,
+          user: mockUserFixture,
         }
       }
       return undefined
@@ -179,13 +188,71 @@ describe('apiClient', () => {
     setMockTransport(null)
   })
 
-  it('coalesces concurrent refreshAccessToken calls into a single promise', async () => {
-    const mockFetch = vi.fn().mockResolvedValue(
+  it('coalesces concurrent 401s into single refresh and retries both requests', async () => {
+    setAccessToken('expired_token_1')
+    let refreshResolve: (res: Response) => void = vi.fn()
+    const refreshPromise = new Promise<Response>((resolve) => {
+      refreshResolve = resolve
+    })
+
+    let req1Count = 0
+    let req2Count = 0
+
+    const mockFetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('/auth/refresh')) {
+        return refreshPromise
+      }
+      if (url.includes('/resource-1')) {
+        req1Count++
+        if (req1Count === 1) {
+          return Promise.resolve(new Response('Unauthorized', { status: 401 }))
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify({ item: 1 }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        )
+      }
+      if (url.includes('/resource-2')) {
+        req2Count++
+        if (req2Count === 1) {
+          return Promise.resolve(new Response('Unauthorized', { status: 401 }))
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify({ item: 2 }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        )
+      }
+      return Promise.resolve(new Response(null, { status: 404 }))
+    })
+    globalThis.fetch = mockFetch
+
+    const ep1: Endpoint = { method: 'GET', path: '/resource-1' }
+    const ep2: Endpoint = { method: 'GET', path: '/resource-2' }
+
+    // Start two concurrent requests that both receive 401
+    const promise1 = apiClient<{ item: number }>(ep1)
+    const promise2 = apiClient<{ item: number }>(ep2)
+
+    // Wait until refresh is requested
+    await vi.waitFor(() => {
+      const refreshCalls = mockFetch.mock.calls.filter(([url]) =>
+        String(url).includes('/auth/refresh'),
+      )
+      expect(refreshCalls).toHaveLength(1)
+    })
+
+    // Now resolve the refresh response with AuthSession schema fixture
+    refreshResolve(
       new Response(
         JSON.stringify({
-          accessToken: 'coalesced_token',
+          accessToken: 'coalesced_new_token',
           tokenType: 'Bearer',
           expiresIn: 900,
+          user: mockUserFixture,
         }),
         {
           status: 200,
@@ -193,32 +260,112 @@ describe('apiClient', () => {
         },
       ),
     )
-    globalThis.fetch = mockFetch
 
-    const [token1, token2] = await Promise.all([refreshAccessToken(), refreshAccessToken()])
+    const [res1, res2] = await Promise.all([promise1, promise2])
+    expect(res1).toEqual({ item: 1 })
+    expect(res2).toEqual({ item: 2 })
 
-    expect(token1).toBe('coalesced_token')
-    expect(token2).toBe('coalesced_token')
-    expect(mockFetch).toHaveBeenCalledTimes(1)
+    // Verify exactly one refresh call was executed across both concurrent requests
+    const refreshCalls = mockFetch.mock.calls.filter(([url]) =>
+      String(url).includes('/auth/refresh'),
+    )
+    expect(refreshCalls).toHaveLength(1)
+    expect(getAccessToken()).toBe('coalesced_new_token')
   })
 
-  it('retries with updated token without second refresh if already refreshed', async () => {
-    setAccessToken('new_already_refreshed_token')
+  it('does not trigger a second refresh and logs out if retry also gets 401', async () => {
+    const onUnauthorized = vi.fn()
+    setOnUnauthorized(onUnauthorized)
+    setAccessToken('stale-token')
 
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ retry: true }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      }),
-    )
+    let requestCount = 0
+    const mockFetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('/auth/refresh')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              accessToken: 'refreshed-once-token',
+              tokenType: 'Bearer',
+              expiresIn: 900,
+              user: mockUserFixture,
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          ),
+        )
+      }
+      requestCount++
+      // Both the first attempt and the retried attempt return 401
+      return Promise.resolve(new Response('Unauthorized', { status: 401 }))
+    })
     globalThis.fetch = mockFetch
 
-    // Request was sent with stale 'old_stale_token', but in-memory token is already 'new_already_refreshed_token'
-    const result = await apiClient<{ retry: boolean }>(testEndpoint, {
-      token: 'old_stale_token',
-    })
+    await expect(apiClient(testEndpoint)).rejects.toThrow(ApiError)
+    expect(requestCount).toBe(2) // 1st try + 1 retry
 
-    expect(result).toEqual({ retry: true })
+    const refreshCalls = mockFetch.mock.calls.filter(([url]) =>
+      String(url).includes('/auth/refresh'),
+    )
+    expect(refreshCalls).toHaveLength(1) // only 1 refresh call, no infinite loop
+    expect(onUnauthorized).toHaveBeenCalled()
+  })
+
+  it('does not call refresh when receiving 401 on /auth/* endpoints', async () => {
+    const onUnauthorized = vi.fn()
+    setOnUnauthorized(onUnauthorized)
+
+    const mockFetch = vi.fn().mockResolvedValue(new Response('Unauthorized', { status: 401 }))
+    globalThis.fetch = mockFetch
+
+    const authEndpoint: Endpoint = { method: 'GET', path: '/auth/me' }
+    await expect(apiClient(authEndpoint)).rejects.toThrow(ApiError)
+
+    const refreshCalls = mockFetch.mock.calls.filter(([url]) =>
+      String(url).includes('/auth/refresh'),
+    )
+    expect(refreshCalls).toHaveLength(0)
+  })
+
+  it('sends refresh with credentials: include and retried request with new Authorization: Bearer', async () => {
+    setAccessToken('token_v1')
+    let requestCount = 0
+
+    const mockFetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url.includes('/auth/refresh')) {
+        expect(init?.credentials).toBe('include')
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              accessToken: 'token_v2',
+              tokenType: 'Bearer',
+              expiresIn: 900,
+              user: mockUserFixture,
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          ),
+        )
+      }
+
+      requestCount++
+      if (requestCount === 1) {
+        const headers = new Headers(init?.headers)
+        expect(headers.get('Authorization')).toBe('Bearer token_v1')
+        return Promise.resolve(new Response('Unauthorized', { status: 401 }))
+      }
+
+      const headers = new Headers(init?.headers)
+      expect(headers.get('Authorization')).toBe('Bearer token_v2')
+      return Promise.resolve(
+        new Response(JSON.stringify({ verified: true }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      )
+    })
+    globalThis.fetch = mockFetch
+
+    const result = await apiClient<{ verified: boolean }>(testEndpoint)
+    expect(result).toEqual({ verified: true })
+    expect(requestCount).toBe(2)
   })
 
   it('serializes json body and sets content-type for POST requests', async () => {

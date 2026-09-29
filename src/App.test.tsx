@@ -14,9 +14,6 @@ describe('App root integration and protected routes', () => {
     window.history.pushState({}, '', '/')
     setAccessToken(null)
     useAuthStore.setState({
-      token: null,
-      user: null,
-      workspaces: [],
       isAuthenticated: false,
       isLoading: false,
       error: null,
@@ -83,6 +80,7 @@ describe('App root integration and protected routes', () => {
               accessToken: 'valid_jwt',
               tokenType: 'Bearer',
               expiresIn: 900,
+              user: mockUser,
             }),
             {
               status: 200,
@@ -145,5 +143,103 @@ describe('App root integration and protected routes', () => {
       },
       { timeout: 5000 },
     )
+  })
+
+  it('recovers via refresh when GET /api/repos returns 401 and keeps user in cabinet', async () => {
+    window.history.pushState({}, '', '/repositories')
+    const mockUser = {
+      id: 114473628,
+      login: 'skvertl',
+      name: 'Denis',
+      avatarUrl: null,
+    }
+
+    const mockRepo = {
+      id: 'a1b2c3d4-e5f6-4890-abcd-ef1234567890',
+      fullName: 'larchanka-training/dmc-268-ui-t6',
+      url: 'https://github.com/larchanka-training/dmc-268-ui-t6',
+      defaultBranch: 'main',
+      enabled: true,
+      defaultEngine: 'fast',
+      waitForCi: 'auto',
+      maxComments: 10,
+      reviewEvent: 'COMMENT',
+    }
+
+    let reposCallCount = 0
+    let refreshCallCount = 0
+
+    globalThis.fetch = vi.fn().mockImplementation((url: RequestInfo | URL) => {
+      const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url
+      if (urlStr.includes('/auth/refresh')) {
+        refreshCallCount++
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              accessToken: `jwt_token_version_${refreshCallCount.toString()}`,
+              tokenType: 'Bearer',
+              expiresIn: 900,
+              user: mockUser,
+            }),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            },
+          ),
+        )
+      }
+      if (urlStr.includes('/auth/me')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              ...mockUser,
+              workspaces: [
+                { id: '123e4567-e89b-12d3-a456-426614174000', name: 'ws', installationId: 1 },
+              ],
+            }),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            },
+          ),
+        )
+      }
+      if (urlStr.includes('/repos')) {
+        reposCallCount++
+        // First repos request fails with 401 Unauthorized
+        if (reposCallCount === 1) {
+          return Promise.resolve(
+            new Response('Unauthorized', {
+              status: 401,
+              statusText: 'Unauthorized',
+            }),
+          )
+        }
+        // Retried repos request returns data
+        return Promise.resolve(
+          new Response(JSON.stringify([mockRepo]), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        )
+      }
+      return Promise.resolve(new Response('{}', { status: 200 }))
+    })
+
+    render(<App />)
+
+    // Wait for repositories list to be displayed after transparent refresh recovery
+    await waitFor(
+      () => {
+        expect(screen.getByText('Подключенные репозитории')).toBeDefined()
+        expect(screen.getByText('larchanka-training/dmc-268-ui-t6')).toBeDefined()
+      },
+      { timeout: 5000 },
+    )
+
+    // User is in cabinet and not redirected to login
+    expect(screen.queryByRole('button', { name: /войти через github/i })).toBeNull()
+    expect(useAuthStore.getState().isAuthenticated).toBe(true)
+    expect(reposCallCount).toBe(2)
   })
 })

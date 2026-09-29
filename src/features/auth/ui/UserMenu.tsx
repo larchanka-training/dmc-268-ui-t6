@@ -2,12 +2,13 @@ import { LogoutOutlined, UserOutlined } from '@ant-design/icons'
 import { Avatar, Dropdown, Flex, type MenuProps, Typography } from 'antd'
 import type { FC } from 'react'
 
+import { useMe } from '../../../entities/user'
 import { useAuthStore } from '../model/store'
 
 const { Text } = Typography
 
 export const UserMenu: FC = () => {
-  const user = useAuthStore((state) => state.user)
+  const { data: user } = useMe()
   const logout = useAuthStore((state) => state.logout)
 
   if (!user) return null

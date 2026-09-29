@@ -1,34 +1,60 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { MOCK_USER, useAuthStore } from '../model/store'
+import * as userApi from '../../../entities/user/api'
 import { UserMenu } from './UserMenu'
 
+const MOCK_USER = {
+  id: 114473628,
+  login: 'skvertl',
+  name: 'Denis Skvertl',
+  avatarUrl: 'https://avatars.githubusercontent.com/u/114473628?v=4',
+}
+
 describe('UserMenu', () => {
+  let queryClient: QueryClient
+
   beforeEach(() => {
-    useAuthStore.setState({
-      user: null,
-      isAuthenticated: false,
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
     })
+    vi.restoreAllMocks()
   })
 
   afterEach(() => {
     cleanup()
+    queryClient.clear()
   })
 
-  it('renders nothing when not authenticated', () => {
-    const { container } = render(<UserMenu />)
+  it('renders nothing when user is null', () => {
+    vi.spyOn(userApi, 'useMe').mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof userApi.useMe>)
+
+    const { container } = render(
+      <QueryClientProvider client={queryClient}>
+        <UserMenu />
+      </QueryClientProvider>,
+    )
     expect(container.firstChild).toBeNull()
   })
 
-  it('renders user details when authenticated', () => {
-    useAuthStore.setState({
-      user: MOCK_USER,
-      isAuthenticated: true,
-    })
+  it('renders user details when user is loaded', () => {
+    vi.spyOn(userApi, 'useMe').mockReturnValue({
+      data: { ...MOCK_USER, workspaces: [] },
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof userApi.useMe>)
 
-    render(<UserMenu />)
+    render(
+      <QueryClientProvider client={queryClient}>
+        <UserMenu />
+      </QueryClientProvider>,
+    )
     expect(screen.getAllByText('skvertl').length).toBeGreaterThan(0)
   })
 })
