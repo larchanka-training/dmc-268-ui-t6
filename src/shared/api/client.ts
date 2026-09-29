@@ -161,9 +161,11 @@ export async function apiClient<T>(endpoint: Endpoint, options: RequestOptions =
           _isRetry: true,
         })
       }
-    } else {
+    } else if (!isAuthEndpoint) {
       setAccessToken(null)
       authErrorHandler?.()
+    } else {
+      setAccessToken(null)
     }
   }
 

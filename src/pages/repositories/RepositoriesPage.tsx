@@ -8,14 +8,13 @@ import {
   type Repository,
   type UpdateRepositoryInput,
 } from '../../entities/repository'
-import { AppLayout } from '../../widgets/app-layout'
 import { RepositoryList } from '../../widgets/repository-list'
 
 export interface RepositoriesPageProps {
   onNavigate?: (path: string) => void
 }
 
-export const RepositoriesPage: FC<RepositoriesPageProps> = ({ onNavigate }) => {
+export const RepositoriesPage: FC<RepositoriesPageProps> = () => {
   const { message } = App.useApp()
   const queryClient = useQueryClient()
 
@@ -67,36 +66,34 @@ export const RepositoriesPage: FC<RepositoriesPageProps> = ({ onNavigate }) => {
   }
 
   return (
-    <AppLayout currentPath="/repositories" onNavigate={onNavigate}>
-      <Flex gap="middle" vertical>
-        {isError ? (
-          <Alert
-            action={
-              <Button onClick={() => void refetch()} size="small" type="primary">
-                Повторить попытку
-              </Button>
-            }
-            description={
-              error instanceof Error ? error.message : 'Не удалось загрузить список репозиториев'
-            }
-            showIcon
-            title="Ошибка загрузки данных"
-            type="error"
-          />
-        ) : null}
-
-        <RepositoryList
-          loading={isLoading}
-          onRefresh={() => {
-            void refetch()
-          }}
-          onToggleEnabled={(id, enabled) => {
-            void handleToggleEnabled(id, enabled)
-          }}
-          onUpdateRepository={(id, patch) => handleUpdateRepository(id, patch)}
-          repositories={repositories}
+    <Flex gap="middle" vertical>
+      {isError ? (
+        <Alert
+          action={
+            <Button onClick={() => void refetch()} size="small" type="primary">
+              Повторить попытку
+            </Button>
+          }
+          description={
+            error instanceof Error ? error.message : 'Не удалось загрузить список репозиториев'
+          }
+          showIcon
+          title="Ошибка загрузки данных"
+          type="error"
         />
-      </Flex>
-    </AppLayout>
+      ) : null}
+
+      <RepositoryList
+        loading={isLoading}
+        onRefresh={() => {
+          void refetch()
+        }}
+        onToggleEnabled={(id, enabled) => {
+          void handleToggleEnabled(id, enabled)
+        }}
+        onUpdateRepository={(id, patch) => handleUpdateRepository(id, patch)}
+        repositories={repositories}
+      />
+    </Flex>
   )
 }

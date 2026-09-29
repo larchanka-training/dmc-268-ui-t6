@@ -56,6 +56,8 @@ export interface AuthState {
   initAuth: () => Promise<void>
 }
 
+let isLoggingOut = false
+
 export const useAuthStore = create<AuthState>((set) => ({
   token: null,
   user: null,
@@ -173,11 +175,14 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
+    if (isLoggingOut) return
+    isLoggingOut = true
     try {
       await apiClient(endpoints.auth.logout())
     } catch {
       // Ignore network errors on logout
     } finally {
+      isLoggingOut = false
       setAccessToken(null)
       set({
         token: null,

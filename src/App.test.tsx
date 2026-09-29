@@ -78,10 +78,17 @@ describe('App root integration and protected routes', () => {
       const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url
       if (urlStr.includes('/auth/refresh')) {
         return Promise.resolve(
-          new Response(JSON.stringify({ accessToken: 'valid_jwt' }), {
-            status: 200,
-            headers: { 'content-type': 'application/json' },
-          }),
+          new Response(
+            JSON.stringify({
+              accessToken: 'valid_jwt',
+              tokenType: 'Bearer',
+              expiresIn: 900,
+            }),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            },
+          ),
         )
       }
       if (urlStr.includes('/auth/me')) {

@@ -37,10 +37,16 @@ Dev-сервер Vite настроен с прокси `server.proxy` для `/a
    ```
    (сервер слушает `http://localhost:8000`).
 2. В репозитории `dmc-268-ui-t6` запустить `pnpm dev`. Запросы к `/api/*` прозрачно проксируются на бэкенд в рамках единого origin, что позволяет работать с `HttpOnly` refresh-cookie без настройки CORS.
-3. Переменные окружения:
-   - `VITE_GITHUB_CLIENT_ID` — Client ID зарегистрированного GitHub App для входа;
-   - `VITE_GITHUB_APP_SLUG` — Slug зарегистрированного GitHub App для формирования ссылки подключения репозиториев;
-   - `VITE_USE_MOCKS` — при `true` включает мок-транспорт для автономной работы фронтенда.
+3. Переменные окружения задаются в файле `.env.local`:
+   ```bash
+   # Локальная разработка с dev GitHub App:
+   VITE_GITHUB_CLIENT_ID=Iv23liZHUgB8jVdKQfJQ
+   VITE_GITHUB_APP_SLUG=dmc268-t6-reviewer-dev
+   VITE_USE_MOCKS=false
+   ```
+   - `VITE_GITHUB_CLIENT_ID` — Client ID зарегистрированного GitHub App для входа (`Iv23liZHUgB8jVdKQfJQ` для dev-стенда);
+   - `VITE_GITHUB_APP_SLUG` — Slug зарегистрированного GitHub App для формирования ссылки подключения репозиториев (`dmc268-t6-reviewer-dev` для dev-стенда);
+   - `VITE_USE_MOCKS` — при `true` включает мок-транспорт для автономной работы фронтенда без бэкенда.
 
 ## Build
 
