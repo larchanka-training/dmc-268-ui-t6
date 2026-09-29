@@ -1,6 +1,9 @@
 import { API_BASE_URL } from '../config/env'
 import type { Endpoint } from './endpoints'
 import { endpoints, resolveUrl } from './endpoints'
+import { RefreshResponseSchema, type RefreshResponse } from './schemas'
+
+export { RefreshResponseSchema, type RefreshResponse }
 
 export interface RequestOptions extends Omit<RequestInit, 'method' | 'body'> {
   body?: unknown
@@ -51,30 +54,45 @@ export async function refreshAccessToken(): Promise<string | null> {
 
   refreshPromise = (async () => {
     try {
-      const url = resolveUrl(API_BASE_URL, endpoints.auth.refresh())
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-      })
+      let rawData: unknown
 
-      if (!res.ok) {
+      if (mockTransportHandler) {
+        const mockResult = await mockTransportHandler(endpoints.auth.refresh(), {
+          credentials: 'include',
+        })
+        if (mockResult !== undefined) {
+          rawData = mockResult
+        }
+      }
+
+      if (rawData === undefined) {
+        const url = resolveUrl(API_BASE_URL, endpoints.auth.refresh())
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+        })
+
+        if (!res.ok) {
+          setAccessToken(null)
+          authErrorHandler?.()
+          return null
+        }
+
+        rawData = await res.json()
+      }
+
+      const parseResult = RefreshResponseSchema.safeParse(rawData)
+      if (!parseResult.success) {
         setAccessToken(null)
         authErrorHandler?.()
         return null
       }
 
-      const data = (await res.json()) as { accessToken?: string }
-      if (data.accessToken) {
-        setAccessToken(data.accessToken)
-        return data.accessToken
-      }
-
-      setAccessToken(null)
-      authErrorHandler?.()
-      return null
+      setAccessToken(parseResult.data.accessToken)
+      return parseResult.data.accessToken
     } catch {
       setAccessToken(null)
       authErrorHandler?.()
@@ -126,6 +144,15 @@ export async function apiClient<T>(endpoint: Endpoint, options: RequestOptions =
   if (response.status === 401) {
     const isAuthEndpoint = endpoint.path.startsWith('/auth/')
     if (!isAuthEndpoint && !options._isRetry) {
+      const currentToken = getAccessToken()
+      if (token && currentToken && currentToken !== token) {
+        return apiClient<T>(endpoint, {
+          ...options,
+          token: currentToken,
+          _isRetry: true,
+        })
+      }
+
       const newToken = await refreshAccessToken()
       if (newToken) {
         return apiClient<T>(endpoint, {

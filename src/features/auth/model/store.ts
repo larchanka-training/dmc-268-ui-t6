@@ -174,9 +174,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: async () => {
     try {
-      if (getAccessToken()) {
-        await apiClient(endpoints.auth.logout())
-      }
+      await apiClient(endpoints.auth.logout())
     } catch {
       // Ignore network errors on logout
     } finally {

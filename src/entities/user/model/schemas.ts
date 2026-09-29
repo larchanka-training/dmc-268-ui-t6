@@ -1,10 +1,12 @@
 import { z } from 'zod'
 
+import { RefreshResponseSchema } from '../../../shared/api/schemas'
+
 export const UserSchema = z.object({
   id: z.number().int(),
   login: z.string().min(1),
   name: z.string().nullable(),
-  avatarUrl: z.string().nullable(),
+  avatarUrl: z.url().nullable(),
 })
 export type User = z.infer<typeof UserSchema>
 
@@ -15,19 +17,12 @@ export const WorkspaceSchema = z.object({
 })
 export type Workspace = z.infer<typeof WorkspaceSchema>
 
-export const MeSchema = z.object({
-  id: z.number().int(),
-  login: z.string().min(1),
-  name: z.string().nullable(),
-  avatarUrl: z.string().nullable(),
+export const MeSchema = UserSchema.extend({
   workspaces: z.array(WorkspaceSchema),
 })
 export type Me = z.infer<typeof MeSchema>
 
-export const AuthSessionSchema = z.object({
-  accessToken: z.string().min(1),
-  tokenType: z.literal('Bearer'),
-  expiresIn: z.number().int().min(1),
+export const AuthSessionSchema = RefreshResponseSchema.extend({
   user: UserSchema,
 })
 export type AuthSession = z.infer<typeof AuthSessionSchema>

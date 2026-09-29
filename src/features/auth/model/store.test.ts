@@ -143,15 +143,45 @@ describe('useAuthStore', () => {
     expect(getAccessToken()).toBeNull()
   })
 
+  it('logout calls POST /api/auth/logout even when in-memory token is null to clear server cookie', async () => {
+    setAccessToken(null)
+    useAuthStore.setState({
+      token: null,
+      isAuthenticated: false,
+      user: null,
+    })
+
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(null, {
+        status: 204,
+      }),
+    )
+    globalThis.fetch = mockFetch
+
+    await useAuthStore.getState().logout()
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/auth/logout'),
+      expect.objectContaining({ method: 'POST' }),
+    )
+  })
+
   it('initAuth restores user and workspaces when refresh succeeds', async () => {
     const mockFetch = vi
       .fn()
       // POST /auth/refresh returns 200
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ accessToken: 'new_token_123' }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }),
+        new Response(
+          JSON.stringify({
+            accessToken: 'new_token_123',
+            tokenType: 'Bearer',
+            expiresIn: 900,
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          },
+        ),
       )
       // GET /auth/me returns 200
       .mockResolvedValueOnce(

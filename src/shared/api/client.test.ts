@@ -1,7 +1,15 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { apiClient, ApiError, getAccessToken, setAccessToken, setOnUnauthorized } from './client'
+import {
+  apiClient,
+  ApiError,
+  getAccessToken,
+  refreshAccessToken,
+  setAccessToken,
+  setMockTransport,
+  setOnUnauthorized,
+} from './client'
 import type { Endpoint } from './endpoints'
 
 describe('apiClient', () => {
@@ -63,12 +71,19 @@ describe('apiClient', () => {
           statusText: 'Unauthorized',
         }),
       )
-      // Call to /api/auth/refresh returns 200 with new token
+      // Call to /api/auth/refresh returns 200 with new token conforming to schema
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ accessToken: 'refreshed-token' }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }),
+        new Response(
+          JSON.stringify({
+            accessToken: 'refreshed-token',
+            tokenType: 'Bearer',
+            expiresIn: 900,
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          },
+        ),
       )
       // Retried call to /test returns 200
       .mockResolvedValueOnce(
@@ -112,6 +127,98 @@ describe('apiClient', () => {
     await expect(apiClient(testEndpoint)).rejects.toThrow(ApiError)
     expect(getAccessToken()).toBeNull()
     expect(onUnauthorized).toHaveBeenCalled()
+  })
+
+  it('handles 401 when refresh response fails Zod schema validation', async () => {
+    const onUnauthorized = vi.fn()
+    setOnUnauthorized(onUnauthorized)
+    setAccessToken('expired-token')
+
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response('Unauthorized', {
+          status: 401,
+          statusText: 'Unauthorized',
+        }),
+      )
+      // Invalid response lacking tokenType and expiresIn
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ invalid: 'format' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      )
+
+    globalThis.fetch = mockFetch
+
+    await expect(apiClient(testEndpoint)).rejects.toThrow(ApiError)
+    expect(getAccessToken()).toBeNull()
+    expect(onUnauthorized).toHaveBeenCalled()
+  })
+
+  it('routes refreshAccessToken through mockTransportHandler when configured', async () => {
+    const mockHandler = vi.fn().mockImplementation((endpoint: Endpoint) => {
+      if (endpoint.path === '/auth/refresh') {
+        return {
+          accessToken: 'mock_refreshed_token',
+          tokenType: 'Bearer',
+          expiresIn: 900,
+        }
+      }
+      return undefined
+    })
+
+    setMockTransport(mockHandler)
+
+    const token = await refreshAccessToken()
+    expect(token).toBe('mock_refreshed_token')
+    expect(getAccessToken()).toBe('mock_refreshed_token')
+    expect(mockHandler).toHaveBeenCalledTimes(1)
+
+    setMockTransport(null)
+  })
+
+  it('coalesces concurrent refreshAccessToken calls into a single promise', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          accessToken: 'coalesced_token',
+          tokenType: 'Bearer',
+          expiresIn: 900,
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        },
+      ),
+    )
+    globalThis.fetch = mockFetch
+
+    const [token1, token2] = await Promise.all([refreshAccessToken(), refreshAccessToken()])
+
+    expect(token1).toBe('coalesced_token')
+    expect(token2).toBe('coalesced_token')
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('retries with updated token without second refresh if already refreshed', async () => {
+    setAccessToken('new_already_refreshed_token')
+
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ retry: true }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+    globalThis.fetch = mockFetch
+
+    // Request was sent with stale 'old_stale_token', but in-memory token is already 'new_already_refreshed_token'
+    const result = await apiClient<{ retry: boolean }>(testEndpoint, {
+      token: 'old_stale_token',
+    })
+
+    expect(result).toEqual({ retry: true })
   })
 
   it('serializes json body and sets content-type for POST requests', async () => {
