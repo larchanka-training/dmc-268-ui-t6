@@ -8,11 +8,7 @@ import {
 } from '../../entities/repository'
 import { RepositoryList } from '../../widgets/repository-list'
 
-export interface RepositoriesPageProps {
-  onNavigate?: (path: string) => void
-}
-
-export const RepositoriesPage: FC<RepositoriesPageProps> = () => {
+export const RepositoriesPage: FC = () => {
   const { message } = App.useApp()
 
   const { data: repositories = [], isLoading, isError, error, refetch } = useRepositories()
@@ -58,18 +54,20 @@ export const RepositoriesPage: FC<RepositoriesPageProps> = () => {
         />
       ) : null}
 
-      <RepositoryList
-        loading={isLoading}
-        onRefresh={() => {
-          void refetch()
-        }}
-        onToggleEnabled={(id, enabled) => {
-          void handleToggleEnabled(id, enabled)
-        }}
-        onUpdateRepository={(id, patch) => handleUpdateRepository(id, patch)}
-        repositories={repositories}
-        updatingRepoId={updateMutation.isPending ? updateMutation.variables.id : undefined}
-      />
+      {!isError || repositories.length > 0 ? (
+        <RepositoryList
+          loading={isLoading}
+          onRefresh={() => {
+            void refetch()
+          }}
+          onToggleEnabled={(id, enabled) => {
+            void handleToggleEnabled(id, enabled)
+          }}
+          onUpdateRepository={(id, patch) => handleUpdateRepository(id, patch)}
+          repositories={repositories}
+          updatingRepoId={updateMutation.isPending ? updateMutation.variables.id : undefined}
+        />
+      ) : null}
     </Flex>
   )
 }

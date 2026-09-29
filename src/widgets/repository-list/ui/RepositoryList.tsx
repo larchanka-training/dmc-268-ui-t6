@@ -24,6 +24,7 @@ import {
   Tag,
   Tooltip,
   Typography,
+  theme,
 } from 'antd'
 import { useMemo, useState, type FC } from 'react'
 
@@ -55,6 +56,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
   onUpdateRepository,
   onRefresh,
 }) => {
+  const { token } = theme.useToken()
   const [search, setSearch] = useState('')
   const [filterActive, setFilterActive] = useState<'all' | 'active'>('all')
   const [editingRepo, setEditingRepo] = useState<Repository | null>(null)
@@ -64,7 +66,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
   const isAppConfigured = Boolean(GITHUB_APP_SLUG)
   const appInstallUrl = isAppConfigured
     ? `https://github.com/apps/${GITHUB_APP_SLUG}/installations/new`
-    : 'https://github.com/apps'
+    : undefined
 
   const filteredRepositories = useMemo(() => {
     return repositories.filter((repo) => {
@@ -127,7 +129,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
   const connectButton = (
     <Button
       disabled={!isAppConfigured}
-      href={isAppConfigured ? appInstallUrl : undefined}
+      href={appInstallUrl}
       icon={<PlusOutlined />}
       rel="noopener noreferrer"
       target="_blank"
@@ -140,7 +142,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
   const emptyConnectButton = (
     <Button
       disabled={!isAppConfigured}
-      href={isAppConfigured ? appInstallUrl : undefined}
+      href={appInstallUrl}
       icon={<GithubOutlined />}
       rel="noopener noreferrer"
       target="_blank"
@@ -264,7 +266,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
               <span>{connectButton}</span>
             </Tooltip>
           ) : (
-            connectButton
+            <Tooltip title="После установки GitHub App нажмите «Обновить»">{connectButton}</Tooltip>
           )}
         </Space>
       }
@@ -274,7 +276,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
           <Badge
             count={repositories.length}
             overflowCount={999}
-            style={{ backgroundColor: '#1677ff' }}
+            style={{ backgroundColor: token.colorPrimary }}
           />
         </Flex>
       }
@@ -306,7 +308,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
 
       {repositories.length === 0 && !loading ? (
         <Empty
-          description="Репозитории ещё не подключены. Установите GitHub App для предоставления доступа к вашим репозиториям."
+          description="Репозитории ещё не подключены. Установите GitHub App для предоставления доступа к вашим репозиториям. После установки нажмите «Обновить»."
           image={Empty.PRESENTED_IMAGE_SIMPLE}
         >
           {!isAppConfigured ? (
@@ -314,7 +316,9 @@ export const RepositoryList: FC<RepositoryListProps> = ({
               <span>{emptyConnectButton}</span>
             </Tooltip>
           ) : (
-            emptyConnectButton
+            <Tooltip title="После установки GitHub App нажмите «Обновить»">
+              {emptyConnectButton}
+            </Tooltip>
           )}
         </Empty>
       ) : (

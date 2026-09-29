@@ -69,6 +69,24 @@ describe('RepositoriesPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Ошибка загрузки данных')).toBeDefined()
       expect(screen.getByText('Network error on load')).toBeDefined()
+      expect(screen.queryByText(/ещё не подключены/i)).toBeNull()
+    })
+  })
+
+  it('renders error alert and hides repository list when api returns invalid schema', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify([{ invalid: 'shape' }]), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+
+    renderWithClient(<RepositoriesPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Ошибка загрузки данных')).toBeDefined()
+      expect(screen.queryByText(/ещё не подключены/i)).toBeNull()
+      expect(screen.queryByText('Подключенные репозитории')).toBeNull()
     })
   })
 

@@ -5,8 +5,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Repository } from '../../../entities/repository'
 import { RepositoryList } from './RepositoryList'
 
+let mockSlug = ''
+vi.mock('../../../shared/config/env', () => ({
+  get GITHUB_APP_SLUG() {
+    return mockSlug
+  },
+}))
+
 afterEach(() => {
   cleanup()
+  mockSlug = ''
 })
 
 const mockRepos: Repository[] = [
@@ -68,9 +76,21 @@ describe('RepositoryList', () => {
     expect(screen.queryByText('larchanka-training/dmc-268-api-t6')).toBeNull()
   })
 
-  it('renders empty state when repositories array is empty', () => {
+  it('renders installation link with correct href when GITHUB_APP_SLUG is configured', () => {
+    mockSlug = 'test-bot'
     render(<RepositoryList repositories={[]} />)
     expect(screen.getByText(/Репозитории ещё не подключены/i)).toBeDefined()
-    expect(screen.getByText(/Установить GitHub App/i)).toBeDefined()
+    const link = screen.getByRole('link', { name: /установить github app/i })
+    expect(link.getAttribute('href')).toBe('https://github.com/apps/test-bot/installations/new')
+  })
+
+  it('renders disabled button with no href when GITHUB_APP_SLUG is not configured', () => {
+    mockSlug = ''
+    render(<RepositoryList repositories={[]} />)
+    expect(screen.getByText(/Репозитории ещё не подключены/i)).toBeDefined()
+    const button = screen.getByRole('button', { name: /установить github app/i })
+    expect(button.hasAttribute('disabled')).toBe(true)
+    expect(button.getAttribute('href')).toBeNull()
+    expect(screen.queryByRole('link', { name: /установить github app/i })).toBeNull()
   })
 })

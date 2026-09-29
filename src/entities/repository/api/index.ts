@@ -39,10 +39,11 @@ export async function updateRepository(
   return RepositorySchema.parse(data)
 }
 
-export function useRepositories() {
+export function useRepositories(options?: { refetchOnWindowFocus?: boolean }) {
   return useQuery({
     queryKey: REPOSITORIES_QUERY_KEY,
     queryFn: fetchRepositories,
+    refetchOnWindowFocus: options?.refetchOnWindowFocus ?? true,
   })
 }
 
