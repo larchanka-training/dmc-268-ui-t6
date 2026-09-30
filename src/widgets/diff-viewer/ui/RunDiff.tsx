@@ -2,25 +2,25 @@ import type { JSX } from 'react'
 import { Alert, List } from 'antd'
 
 import type { FileDiff } from '../../../entities/diff'
-import type { ReviewComment } from '../../../entities/review'
+import type { FindingView } from '../../../entities/review'
 import { DiffViewer } from './DiffViewer'
 
 interface RunDiffProps {
   summaryOnly: boolean
   files: FileDiff[]
-  comments: ReviewComment[]
+  findings: FindingView[]
 }
 
 export function RunDiff(props: RunDiffProps): JSX.Element {
-  const { summaryOnly, files, comments } = props
+  const { summaryOnly, files, findings } = props
 
   if (summaryOnly) {
     return (
       <div>
         <Alert
-          type="info"
-          title="Дифф слишком большой"
           description="Больше 3 000 строк — показан только список файлов, построчного ревью нет."
+          title="Дифф слишком большой"
+          type="info"
         />
         <List
           dataSource={files.map((f) => f.filename)}
@@ -34,7 +34,7 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
     <div>
       {files.map((file) => (
         <div key={file.filename}>
-          <DiffViewer file={file} comments={comments} />
+          <DiffViewer file={file} findings={findings} />
         </div>
       ))}
     </div>

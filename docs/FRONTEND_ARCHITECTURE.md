@@ -31,7 +31,7 @@ antd, TanStack Query и jsdom — патчи от 2026-09-24.
 | Ф-3  | RunStatus — 7 значений (`succeeded`, + `publishing/cancelled/skipped`); пересмотрено 2026-09-24                                                                 | UI «зависание/retry/отмена»; согласовано с ERD роли 6 и [SD §6.4][sd-6.4]; `succeeded` — [решение техлида][tl-2026-09-24].                                                                                  |
 | Ф-4  | `RunAction.response \| null` + `responseRef`                                                                                                                    | тела инструментов > 64 КБ выносятся отдельным запросом.                                                                                                                                                     |
 | Ф-5  | Внешний ключ `runId`, тип `RunSession`                                                                                                                          | одно имя во всём контракте: `RunSession` — API-представление `Run` ([SD §12][sd-12]).                                                                                                                       |
-| Ф-6  | Привязка комментария — пара `oldLine \| null` / `newLine \| null`                                                                                               | бэкенд мапит `side/line_start`; ключ виджета выводится из пары (§6).                                                                                                                                        |
+| Ф-6  | Привязка комментария — пара `oldLine \| null` / `newLine \| null`; канон якоря — `path/start_line/line` (+ `side`), уточнено 2026-09-28                         | бэкенд мапит канон в провод по формулам [PIPELINE_SPEC §10][ps-10] (api#20, D6); ключ виджета выводится из пары (§6).                                                                                       |
 | Ф-7  | TanStack Query — серверный кэш; Zustand — UI-состояние, стор живёт в виджете                                                                                    | `shared` не знает о домене; SSE → invalidateQueries (§2).                                                                                                                                                   |
 | Ф-8  | Дифф по проводу — сырой unified diff на файл; парсинг клиентом за адаптером                                                                                     | замена diff-библиотеки = замена одного адаптера (§6).                                                                                                                                                       |
 | Ф-9  | Новый эндпоинт `GET /api/runs/{id}/files?path&offset&limit`                                                                                                     | дочитывание контекста порциями; путь внесён в [SD §12][sd-12] (§5, п. 7).                                                                                                                                   |
@@ -39,6 +39,10 @@ antd, TanStack Query и jsdom — патчи от 2026-09-24.
 | Ф-11 | Самые свежие стабильные версии (React 19.3, Vite 8.3, Vitest 5.0, TS 7.0.2, линтер — 6.0.3) — решение роли 5 при отсутствии ответа команды; уточнено 2026-09-24 | peer-совместимость проверена по npm registry; у TS 7.0 нет JS API — typescript-eslint (peer `typescript >=4.8.4 <6.1.0`) на 6.0.x, рядом с 7.0 — #47; расхождения с PR #26/#33 — предложениями в их тредах. |
 | Ф-12 | react-router 8 / Mantine 9 только названы, не установлены                                                                                                       | экранов в спринте нет (non-goal); React 19.3 их peer-требования (≥ 19.2) выполняет.                                                                                                                         |
 | Ф-13 | Стили: antd tokens для темизации + CSS Modules для layout-контейнеров; Tailwind — нет                                                                           | один источник цветов/отступов, layout без рантайма; stylelint-override для `*.module.css` — [решение техлида][tl-2026-09-24-46] (§3).                                                                       |
+| Ф-14 | SSE — `fetch`-стрим с `Authorization: Bearer`, а не `EventSource`                                                                                               | `EventSource` не отправляет заголовки, а `/api/stream` требует Bearer ([решение техлида][tl-2026-09-27-api20], api#20 D4); `401` → refresh → переподключение (§2).                                          |
+| Ф-15 | Авторизация — GitHub App user authorization; access-токен только в памяти, refresh — httpOnly-cookie; fail closed                                               | [решение техлида][tl-2026-09-27-api20], api#20 D4; токен в памяти — дефолт плана api#20; fail closed, общий refresh, старт refresh → `/me` — правила клиента (§11).                                         |
+| Ф-16 | Вердикт (`blocking`/`attention`/`clean`) и `severityCounts` считает сервер; Critical/Warning/Info — группировка в UI                                            | [решение техлида][tl-2026-09-27-api20], api#20 D3: UI вердикт сам не выводит, API отдаёт пять уровней severity (§4).                                                                                        |
+| Ф-17 | Репозиторий подключается установкой GitHub App; настройки — `PATCH /api/repos/{id}`                                                                             | [решение техлида][tl-2026-09-27-api20], api#20 D10: `POST /api/repos` нет; поля настроек — дефолт, утверждённый с планом api#20 (§11).                                                                      |
 
 Ф-11 уточнено 2026-09-24 (#49): TypeScript поднят 5.9.3 → 6.0.3. Потолок — именно 6.0.x, а не
 «6.x»: у TypeScript 7.0 нет JS API компилятора, поэтому peer typescript-eslint остаётся
@@ -62,6 +66,14 @@ typescript-eslint получает JS API 6.0. Тильда — по той же
 `check_run completed` («завершён с любым исходом»), и второй смысл у этого слова ведёт к
 ошибкам. Поэтому успешный статус прогона — `succeeded` везде: домен, PG enum, API и Zod
 фронтенда.
+
+Ф-6 уточнено 2026-09-28 (api#20, D6): канон якоря — `path` / `start_line` / `line` (+ `side`), так
+пишут LLM и датасет api#30. БД и Zod не переименовываются, на проводе остаются `file` / `oldLine` /
+`newLine` / `endLine`. Формулы и однострочный случай — §6, первоисточник — [PIPELINE_SPEC §10][ps-10].
+
+Ф-10 уточнено 2026-09-28 (api#20, D9 — дефолт, утверждённый с планом): camelCase на проводе
+остаётся, но источник истины для путей и форм HTTP теперь [`contracts/openapi.yaml`][openapi] в
+api; Zod-схемы — проверка того же контракта на клиенте (§4, §5).
 
 ---
 
@@ -193,15 +205,20 @@ TanStack Query — не замена Zustand, а дополнение: серв�
 по разным сторонам (issue AC явно требует эту формулировку). Стор Zustand живёт в виджете, а не в
 `shared` — UI-состояние принадлежит домену виджета, `shared` о нём не знает (план, D17).
 
-SSE-мост (follow-up, **не реализовано**): `app/providers` подписывается на
-`EventSource(API_BASE_URL + '/stream')`, на событие `run.updated` вызывает
-`queryClient.invalidateQueries({ queryKey: ['runs', runId] })`. Сейчас в `src/app/providers/`
+SSE-мост (follow-up, **не реализовано**; Ф-14): `app/providers` открывает
+`fetch(API_BASE_URL + '/stream')` с заголовком `Authorization: Bearer <accessToken>` и читает кадры
+`event:`/`data:` из `response.body`; на событие `run.updated` вызывает
+`queryClient.invalidateQueries({ queryKey: ['runs', runId] })`. `EventSource` не подходит: он не
+умеет отправлять заголовки, а `/api/stream`, как и остальные `/api/*`, требует Bearer
+([api#20, D4][tl-2026-09-27-api20]). Ответ `401` при подключении или переподключении — общий
+refresh (§11), затем повтор подключения с новым токеном; refresh не удался — выход
+(fail closed). Сейчас в `src/app/providers/`
 есть только `QueryProvider` (создаёт `QueryClient`, см. `src/app/providers/queryClient.ts`) и
 `UiProvider` (antd `ConfigProvider` с русской локалью) — оба без сети.
 
 ```mermaid
 sequenceDiagram
-  participant SSE as EventSource(/api/stream)
+  participant SSE as fetch(/api/stream)
   participant Bridge as app/providers (follow-up)
   participant QC as QueryClient
   participant UI as widgets
@@ -270,9 +287,11 @@ sequenceDiagram
 
 ## 4. Контракт данных
 
-Источник истины — Zod-схемы в `src/entities/{run,diff,review}/model/schemas.ts`. Ниже — состав
-полей (не полный код); объекты не strict — `z.object` в Zod 4 по умолчанию отбрасывает неизвестные
-ключи, а не падает на них.
+Источник истины для путей и форм HTTP — [`contracts/openapi.yaml`][openapi] в api (Ф-10, уточнено
+2026-09-28). На клиенте тот же контракт проверяют Zod-схемы в
+`src/entities/{run,diff,review}/model/schemas.ts`; совпадение ответов API с ними проверяет
+`tests/test_ui_zod_contracts.py` в api. Ниже — состав полей Zod (не полный код); объекты не
+strict — `z.object` в Zod 4 по умолчанию отбрасывает неизвестные ключи, а не падает на них.
 
 ```ts
 // entities/run — RunStatus: 7 значений, RunSession, RunAction, RunListPage
@@ -308,6 +327,17 @@ Summary-only прогон (дифф больше 3 000 строк, Р-15 в [SD 
 отклоняется), `RunSession.summaryOnly` — обязательный `boolean`, как `cancelRequested`. Связь «`summaryOnly`
 ⇔ все `patch: null`» схемы не проверяют: это два разных ответа API, её держит UI (§6).
 
+Run detail (Ф-16; [PIPELINE_SPEC §11][ps-11], схема `RunDetail` в [`openapi.yaml`][openapi]): Zod —
+`RunDetailSchema` в `entities/run` (поля сверх `RunSession` с дефолтами для legacy API до api#34).
+Карточки строятся по `findings` (`FindingView`, якорь `endLine ?? newLine`, §6).
+`RunSession` и сверх них `findings` (`FindingView` — поля `ReviewComment` без `createdAt`, плюс
+`side`, `suggestion`, `confidence`), `summary { problem, doneWell, effort } | null`,
+`verdict: blocking | attention | clean | null`, `severityCounts { critical, high, medium, low, info }`
+и `budget | null`. Вердикт считает сервер по опубликованным находкам: есть `critical` или `high` →
+`blocking`, иначе есть `medium` или `low` → `attention`, иначе `clean`; `null`, пока прогон не
+`succeeded`, и у summary-only прогона. UI вердикт сам не выводит. Бейджи Critical / Warning / Info —
+только группировка в UI: `critical` + `high` / `medium` + `low` / `info`; API отдаёт пять уровней.
+
 Отклонения от схем issue:
 
 | Поле issue                       | Стало                                                       | Причина                                                                                           |
@@ -333,6 +363,15 @@ api#19): п. 2, 4, 6, 7, 8, 9 — в [§12][sd-12]; п. 10 — в [§2][sd-2], [
 nginx-контейнер за edge-Caddy); п. 1 [SD][sd] покрывал и раньше (Zod — источник истины). П. 3 и 5 —
 реализация роли 6 (api #17).
 Отдельно публиковать комментарии больше не нужно.
+
+**Статус на 2026-09-28 (api#20).** Пути и формы ответов фиксирует
+[`contracts/openapi.yaml`][openapi] (OpenAPI 3.1, api PR #36) — это источник истины; пункты ниже —
+запись того, что фронт запросил 2026-09-18. Жизненный цикл прогона, якорь и вердикт —
+[PIPELINE_SPEC.md][ps]. Что изменилось: п. 3 — `GET /api/runs/{id}` отдаёт `RunDetail` (§4, Ф-16);
+п. 5 — формулы якоря в §6 (Ф-6); п. 9 — стрим читается `fetch` с Bearer (Ф-14). Сверх пунктов
+ниже: `POST /api/runs/{id}/rerun` (`202` → новый `RunSession` в `queued`; `409`, если у PR уже есть
+активный прогон), `/api/auth/*` (Ф-15), `/api/repos`, `/api/repos/{id}` и `/api/repos/{id}/pulls`
+(Ф-17). Операции с `x-status: planned` в openapi ещё не реализованы, `x-issue` называет задачу.
 
 1. JSON на проводе — camelCase; Zod-схемы фронта источник истины ([SD §12][sd-12]). — роль 6.
 2. `GET /api/runs?status&repo&cursor` возвращает `RunListPage` (конверт с `nextCursor`), а не голый
@@ -367,8 +406,9 @@ newLine` (`RIGHT→newLine`, `LEFT→oldLine`), `line_end → endLine`. — ро
   `vite.config.ts` — follow-up (§11);
 - роль 3 (PR #28): `docker/nginx.conf` сейчас не проксирует `/api/` и `/api/stream`; при
   `VITE_API_BASE_URL=/api` (same-origin) нужен `location /api/ { proxy_pass …; proxy_buffering
-off; }` для SSE, либо в документе фиксируется cross-origin вариант с CORS на бэкенде — решить с
-  ролями 3 и 6.
+off; }` для SSE, либо в документе фиксируется cross-origin вариант с CORS на бэкенде — **решено**
+  (api#20, 28.09): один origin, хост UI проксирует `/api/*` в API (`proxy_buffering off` для SSE),
+  CORS не нужен; настройка — larchanka-training/dmc-268-api-t6#35.
 
 ---
 
@@ -410,7 +450,8 @@ Summary-only прогон рисует `RunDiff`: при `summaryOnly: true` —
 (больше 3 000 строк, построчного ревью нет) и список имён файлов, без `DiffViewer` и хунков; при
 `false` — `DiffViewer` на каждый файл (имя файла он выводит и комментарии по
 `comment.file` фильтрует сам). `RunDiff` получает флаг, а не весь `RunSession`, — виджет не зависит от
-`entities/run`. Страницы, которая передаёт `run.summaryOnly` в `RunDiff`, пока нет (§11).
+`entities/run`. Страница `RunDetailPage` (`/runs/:runId`) передаёт `run.summaryOnly` и
+`findings` из `RunDetail` в `RunDiff` (TanStack Query, ключи §2).
 
 Ключ привязки комментария — `commentKey` (`src/entities/diff/lib/commentKey.ts`), реализует
 правило N/I/D:
@@ -425,6 +466,27 @@ Summary-only прогон рисует `RunDiff`: при `summaryOnly: true` —
 `I<newLine>`, если `context` — `N<oldLine>` той же строки. Для `oldLine ≠ null` без `newLine` —
 поиск по `removed`/`context` аналогично. Если строка не найдена в текущем `FileDiff` (комментарий
 вне видимого диффа) — `commentKey` возвращает `null`, виджет для него не рисуется.
+
+Откуда берутся `oldLine` / `newLine` / `endLine` (Ф-6, уточнено 2026-09-28; первоисточник —
+[PIPELINE_SPEC §10][ps-10]). Канон якоря — `path` / `start_line` / `line` (+ `side`): так находку
+выдаёт LLM и так размечен датасет api#30; `side` в выходе LLM нет, постпроцессор ставит `RIGHT`.
+БД и Zod не переименовываются, на проводе — `file` / `oldLine` / `newLine` / `endLine`; `side` есть
+только в `FindingView` run detail (§4), в `ReviewComment` его нет. Канон — решение техлида, формулы —
+дефолт, утверждённый с планом api#20 ([решения][tl-2026-09-27-api20]):
+
+- БД: `file_path = path`, `line_start = start_line ?? line`,
+  `line_end = start_line != null ? line : null`;
+- провод: `file = file_path`, `newLine = side == RIGHT ? line_start : null`,
+  `oldLine = side == LEFT ? line_start : null`, `endLine = line_end`.
+
+| Случай         | LLM                          | Провод                                      |
+| -------------- | ---------------------------- | ------------------------------------------- |
+| одна строка 42 | `start_line: null, line: 42` | `newLine: 42, oldLine: null, endLine: null` |
+| диапазон 10–14 | `start_line: 10, line: 14`   | `newLine: 10, oldLine: null, endLine: 14`   |
+
+Однострочная находка приходит с `endLine = null`; диапазон строк —
+`[newLine ?? oldLine, endLine ?? newLine ?? oldLine]`. `commentKey` ищет строку по `newLine` /
+`oldLine`, поэтому комментарий к диапазону встаёт на его первую строку.
 
 «Дочитать контекст» — зазор вычисляется в `DiffViewer.tsx` (`gapBeforeHunk`/`gapAfterLastHunk`):
 для каждой пары соседних хунков зазор — это `{ startLine: prev.newStart + prev.newLines, count:
@@ -559,18 +621,41 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
 - **`steiger`** — FSD-линтер, форматирует нарушения правил §1 автоматически; не подключён.
 - **`PORT` в `vite.config.ts`** — нужен `@types/node` в `tsconfig.node.json` (роль 4); не сделано.
   С TS 6.0 `types` по умолчанию `[]`, поэтому пакет придётся назвать в `types` явно.
-- **SSE-мост** (§2) — `EventSource`-подписка и `invalidateQueries` не реализованы, только
-  спроектированы.
-- **Fetch-клиент и авторизация** — JWT/OAuth ([SD §12][sd-12]: `POST /auth/github/callback` → JWT,
-  `Authorization: Bearer` на всех `/api/*`) — в этом документе описаны как слой, который появится
-  над `entities/*/api`, код не написан.
+- **SSE-мост** (§2, Ф-14) — `fetch`-стрим с Bearer (не `EventSource`: он не отправляет
+  заголовки), повтор после `401` → refresh → переподключение и `invalidateQueries` не реализованы,
+  только спроектированы.
+- **Fetch-клиент и авторизация** (Ф-15) — слой, который появится над `entities/*/api`; код не
+  написан. Контракт — [решение техлида api#20 D4][tl-2026-09-27-api20] и `/api/auth/*` в
+  [`openapi.yaml`][openapi]:
+  - вход — GitHub App user authorization без OAuth scopes; `state` SPA генерирует сама, хранит в
+    `sessionStorage` и сверяет на `/auth/callback`;
+  - `POST /api/auth/github/callback { code }` → `AuthSession`
+    (`{ accessToken, tokenType: 'Bearer', expiresIn, user }`) и ротируемый refresh-токен в
+    httpOnly-cookie `refresh_token` (`Path=/api/auth`);
+  - access-токен (JWT, 15 мин) хранится только в памяти (дефолт, утверждённый с планом api#20), не
+    в `localStorage`/`sessionStorage`; на остальных `/api/*` — `Authorization: Bearer`;
+  - запросы к `/api/auth/*` идут с `credentials: 'include'`;
+  - `401` → один общий на все запросы `POST /api/auth/refresh`, затем один повтор исходного
+    запроса; refresh не удался — выход;
+  - старт приложения — `POST /api/auth/refresh`, затем `GET /api/auth/me` (`Me`: пользователь и
+    `workspaces`); выход — `POST /api/auth/logout`, затем сброс токена в памяти;
+  - fail closed: ошибка callback, refresh или `/me` оставляет пользователя неавторизованным.
 - **Экраны 3–5** (репозитории, правила, метрики) — области [SD §2][sd-2], не реализованные в этом
-  спринте; `src/pages/` содержит только плейсхолдеры для двух реализованных областей.
+  спринте; `src/pages/` содержит только плейсхолдеры для двух реализованных областей. Контракт
+  репозиториев (Ф-17, [`openapi.yaml`][openapi], реализация — api#34):
+  - подключение — ссылка на установку GitHub App; `POST /api/repos` нет;
+  - список — `GET /api/repos` → `Repository[]` (массив без обёртки);
+  - настройки — `PATCH /api/repos/{id}` (`RepositoryUpdate`, все поля необязательны): `enabled`,
+    `defaultEngine`, `waitForCi: auto | always | never`, `maxComments` 1..10,
+    `reviewEvent: COMMENT | REQUEST_CHANGES`;
+  - PR репозитория — `GET /api/repos/{id}/pulls?state&cursor` → `{ items, nextCursor }`, у
+    элемента `latestRun { id, status, verdict } | null`.
 - **Summary-only прогоны** (diff > 3000 строк, [SD §12][sd-12]) — схемы, адаптер и `RunDiff` поддерживают
-  с #42 (§4, §6); страницы, которая берёт `run.summaryOnly` и передаёт его в `RunDiff`, ещё нет.
-- **`POST /api/runs/{id}/rerun`** — есть в [SD §12][sd-12], отсутствует в `src/shared/api/endpoints.ts`
-  (`endpoints.runs` содержит только `cancel`) — добавить эндпоинт в контракт до реализации UI
-  повторного запуска.
+  с #42 (§4, §6); страница `/runs/:runId` (`RunDetailPage`) передаёт `run.summaryOnly` и findings в `RunDiff`.
+- **`POST /api/runs/{id}/rerun`** — есть в [`openapi.yaml`][openapi] (реализация — api#34): `202` →
+  новый `RunSession` в `queued` для того же PR и `headSha`; `409`, если у PR уже есть активный
+  прогон. В `src/shared/api/endpoints.ts` его нет (`endpoints.runs` содержит только `cancel`) —
+  добавить эндпоинт в контракт до реализации UI повторного запуска.
 
 ---
 
@@ -607,11 +692,16 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
 [sd-11]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md#11-данные-согласование-с-erd-роли-6
 [sd-12]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md#12-контракт-api--ui
 [sd-14]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md#14-развёртывание-v1
+[ps]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/PIPELINE_SPEC.md
+[ps-10]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/PIPELINE_SPEC.md#10-якорь-находки-d6
+[ps-11]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/PIPELINE_SPEC.md#11-вердикт-и-бейджи-d3
+[openapi]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/contracts/openapi.yaml
 [tse-10940]: https://github.com/typescript-eslint/typescript-eslint/issues/10940
 [tse-12803]: https://github.com/typescript-eslint/typescript-eslint/pull/12803
 [ts-7.0-side-by-side]: https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/#running-side-by-side-with-typescript-6.0
 [tl-2026-09-24]: https://github.com/larchanka-training/dmc-268-api-t6/issues/19#issuecomment-5813179201
 [tl-2026-09-24-10]: https://github.com/larchanka-training/dmc-268-api-t6/issues/19#issuecomment-5817060000
 [tl-2026-09-24-46]: https://github.com/larchanka-training/dmc-268-ui-t6/issues/46#issuecomment-5819780647
+[tl-2026-09-27-api20]: https://github.com/larchanka-training/dmc-268-api-t6/issues/20#issuecomment-5860133963
 [req-ui-30]: https://github.com/larchanka-training/dmc-268-ui-t6/pull/30#issuecomment-5725153632
 [req-api-4]: https://github.com/larchanka-training/dmc-268-api-t6/pull/4#issuecomment-5725153769

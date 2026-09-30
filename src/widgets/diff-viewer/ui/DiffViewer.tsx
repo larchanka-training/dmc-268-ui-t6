@@ -1,12 +1,14 @@
 import type { JSX, ReactElement, ReactNode } from 'react'
-import { Segmented, Typography } from 'antd'
+import { Alert, Segmented, Typography } from 'antd'
 import { Decoration, Diff, Hunk } from 'react-diff-view'
 import type { HunkData } from 'react-diff-view'
 import 'react-diff-view/style/index.css'
 
 import type { FileDiff } from '../../../entities/diff'
 import { commentKey, toHunks } from '../../../entities/diff'
-import type { ReviewComment } from '../../../entities/review'
+import type { FindingView, ReviewComment } from '../../../entities/review'
+import { reviewCommentToFinding } from '../../../entities/review/lib/reviewCommentToFinding'
+import { tokensForHunks } from '../lib/tokensForHunks'
 import type { DiffViewType } from '../model/store'
 import { useDiffViewerStore } from '../model/store'
 import type { ContextGap } from '../model/types'
@@ -15,7 +17,8 @@ import { LoadMoreContext } from './LoadMoreContext'
 
 interface DiffViewerProps {
   file: FileDiff
-  comments: ReviewComment[]
+  findings?: FindingView[]
+  comments?: ReviewComment[]
   totalLines?: number
   onLoadMore?: (gap: ContextGap) => void
 }
@@ -65,8 +68,15 @@ function decorationForGap(gap: ContextGap, onLoadMore: (gap: ContextGap) => void
   )
 }
 
+function mergeFindings(findings: FindingView[], comments: ReviewComment[]): FindingView[] {
+  if (comments.length === 0) {
+    return findings
+  }
+  return [...findings, ...comments.map(reviewCommentToFinding)]
+}
+
 export function DiffViewer(props: DiffViewerProps): JSX.Element {
-  const { file, comments, totalLines, onLoadMore } = props
+  const { file, findings = [], comments = [], totalLines, onLoadMore } = props
   const viewType = useDiffViewerStore((s) => s.viewType)
   const setViewType = useDiffViewerStore((s) => s.setViewType)
 
@@ -89,21 +99,25 @@ export function DiffViewer(props: DiffViewerProps): JSX.Element {
   }
 
   const hunks = toHunks(file)
+  const fileFindings = mergeFindings(findings, comments).filter((f) => f.file === file.filename)
 
-  const commentsByKey = new Map<string, ReviewComment[]>()
-  for (const comment of comments) {
-    if (comment.file !== file.filename) {
-      continue
-    }
-    const key = commentKey(comment, file)
+  const outOfDiff: FindingView[] = []
+  const commentsByKey = new Map<string, FindingView[]>()
+
+  for (const finding of fileFindings) {
+    const key = commentKey(
+      { oldLine: finding.oldLine, newLine: finding.newLine, endLine: finding.endLine },
+      file,
+    )
     if (key === null) {
+      outOfDiff.push(finding)
       continue
     }
     const list = commentsByKey.get(key)
     if (list === undefined) {
-      commentsByKey.set(key, [comment])
+      commentsByKey.set(key, [finding])
     } else {
-      list.push(comment)
+      list.push(finding)
     }
   }
 
@@ -115,25 +129,27 @@ export function DiffViewer(props: DiffViewerProps): JSX.Element {
     }
     widgets[key] =
       list.length === 1 ? (
-        <InlineComment comment={first} />
+        <InlineComment file={file} finding={first} />
       ) : (
         <div>
-          {list.map((c) => (
-            <InlineComment key={c.id} comment={c} />
+          {list.map((finding) => (
+            <InlineComment file={file} finding={finding} key={finding.id} />
           ))}
         </div>
       )
   }
 
+  const tokens = tokensForHunks(file.filename, hunks)
+
   const renderHunks = (hunksArg: HunkData[]): ReactElement[] => {
     if (!onLoadMore) {
-      return hunksArg.map((hunk) => <Hunk key={hunk.content} hunk={hunk} />)
+      return hunksArg.map((hunk) => <Hunk hunk={hunk} key={hunk.content} />)
     }
     const loadMore = onLoadMore
     const items = hunksArg.flatMap((hunk, i) => {
       const gap = gapBeforeHunk(hunksArg, i)
       const decoration = gap ? [decorationForGap(gap, loadMore)] : []
-      return [...decoration, <Hunk key={hunk.content} hunk={hunk} />]
+      return [...decoration, <Hunk hunk={hunk} key={hunk.content} />]
     })
     const trailingGap = gapAfterLastHunk(hunksArg, totalLines)
     return trailingGap ? [...items, decorationForGap(trailingGap, loadMore)] : items
@@ -144,16 +160,31 @@ export function DiffViewer(props: DiffViewerProps): JSX.Element {
       <div>
         <Typography.Text strong>{file.filename}</Typography.Text>
         <Segmented
-          options={VIEW_OPTIONS}
-          value={viewType}
           onChange={(value: DiffViewType) => {
             setViewType(value)
           }}
+          options={VIEW_OPTIONS}
+          value={viewType}
         />
       </div>
-      <Diff viewType={viewType} diffType="modify" hunks={hunks} widgets={widgets}>
+      <Diff diffType="modify" hunks={hunks} tokens={tokens} viewType={viewType} widgets={widgets}>
         {renderHunks}
       </Diff>
+      {outOfDiff.length > 0 ? (
+        <Alert
+          data-testid="findings-outside-diff"
+          description={
+            <div>
+              {outOfDiff.map((finding) => (
+                <InlineComment file={file} finding={finding} key={finding.id} />
+              ))}
+            </div>
+          }
+          style={{ marginTop: 12 }}
+          title="Замечания вне диффа"
+          type="warning"
+        />
+      ) : null}
     </div>
   )
 }

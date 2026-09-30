@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { FindingViewSchema } from '../../review/model/schemas'
+
 export const RunStatusSchema = z.enum([
   'queued',
   'running',
@@ -97,3 +99,44 @@ export const RunListQuerySchema = z.object({
   cursor: z.string().optional(),
 })
 export type RunListQuery = z.infer<typeof RunListQuerySchema>
+
+export const VerdictSchema = z.enum(['blocking', 'attention', 'clean'])
+export type Verdict = z.infer<typeof VerdictSchema>
+
+export const EffortSchema = z.enum(['none', 'small', 'medium', 'large'])
+export type Effort = z.infer<typeof EffortSchema>
+
+export const ReviewSummarySchema = z.object({
+  problem: z.string(),
+  doneWell: z.string(),
+  effort: EffortSchema,
+})
+export type ReviewSummary = z.infer<typeof ReviewSummarySchema>
+
+export const SeverityCountsSchema = z.object({
+  critical: z.int().nonnegative(),
+  high: z.int().nonnegative(),
+  medium: z.int().nonnegative(),
+  low: z.int().nonnegative(),
+  info: z.int().nonnegative(),
+})
+export type SeverityCounts = z.infer<typeof SeverityCountsSchema>
+
+export const RunBudgetSchema = z.object({
+  tokensIn: z.int().nonnegative(),
+  tokensOut: z.int().nonnegative(),
+  costUsd: z.number().nonnegative(),
+  tokenLimit: z.int().nonnegative(),
+  costLimitUsd: z.number().nonnegative(),
+})
+export type RunBudget = z.infer<typeof RunBudgetSchema>
+
+/** RunSession plus review fields; missing extras default for legacy `GET /runs/{id}` (pre api#34). */
+export const RunDetailSchema = RunSessionSchema.extend({
+  findings: z.array(FindingViewSchema).optional().default([]),
+  summary: ReviewSummarySchema.nullable().optional().default(null),
+  verdict: VerdictSchema.nullable().optional().default(null),
+  severityCounts: SeverityCountsSchema.nullable().optional().default(null),
+  budget: RunBudgetSchema.nullable().optional().default(null),
+})
+export type RunDetail = z.infer<typeof RunDetailSchema>

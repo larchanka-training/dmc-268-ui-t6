@@ -1,11 +1,23 @@
-import type { JSX } from 'react'
+import { useMemo } from 'react'
+import { RouterProvider } from 'react-router'
 
-// Временный демо-стенд: маршрут появится на T15. Сейчас он нужен, чтобы
-// посмотреть экран деталей PR на моках до мержа PR #55. Удаляется на T15.
-import { RunDetailHarness } from './app/ui/RunDetailHarness'
+import { QueryProvider, UiProvider } from './app/providers'
+import { createAppRouter } from './app/routes'
 
-export function App(): JSX.Element {
-  return <RunDetailHarness />
+export interface AppProps {
+  router?: ReturnType<typeof createAppRouter>
+}
+
+export function App({ router }: AppProps = {}) {
+  const activeRouter = useMemo(() => router ?? createAppRouter(), [router])
+
+  return (
+    <UiProvider>
+      <QueryProvider>
+        <RouterProvider router={activeRouter} />
+      </QueryProvider>
+    </UiProvider>
+  )
 }
 
 export default App
