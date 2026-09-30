@@ -9,6 +9,7 @@ import {
   mockRawDiffForRun,
   REVIEW_LEGACY_RUN_ID,
 } from './mockRunReview'
+import { mockRunsListPage } from './mockRunsList.fixture'
 import {
   mockCurrentUser,
   mockRepositories,
@@ -30,6 +31,13 @@ export function initMockTransport(): void {
   setMockTransport((endpoint, options) => {
     if (endpoint.path === '/repos' && endpoint.method === 'GET') {
       return mockRepositories.map((r) => ({ ...r }))
+    }
+
+    if (endpoint.path === '/runs' && endpoint.method === 'GET') {
+      return {
+        items: mockRunsListPage.items.map((run) => ({ ...run, pullRequest: { ...run.pullRequest } })),
+        nextCursor: mockRunsListPage.nextCursor,
+      }
     }
 
     if (endpoint.path.startsWith('/repos/') && endpoint.method === 'GET') {

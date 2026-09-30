@@ -17,4 +17,8 @@ describe('runApi', () => {
   it('builds the detail endpoint path', () => {
     expect(runApi.detail.endpoint('id-1').path).toBe('/runs/id-1')
   })
+
+  it('builds the list endpoint path', () => {
+    expect(runApi.list.endpoint().path).toBe('/runs')
+  })
 })

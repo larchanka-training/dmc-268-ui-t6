@@ -11,12 +11,7 @@ import {
 } from 'react-router'
 
 import { useAuthStore } from '../features/auth'
-import { USE_MOCKS } from '../shared/config/env'
 import { AppLayout } from '../widgets/app-layout'
-import {
-  mockRunActions,
-  mockRunSessions,
-} from './mocks/app-state'
 import { REVIEW_DEMO_RUN_ID } from './mocks/mockRunReview'
 
 const LoginPage = lazy(() =>
@@ -117,12 +112,7 @@ function RoutedRepositoriesPage() {
 }
 
 function RoutedRunsPage() {
-  return (
-    <RunsPage
-      runActions={USE_MOCKS ? mockRunActions : []}
-      runSessions={USE_MOCKS ? mockRunSessions : []}
-    />
-  )
+  return <RunsPage />
 }
 
 function RoutedLoginPage() {

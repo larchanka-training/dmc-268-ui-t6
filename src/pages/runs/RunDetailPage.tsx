@@ -1,6 +1,7 @@
-import { Card, Empty, Flex, Spin, Typography } from 'antd'
+import { ArrowLeftOutlined } from '@ant-design/icons'
+import { Button, Card, Empty, Flex, Spin, Typography } from 'antd'
 import type { FC } from 'react'
-import { useParams } from 'react-router'
+import { useNavigate, useParams } from 'react-router'
 
 import { useRunDiff } from '../../entities/diff/api'
 import { useRunDetail } from '../../entities/run/api'
@@ -10,6 +11,7 @@ import { RunHeader } from '../../widgets/run-inspector'
 const { Title, Text } = Typography
 
 export const RunDetailPage: FC = () => {
+  const navigate = useNavigate()
   const { runId } = useParams<{ runId: string }>()
   const now = new Date()
   const runQuery = useRunDetail(runId)
@@ -37,18 +39,31 @@ export const RunDetailPage: FC = () => {
   return (
     <Flex data-testid="run-detail-page" gap="large" vertical>
       <Card>
-        <Title level={4} style={{ marginTop: 0 }}>
-          Прогон PR #{run.pullRequest.number}
-        </Title>
-        <Text type="secondary">Метаданные прогона, дифф и замечания AI</Text>
-        <div style={{ marginTop: 16 }}>
-          <RunHeader
-            now={now}
-            run={run}
-            severityCounts={run.severityCounts}
-            verdict={run.verdict}
-          />
-        </div>
+        <Flex align="flex-start" gap="middle" vertical>
+          <Button
+            icon={<ArrowLeftOutlined />}
+            onClick={() => {
+              void navigate('/runs')
+            }}
+            type="default"
+          >
+            К списку прогонов
+          </Button>
+          <div>
+            <Title level={4} style={{ marginTop: 0 }}>
+              Прогон PR #{run.pullRequest.number}
+            </Title>
+            <Text type="secondary">Метаданные прогона, дифф и замечания AI</Text>
+          </div>
+          <div style={{ width: '100%' }}>
+            <RunHeader
+              now={now}
+              run={run}
+              severityCounts={run.severityCounts}
+              verdict={run.verdict}
+            />
+          </div>
+        </Flex>
       </Card>
       <RunDiff files={files} findings={run.findings} summaryOnly={run.summaryOnly} />
     </Flex>
