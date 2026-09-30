@@ -28,7 +28,10 @@ function shortSha(sha: string): string {
   return sha.slice(0, 7)
 }
 
-function formatRefs(headRef: string | null | undefined, baseRef: string | null | undefined): string | null {
+function formatRefs(
+  headRef: string | null | undefined,
+  baseRef: string | null | undefined,
+): string | null {
   if (headRef && baseRef) {
     return `${headRef} → ${baseRef}`
   }
@@ -59,9 +62,7 @@ export function RunHeader(props: RunHeaderProps): JSX.Element {
       ),
     },
     { key: 'headSha', label: 'Commit', children: shortSha(pr.headSha) },
-    ...(pr.author
-      ? [{ key: 'author', label: 'Автор', children: pr.author }]
-      : []),
+    ...(pr.author ? [{ key: 'author', label: 'Автор', children: pr.author }] : []),
     ...(refs ? [{ key: 'refs', label: 'Ветки', children: refs }] : []),
     { key: 'engine', label: 'Движок', children: run.engine },
     { key: 'model', label: 'Модель', children: run.model ?? '—' },
@@ -72,7 +73,9 @@ export function RunHeader(props: RunHeaderProps): JSX.Element {
         <>
           <Tag color={statusColor(run.status)}>{run.status}</Tag>
           {isStaleRunning(run, now) ? <Tag color="warning">нет ответа &gt; 10 мин</Tag> : null}
-          {verdict !== null ? <Tag color={VERDICT_COLOR[verdict]}>{VERDICT_LABEL[verdict]}</Tag> : null}
+          {verdict !== null ? (
+            <Tag color={VERDICT_COLOR[verdict]}>{VERDICT_LABEL[verdict]}</Tag>
+          ) : null}
         </>
       ),
     },
@@ -112,7 +115,9 @@ export function RunHeader(props: RunHeaderProps): JSX.Element {
     <div>
       <Descriptions column={4} items={items} size="small" />
       {run.summaryOnly ? (
-        <Typography.Text type="secondary">Summary-only прогон (дифф &gt; 3000 строк)</Typography.Text>
+        <Typography.Text type="secondary">
+          Summary-only прогон (дифф &gt; 3000 строк)
+        </Typography.Text>
       ) : null}
     </div>
   )

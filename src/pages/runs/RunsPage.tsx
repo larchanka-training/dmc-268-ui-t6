@@ -8,10 +8,6 @@ import { useRunList } from '../../entities/run/api'
 
 const { Title, Text } = Typography
 
-export interface RunsPageProps {
-  onNavigate?: (path: string) => void
-}
-
 const statusColorMap: Record<RunStatus, string> = {
   queued: 'default',
   running: 'processing',
@@ -24,7 +20,7 @@ const statusColorMap: Record<RunStatus, string> = {
 
 const ACTIVE_STATUSES: RunStatus[] = ['queued', 'running', 'publishing']
 
-export const RunsPage: FC<RunsPageProps> = () => {
+export const RunsPage: FC = () => {
   const navigate = useNavigate()
   const { data, isLoading, isError, error, refetch } = useRunList()
   const runSessions = data?.items ?? []
@@ -34,7 +30,7 @@ export const RunsPage: FC<RunsPageProps> = () => {
       title: 'PR',
       key: 'pr',
       render: (_, run) => (
-        <Space direction="vertical" size={0}>
+        <Space orientation="vertical" size={0}>
           <Text strong>{`#${String(run.pullRequest.number)}`}</Text>
           <Text type="secondary">{run.pullRequest.title}</Text>
         </Space>

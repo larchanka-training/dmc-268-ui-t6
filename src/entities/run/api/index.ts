@@ -15,6 +15,7 @@ import type { RunDetail, RunListPage } from '../model/schemas'
 
 export const runQueryKeys = {
   list: () => ['runs', 'list'] as const,
+  detailDisabled: () => ['runs', 'detail', null] as const,
   detail: (id: string) => ['runs', id] as const,
   actions: (id: string) => ['runs', id, 'actions'] as const,
   diff: (id: string) => ['runs', id, 'diff'] as const,
@@ -48,7 +49,7 @@ export async function fetchRunDetail(id: string): Promise<RunDetail> {
 
 export function useRunDetail(runId: string | undefined) {
   return useQuery({
-    queryKey: runId ? runQueryKeys.detail(runId) : runQueryKeys.list(),
+    queryKey: runId ? runQueryKeys.detail(runId) : runQueryKeys.detailDisabled(),
     queryFn: () => {
       if (!runId) {
         throw new Error('runId is required')

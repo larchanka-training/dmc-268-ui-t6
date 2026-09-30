@@ -12,16 +12,6 @@ vi.mock('../../entities/run/api', async (importOriginal) => {
   return {
     ...actual,
     useRunList: vi.fn(),
-    useRunDetail: vi.fn(() => ({
-      data: undefined,
-      isLoading: true,
-      isError: false,
-    })),
-    useRunDiff: vi.fn(() => ({
-      data: undefined,
-      isLoading: true,
-      isError: false,
-    })),
   }
 })
 
@@ -68,7 +58,7 @@ describe('RunsPage', () => {
       status: 'success',
       fetchStatus: 'idle',
       refetch: vi.fn(),
-    } as ReturnType<typeof useRunList>)
+    } as unknown as ReturnType<typeof useRunList>)
 
     renderPage()
 
@@ -92,9 +82,12 @@ describe('RunsPage', () => {
       status: 'success',
       fetchStatus: 'idle',
       refetch: vi.fn(),
-    } as ReturnType<typeof useRunList>)
+    } as unknown as ReturnType<typeof useRunList>)
 
-    const demoRun = mockRunsListPage.items.find((run) => run.status === 'succeeded')!
+    const demoRun = mockRunsListPage.items.find((run) => run.status === 'succeeded')
+    if (!demoRun) {
+      throw new Error('fixture must include a succeeded run')
+    }
     renderPage()
 
     await waitFor(() => {

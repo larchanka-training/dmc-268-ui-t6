@@ -1,6 +1,6 @@
 import { ApiError, setMockTransport } from '../../shared/api/client'
 import { RawFileDiffSchema } from '../../entities/diff'
-import type { Repository } from '../../entities/repository'
+import { RepositorySchema, UpdateRepositorySchema } from '../../entities/repository'
 import { USE_MOCKS } from '../../shared/config/env'
 import { z } from 'zod'
 import {
@@ -10,19 +10,11 @@ import {
   REVIEW_LEGACY_RUN_ID,
 } from './mockRunReview'
 import { mockRunsListPage } from './mockRunsList.fixture'
-import {
-  mockCurrentUser,
-  mockRepositories,
-  mockRunSessions,
-  mockSummaryOnlyDiff,
-  mockSummaryOnlyRun,
-} from './app-state'
+import { mockCurrentUser, mockRepositories, mockSummaryOnlyDiff } from './app-state'
 import { SAMPLE_PATCHES } from '../../shared/fixtures/sample.patch'
 
-const ALL_MOCK_SESSIONS = [...mockRunSessions, mockSummaryOnlyRun]
-
 function findRunSession(id: string) {
-  return ALL_MOCK_SESSIONS.find((run) => run.id === id)
+  return mockRunsListPage.items.find((run) => run.id === id)
 }
 
 export function initMockTransport(): void {
@@ -35,7 +27,10 @@ export function initMockTransport(): void {
 
     if (endpoint.path === '/runs' && endpoint.method === 'GET') {
       return {
-        items: mockRunsListPage.items.map((run) => ({ ...run, pullRequest: { ...run.pullRequest } })),
+        items: mockRunsListPage.items.map((run) => ({
+          ...run,
+          pullRequest: { ...run.pullRequest },
+        })),
         nextCursor: mockRunsListPage.nextCursor,
       }
     }
@@ -56,7 +51,11 @@ export function initMockTransport(): void {
         throw new ApiError(404, 'Not Found', { message: 'Repository not found' })
       }
       if (options.body && typeof options.body === 'object') {
-        mockRepositories[index] = { ...mockRepositories[index], ...options.body } as Repository
+        const patch = UpdateRepositorySchema.parse(options.body)
+        mockRepositories[index] = RepositorySchema.parse({
+          ...mockRepositories[index],
+          ...patch,
+        })
       }
       return { ...mockRepositories[index] }
     }

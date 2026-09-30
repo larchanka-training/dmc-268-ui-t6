@@ -1,5 +1,5 @@
 import { tokenize } from 'react-diff-view'
-import type { HunkData, TokenizeOptions } from 'react-diff-view'
+import type { HunkData, HunkTokens } from 'react-diff-view'
 import { refractor } from 'refractor'
 import javascript from 'refractor/javascript'
 import json from 'refractor/json'
@@ -15,12 +15,9 @@ refractor.register(javascript)
 refractor.register(markdown)
 refractor.register(json)
 
-export function tokensForHunks(
-  filename: string,
-  hunks: HunkData[],
-): TokenizeOptions['tokens'] | undefined {
+export function tokensForHunks(filename: string, hunks: HunkData[]): HunkTokens | undefined {
   const language = languageFromFilename(filename)
-  if (language === null) {
+  if (language === null || hunks.length === 0) {
     return undefined
   }
 

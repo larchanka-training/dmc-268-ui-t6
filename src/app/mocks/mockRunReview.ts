@@ -1,10 +1,73 @@
 import type { RawFileDiff } from '../../entities/diff'
 import type { FindingView } from '../../entities/review'
-import type { RunDetail, RunSession } from '../../entities/run'
+import type { RunDetail, RunSession, Verdict } from '../../entities/run'
+import { DEMO_RUN_ID } from '../../shared/config/demoRun'
 
-export const REVIEW_DEMO_RUN_ID = '11111111-1111-4111-8111-000000000004'
+export const REVIEW_DEMO_RUN_ID = DEMO_RUN_ID
 export const REVIEW_LEGACY_RUN_ID = '11111111-1111-4111-8111-000000000002'
 export const REVIEW_SUMMARY_ONLY_RUN_ID = '11111111-1111-4111-8111-000000000008'
+export const REVIEW_ATTENTION_RUN_ID = '11111111-1111-4111-8111-000000000009'
+export const REVIEW_CLEAN_RUN_ID = '11111111-1111-4111-8111-000000000010'
+
+const REPO = 'larchanka-training/dmc-268-ui-t6'
+
+function pullRequestUrl(number: number): string {
+  return `https://github.com/${REPO}/pull/${String(number)}`
+}
+
+const verdictDemoBase = {
+  engine: 'deep' as const,
+  model: 'claude-sonnet-5',
+  status: 'succeeded' as const,
+  startedAt: '2026-09-18T11:50:00.000Z',
+  finishedAt: '2026-09-18T11:55:12.000Z',
+  attempt: 1,
+  cancelRequested: false,
+  summaryOnly: false,
+  actionCount: 10,
+  errorCode: null,
+}
+
+export const mockVerdictVariantRuns: RunSession[] = [
+  {
+    ...verdictDemoBase,
+    id: REVIEW_ATTENTION_RUN_ID,
+    pullRequest: {
+      repo: REPO,
+      number: 39,
+      title: 'feat: attention verdict demo',
+      url: pullRequestUrl(39),
+      headSha: 'aaaa9999aaaa9999aaaa9999aaaa9999aaaa9999',
+    },
+  },
+  {
+    ...verdictDemoBase,
+    id: REVIEW_CLEAN_RUN_ID,
+    pullRequest: {
+      repo: REPO,
+      number: 40,
+      title: 'feat: clean verdict demo',
+      url: pullRequestUrl(40),
+      headSha: 'bbbb0000bbbb0000bbbb0000bbbb0000bbbb0000',
+    },
+  },
+]
+
+function verdictDetail(session: RunSession, verdict: Verdict): RunDetail {
+  const counts =
+    verdict === 'attention'
+      ? { critical: 0, high: 0, medium: 1, low: 1, info: 0 }
+      : { critical: 0, high: 0, medium: 0, low: 0, info: 2 }
+
+  return {
+    ...session,
+    findings: [],
+    summary: null,
+    verdict,
+    severityCounts: counts,
+    budget: null,
+  }
+}
 
 export const mockReviewFindings: FindingView[] = [
   {
@@ -162,6 +225,14 @@ export function buildMockRunDetail(session: RunSession): RunDetail {
         costLimitUsd: 5,
       },
     }
+  }
+
+  if (session.id === REVIEW_ATTENTION_RUN_ID) {
+    return verdictDetail(session, 'attention')
+  }
+
+  if (session.id === REVIEW_CLEAN_RUN_ID) {
+    return verdictDetail(session, 'clean')
   }
 
   return {

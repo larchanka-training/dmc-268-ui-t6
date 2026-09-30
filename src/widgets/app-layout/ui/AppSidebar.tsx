@@ -37,7 +37,8 @@ export const AppSidebar: FC<AppSidebarProps> = ({ currentPath = '/repositories',
     },
   ]
 
-  const selectedKey = menuItems.find((item) => currentPath.startsWith(item.key))?.key ?? '/repositories'
+  const selectedKey =
+    menuItems.find((item) => currentPath.startsWith(item.key))?.key ?? '/repositories'
 
   return (
     <Sider

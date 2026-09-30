@@ -4,11 +4,7 @@ import { z } from 'zod'
 import { apiClient } from '../../../shared/api/client'
 import { endpoints } from '../../../shared/api/endpoints'
 import { fromPatch } from '../lib/fromPatch'
-import {
-  FileSliceQuerySchema,
-  FileSliceSchema,
-  RawFileDiffSchema,
-} from '../model/schemas'
+import { FileSliceQuerySchema, FileSliceSchema, RawFileDiffSchema } from '../model/schemas'
 import type { FileDiff } from '../model/schemas'
 
 export const diffApi = {

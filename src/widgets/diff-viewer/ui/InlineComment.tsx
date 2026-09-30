@@ -39,17 +39,15 @@ export function InlineComment(props: InlineCommentProps): JSX.Element {
       >
         <Tag color={SEVERITY_BADGE_COLOR[badge]}>{SEVERITY_BADGE_LABEL[badge]}</Tag>
         <Typography.Text strong>{finding.title}</Typography.Text>
-        {range !== null ? (
-          <Typography.Text type="secondary">{range}</Typography.Text>
-        ) : null}
+        {range !== null ? <Typography.Text type="secondary">{range}</Typography.Text> : null}
       </Button>
       {expanded ? (
         <div className="inline-comment-body">
           <Typography.Text type="secondary">{finding.category}</Typography.Text>
-          {finding.ruleName !== null ? (
-            <Tag color="purple">правило: {finding.ruleName}</Tag>
-          ) : null}
-          <Typography.Paragraph style={{ whiteSpace: 'pre-wrap' }}>{finding.body}</Typography.Paragraph>
+          {finding.ruleName !== null ? <Tag color="purple">правило: {finding.ruleName}</Tag> : null}
+          <Typography.Paragraph style={{ whiteSpace: 'pre-wrap' }}>
+            {finding.body}
+          </Typography.Paragraph>
           {finding.suggestion !== null ? (
             <DiffSuggestion addedText={finding.suggestion} removedLines={removedLines} />
           ) : null}

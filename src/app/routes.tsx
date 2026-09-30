@@ -12,7 +12,7 @@ import {
 
 import { useAuthStore } from '../features/auth'
 import { AppLayout } from '../widgets/app-layout'
-import { REVIEW_DEMO_RUN_ID } from './mocks/mockRunReview'
+import { DEMO_RUN_ID } from '../shared/config/demoRun'
 
 const LoginPage = lazy(() =>
   import('../pages/login/LoginPage').then((m) => ({ default: m.LoginPage })),
@@ -194,7 +194,7 @@ export function createRoutes() {
                 },
                 {
                   path: '/review',
-                  element: <Navigate replace to={`/runs/${REVIEW_DEMO_RUN_ID}`} />,
+                  element: <Navigate replace to={`/runs/${DEMO_RUN_ID}`} />,
                 },
               ],
             },
