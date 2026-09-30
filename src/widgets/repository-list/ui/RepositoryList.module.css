@@ -1,0 +1,11 @@
+.toolbar {
+  margin-bottom: 16px;
+}
+
+.searchInput {
+  max-width: 320px;
+}
+
+.fullWidth {
+  width: 100%;
+}

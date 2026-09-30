@@ -103,22 +103,28 @@ describe('RepositoriesPage', () => {
       reviewEvent: 'COMMENT',
     }
 
-    let rejectPatch: (reason?: unknown) => void = vi.fn()
-    const patchPromise = new Promise<Response>((_, reject) => {
-      rejectPatch = reject
+    let resolvePatch: (res: Response) => void = vi.fn()
+    const patchPromise = new Promise<Response>((resolve) => {
+      resolvePatch = resolve
     })
 
+    let getCallCount = 0
     globalThis.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
       const urlStr = typeof url === 'string' ? url : ''
       if (urlStr.includes('/api/repos') && init?.method === 'PATCH') {
         return patchPromise
       }
-      return Promise.resolve(
-        new Response(JSON.stringify([mockRepo]), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }),
-      )
+      getCallCount++
+      if (getCallCount === 1) {
+        return Promise.resolve(
+          new Response(JSON.stringify([mockRepo]), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        )
+      }
+      // Subsequent GET queries do not complete so rollback is purely verified from onError
+      return new Promise<Response>(() => undefined)
     })
 
     renderWithClient(<RepositoriesPage />)
@@ -136,10 +142,75 @@ describe('RepositoriesPage', () => {
       expect(switchBtn.getAttribute('aria-checked')).toBe('false')
     })
 
-    rejectPatch(new Error('Server error'))
+    // While PATCH is in flight, switch must be disabled
+    expect(switchBtn.hasAttribute('disabled')).toBe(true)
 
+    // PATCH fails with HTTP 500
+    resolvePatch(new Response('Internal Server Error', { status: 500 }))
+
+    // Switch must roll back to original state 'true' via onError
     await waitFor(() => {
       expect(switchBtn.getAttribute('aria-checked')).toBe('true')
+    })
+  })
+
+  it('keeps settings modal open with entered values when PATCH fails with 500', async () => {
+    const mockRepo = {
+      id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+      fullName: 'larchanka-training/dmc-268-ui-t6',
+      url: 'https://github.com/larchanka-training/dmc-268-ui-t6',
+      defaultBranch: 'main',
+      enabled: true,
+      defaultEngine: 'fast',
+      waitForCi: 'auto',
+      maxComments: 10,
+      reviewEvent: 'COMMENT',
+    }
+
+    globalThis.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      const urlStr = typeof url === 'string' ? url : ''
+      if (urlStr.includes('/api/repos') && init?.method === 'PATCH') {
+        return Promise.resolve(new Response('Server Error', { status: 500 }))
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify([mockRepo]), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      )
+    })
+
+    renderWithClient(<RepositoriesPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('larchanka-training/dmc-268-ui-t6')).toBeDefined()
+    })
+
+    const settingsBtn = screen.getByLabelText(/настройки larchanka-training\/dmc-268-ui-t6/i)
+    fireEvent.click(settingsBtn)
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/настройки репозитория larchanka-training\/dmc-268-ui-t6/i),
+      ).toBeDefined()
+    })
+
+    const maxCommentsInput = document.getElementById('maxComments') as HTMLInputElement
+    expect(maxCommentsInput).toBeDefined()
+    fireEvent.change(maxCommentsInput, { target: { value: '5' } })
+    expect(maxCommentsInput.value).toBe('5')
+
+    const saveBtn = screen.getByRole('button', { name: /сохранить/i })
+    fireEvent.click(saveBtn)
+
+    await waitFor(() => {
+      // Modal remains open
+      expect(
+        screen.getByText(/настройки репозитория larchanka-training\/dmc-268-ui-t6/i),
+      ).toBeDefined()
+      // Value remains entered
+      const currentInput = document.getElementById('maxComments') as HTMLInputElement
+      expect(currentInput.value).toBe('5')
     })
   })
 })
