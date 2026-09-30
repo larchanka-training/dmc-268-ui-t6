@@ -13,13 +13,10 @@ import {
 import { useAuthStore } from '../features/auth'
 import { USE_MOCKS } from '../shared/config/env'
 import { AppLayout } from '../widgets/app-layout'
+import type { FileDiff } from '../entities/diff'
+import type { ReviewComment } from '../entities/review'
+import type { RunAction, RunSession } from '../entities/run'
 import styles from './routes.module.css'
-import {
-  mockFileDiffs,
-  mockReviewComments,
-  mockRunActions,
-  mockRunSessions,
-} from './mocks/app-state'
 
 const LoginPage = lazy(() =>
   import('../pages/login/LoginPage').then((m) => ({ default: m.LoginPage })),
@@ -119,21 +116,37 @@ function RoutedRepositoriesPage() {
 }
 
 function RoutedRunsPage() {
-  return (
-    <RunsPage
-      runActions={USE_MOCKS ? mockRunActions : []}
-      runSessions={USE_MOCKS ? mockRunSessions : []}
-    />
-  )
+  const [data, setData] = useState<{ actions: RunAction[]; sessions: RunSession[] }>({
+    actions: [],
+    sessions: [],
+  })
+
+  useEffect(() => {
+    if (USE_MOCKS) {
+      void import('./mocks/app-state').then((m) => {
+        setData({ actions: m.mockRunActions, sessions: m.mockRunSessions })
+      })
+    }
+  }, [])
+
+  return <RunsPage runActions={data.actions} runSessions={data.sessions} />
 }
 
 function RoutedReviewPage() {
-  return (
-    <ReviewPage
-      fileDiffs={USE_MOCKS ? mockFileDiffs : []}
-      reviewComments={USE_MOCKS ? mockReviewComments : []}
-    />
-  )
+  const [data, setData] = useState<{ diffs: FileDiff[]; comments: ReviewComment[] }>({
+    diffs: [],
+    comments: [],
+  })
+
+  useEffect(() => {
+    if (USE_MOCKS) {
+      void import('./mocks/app-state').then((m) => {
+        setData({ diffs: m.mockFileDiffs, comments: m.mockReviewComments })
+      })
+    }
+  }, [])
+
+  return <ReviewPage fileDiffs={data.diffs} reviewComments={data.comments} />
 }
 
 function RoutedLoginPage() {

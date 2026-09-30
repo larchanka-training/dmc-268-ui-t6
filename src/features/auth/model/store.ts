@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-import { AuthSessionSchema } from '../../../entities/user'
+import { AuthSessionSchema, fetchMe } from '../../../entities/user'
 import {
   apiClient,
   getAccessToken,
@@ -22,8 +22,6 @@ export function generateRandomState(): string {
   }
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
-
-export const MOCK_TOKEN = 'mock_jwt_token_skvertl_dmc'
 
 let onLogoutCallback: (() => void) | null = null
 
@@ -56,7 +54,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     const redirectUri = `${window.location.origin}/auth/callback`
     if (!GITHUB_CLIENT_ID) {
       if (USE_MOCKS) {
-        window.location.href = `${redirectUri}?code=mock_code_123`
+        void import('../../../app/mocks/mockTransport').then((m) => {
+          window.location.href = `${redirectUri}?code=${m.MOCK_OAUTH_CODE}`
+        })
       } else {
         set({ error: 'Вход не настроен (VITE_GITHUB_CLIENT_ID)' })
       }
@@ -89,28 +89,18 @@ export const useAuthStore = create<AuthState>((set) => ({
         // Ignore storage errors
       }
 
-      // If mock mode is enabled and mock code is passed without real client ID
-      if (USE_MOCKS && code.startsWith('mock_')) {
-        setAccessToken(MOCK_TOKEN)
-        set({
-          isAuthenticated: true,
-          isLoading: false,
-          error: null,
-        })
-        return
-      }
-
       if (!savedState || !state || state !== savedState) {
         setAccessToken(null)
+        const errorMsg = 'Недействительный параметр безопасности state (защита от CSRF)'
         set({
           isAuthenticated: false,
           isLoading: false,
-          error: 'Недействительный параметр безопасности state (защита от CSRF)',
+          error: errorMsg,
         })
-        throw new Error('Invalid OAuth state parameter')
+        throw new Error(errorMsg)
       }
 
-      // Real code exchange via POST /api/auth/github/callback
+      // Code exchange via POST /api/auth/github/callback
       const res = await apiClient<unknown>(endpoints.auth.githubCallback(), {
         body: { code },
       })
@@ -136,11 +126,13 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   loginAsMockUser: () => {
     if (!USE_MOCKS && import.meta.env.MODE !== 'test') return
-    setAccessToken(MOCK_TOKEN)
-    set({
-      isAuthenticated: true,
-      isLoading: false,
-      error: null,
+    void import('../../../app/mocks/mockTransport').then((m) => {
+      setAccessToken(m.MOCK_TOKEN)
+      set({
+        isAuthenticated: true,
+        isLoading: false,
+        error: null,
+      })
     })
   },
 
@@ -164,13 +156,15 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   initAuth: async () => {
-    // If mock mode is explicitly on and mock user is in memory
-    if (USE_MOCKS && getAccessToken() === MOCK_TOKEN) {
-      set({
-        isAuthenticated: true,
-        isLoading: false,
-      })
-      return
+    if (USE_MOCKS) {
+      const { MOCK_TOKEN } = await import('../../../app/mocks/mockTransport')
+      if (getAccessToken() === MOCK_TOKEN) {
+        set({
+          isAuthenticated: true,
+          isLoading: false,
+        })
+        return
+      }
     }
 
     set({ isLoading: true, error: null })
@@ -183,6 +177,9 @@ export const useAuthStore = create<AuthState>((set) => ({
         })
         return
       }
+
+      // FA Ф-15: fail closed — verify session via GET /api/auth/me
+      await fetchMe(newToken)
 
       set({
         isAuthenticated: true,

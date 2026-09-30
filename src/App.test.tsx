@@ -332,4 +332,76 @@ describe('App root integration and protected routes', () => {
     // Verify sidebar remains collapsed
     expect(screen.getByRole('button', { name: 'Развернуть меню' })).toBeDefined()
   })
+
+  it('renders error alert in CallbackPage and stays unauthenticated when state parameter is invalid', async () => {
+    sessionStorage.clear()
+    window.history.pushState({}, '', '/auth/callback?code=some_oauth_code&state=mismatched_state')
+
+    render(<App />)
+
+    await waitFor(
+      () => {
+        expect(screen.getByText('Ошибка авторизации')).toBeDefined()
+        expect(
+          screen.getByText(/Недействительный параметр безопасности state \(защита от CSRF\)/i),
+        ).toBeDefined()
+      },
+      { timeout: 5000 },
+    )
+
+    expect(useAuthStore.getState().isAuthenticated).toBe(false)
+    expect(screen.queryByText('Подключенные репозитории')).toBeNull()
+  })
+
+  it('does not display mock runs on /runs when USE_MOCKS is not active', async () => {
+    const mockUser = {
+      id: 114473628,
+      login: 'skvertl',
+      name: 'Denis',
+      avatarUrl: null,
+      workspaces: [],
+    }
+
+    globalThis.fetch = vi.fn().mockImplementation((url: RequestInfo | URL) => {
+      const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url
+      if (urlStr.includes('/auth/refresh')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              accessToken: 'jwt_token_valid',
+              tokenType: 'Bearer',
+              expiresIn: 900,
+              user: mockUser,
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          ),
+        )
+      }
+      if (urlStr.includes('/auth/me')) {
+        return Promise.resolve(
+          new Response(JSON.stringify(mockUser), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        )
+      }
+      return Promise.resolve(new Response('{}', { status: 200 }))
+    })
+
+    const router = createMemoryRouter(createRoutes(), {
+      initialEntries: ['/runs'],
+    })
+
+    render(<App router={router} />)
+
+    await waitFor(
+      () => {
+        expect(screen.getByText('Инспектор прогонов AI Review')).toBeDefined()
+        expect(screen.getByText('Нет доступных прогонов для инспекции')).toBeDefined()
+      },
+      { timeout: 5000 },
+    )
+
+    expect(screen.queryByText(/feat: add login flow/i)).toBeNull()
+  })
 })

@@ -28,19 +28,20 @@ describe('UserMenu', () => {
     queryClient.clear()
   })
 
-  it('renders nothing when user is null', () => {
+  it('renders fallback trigger with logout available when user is undefined', () => {
     vi.spyOn(userApi, 'useMe').mockReturnValue({
       data: undefined,
       isLoading: false,
-      isError: false,
+      isError: true,
     } as unknown as ReturnType<typeof userApi.useMe>)
 
-    const { container } = render(
+    render(
       <QueryClientProvider client={queryClient}>
         <UserMenu />
       </QueryClientProvider>,
     )
-    expect(container.firstChild).toBeNull()
+    expect(screen.getByLabelText('Меню пользователя')).toBeDefined()
+    expect(screen.getByText('Пользователь')).toBeDefined()
   })
 
   it('renders user details when user is loaded', () => {

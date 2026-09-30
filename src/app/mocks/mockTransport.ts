@@ -3,6 +3,9 @@ import { USE_MOCKS } from '../../shared/config/env'
 import type { Repository } from '../../entities/repository'
 import { mockCurrentUser, mockRepositories } from './app-state'
 
+export const MOCK_TOKEN = 'mock_jwt_token_skvertl_dmc'
+export const MOCK_OAUTH_CODE = 'mock_code_123'
+
 export function initMockTransport(): void {
   if (!USE_MOCKS) return
 

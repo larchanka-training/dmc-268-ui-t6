@@ -105,7 +105,7 @@ export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError, onBack
         {status === 'loading' ? (
           <Flex vertical align="center" gap="middle" style={{ padding: '32px 0' }}>
             <Spin size="large" />
-            <Text strong style={{ fontSize: 16 }}>
+            <Text strong style={{ fontSize: token.fontSizeLG }}>
               Авторизация через GitHub...
             </Text>
             <Text type="secondary">Обмениваем код подтверждения на сессионный токен</Text>
