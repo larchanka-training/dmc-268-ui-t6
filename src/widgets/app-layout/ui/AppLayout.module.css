@@ -19,7 +19,7 @@
 }
 
 .headerSubtext {
-  font-size: 12px;
+  /* Font size controlled via token.fontSizeSM */
 }
 
 .content {
@@ -39,4 +39,8 @@
 
 .sidebarToggleCollapsed {
   justify-content: center;
+}
+
+.sidebarMenu {
+  border-right: 0;
 }

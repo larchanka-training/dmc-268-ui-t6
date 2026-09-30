@@ -3,6 +3,7 @@ import { useState, type FC } from 'react'
 
 import type { RunAction, RunSession, RunStatus } from '../../entities/run'
 import { RunInspector } from '../../widgets/run-inspector'
+import styles from './RunsPage.module.css'
 
 const { Title, Text } = Typography
 
@@ -33,7 +34,7 @@ export const RunsPage: FC<RunsPageProps> = ({ runSessions = [], runActions = [] 
       <Card>
         <Flex align="center" justify="space-between" wrap="wrap" gap="middle">
           <div>
-            <Title level={4} style={{ margin: 0 }}>
+            <Title className={styles.title} level={4}>
               Инспектор прогонов AI Review
             </Title>
             <Text type="secondary">
@@ -45,6 +46,7 @@ export const RunsPage: FC<RunsPageProps> = ({ runSessions = [], runActions = [] 
             <Space>
               <Text strong>Выбрать прогон:</Text>
               <Select
+                className={styles.runSelect}
                 onChange={(val) => {
                   setSelectedRunId(val)
                 }}
@@ -59,7 +61,6 @@ export const RunsPage: FC<RunsPageProps> = ({ runSessions = [], runActions = [] 
                     </Space>
                   ),
                 }))}
-                style={{ minWidth: 320 }}
                 value={currentRun?.id}
               />
             </Space>

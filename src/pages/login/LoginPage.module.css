@@ -27,7 +27,7 @@
 }
 
 .headerIcon {
-  font-size: 32px;
+  /* Font size controlled via token.fontSizeHeading1 */
 }
 
 .headerFlex {
@@ -48,7 +48,7 @@
 }
 
 .featureText {
-  font-size: 13px;
+  /* Font size controlled via token.fontSizeSM */
 }
 
 .alert {
@@ -60,5 +60,5 @@
 }
 
 .helpText {
-  font-size: 12px;
+  /* Font size controlled via token.fontSizeSM */
 }

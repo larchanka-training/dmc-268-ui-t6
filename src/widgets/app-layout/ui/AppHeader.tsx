@@ -27,12 +27,16 @@ export const AppHeader: FC<AppHeaderProps> = ({ extra }) => {
     >
       <Flex align="center" gap="middle">
         <Flex align="center" gap="small">
-          <RobotOutlined style={{ fontSize: 24, color: token.colorPrimary }} />
+          <RobotOutlined style={{ fontSize: token.fontSizeHeading3, color: token.colorPrimary }} />
           <Title className={styles.headerTitle} level={4}>
             AI Code Reviewer
           </Title>
         </Flex>
-        <Text className={styles.headerSubtext} type="secondary">
+        <Text
+          className={styles.headerSubtext}
+          style={{ fontSize: token.fontSizeSM }}
+          type="secondary"
+        >
           Team 6
         </Text>
       </Flex>

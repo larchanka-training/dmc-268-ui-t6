@@ -5,6 +5,7 @@ import { useState, type FC } from 'react'
 import type { FileDiff } from '../../entities/diff'
 import type { ReviewComment } from '../../entities/review'
 import { DiffViewer } from '../../widgets/diff-viewer'
+import styles from './ReviewPage.module.css'
 
 const { Title, Text } = Typography
 
@@ -25,7 +26,7 @@ export const ReviewPage: FC<ReviewPageProps> = ({ fileDiffs = [], reviewComments
       <Card>
         <Flex align="center" justify="space-between" wrap="wrap" gap="middle">
           <div>
-            <Title level={4} style={{ margin: 0 }}>
+            <Title className={styles.title} level={4}>
               Просмотрщик диффа и замечаний
             </Title>
             <Text type="secondary">Инспекция измененных файлов и замечаний AI Reviewer</Text>
@@ -35,6 +36,7 @@ export const ReviewPage: FC<ReviewPageProps> = ({ fileDiffs = [], reviewComments
             <Space>
               <Text strong>Файл:</Text>
               <Select
+                className={styles.fileSelect}
                 onChange={(val) => {
                   setSelectedFilename(val)
                 }}
@@ -47,7 +49,6 @@ export const ReviewPage: FC<ReviewPageProps> = ({ fileDiffs = [], reviewComments
                     </Space>
                   ),
                 }))}
-                style={{ minWidth: 260 }}
                 value={currentFileDiff?.filename}
               />
             </Space>

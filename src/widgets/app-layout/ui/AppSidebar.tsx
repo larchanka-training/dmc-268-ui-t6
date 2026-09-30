@@ -76,13 +76,13 @@ export const AppSidebar: FC<AppSidebarProps> = ({ currentPath = '/repositories',
         />
       </div>
       <Menu
+        className={styles.sidebarMenu}
         items={menuItems}
         mode="inline"
         onClick={({ key }) => {
           onNavigate?.(key)
         }}
         selectedKeys={[selectedKey]}
-        style={{ borderRight: 0 }}
       />
     </Sider>
   )
