@@ -1,20 +1,22 @@
-import { useState } from 'react'
+import { useMemo } from 'react'
+import { RouterProvider } from 'react-router'
 
-export function App() {
-  const [count, setCount] = useState(0)
+import { QueryProvider, UiProvider } from './app/providers'
+import { createAppRouter } from './app/routes'
+
+export interface AppProps {
+  router?: ReturnType<typeof createAppRouter>
+}
+
+export function App({ router }: AppProps = {}) {
+  const activeRouter = useMemo(() => router ?? createAppRouter(), [router])
 
   return (
-    <div style={{ fontFamily: 'sans-serif', padding: '2rem', textAlign: 'center' }}>
-      <h1>DMC-268 Team 6 UI</h1>
-      <p>React + TypeScript + Vite</p>
-      <button
-        onClick={() => {
-          setCount((current) => current + 1)
-        }}
-      >
-        Count is {count}
-      </button>
-    </div>
+    <UiProvider>
+      <QueryProvider>
+        <RouterProvider router={activeRouter} />
+      </QueryProvider>
+    </UiProvider>
   )
 }
 

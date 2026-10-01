@@ -1,0 +1,64 @@
+.container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.themeToggleWrapper {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+}
+
+.card {
+  width: 100%;
+  max-width: 520px;
+}
+
+.iconWrapper {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.headerIcon {
+  /* Font size controlled via token.fontSizeHeading1 */
+}
+
+.headerFlex {
+  margin-bottom: 24px;
+}
+
+.title {
+  margin: 0;
+}
+
+.list {
+  margin-bottom: 32px;
+}
+
+.listItem {
+  padding: 8px 0;
+  border: none;
+}
+
+.featureText {
+  /* Font size controlled via token.fontSizeSM */
+}
+
+.alert {
+  margin-bottom: 16px;
+}
+
+.buttonContainer {
+  margin-top: 8px;
+}
+
+.helpText {
+  /* Font size controlled via token.fontSizeSM */
+}

@@ -10,11 +10,15 @@ import {
 } from '../../entities/run'
 import { FileDiffSchema, RawFileDiffSchema, commentKey, fromPatch } from '../../entities/diff'
 import type { FileDiff } from '../../entities/diff'
+import { RepositorySchema } from '../../entities/repository'
 import { ReviewCommentSchema } from '../../entities/review'
+import { UserSchema } from '../../entities/user'
 
 import {
   MOCK_NOW,
+  mockCurrentUser,
   mockFileDiffs,
+  mockRepositories,
   mockReviewComments,
   mockRunActions,
   mockRunSessions,
@@ -134,5 +138,31 @@ describe('mockUiState', () => {
   it('selects a file that exists in mockFileDiffs', () => {
     const filenames = mockFileDiffs.map((f) => f.filename)
     expect(filenames).toContain(mockUiState.diffViewer.selectedFile)
+  })
+})
+
+describe('mockRepositories', () => {
+  it('validates against z.array(RepositorySchema) and has valid RFC 9562 UUIDs', () => {
+    const result = z.array(RepositorySchema).safeParse(mockRepositories)
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data).toHaveLength(mockRepositories.length)
+      result.data.forEach((repo) => {
+        expect(repo.id).toMatch(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+        )
+      })
+    }
+  })
+})
+
+describe('mockCurrentUser', () => {
+  it('validates against UserSchema', () => {
+    const result = UserSchema.safeParse(mockCurrentUser)
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.login).toBe('skvertl')
+      expect(result.data.avatarUrl).toContain('https://')
+    }
   })
 })

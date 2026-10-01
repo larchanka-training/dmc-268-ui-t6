@@ -3,6 +3,8 @@ import type { RunAction, RunSession } from '../../entities/run'
 import { fromPatch } from '../../entities/diff'
 import type { FileDiff, RawFileDiff } from '../../entities/diff'
 import type { ReviewComment } from '../../entities/review'
+import type { Repository } from '../../entities/repository'
+import type { User } from '../../entities/user'
 import { SAMPLE_PATCHES } from '../../shared/fixtures/sample.patch'
 
 export const MOCK_NOW = '2026-09-18T12:00:00.000Z'
@@ -261,3 +263,46 @@ export const mockUiState: MockUiState = {
     expandedRanges: {},
   },
 }
+
+export const mockCurrentUser: User = {
+  id: 114473628,
+  login: 'skvertl',
+  name: 'Denis Skvertl',
+  avatarUrl: 'https://avatars.githubusercontent.com/u/114473628?v=4',
+}
+
+export const mockRepositories: Repository[] = [
+  {
+    id: '22222222-2222-4222-8222-000000000001',
+    fullName: 'larchanka-training/dmc-268-ui-t6',
+    url: 'https://github.com/larchanka-training/dmc-268-ui-t6',
+    defaultBranch: 'main',
+    enabled: true,
+    defaultEngine: 'fast',
+    waitForCi: 'auto',
+    maxComments: 10,
+    reviewEvent: 'COMMENT',
+  },
+  {
+    id: '22222222-2222-4222-8222-000000000002',
+    fullName: 'larchanka-training/dmc-268-api-t6',
+    url: 'https://github.com/larchanka-training/dmc-268-api-t6',
+    defaultBranch: 'main',
+    enabled: true,
+    defaultEngine: 'deep',
+    waitForCi: 'always',
+    maxComments: 8,
+    reviewEvent: 'REQUEST_CHANGES',
+  },
+  {
+    id: '22222222-2222-4222-8222-000000000003',
+    fullName: 'larchanka-training/dmc-268-infra-t6',
+    url: 'https://github.com/larchanka-training/dmc-268-infra-t6',
+    defaultBranch: 'master',
+    enabled: false,
+    defaultEngine: 'fast',
+    waitForCi: 'never',
+    maxComments: 5,
+    reviewEvent: 'COMMENT',
+  },
+]

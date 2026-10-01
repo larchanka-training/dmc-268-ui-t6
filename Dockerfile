@@ -10,6 +10,12 @@ RUN pnpm install --frozen-lockfile
 
 COPY index.html tsconfig.json tsconfig.app.json tsconfig.node.json vite.config.ts ./
 COPY src ./src
+
+ARG VITE_GITHUB_CLIENT_ID
+ARG VITE_GITHUB_APP_SLUG
+ENV VITE_GITHUB_CLIENT_ID=$VITE_GITHUB_CLIENT_ID
+ENV VITE_GITHUB_APP_SLUG=$VITE_GITHUB_APP_SLUG
+
 RUN pnpm run build
 
 FROM nginxinc/nginx-unprivileged:1.30-alpine AS runtime

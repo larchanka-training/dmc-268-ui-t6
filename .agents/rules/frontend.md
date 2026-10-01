@@ -25,7 +25,7 @@
 | Build        | `pnpm build`                                                | `package.json` |
 
 `pnpm-lock.yaml` is committed; `packageManager` is pinned in `package.json`; Node
-≥ 20 is required (`engines` in `package.json`).
+≥ 22.22.0 is required (`engines` in `package.json`).
 
 What enforces the gates today:
 
