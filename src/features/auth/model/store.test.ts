@@ -2,8 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { getAccessToken, setAccessToken, setMockTransport } from '../../../shared/api/client'
-import { MOCK_TOKEN } from '../../../app/mocks/mockTransport'
-import { STATE_STORAGE_KEY, setOnLogout, useAuthStore } from './store'
+import { STATE_STORAGE_KEY, setMockAuthAdapter, setOnLogout, useAuthStore } from './store'
 
 describe('useAuthStore', () => {
   const originalFetch = globalThis.fetch
@@ -12,6 +11,7 @@ describe('useAuthStore', () => {
     sessionStorage.clear()
     setAccessToken(null)
     setMockTransport(null)
+    setMockAuthAdapter(null)
     useAuthStore.setState({
       isAuthenticated: false,
       isLoading: false,
@@ -25,6 +25,7 @@ describe('useAuthStore', () => {
     sessionStorage.clear()
     setAccessToken(null)
     setMockTransport(null)
+    setMockAuthAdapter(null)
   })
 
   it('handleCallback verifies state and creates session on successful exchange', async () => {
@@ -243,44 +244,75 @@ describe('useAuthStore', () => {
     expect(getAccessToken()).toBeNull()
   })
 
+  it('initAuth fails closed when refresh succeeds but GET /api/auth/me returns schema-invalid response without workspaces', async () => {
+    const mockFetch = vi.fn().mockImplementation((url: RequestInfo | URL) => {
+      const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url
+      if (urlStr.includes('/auth/refresh')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              accessToken: 'new_token_123',
+              tokenType: 'Bearer',
+              expiresIn: 900,
+              user: {
+                id: 114473628,
+                login: 'skvertl',
+                name: 'Denis',
+                avatarUrl: null,
+              },
+            }),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            },
+          ),
+        )
+      }
+      if (urlStr.includes('/auth/me')) {
+        // Missing required 'workspaces' array per MeSchema
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              id: 114473628,
+              login: 'skvertl',
+              name: 'Denis',
+              avatarUrl: null,
+            }),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            },
+          ),
+        )
+      }
+      return Promise.resolve(new Response('{}', { status: 200 }))
+    })
+    globalThis.fetch = mockFetch
+
+    await useAuthStore.getState().initAuth()
+
+    const state = useAuthStore.getState()
+    expect(state.isAuthenticated).toBe(false)
+    expect(getAccessToken()).toBeNull()
+  })
+
   it('initAuth in mock mode with mock token restores session without network fetch', async () => {
     const fetchSpy = vi.fn()
     globalThis.fetch = fetchSpy
 
-    setMockTransport((endpoint) => {
-      if (endpoint.path === '/auth/refresh') {
-        return {
-          accessToken: MOCK_TOKEN,
-          tokenType: 'Bearer',
-          expiresIn: 900,
-          user: {
-            id: 114473628,
-            login: 'skvertl',
-            name: 'Denis',
-            avatarUrl: null,
-          },
-        }
-      }
-      if (endpoint.path === '/auth/me') {
-        return {
-          id: 114473628,
-          login: 'skvertl',
-          name: 'Denis',
-          avatarUrl: null,
-          workspaces: [],
-        }
-      }
-      return undefined
+    const LOCAL_MOCK_TOKEN = 'mock_jwt_token_local_test'
+    setMockAuthAdapter({
+      isMockToken: (t) => t === LOCAL_MOCK_TOKEN,
     })
 
-    // No token in memory initially
-    setAccessToken(null)
+    // Pre-set token in memory
+    setAccessToken(LOCAL_MOCK_TOKEN)
 
     await useAuthStore.getState().initAuth()
 
     const state = useAuthStore.getState()
     expect(state.isAuthenticated).toBe(true)
-    expect(getAccessToken()).toBe(MOCK_TOKEN)
+    expect(getAccessToken()).toBe(LOCAL_MOCK_TOKEN)
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 

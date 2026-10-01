@@ -11,7 +11,6 @@ import {
 } from 'react-router'
 
 import { useAuthStore } from '../features/auth'
-import { USE_MOCKS } from '../shared/config/env'
 import { AppLayout } from '../widgets/app-layout'
 import type { FileDiff } from '../entities/diff'
 import type { ReviewComment } from '../entities/review'
@@ -122,7 +121,7 @@ function RoutedRunsPage() {
   })
 
   useEffect(() => {
-    if (USE_MOCKS) {
+    if (import.meta.env.VITE_USE_MOCKS === 'true') {
       void import('./mocks/app-state').then((m) => {
         setData({ actions: m.mockRunActions, sessions: m.mockRunSessions })
       })
@@ -139,7 +138,7 @@ function RoutedReviewPage() {
   })
 
   useEffect(() => {
-    if (USE_MOCKS) {
+    if (import.meta.env.VITE_USE_MOCKS === 'true') {
       void import('./mocks/app-state').then((m) => {
         setData({ diffs: m.mockFileDiffs, comments: m.mockReviewComments })
       })

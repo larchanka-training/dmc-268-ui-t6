@@ -2,7 +2,7 @@ import { GithubOutlined, UserOutlined } from '@ant-design/icons'
 import { Button, Flex, Tooltip } from 'antd'
 import type { FC } from 'react'
 
-import { GITHUB_CLIENT_ID, USE_MOCKS } from '../../../shared/config/env'
+import { GITHUB_CLIENT_ID } from '../../../shared/config/env'
 import { useAuthStore } from '../model/store'
 
 export interface LoginButtonProps {
@@ -11,14 +11,14 @@ export interface LoginButtonProps {
 }
 
 export const LoginButton: FC<LoginButtonProps> = ({
-  showMockButton = USE_MOCKS,
+  showMockButton = import.meta.env.VITE_USE_MOCKS === 'true',
   size = 'middle',
 }) => {
   const loginWithGitHub = useAuthStore((state) => state.loginWithGitHub)
   const loginAsMockUser = useAuthStore((state) => state.loginAsMockUser)
   const isLoading = useAuthStore((state) => state.isLoading)
 
-  const isConfigured = Boolean(GITHUB_CLIENT_ID || USE_MOCKS)
+  const isConfigured = Boolean(GITHUB_CLIENT_ID || import.meta.env.VITE_USE_MOCKS === 'true')
 
   const githubBtn = (
     <Button

@@ -51,6 +51,41 @@ describe('App root integration and protected routes', () => {
     )
   })
 
+  it('redirects to /login and does not render cabinet when refresh succeeds but GET /api/auth/me returns 500', async () => {
+    globalThis.fetch = vi.fn().mockImplementation((url: RequestInfo | URL) => {
+      const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url
+      if (urlStr.includes('/auth/refresh')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              accessToken: 'valid_refresh_token',
+              tokenType: 'Bearer',
+              expiresIn: 900,
+              user: { id: 1, login: 'test', name: 'Test', avatarUrl: null },
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          ),
+        )
+      }
+      if (urlStr.includes('/auth/me')) {
+        return Promise.resolve(new Response('Server Error', { status: 500 }))
+      }
+      return Promise.resolve(new Response('{}', { status: 200 }))
+    })
+
+    render(<App />)
+
+    await waitFor(
+      () => {
+        expect(screen.getByText('AI Code Reviewer')).toBeDefined()
+        expect(screen.getByRole('button', { name: /войти через github/i })).toBeDefined()
+        expect(screen.queryByText('Подключенные репозитории')).toBeNull()
+      },
+      { timeout: 5000 },
+    )
+    expect(useAuthStore.getState().isAuthenticated).toBe(false)
+  })
+
   it('renders repositories when authenticated and navigates to /login after logout', async () => {
     window.history.pushState({}, '', '/repositories')
     const mockUser = {

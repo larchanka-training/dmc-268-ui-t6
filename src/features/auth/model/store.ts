@@ -9,7 +9,7 @@ import {
   setOnUnauthorized,
 } from '../../../shared/api/client'
 import { endpoints } from '../../../shared/api/endpoints'
-import { GITHUB_CLIENT_ID, USE_MOCKS } from '../../../shared/config/env'
+import { GITHUB_CLIENT_ID } from '../../../shared/config/env'
 
 export const STATE_STORAGE_KEY = 'dmc_auth_oauth_state'
 
@@ -27,6 +27,18 @@ let onLogoutCallback: (() => void) | null = null
 
 export function setOnLogout(callback: () => void): void {
   onLogoutCallback = callback
+}
+
+export interface MockAuthAdapter {
+  getMockOAuthCode?: () => string
+  loginAsMockUser?: () => void
+  isMockToken?: (token: string | null) => boolean
+}
+
+let mockAuthAdapter: MockAuthAdapter | null = null
+
+export function setMockAuthAdapter(adapter: MockAuthAdapter | null): void {
+  mockAuthAdapter = adapter
 }
 
 export interface AuthState {
@@ -53,10 +65,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     const redirectUri = `${window.location.origin}/auth/callback`
     if (!GITHUB_CLIENT_ID) {
-      if (USE_MOCKS) {
-        void import('../../../app/mocks/mockTransport').then((m) => {
-          window.location.href = `${redirectUri}?code=${m.MOCK_OAUTH_CODE}`
-        })
+      const mockCode = mockAuthAdapter?.getMockOAuthCode?.()
+      if (mockCode) {
+        window.location.href = `${redirectUri}?code=${mockCode}`
       } else {
         set({ error: 'Вход не настроен (VITE_GITHUB_CLIENT_ID)' })
       }
@@ -125,15 +136,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   loginAsMockUser: () => {
-    if (!USE_MOCKS && import.meta.env.MODE !== 'test') return
-    void import('../../../app/mocks/mockTransport').then((m) => {
-      setAccessToken(m.MOCK_TOKEN)
-      set({
-        isAuthenticated: true,
-        isLoading: false,
-        error: null,
-      })
-    })
+    mockAuthAdapter?.loginAsMockUser?.()
   },
 
   logout: async () => {
@@ -156,15 +159,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   initAuth: async () => {
-    if (USE_MOCKS) {
-      const { MOCK_TOKEN } = await import('../../../app/mocks/mockTransport')
-      if (getAccessToken() === MOCK_TOKEN) {
-        set({
-          isAuthenticated: true,
-          isLoading: false,
-        })
-        return
-      }
+    if (mockAuthAdapter?.isMockToken?.(getAccessToken())) {
+      set({
+        isAuthenticated: true,
+        isLoading: false,
+      })
+      return
     }
 
     set({ isLoading: true, error: null })
@@ -174,6 +174,15 @@ export const useAuthStore = create<AuthState>((set) => ({
         set({
           isAuthenticated: false,
           isLoading: false,
+        })
+        return
+      }
+
+      if (mockAuthAdapter?.isMockToken?.(newToken)) {
+        set({
+          isAuthenticated: true,
+          isLoading: false,
+          error: null,
         })
         return
       }

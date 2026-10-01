@@ -1,4 +1,5 @@
-import { ApiError, setMockTransport } from '../../shared/api/client'
+import { setMockAuthAdapter, useAuthStore } from '../../features/auth'
+import { ApiError, setAccessToken, setMockTransport } from '../../shared/api/client'
 import { USE_MOCKS } from '../../shared/config/env'
 import type { Repository } from '../../entities/repository'
 import { mockCurrentUser, mockRepositories } from './app-state'
@@ -8,6 +9,19 @@ export const MOCK_OAUTH_CODE = 'mock_code_123'
 
 export function initMockTransport(): void {
   if (!USE_MOCKS) return
+
+  setMockAuthAdapter({
+    getMockOAuthCode: () => MOCK_OAUTH_CODE,
+    loginAsMockUser: () => {
+      setAccessToken(MOCK_TOKEN)
+      useAuthStore.setState({
+        isAuthenticated: true,
+        isLoading: false,
+        error: null,
+      })
+    },
+    isMockToken: (token) => token === MOCK_TOKEN,
+  })
 
   setMockTransport((endpoint, options) => {
     if (endpoint.path === '/repos' && endpoint.method === 'GET') {
