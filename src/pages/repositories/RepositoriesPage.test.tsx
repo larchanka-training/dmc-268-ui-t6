@@ -167,9 +167,11 @@ describe('RepositoriesPage', () => {
       reviewEvent: 'COMMENT',
     }
 
+    const patchSpy = vi.fn()
     globalThis.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
       const urlStr = typeof url === 'string' ? url : ''
       if (urlStr.includes('/api/repos') && init?.method === 'PATCH') {
+        patchSpy()
         return Promise.resolve(new Response('Server Error', { status: 500 }))
       }
       return Promise.resolve(
@@ -191,7 +193,7 @@ describe('RepositoriesPage', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText(/настройки репозитория larchanka-training\/dmc-268-ui-t6/i),
+        screen.getByText('Настройки репозитория larchanka-training/dmc-268-ui-t6'),
       ).toBeDefined()
     })
 
@@ -203,12 +205,17 @@ describe('RepositoriesPage', () => {
     const saveBtn = screen.getByRole('button', { name: /сохранить/i })
     fireEvent.click(saveBtn)
 
+    // Wait until PATCH request has actually been executed and failed
     await waitFor(() => {
-      // Modal remains open
+      expect(patchSpy).toHaveBeenCalled()
+    })
+
+    // After PATCH failure, modal must stay open and not hidden, with values intact
+    await waitFor(() => {
+      expect(document.querySelector('.ant-fade-leave')).toBeNull()
       expect(
-        screen.getByText(/настройки репозитория larchanka-training\/dmc-268-ui-t6/i),
+        screen.getByText('Настройки репозитория larchanka-training/dmc-268-ui-t6'),
       ).toBeDefined()
-      // Value remains entered
       const currentInput = document.getElementById('maxComments') as HTMLInputElement
       expect(currentInput.value).toBe('5')
     })

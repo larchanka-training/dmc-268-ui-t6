@@ -120,11 +120,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
         await onUpdateRepository?.(editingRepo.id, patch)
       }
       setEditingRepo(null)
-    } catch (err: unknown) {
-      const isValidationError = typeof err === 'object' && err !== null && 'errorFields' in err
-      if (!isValidationError) {
-        // API errors keep modal open with values
-      }
+    } catch {
       // Keep modal open if validation or update fails
     } finally {
       setSaving(false)
