@@ -38,9 +38,8 @@
   margin-bottom: 32px;
 }
 
-:global(.ant-list-item).listItem {
+:global(.ant-list) .listItem {
   padding: 8px 0;
-  border: none;
 }
 
 .alert {

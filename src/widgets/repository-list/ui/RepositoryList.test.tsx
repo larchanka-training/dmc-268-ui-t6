@@ -54,12 +54,29 @@ describe('RepositoryList', () => {
     expect(screen.getByText('master')).toBeDefined()
     expect(screen.getByText('Авто')).toBeDefined()
     expect(screen.getByText('Никогда')).toBeDefined()
+    expect(screen.getByText('Комментарий')).toBeDefined()
+    expect(screen.getByText('Запрос изменений')).toBeDefined()
     expect(
-      screen.getByRole('switch', { name: 'Приостановить larchanka-training/dmc-268-ui-t6' }),
+      screen.getByRole('switch', { name: 'Ревью для larchanka-training/dmc-268-ui-t6' }),
     ).toBeDefined()
     expect(
-      screen.getByRole('switch', { name: 'Активировать larchanka-training/dmc-268-api-t6' }),
+      screen.getByRole('switch', { name: 'Ревью для larchanka-training/dmc-268-api-t6' }),
     ).toBeDefined()
+  })
+
+  it('disables only the switches matching updatingRepoIds', () => {
+    const updatingRepoIds = new Set(['a1b2c3d4-e5f6-7890-abcd-ef1234567890'])
+    render(<RepositoryList repositories={mockRepos} updatingRepoIds={updatingRepoIds} />)
+
+    const switch1 = screen.getByRole('switch', {
+      name: 'Ревью для larchanka-training/dmc-268-ui-t6',
+    })
+    const switch2 = screen.getByRole('switch', {
+      name: 'Ревью для larchanka-training/dmc-268-api-t6',
+    })
+
+    expect(switch1.hasAttribute('disabled')).toBe(true)
+    expect(switch2.hasAttribute('disabled')).toBe(false)
   })
 
   it('renders settings button with unique per-row aria-label', () => {

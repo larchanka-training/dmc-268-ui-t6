@@ -13,22 +13,10 @@ export default defineConfig({
     },
   },
   build: {
-    // Ant Design runtime is isolated into vendor chunk 'antd' (~350 kB gzip).
-    // Raised warning limit avoids build warning noise for this monolithic design-system chunk.
-    chunkSizeWarningLimit: 1200,
-    rollupOptions: {
-      output: {
-        manualChunks(id: string): string | undefined {
-          if (id.includes('node_modules/antd')) {
-            return 'antd'
-          }
-          if (id.includes('node_modules/@ant-design')) {
-            return 'icons'
-          }
-          return undefined
-        },
-      },
-    },
+    // Rolldown автоматически распределяет компоненты antd между ленивыми страницами.
+    // Самый большой несжатый чанк (typography / core-runtime) составляет ~607 кБ;
+    // поднятый до 700 кБ лимит устраняет ложное предупреждение сборки.
+    chunkSizeWarningLimit: 700,
   },
   test: {
     include: ['src/**/*.test.{ts,tsx}'],

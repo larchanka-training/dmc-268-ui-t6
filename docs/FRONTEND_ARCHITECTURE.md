@@ -99,26 +99,34 @@ flowchart TD
 - файл компонента экспортирует только компоненты — следствие `react-refresh` (тулинг PR #26):
   вспомогательные функции и типы выносятся в соседние `lib`/`model` файлы.
 
-Область [SD §2][sd-2] → срез FSD (в этом спринте реализованы две из пяти):
+Область [SD §2][sd-2] → срез FSD:
 
-| Область [SD §2][sd-2]                            | Срез                                                      |
-| ------------------------------------------------ | --------------------------------------------------------- |
-| Карточка прогона с диффом и инлайн-комментариями | `entities/diff`, `entities/review`, `widgets/diff-viewer` |
-| Инспектор трейса (`RunSession → RunAction`)      | `entities/run`, `widgets/run-inspector`                   |
-| Обзор + лента прогонов                           | `pages/runs` (плейсхолдер, `.gitkeep`)                    |
-| Репозитории и правила                            | не заведено — вне спринта (non-goal)                      |
-| Метрики                                          | не заведено — вне спринта (non-goal)                      |
+| Область [SD §2][sd-2]                            | Срез                                                                                           |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| Карточка прогона с диффом и инлайн-комментариями | `entities/diff`, `entities/review`, `widgets/diff-viewer`, `pages/review`                      |
+| Инспектор трейса (`RunSession → RunAction`)      | `entities/run`, `widgets/run-inspector`, `pages/runs`                                          |
+| Аутентификация и App Shell                       | `entities/user`, `features/auth`, `features/theme`, `widgets/app-layout`, `pages/{login,auth}` |
+| Репозитории                                      | `entities/repository`, `widgets/repository-list`, `pages/repositories`                         |
+| Правила и метрики                                | не заведено — вне спринта (non-goal)                                                           |
 
 Дерево `src/` (`find src -type f | sort`):
 
 ```
+src/App.test.tsx
 src/App.tsx
+src/app/layouts/RouteLayouts.module.css
+src/app/layouts/RouteLayouts.tsx
+src/app/layouts/RoutePages.tsx
+src/app/layouts/index.ts
 src/app/mocks/app-state.test.ts
 src/app/mocks/app-state.ts
+src/app/mocks/mockTransport.ts
 src/app/providers/QueryProvider.tsx
+src/app/providers/UiProvider.test.tsx
 src/app/providers/UiProvider.tsx
 src/app/providers/index.ts
 src/app/providers/queryClient.ts
+src/app/routes.tsx
 src/entities/diff/api/index.test.ts
 src/entities/diff/api/index.ts
 src/entities/diff/index.ts
@@ -132,6 +140,11 @@ src/entities/diff/lib/toHunks.test.ts
 src/entities/diff/lib/toHunks.ts
 src/entities/diff/model/schemas.test.ts
 src/entities/diff/model/schemas.ts
+src/entities/repository/api/index.test.ts
+src/entities/repository/api/index.ts
+src/entities/repository/index.ts
+src/entities/repository/model/schemas.test.ts
+src/entities/repository/model/schemas.ts
 src/entities/review/api/index.ts
 src/entities/review/index.ts
 src/entities/review/model/schemas.test.ts
@@ -146,17 +159,57 @@ src/entities/run/lib/status.test.ts
 src/entities/run/lib/status.ts
 src/entities/run/model/schemas.test.ts
 src/entities/run/model/schemas.ts
+src/entities/user/api/index.ts
+src/entities/user/index.ts
+src/entities/user/model/schemas.test.ts
+src/entities/user/model/schemas.ts
 src/features/.gitkeep
+src/features/auth/index.ts
+src/features/auth/model/store.test.ts
+src/features/auth/model/store.ts
+src/features/auth/ui/LoginButton.test.tsx
+src/features/auth/ui/LoginButton.tsx
+src/features/auth/ui/UserMenu.module.css
+src/features/auth/ui/UserMenu.test.tsx
+src/features/auth/ui/UserMenu.tsx
+src/features/theme/index.ts
+src/features/theme/model/store.test.ts
+src/features/theme/model/store.ts
+src/features/theme/ui/ThemeToggle.test.tsx
+src/features/theme/ui/ThemeToggle.tsx
 src/main.tsx
+src/pages/auth/CallbackPage.module.css
+src/pages/auth/CallbackPage.test.tsx
+src/pages/auth/CallbackPage.tsx
+src/pages/login/LoginPage.module.css
+src/pages/login/LoginPage.test.tsx
+src/pages/login/LoginPage.tsx
+src/pages/repositories/RepositoriesPage.test.tsx
+src/pages/repositories/RepositoriesPage.tsx
+src/pages/repositories/lib/formatError.test.ts
+src/pages/repositories/lib/formatError.ts
 src/pages/review/.gitkeep
+src/pages/review/ReviewPage.module.css
+src/pages/review/ReviewPage.tsx
 src/pages/runs/.gitkeep
+src/pages/runs/RunsPage.module.css
+src/pages/runs/RunsPage.tsx
+src/shared/api/client.test.ts
+src/shared/api/client.ts
 src/shared/api/endpoints.test.ts
 src/shared/api/endpoints.ts
+src/shared/api/schemas.ts
 src/shared/config/env.test.ts
 src/shared/config/env.ts
 src/shared/fixtures/sample.patch.ts
 src/test/setup.ts
 src/vite-env.d.ts
+src/widgets/app-layout/index.ts
+src/widgets/app-layout/ui/AppHeader.tsx
+src/widgets/app-layout/ui/AppLayout.module.css
+src/widgets/app-layout/ui/AppLayout.test.tsx
+src/widgets/app-layout/ui/AppLayout.tsx
+src/widgets/app-layout/ui/AppSidebar.tsx
 src/widgets/diff-viewer/index.ts
 src/widgets/diff-viewer/model/store.ts
 src/widgets/diff-viewer/model/types.ts
@@ -164,6 +217,12 @@ src/widgets/diff-viewer/ui/DiffViewer.test.tsx
 src/widgets/diff-viewer/ui/DiffViewer.tsx
 src/widgets/diff-viewer/ui/InlineComment.tsx
 src/widgets/diff-viewer/ui/LoadMoreContext.tsx
+src/widgets/diff-viewer/ui/RunDiff.test.tsx
+src/widgets/diff-viewer/ui/RunDiff.tsx
+src/widgets/repository-list/index.ts
+src/widgets/repository-list/ui/RepositoryList.module.css
+src/widgets/repository-list/ui/RepositoryList.test.tsx
+src/widgets/repository-list/ui/RepositoryList.tsx
 src/widgets/run-inspector/index.ts
 src/widgets/run-inspector/lib/format.ts
 src/widgets/run-inspector/model/store.ts
@@ -584,6 +643,8 @@ issue прямо выносит подключение логирования з
 
 **Роутер.** Установлен **react-router 8** (^8.4.0, peer react ≥ 19.2.7 — выполняется), настроен в `src/app/routes.tsx`. Лэйауты (`AppLayoutRoute`, `ProtectedLayout`, `PageFallback`, `RouteErrorFallback`) и обёртки страниц (`RoutedRepositoriesPage` и др.) вынесены в `src/app/layouts/`, чтобы файл роутера оставался чистой конфигурацией маршрутов без отключения правил Fast Refresh (`react-refresh/only-export-components`).
 
+**Сборка и чанки.** Rolldown автоматически распределяет компоненты antd между ленивыми страницами, сохраняя минимальный начальный бандл. Лимит размера чанка в `vite.config.ts` поднят до 700 кБ (`chunkSizeWarningLimit: 700`) под наибольший несжатый чанк antd (`typography` / core-runtime, ~607 кБ), устраняя ложные предупреждения сборщика.
+
 ---
 
 ## 10. Тесты и гейты
@@ -603,7 +664,7 @@ issue прямо выносит подключение логирования з
   `client.test.ts`, `formatError.test.ts`.
 
 Гейты (`AGENTS.md`): `pnpm lint`, `pnpm check-types`, `pnpm format:check`, `pnpm test` (`vitest run`),
-`pnpm build`. Итого 185 тестов в 34 файлах (`pnpm test`, 2026-10-02).
+`pnpm build`. Итого 194 теста в 34 файлах (`pnpm test`, 2026-10-02).
 
 Vitest настроен без `globals`, поэтому RTL не чистит DOM сама — в jsdom-тестах (`DiffViewer.test.tsx`,
 `RunDiff.test.tsx`, `RunInspector.test.tsx`) `afterEach(cleanup)` вызывается явно.
@@ -627,20 +688,30 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
 - **SSE-мост** (§2, Ф-14) — `fetch`-стрим с Bearer (не `EventSource`: он не отправляет
   заголовки), повтор после `401` → refresh → переподключение и `invalidateQueries` не реализованы,
   только спроектированы.
-- **Fetch-клиент и авторизация** (Ф-15) — реализовано в полном объёме (PR #50, #55, follow-up #62):
-  - GitHub App user authorization с генерацией криптографического `state` в `sessionStorage` для защиты от CSRF;
-  - `POST /api/auth/github/callback { code }` → `AuthSession` с сохранением access-токена в памяти;
-  - прозрачный перехват `401` и ротация refresh-токена (`shared/api/client.ts`) с дедупликацией через `refreshPromise`;
-  - fail-closed верификация сессии при старте (`initAuth`) через `POST /api/auth/refresh` и `GET /api/auth/me`;
-  - безопасный `logout` с вызовом `POST /api/auth/logout` и сбросом токена в памяти.
-- **Экран репозиториев** (Ф-17) — реализован в полном объёме (PR #50, #55, follow-up #62):
-  - подключение через установку GitHub App по ссылке с `VITE_GITHUB_APP_SLUG`;
-  - список `GET /api/repos`, клиентская фильтрация, локализованные статусы;
-  - оптимистичное переключение активности с отслеживанием параллельных мутаций строк через `useMutationState`;
-  - модальное окно настроек `PATCH /api/repos/{id}` с валидацией и локализацией ошибок (`formatErrorMessage`).
-- **Бандл и vendor chunks** (PR #62) — рантайм `antd` и `@ant-design/icons` изолированы в вендор-чанки `antd` и `icons` через `manualChunks` в `vite.config.ts`, лимит предупреждения поднят до 1200 кБ с поясняющим комментарием для монолитного чанка UI-кита.
+- **Fetch-клиент и авторизация** (Ф-15) — контракт авторизации и сессии ([решение техлида api#20 D4][tl-2026-09-27-api20] и `/api/auth/*` в [`openapi.yaml`][openapi], реализован в PR #55 и #63):
+  - вход — GitHub App user authorization без OAuth scopes; `state` SPA генерирует сама, хранит в
+    `sessionStorage` и сверяет на `/auth/callback`;
+  - `POST /api/auth/github/callback { code }` → `AuthSession`
+    (`{ accessToken, tokenType: 'Bearer', expiresIn, user }`) и ротируемый refresh-токен в
+    httpOnly-cookie `refresh_token` (`Path=/api/auth`);
+  - access-токен (JWT, 15 мин) хранится только в памяти (дефолт, утверждённый с планом api#20), не
+    в `localStorage`/`sessionStorage`; на остальных `/api/*` — `Authorization: Bearer`;
+  - запросы к `/api/auth/*` идут с `credentials: 'include'`;
+  - `401` → один общий на все запросы `POST /api/auth/refresh`, затем один повтор исходного
+    запроса; refresh не удался — выход;
+  - старт приложения — `POST /api/auth/refresh`, затем `GET /api/auth/me` (`Me`: пользователь и
+    `workspaces`); выход — `POST /api/auth/logout`, затем сброс токена в памяти;
+  - fail closed: ошибка callback, refresh или `/me` оставляет пользователя неавторизованным.
+- **Контракт репозиториев** (Ф-17) — [`openapi.yaml`][openapi], реализация — api#34; в UI реализовано в PR #55 и #63:
+  - подключение — ссылка на установку GitHub App; `POST /api/repos` нет;
+  - список — `GET /api/repos` → `Repository[]` (массив без обёртки);
+  - настройки — `PATCH /api/repos/{id}` (`RepositoryUpdate`, все поля необязательны): `enabled`,
+    `defaultEngine`, `waitForCi: auto | always | never`, `maxComments` 1..10,
+    `reviewEvent: COMMENT | REQUEST_CHANGES`;
+  - PR репозитория — `GET /api/repos/{id}/pulls?state&cursor` → `{ items, nextCursor }`, у
+    элемента `latestRun { id, status, verdict } | null` (в клиенте пока не реализовано, открытый follow-up).
 - **Экраны 4–5** (правила, метрики) — области [SD §2][sd-2], не реализованные в этом
-  спринте; `src/pages/` содержит только плейсхолдеры для реализованных областей.
+  спринте; `src/pages/` содержит экраны для реализованных областей (вход, коллбэк, репозитории, прогоны, ревью).
 - **Summary-only прогоны** (diff > 3000 строк, [SD §12][sd-12]) — схемы, адаптер и `RunDiff` поддерживают
   с #42 (§4, §6); страница `/runs/:runId` (`RunDetailPage`) передаёт `run.summaryOnly` и findings в `RunDiff`.
 - **`POST /api/runs/{id}/rerun`** — есть в [`openapi.yaml`][openapi] (реализация — api#34): `202` →

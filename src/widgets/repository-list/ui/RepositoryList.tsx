@@ -43,9 +43,8 @@ const { Text, Link } = Typography
 export interface RepositoryListProps {
   repositories: Repository[]
   loading?: boolean
-  updatingRepoId?: string
-  updatingRepoIds?: string[]
-  onToggleEnabled?: (id: string, enabled: boolean) => void
+  updatingRepoIds?: string[] | ReadonlySet<string>
+  onToggleEnabled?: (id: string, enabled: boolean) => Promise<void> | void
   onUpdateRepository?: (id: string, patch: UpdateRepositoryInput) => Promise<void> | void
   onRefresh?: () => void
 }
@@ -53,7 +52,6 @@ export interface RepositoryListProps {
 export const RepositoryList: FC<RepositoryListProps> = ({
   repositories,
   loading = false,
-  updatingRepoId,
   updatingRepoIds,
   onToggleEnabled,
   onUpdateRepository,
@@ -229,16 +227,18 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       key: 'enabled',
       render: (enabled: boolean, record: Repository) => {
         const updating = updatingRepoIds
-          ? updatingRepoIds.includes(record.id)
-          : updatingRepoId === record.id
+          ? Array.isArray(updatingRepoIds)
+            ? updatingRepoIds.includes(record.id)
+            : updatingRepoIds.has(record.id)
+          : false
         return (
           <Switch
-            aria-label={`${enabled ? 'Приостановить' : 'Активировать'} ${record.fullName}`}
+            aria-label={`Ревью для ${record.fullName}`}
             checked={enabled}
             checkedChildren="Активен"
             disabled={updating}
             loading={updating}
-            onChange={(checked) => onToggleEnabled?.(record.id, checked)}
+            onChange={(checked) => void onToggleEnabled?.(record.id, checked)}
             unCheckedChildren="Пауза"
           />
         )
@@ -364,12 +364,12 @@ export const RepositoryList: FC<RepositoryListProps> = ({
             />
           </Form.Item>
 
-          <Form.Item label="Ожидание CI (waitForCi)" name="waitForCi" rules={[{ required: true }]}>
+          <Form.Item label="Ожидание CI" name="waitForCi" rules={[{ required: true }]}>
             <Select
               options={[
-                { value: 'auto', label: 'Auto (ожидать CI, если настроен)' },
-                { value: 'always', label: 'Always (всегда ждать успешного CI)' },
-                { value: 'never', label: 'Never (запускать ревью без ожидания CI)' },
+                { value: 'auto', label: 'Авто (ожидать CI при наличии проверок)' },
+                { value: 'always', label: 'Всегда (всегда ждать успешного CI)' },
+                { value: 'never', label: 'Никогда (запускать ревью без ожидания CI)' },
               ]}
             />
           </Form.Item>
@@ -385,17 +385,13 @@ export const RepositoryList: FC<RepositoryListProps> = ({
             <InputNumber className={styles.fullWidth} max={10} min={1} precision={0} />
           </Form.Item>
 
-          <Form.Item
-            label="Публикация вердикта (reviewEvent)"
-            name="reviewEvent"
-            rules={[{ required: true }]}
-          >
+          <Form.Item label="Публикация вердикта" name="reviewEvent" rules={[{ required: true }]}>
             <Select
               options={[
-                { value: 'COMMENT', label: 'COMMENT (обычный комментарий ревью)' },
+                { value: 'COMMENT', label: 'Комментарий (при любых замечаниях)' },
                 {
                   value: 'REQUEST_CHANGES',
-                  label: 'REQUEST_CHANGES (блокирующее ревью при замечаниях)',
+                  label: 'Запрос изменений (при блокирующих)',
                 },
               ]}
             />

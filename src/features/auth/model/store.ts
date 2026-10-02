@@ -51,6 +51,7 @@ function isMockOAuthCode(code: string): boolean {
 
 export interface AuthState {
   isLoading: boolean
+  isInitialized: boolean
   error: string | null
   isAuthenticated: boolean
 
@@ -65,6 +66,7 @@ let isLoggingOut = false
 
 export const useAuthStore = create<AuthState>((set) => ({
   isLoading: false,
+  isInitialized: false,
   error: null,
   isAuthenticated: false,
 
@@ -128,6 +130,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         const errorMsg = 'Недействительный параметр безопасности state (защита от CSRF)'
         set({
           isAuthenticated: false,
+          isInitialized: true,
           isLoading: false,
           error: errorMsg,
         })
@@ -142,6 +145,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       setAccessToken(parsed.accessToken)
       set({
         isAuthenticated: true,
+        isInitialized: true,
         isLoading: false,
         error: null,
       })
@@ -150,6 +154,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       const message = err instanceof Error ? err.message : 'Ошибка аутентификации'
       set({
         isAuthenticated: false,
+        isInitialized: true,
         isLoading: false,
         error: message,
       })
@@ -159,6 +164,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   loginAsMockUser: () => {
     mockAuthAdapter?.loginAsMockUser?.()
+    set({ isInitialized: true })
   },
 
   logout: async () => {
@@ -174,6 +180,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       onLogoutCallback?.()
       set({
         isAuthenticated: false,
+        isInitialized: true,
         isLoading: false,
         error: null,
       })
@@ -181,9 +188,15 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   initAuth: async () => {
+    if (getAccessToken() && useAuthStore.getState().isAuthenticated) {
+      set({ isInitialized: true, isLoading: false })
+      return
+    }
+
     if (mockAuthAdapter?.isMockToken?.(getAccessToken())) {
       set({
         isAuthenticated: true,
+        isInitialized: true,
         isLoading: false,
       })
       return
@@ -195,6 +208,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       if (!newToken) {
         set({
           isAuthenticated: false,
+          isInitialized: true,
           isLoading: false,
         })
         return
@@ -203,6 +217,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       if (mockAuthAdapter?.isMockToken?.(newToken)) {
         set({
           isAuthenticated: true,
+          isInitialized: true,
           isLoading: false,
           error: null,
         })
@@ -213,6 +228,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       set({
         isAuthenticated: true,
+        isInitialized: true,
         isLoading: false,
         error: null,
       })
@@ -220,6 +236,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       setAccessToken(null)
       set({
         isAuthenticated: false,
+        isInitialized: true,
         isLoading: false,
       })
     }

@@ -47,7 +47,18 @@ describe('getInitialTheme', () => {
     expect(getInitialTheme()).toBe('dark')
   })
 
-  it('returns saved theme from localStorage when "light"', () => {
+  it('returns saved theme from localStorage when "light" even if system prefers dark', () => {
+    vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({
+      matches: query.includes('prefers-color-scheme: dark'),
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }))
+
     localStorage.setItem(THEME_STORAGE_KEY, 'light')
     expect(getInitialTheme()).toBe('light')
   })

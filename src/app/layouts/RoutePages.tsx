@@ -36,6 +36,12 @@ export const RoutedRunDetailPage: FC = () => {
 export const RoutedLoginPage: FC = () => {
   const navigate = useNavigate()
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
+  const isInitialized = useAuthStore((state) => state.isInitialized)
+  const isLoading = useAuthStore((state) => state.isLoading)
+
+  if (!isInitialized || isLoading) {
+    return null
+  }
 
   if (isAuthenticated) {
     return <Navigate replace to="/repositories" />

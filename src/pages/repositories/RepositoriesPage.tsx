@@ -1,8 +1,9 @@
 import { useMutationState } from '@tanstack/react-query'
 import { Alert, App, Button, Flex } from 'antd'
-import type { FC } from 'react'
+import { useMemo, type FC } from 'react'
 
 import {
+  UPDATE_REPOSITORY_MUTATION_KEY,
   useRepositories,
   useUpdateRepository,
   type UpdateRepositoryInput,
@@ -19,10 +20,15 @@ export const RepositoriesPage: FC = () => {
   const updateMutation = useUpdateRepository()
 
   const pendingUpdatingIds = useMutationState<string>({
-    filters: { mutationKey: ['updateRepo'], status: 'pending' },
+    filters: { mutationKey: UPDATE_REPOSITORY_MUTATION_KEY, status: 'pending' },
     select: (mutation) =>
       (mutation.state.variables as UpdateRepositoryVariables | undefined)?.id ?? '',
   })
+
+  const updatingRepoIds = useMemo(
+    () => new Set(pendingUpdatingIds.filter(Boolean)),
+    [pendingUpdatingIds],
+  )
 
   const handleToggleEnabled = async (id: string, enabled: boolean) => {
     try {
@@ -62,15 +68,11 @@ export const RepositoriesPage: FC = () => {
       {!isError || repositories.length > 0 ? (
         <RepositoryList
           loading={isLoading}
-          onRefresh={() => {
-            void refetch()
-          }}
-          onToggleEnabled={(id, enabled) => {
-            void handleToggleEnabled(id, enabled)
-          }}
-          onUpdateRepository={(id, patch) => handleUpdateRepository(id, patch)}
+          onRefresh={() => void refetch()}
+          onToggleEnabled={handleToggleEnabled}
+          onUpdateRepository={handleUpdateRepository}
           repositories={repositories}
-          updatingRepoIds={pendingUpdatingIds}
+          updatingRepoIds={updatingRepoIds}
         />
       ) : null}
     </Flex>
