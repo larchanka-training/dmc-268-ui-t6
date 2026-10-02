@@ -47,11 +47,18 @@ Dev-сервер Vite настроен с прокси `server.proxy` для `/a
    - `VITE_GITHUB_CLIENT_ID` — Client ID зарегистрированного GitHub App для входа (`Iv23liZHUgB8jVdKQfJQ` для dev-стенда);
    - `VITE_GITHUB_APP_SLUG` — Slug зарегистрированного GitHub App для формирования ссылки подключения репозиториев (`dmc268-t6-reviewer-dev` для dev-стенда);
    - `VITE_USE_MOCKS` — при `true` включает мок-транспорт для автономной работы фронтенда без бэкенда.
+     GitHub App Callback URL: `<origin>/auth/callback` (например, `http://localhost:5173/auth/callback`).
 
 ## Build
 
 ```bash
 pnpm build
+```
+
+## Test
+
+```bash
+pnpm test          # vitest run (185 тестов в 34 файлах)
 ```
 
 ## Lint & format

@@ -582,7 +582,7 @@ issue прямо выносит подключение логирования з
 `tsconfig.node.json` — follow-up (§11). Прод-порт
 — зона ответственности инфры (роль 3, PR #28, сейчас `:8080` захардкожен).
 
-**Роутер.** Установлен **react-router 8** (^8.4.0, peer react ≥ 19.2.7 — выполняется), настроен в `src/app/routes.tsx` с `AppLayoutRoute` и `ProtectedLayout`.
+**Роутер.** Установлен **react-router 8** (^8.4.0, peer react ≥ 19.2.7 — выполняется), настроен в `src/app/routes.tsx`. Лэйауты (`AppLayoutRoute`, `ProtectedLayout`, `PageFallback`, `RouteErrorFallback`) и обёртки страниц (`RoutedRepositoriesPage` и др.) вынесены в `src/app/layouts/`, чтобы файл роутера оставался чистой конфигурацией маршрутов без отключения правил Fast Refresh (`react-refresh/only-export-components`).
 
 ---
 
@@ -596,10 +596,14 @@ issue прямо выносит подключение логирования з
 - `groupActions` на 34-действенной Duo-фикстуре — ожидание 6 узлов (2 группы: `get_tree`×19,
   `get_blob`×11 + 4 одиночных: `get_pull_request`×2, `get_diff`, `post_review`);
 - `src/app/mocks/app-state.test.ts` — валидация всего мока схемами;
-- тесты компонентов под jsdom: `DiffViewer.test.tsx`, `RunDiff.test.tsx`, `RunInspector.test.tsx`.
+- тесты компонентов под jsdom: `DiffViewer.test.tsx`, `RunDiff.test.tsx`, `RunInspector.test.tsx`,
+  `App.test.tsx`, `LoginPage.test.tsx`, `CallbackPage.test.tsx`, `RepositoriesPage.test.tsx`,
+  `RepositoryList.test.tsx`, `UserMenu.test.tsx`, `ThemeToggle.test.tsx`;
+- тесты сторов и утилит: `auth/model/store.test.ts`, `theme/model/store.test.ts` (включая `getInitialTheme`),
+  `client.test.ts`, `formatError.test.ts`.
 
 Гейты (`AGENTS.md`): `pnpm lint`, `pnpm check-types`, `pnpm format:check`, `pnpm test` (`vitest run`),
-`pnpm build`. Итого 97 тестов в 17 файлах (`pnpm test`, 2026-09-24).
+`pnpm build`. Итого 185 тестов в 34 файлах (`pnpm test`, 2026-10-02).
 
 Vitest настроен без `globals`, поэтому RTL не чистит DOM сама — в jsdom-тестах (`DiffViewer.test.tsx`,
 `RunDiff.test.tsx`, `RunInspector.test.tsx`) `afterEach(cleanup)` вызывается явно.
@@ -623,32 +627,20 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
 - **SSE-мост** (§2, Ф-14) — `fetch`-стрим с Bearer (не `EventSource`: он не отправляет
   заголовки), повтор после `401` → refresh → переподключение и `invalidateQueries` не реализованы,
   только спроектированы.
-- **Fetch-клиент и авторизация** (Ф-15) — слой, который появится над `entities/*/api`; код не
-  написан. Контракт — [решение техлида api#20 D4][tl-2026-09-27-api20] и `/api/auth/*` в
-  [`openapi.yaml`][openapi]:
-  - вход — GitHub App user authorization без OAuth scopes; `state` SPA генерирует сама, хранит в
-    `sessionStorage` и сверяет на `/auth/callback`;
-  - `POST /api/auth/github/callback { code }` → `AuthSession`
-    (`{ accessToken, tokenType: 'Bearer', expiresIn, user }`) и ротируемый refresh-токен в
-    httpOnly-cookie `refresh_token` (`Path=/api/auth`);
-  - access-токен (JWT, 15 мин) хранится только в памяти (дефолт, утверждённый с планом api#20), не
-    в `localStorage`/`sessionStorage`; на остальных `/api/*` — `Authorization: Bearer`;
-  - запросы к `/api/auth/*` идут с `credentials: 'include'`;
-  - `401` → один общий на все запросы `POST /api/auth/refresh`, затем один повтор исходного
-    запроса; refresh не удался — выход;
-  - старт приложения — `POST /api/auth/refresh`, затем `GET /api/auth/me` (`Me`: пользователь и
-    `workspaces`); выход — `POST /api/auth/logout`, затем сброс токена в памяти;
-  - fail closed: ошибка callback, refresh или `/me` оставляет пользователя неавторизованным.
-- **Экраны 3–5** (репозитории, правила, метрики) — области [SD §2][sd-2], не реализованные в этом
-  спринте; `src/pages/` содержит только плейсхолдеры для двух реализованных областей. Контракт
-  репозиториев (Ф-17, [`openapi.yaml`][openapi], реализация — api#34):
-  - подключение — ссылка на установку GitHub App; `POST /api/repos` нет;
-  - список — `GET /api/repos` → `Repository[]` (массив без обёртки);
-  - настройки — `PATCH /api/repos/{id}` (`RepositoryUpdate`, все поля необязательны): `enabled`,
-    `defaultEngine`, `waitForCi: auto | always | never`, `maxComments` 1..10,
-    `reviewEvent: COMMENT | REQUEST_CHANGES`;
-  - PR репозитория — `GET /api/repos/{id}/pulls?state&cursor` → `{ items, nextCursor }`, у
-    элемента `latestRun { id, status, verdict } | null`.
+- **Fetch-клиент и авторизация** (Ф-15) — реализовано в полном объёме (PR #50, #55, follow-up #62):
+  - GitHub App user authorization с генерацией криптографического `state` в `sessionStorage` для защиты от CSRF;
+  - `POST /api/auth/github/callback { code }` → `AuthSession` с сохранением access-токена в памяти;
+  - прозрачный перехват `401` и ротация refresh-токена (`shared/api/client.ts`) с дедупликацией через `refreshPromise`;
+  - fail-closed верификация сессии при старте (`initAuth`) через `POST /api/auth/refresh` и `GET /api/auth/me`;
+  - безопасный `logout` с вызовом `POST /api/auth/logout` и сбросом токена в памяти.
+- **Экран репозиториев** (Ф-17) — реализован в полном объёме (PR #50, #55, follow-up #62):
+  - подключение через установку GitHub App по ссылке с `VITE_GITHUB_APP_SLUG`;
+  - список `GET /api/repos`, клиентская фильтрация, локализованные статусы;
+  - оптимистичное переключение активности с отслеживанием параллельных мутаций строк через `useMutationState`;
+  - модальное окно настроек `PATCH /api/repos/{id}` с валидацией и локализацией ошибок (`formatErrorMessage`).
+- **Бандл и vendor chunks** (PR #62) — рантайм `antd` и `@ant-design/icons` изолированы в вендор-чанки `antd` и `icons` через `manualChunks` в `vite.config.ts`, лимит предупреждения поднят до 1200 кБ с поясняющим комментарием для монолитного чанка UI-кита.
+- **Экраны 4–5** (правила, метрики) — области [SD §2][sd-2], не реализованные в этом
+  спринте; `src/pages/` содержит только плейсхолдеры для реализованных областей.
 - **Summary-only прогоны** (diff > 3000 строк, [SD §12][sd-12]) — схемы, адаптер и `RunDiff` поддерживают
   с #42 (§4, §6); страница `/runs/:runId` (`RunDetailPage`) передаёт `run.summaryOnly` и findings в `RunDiff`.
 - **`POST /api/runs/{id}/rerun`** — есть в [`openapi.yaml`][openapi] (реализация — api#34): `202` →
