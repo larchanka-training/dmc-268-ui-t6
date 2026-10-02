@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { RouterProvider } from 'react-router'
+import { RouterProvider } from 'react-router/dom'
 
 import { QueryProvider, UiProvider } from './app/providers'
 import { createAppRouter } from './app/routes'
