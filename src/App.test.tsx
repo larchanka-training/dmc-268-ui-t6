@@ -79,7 +79,7 @@ describe('App root integration and protected routes', () => {
       () => {
         expect(screen.getByText('AI Code Reviewer')).toBeDefined()
         expect(screen.getByRole('button', { name: /войти через github/i })).toBeDefined()
-        expect(screen.queryByText('Подключенные репозитории')).toBeNull()
+        expect(screen.queryByLabelText('Меню пользователя')).toBeNull()
       },
       { timeout: 5000 },
     )
@@ -378,6 +378,7 @@ describe('App root integration and protected routes', () => {
 
   it('renders error alert in CallbackPage and stays unauthenticated when state parameter is invalid', async () => {
     sessionStorage.clear()
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
     window.history.pushState({}, '', '/auth/callback?code=some_oauth_code&state=mismatched_state')
 
     render(<App />)
@@ -393,7 +394,12 @@ describe('App root integration and protected routes', () => {
     )
 
     expect(useAuthStore.getState().isAuthenticated).toBe(false)
-    expect(screen.queryByText('Подключенные репозитории')).toBeNull()
+    expect(screen.queryByLabelText('Меню пользователя')).toBeNull()
+    const callbackCalls = fetchSpy.mock.calls.filter((call) => {
+      const url = typeof call[0] === 'string' ? call[0] : call[0] instanceof URL ? call[0].href : ''
+      return url.includes('/auth/github/callback')
+    })
+    expect(callbackCalls).toHaveLength(0)
   })
 
   it('does not display mock runs on /runs when USE_MOCKS is not active', async () => {

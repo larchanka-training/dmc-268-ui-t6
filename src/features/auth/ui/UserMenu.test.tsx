@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import * as userApi from '../../../entities/user/api'
+import * as userApi from '../../../entities/user'
 import { UserMenu } from './UserMenu'
 
 const MOCK_USER = {

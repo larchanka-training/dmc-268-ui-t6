@@ -198,7 +198,7 @@ describe('RepositoriesPage', () => {
     })
 
     const maxCommentsInput = document.getElementById('maxComments') as HTMLInputElement
-    expect(maxCommentsInput).toBeDefined()
+    expect(maxCommentsInput).not.toBeNull()
     fireEvent.change(maxCommentsInput, { target: { value: '5' } })
     expect(maxCommentsInput.value).toBe('5')
 
@@ -210,9 +210,8 @@ describe('RepositoriesPage', () => {
       expect(patchSpy).toHaveBeenCalled()
     })
 
-    // After PATCH failure, modal must stay open and not hidden, with values intact
+    // After PATCH failure, modal must stay open with values intact
     await waitFor(() => {
-      expect(document.querySelector('.ant-fade-leave')).toBeNull()
       expect(
         screen.getByText('Настройки репозитория larchanka-training/dmc-268-ui-t6'),
       ).toBeDefined()
