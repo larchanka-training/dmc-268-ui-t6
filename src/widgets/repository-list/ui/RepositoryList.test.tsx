@@ -52,8 +52,14 @@ describe('RepositoryList', () => {
     expect(screen.getByText('larchanka-training/dmc-268-api-t6')).toBeDefined()
     expect(screen.getByText('main')).toBeDefined()
     expect(screen.getByText('master')).toBeDefined()
-    expect(screen.getByText('Auto')).toBeDefined()
-    expect(screen.getByText('Never')).toBeDefined()
+    expect(screen.getByText('Авто')).toBeDefined()
+    expect(screen.getByText('Никогда')).toBeDefined()
+    expect(
+      screen.getByRole('switch', { name: 'Приостановить larchanka-training/dmc-268-ui-t6' }),
+    ).toBeDefined()
+    expect(
+      screen.getByRole('switch', { name: 'Активировать larchanka-training/dmc-268-api-t6' }),
+    ).toBeDefined()
   })
 
   it('renders settings button with unique per-row aria-label', () => {

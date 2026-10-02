@@ -39,11 +39,11 @@ export async function updateRepository(
   return RepositorySchema.parse(data)
 }
 
-export function useRepositories(options?: { refetchOnWindowFocus?: boolean }) {
+export function useRepositories() {
   return useQuery({
     queryKey: REPOSITORIES_QUERY_KEY,
     queryFn: fetchRepositories,
-    refetchOnWindowFocus: options?.refetchOnWindowFocus ?? true,
+    refetchOnWindowFocus: 'always',
   })
 }
 
@@ -56,6 +56,7 @@ export function useUpdateRepository() {
   const queryClient = useQueryClient()
 
   return useMutation({
+    mutationKey: ['updateRepo'],
     mutationFn: ({ id, patch }: UpdateRepositoryVariables) => updateRepository(id, patch),
     onMutate: async ({ id, patch }) => {
       // 1. Cancel in-flight queries

@@ -44,6 +44,7 @@ export interface RepositoryListProps {
   repositories: Repository[]
   loading?: boolean
   updatingRepoId?: string
+  updatingRepoIds?: string[]
   onToggleEnabled?: (id: string, enabled: boolean) => void
   onUpdateRepository?: (id: string, patch: UpdateRepositoryInput) => Promise<void> | void
   onRefresh?: () => void
@@ -53,6 +54,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
   repositories,
   loading = false,
   updatingRepoId,
+  updatingRepoIds,
   onToggleEnabled,
   onUpdateRepository,
   onRefresh,
@@ -187,25 +189,22 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       key: 'defaultEngine',
       render: (engine: RepositoryEngine) => (
         <Tag color={engine === 'deep' ? 'purple' : 'cyan'}>
-          {engine === 'deep' ? 'SandboxEngine (Deep)' : 'DiffEngine (Fast)'}
+          {engine === 'deep' ? 'SandboxEngine (глубокий)' : 'DiffEngine (быстрый)'}
         </Tag>
       ),
     },
     {
-      title: 'CI Gate',
+      title: 'Ожидание CI',
       dataIndex: 'waitForCi',
       key: 'waitForCi',
       render: (wait: WaitForCi) => {
-        switch (wait) {
-          case 'auto':
-            return <Badge status="processing" text="Auto" />
-          case 'always':
-            return <Badge status="success" text="Always" />
-          case 'never':
-            return <Badge status="default" text="Never" />
-          default:
-            return <Badge status="default" text={wait} />
+        const config: Record<WaitForCi, { color: string; label: string }> = {
+          auto: { color: 'blue', label: 'Авто' },
+          always: { color: 'green', label: 'Всегда' },
+          never: { color: 'default', label: 'Никогда' },
         }
+        const item = config[wait]
+        return <Tag color={item.color}>{item.label}</Tag>
       },
     },
     {
@@ -219,23 +218,31 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       dataIndex: 'reviewEvent',
       key: 'reviewEvent',
       render: (event: ReviewEvent) => (
-        <Tag color={event === 'REQUEST_CHANGES' ? 'volcano' : 'blue'}>{event}</Tag>
+        <Tag color={event === 'REQUEST_CHANGES' ? 'volcano' : 'blue'}>
+          {event === 'REQUEST_CHANGES' ? 'Запрос изменений' : 'Комментарий'}
+        </Tag>
       ),
     },
     {
       title: 'Статус',
       dataIndex: 'enabled',
       key: 'enabled',
-      render: (enabled: boolean, record: Repository) => (
-        <Switch
-          checked={enabled}
-          checkedChildren="Активен"
-          disabled={updatingRepoId === record.id}
-          loading={updatingRepoId === record.id}
-          onChange={(checked) => onToggleEnabled?.(record.id, checked)}
-          unCheckedChildren="Пауза"
-        />
-      ),
+      render: (enabled: boolean, record: Repository) => {
+        const updating = updatingRepoIds
+          ? updatingRepoIds.includes(record.id)
+          : updatingRepoId === record.id
+        return (
+          <Switch
+            aria-label={`${enabled ? 'Приостановить' : 'Активировать'} ${record.fullName}`}
+            checked={enabled}
+            checkedChildren="Активен"
+            disabled={updating}
+            loading={updating}
+            onChange={(checked) => onToggleEnabled?.(record.id, checked)}
+            unCheckedChildren="Пауза"
+          />
+        )
+      },
     },
     {
       title: 'Настройки',

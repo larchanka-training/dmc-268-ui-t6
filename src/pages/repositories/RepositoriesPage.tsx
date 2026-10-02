@@ -1,3 +1,4 @@
+import { useMutationState } from '@tanstack/react-query'
 import { Alert, App, Button, Flex } from 'antd'
 import type { FC } from 'react'
 
@@ -5,8 +6,10 @@ import {
   useRepositories,
   useUpdateRepository,
   type UpdateRepositoryInput,
+  type UpdateRepositoryVariables,
 } from '../../entities/repository'
 import { RepositoryList } from '../../widgets/repository-list'
+import { formatErrorMessage } from './lib/formatError'
 
 export const RepositoriesPage: FC = () => {
   const { message } = App.useApp()
@@ -15,13 +18,18 @@ export const RepositoriesPage: FC = () => {
 
   const updateMutation = useUpdateRepository()
 
+  const pendingUpdatingIds = useMutationState<string>({
+    filters: { mutationKey: ['updateRepo'], status: 'pending' },
+    select: (mutation) =>
+      (mutation.state.variables as UpdateRepositoryVariables | undefined)?.id ?? '',
+  })
+
   const handleToggleEnabled = async (id: string, enabled: boolean) => {
     try {
       await updateMutation.mutateAsync({ id, patch: { enabled } })
       void message.success(`Статус репозитория обновлен: ${enabled ? 'активен' : 'на паузе'}`)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Не удалось изменить статус репозитория'
-      void message.error(msg)
+      void message.error(formatErrorMessage(err, 'Не удалось изменить статус репозитория'))
     }
   }
 
@@ -30,8 +38,7 @@ export const RepositoriesPage: FC = () => {
       await updateMutation.mutateAsync({ id, patch })
       void message.success('Настройки репозитория успешно сохранены')
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Не удалось сохранить настройки'
-      void message.error(msg)
+      void message.error(formatErrorMessage(err, 'Не удалось сохранить настройки'))
       throw err
     }
   }
@@ -45,9 +52,7 @@ export const RepositoriesPage: FC = () => {
               Повторить попытку
             </Button>
           }
-          description={
-            error instanceof Error ? error.message : 'Не удалось загрузить список репозиториев'
-          }
+          description={formatErrorMessage(error, 'Не удалось загрузить список репозиториев')}
           showIcon
           title="Ошибка загрузки данных"
           type="error"
@@ -65,7 +70,7 @@ export const RepositoriesPage: FC = () => {
           }}
           onUpdateRepository={(id, patch) => handleUpdateRepository(id, patch)}
           repositories={repositories}
-          updatingRepoId={updateMutation.isPending ? updateMutation.variables.id : undefined}
+          updatingRepoIds={pendingUpdatingIds}
         />
       ) : null}
     </Flex>
