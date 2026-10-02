@@ -26,15 +26,11 @@
   justify-content: center;
 }
 
-.headerIcon {
-  /* Font size controlled via token.fontSizeHeading1 */
-}
-
 .headerFlex {
   margin-bottom: 24px;
 }
 
-.title {
+:global(.ant-typography).title {
   margin: 0;
 }
 
@@ -42,13 +38,9 @@
   margin-bottom: 32px;
 }
 
-.listItem {
+:global(.ant-list-item).listItem {
   padding: 8px 0;
   border: none;
-}
-
-.featureText {
-  /* Font size controlled via token.fontSizeSM */
 }
 
 .alert {
@@ -57,8 +49,4 @@
 
 .buttonContainer {
   margin-top: 8px;
-}
-
-.helpText {
-  /* Font size controlled via token.fontSizeSM */
 }

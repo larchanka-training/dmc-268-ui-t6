@@ -1,4 +1,4 @@
-.title {
+:global(.ant-typography).title {
   margin: 0;
 }
 

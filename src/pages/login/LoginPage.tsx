@@ -52,7 +52,6 @@ export const LoginPage: FC<LoginPageProps> = ({ onLoginSuccess }) => {
             }}
           >
             <RobotOutlined
-              className={styles.headerIcon}
               style={{ fontSize: token.fontSizeHeading1, color: token.colorPrimary }}
             />
           </div>
@@ -76,12 +75,11 @@ export const LoginPage: FC<LoginPageProps> = ({ onLoginSuccess }) => {
             <List.Item className={styles.listItem}>
               <Flex align="center" gap="small">
                 <CheckCircleOutlined style={{ color: token.colorSuccess }} />
-                <Text className={styles.featureText} style={{ fontSize: token.fontSizeSM }}>
-                  {item}
-                </Text>
+                <Text style={{ fontSize: token.fontSizeSM }}>{item}</Text>
               </Flex>
             </List.Item>
           )}
+          split={false}
         />
 
         {authError ? (
@@ -111,11 +109,7 @@ export const LoginPage: FC<LoginPageProps> = ({ onLoginSuccess }) => {
         ) : (
           <Flex align="center" gap="middle" vertical>
             <LoginButton size="large" />
-            <Text
-              className={styles.helpText}
-              style={{ fontSize: token.fontSizeSM }}
-              type="secondary"
-            >
+            <Text style={{ fontSize: token.fontSizeSM }} type="secondary">
               Вход выполняется через GitHub App бота-ревьюера
             </Text>
           </Flex>

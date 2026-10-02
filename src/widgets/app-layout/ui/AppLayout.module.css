@@ -13,13 +13,9 @@
   z-index: 100;
 }
 
-.headerTitle {
+:global(.ant-typography).headerTitle {
   margin: 0;
   white-space: nowrap;
-}
-
-.headerSubtext {
-  /* Font size controlled via token.fontSizeSM */
 }
 
 .content {
@@ -41,6 +37,6 @@
   justify-content: center;
 }
 
-.sidebarMenu {
-  border-right: 0;
+:global(.ant-menu-root).sidebarMenu {
+  border-inline-end: 0;
 }
