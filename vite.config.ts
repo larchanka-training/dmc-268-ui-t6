@@ -12,6 +12,24 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    // Ant Design runtime is isolated into vendor chunk 'antd' (~350 kB gzip).
+    // Raised warning limit avoids build warning noise for this monolithic design-system chunk.
+    chunkSizeWarningLimit: 1200,
+    rollupOptions: {
+      output: {
+        manualChunks(id: string): string | undefined {
+          if (id.includes('node_modules/antd')) {
+            return 'antd'
+          }
+          if (id.includes('node_modules/@ant-design')) {
+            return 'icons'
+          }
+          return undefined
+        },
+      },
+    },
+  },
   test: {
     include: ['src/**/*.test.{ts,tsx}'],
     setupFiles: ['./src/test/setup.ts'],
