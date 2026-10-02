@@ -3,20 +3,10 @@ import type { ColumnsType } from 'antd/es/table'
 import type { FC } from 'react'
 import { useNavigate } from 'react-router'
 
-import type { RunSession, RunStatus } from '../../entities/run'
+import { statusColor, type RunSession, type RunStatus } from '../../entities/run'
 import { useRunList } from '../../entities/run/api'
 
 const { Title, Text } = Typography
-
-const statusColorMap: Record<RunStatus, string> = {
-  queued: 'default',
-  running: 'processing',
-  publishing: 'warning',
-  succeeded: 'success',
-  failed: 'error',
-  cancelled: 'default',
-  skipped: 'default',
-}
 
 const ACTIVE_STATUSES: RunStatus[] = ['queued', 'running', 'publishing']
 
@@ -46,7 +36,7 @@ export const RunsPage: FC = () => {
       key: 'status',
       render: (_, run) => (
         <Space wrap>
-          <Tag color={statusColorMap[run.status]}>{run.status}</Tag>
+          <Tag color={statusColor(run.status)}>{run.status}</Tag>
           {ACTIVE_STATUSES.some((s) => s === run.status) ? (
             <Tag color="processing">в процессе</Tag>
           ) : null}
