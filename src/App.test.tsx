@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import App from './App'
 import { createRoutes } from './app/routes'
-import { useAuthStore } from './features/auth'
+import { setMockAuthAdapter, useAuthStore } from './features/auth'
 import { setAccessToken } from './shared/api/client'
 
 describe('App root integration and protected routes', () => {
@@ -18,6 +18,7 @@ describe('App root integration and protected routes', () => {
     useAuthStore.setState({
       isAuthenticated: false,
       isLoading: false,
+      isInitialized: false,
       error: null,
     })
   })
@@ -26,7 +27,14 @@ describe('App root integration and protected routes', () => {
     cleanup()
     globalThis.fetch = originalFetch
     setAccessToken(null)
+    setMockAuthAdapter(null)
     window.history.pushState({}, '', '/')
+    useAuthStore.setState({
+      isAuthenticated: false,
+      isLoading: false,
+      isInitialized: false,
+      error: null,
+    })
   })
 
   it('redirects to /login and does not render repositories when refresh fails', async () => {
@@ -79,7 +87,7 @@ describe('App root integration and protected routes', () => {
       () => {
         expect(screen.getByText('AI Code Reviewer')).toBeDefined()
         expect(screen.getByRole('button', { name: /войти через github/i })).toBeDefined()
-        expect(screen.queryByText('Подключенные репозитории')).toBeNull()
+        expect(screen.queryByLabelText('Меню пользователя')).toBeNull()
       },
       { timeout: 5000 },
     )
@@ -378,6 +386,7 @@ describe('App root integration and protected routes', () => {
 
   it('renders error alert in CallbackPage and stays unauthenticated when state parameter is invalid', async () => {
     sessionStorage.clear()
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
     window.history.pushState({}, '', '/auth/callback?code=some_oauth_code&state=mismatched_state')
 
     render(<App />)
@@ -393,7 +402,163 @@ describe('App root integration and protected routes', () => {
     )
 
     expect(useAuthStore.getState().isAuthenticated).toBe(false)
-    expect(screen.queryByText('Подключенные репозитории')).toBeNull()
+    const callbackCalls = fetchSpy.mock.calls.filter((call) => {
+      const url = typeof call[0] === 'string' ? call[0] : call[0] instanceof URL ? call[0].href : ''
+      return url.includes('/auth/github/callback')
+    })
+    expect(callbackCalls).toHaveLength(0)
+  })
+
+  it('does not send a second POST /api/auth/refresh after callback navigates to /repositories', async () => {
+    sessionStorage.setItem('dmc_auth_oauth_state', 'test_state')
+    const mockUser = {
+      id: 1,
+      login: 'skvertl',
+      name: 'Denis',
+      avatarUrl: null,
+      workspaces: [],
+    }
+
+    const mockRepo = {
+      id: 'a1b2c3d4-e5f6-4890-abcd-ef1234567890',
+      fullName: 'larchanka-training/dmc-268-ui-t6',
+      url: 'https://github.com/larchanka-training/dmc-268-ui-t6',
+      defaultBranch: 'main',
+      enabled: true,
+      defaultEngine: 'fast',
+      waitForCi: 'auto',
+      maxComments: 10,
+      reviewEvent: 'COMMENT',
+    }
+
+    let refreshCallCount = 0
+    let callbackCallCount = 0
+
+    globalThis.fetch = vi.fn().mockImplementation((url: RequestInfo | URL) => {
+      const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.href : ''
+      if (urlStr.includes('/auth/github/callback')) {
+        callbackCallCount++
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              accessToken: 'valid_cb_token',
+              tokenType: 'Bearer',
+              expiresIn: 900,
+              user: mockUser,
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          ),
+        )
+      }
+      if (urlStr.includes('/auth/refresh')) {
+        refreshCallCount++
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              accessToken: 'valid_refresh_token',
+              tokenType: 'Bearer',
+              expiresIn: 900,
+              user: mockUser,
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          ),
+        )
+      }
+      if (urlStr.includes('/auth/me')) {
+        return Promise.resolve(
+          new Response(JSON.stringify(mockUser), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        )
+      }
+      if (urlStr.includes('/repos')) {
+        return Promise.resolve(
+          new Response(JSON.stringify([mockRepo]), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        )
+      }
+      return Promise.resolve(new Response('{}', { status: 200 }))
+    })
+
+    window.history.pushState({}, '', '/auth/callback?code=mock_code&state=test_state')
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Подключенные репозитории')).toBeDefined()
+    })
+
+    expect(callbackCallCount).toBe(1)
+    expect(refreshCallCount).toBe(0)
+    expect(useAuthStore.getState().isAuthenticated).toBe(true)
+  })
+
+  it('redirects to /repositories when loading /login with a valid active session', async () => {
+    const mockUser = {
+      id: 1,
+      login: 'skvertl',
+      name: 'Denis',
+      avatarUrl: null,
+      workspaces: [],
+    }
+
+    const mockRepo = {
+      id: 'a1b2c3d4-e5f6-4890-abcd-ef1234567890',
+      fullName: 'larchanka-training/dmc-268-ui-t6',
+      url: 'https://github.com/larchanka-training/dmc-268-ui-t6',
+      defaultBranch: 'main',
+      enabled: true,
+      defaultEngine: 'fast',
+      waitForCi: 'auto',
+      maxComments: 10,
+      reviewEvent: 'COMMENT',
+    }
+
+    globalThis.fetch = vi.fn().mockImplementation((url: RequestInfo | URL) => {
+      const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.href : ''
+      if (urlStr.includes('/auth/refresh')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              accessToken: 'valid_refresh_token',
+              tokenType: 'Bearer',
+              expiresIn: 900,
+              user: mockUser,
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          ),
+        )
+      }
+      if (urlStr.includes('/auth/me')) {
+        return Promise.resolve(
+          new Response(JSON.stringify(mockUser), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        )
+      }
+      if (urlStr.includes('/repos')) {
+        return Promise.resolve(
+          new Response(JSON.stringify([mockRepo]), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        )
+      }
+      return Promise.resolve(new Response('{}', { status: 200 }))
+    })
+
+    window.history.pushState({}, '', '/login')
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Подключенные репозитории')).toBeDefined()
+    })
+
+    expect(screen.queryByRole('button', { name: /войти через github/i })).toBeNull()
+    expect(useAuthStore.getState().isAuthenticated).toBe(true)
   })
 
   it('does not display mock runs on /runs when USE_MOCKS is not active', async () => {
@@ -454,5 +619,117 @@ describe('App root integration and protected routes', () => {
     )
 
     expect(screen.queryByText(/feat: add login flow/i)).toBeNull()
+  })
+
+  it('navigates from callback error=access_denied back to /login with interactive login screen', async () => {
+    window.history.pushState(
+      {},
+      '',
+      '/auth/callback?error=access_denied&error_description=Access+denied',
+    )
+    render(<App />)
+
+    const backBtn = await screen.findByRole('button', { name: /вернуться к экрану входа/i })
+    expect(backBtn).toBeDefined()
+    expect(screen.getByText(/доступ отклонён|access denied/i)).toBeDefined()
+
+    fireEvent.click(backBtn)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /войти через github/i })).toBeDefined()
+      expect(screen.getByText('AI Code Reviewer')).toBeDefined()
+    })
+    expect(useAuthStore.getState().isInitialized).toBe(true)
+  })
+
+  it('navigates from callback without code param back to /login with interactive login screen', async () => {
+    window.history.pushState({}, '', '/auth/callback')
+    render(<App />)
+
+    const backBtn = await screen.findByRole('button', { name: /вернуться к экрану входа/i })
+    expect(backBtn).toBeDefined()
+    expect(screen.getByText('Отсутствует код авторизации (параметр code не найден)')).toBeDefined()
+
+    fireEvent.click(backBtn)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /войти через github/i })).toBeDefined()
+      expect(screen.getByText('AI Code Reviewer')).toBeDefined()
+    })
+    expect(useAuthStore.getState().isInitialized).toBe(true)
+  })
+
+  it('navigates from callback with mock code to /repositories and renders repository list', async () => {
+    setMockAuthAdapter({
+      getMockOAuthCode: () => 'mock_code_123',
+    })
+    window.history.pushState({}, '', '/auth/callback?code=mock_code_123')
+    const mockUser = {
+      id: 114473628,
+      login: 'skvertl',
+      name: 'Denis',
+      avatarUrl: null,
+    }
+    const mockRepo = {
+      id: 'a1b2c3d4-e5f6-4890-abcd-ef1234567890',
+      fullName: 'larchanka-training/dmc-268-ui-t6',
+      url: 'https://github.com/larchanka-training/dmc-268-ui-t6',
+      defaultBranch: 'main',
+      enabled: true,
+      defaultEngine: 'fast',
+      waitForCi: 'auto',
+      maxComments: 10,
+      reviewEvent: 'COMMENT',
+    }
+
+    globalThis.fetch = vi.fn().mockImplementation((url: RequestInfo | URL) => {
+      const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url
+      if (urlStr.includes('/auth/github/callback')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              accessToken: 'mock_jwt_token_skvertl_dmc',
+              tokenType: 'Bearer',
+              expiresIn: 900,
+              user: mockUser,
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          ),
+        )
+      }
+      if (urlStr.includes('/auth/me')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              ...mockUser,
+              workspaces: [
+                { id: '123e4567-e89b-12d3-a456-426614174000', name: 'ws', installationId: 1 },
+              ],
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          ),
+        )
+      }
+      if (urlStr.includes('/repos')) {
+        return Promise.resolve(
+          new Response(JSON.stringify([mockRepo]), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        )
+      }
+      return Promise.resolve(new Response('{}', { status: 200 }))
+    })
+
+    render(<App />)
+
+    await waitFor(
+      () => {
+        expect(screen.getByText('larchanka-training/dmc-268-ui-t6')).toBeDefined()
+      },
+      { timeout: 5000 },
+    )
+    expect(useAuthStore.getState().isInitialized).toBe(true)
+    expect(useAuthStore.getState().isAuthenticated).toBe(true)
   })
 })

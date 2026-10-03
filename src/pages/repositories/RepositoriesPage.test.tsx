@@ -61,14 +61,14 @@ describe('RepositoriesPage', () => {
     })
   })
 
-  it('renders error alert when api fetch fails', async () => {
-    globalThis.fetch = vi.fn().mockRejectedValue(new Error('Network error on load'))
+  it('renders error alert when api fetch fails with network TypeError', async () => {
+    globalThis.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
 
     renderWithClient(<RepositoriesPage />)
 
     await waitFor(() => {
       expect(screen.getByText('Ошибка загрузки данных')).toBeDefined()
-      expect(screen.getByText('Network error on load')).toBeDefined()
+      expect(screen.getByText('Ошибка сети. Проверьте подключение к интернету.')).toBeDefined()
       expect(screen.queryByText(/ещё не подключены/i)).toBeNull()
     })
   })
@@ -85,6 +85,9 @@ describe('RepositoriesPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Ошибка загрузки данных')).toBeDefined()
+      expect(
+        screen.getByText('Неожиданный формат данных от сервера. Пожалуйста, обновите страницу.'),
+      ).toBeDefined()
       expect(screen.queryByText(/ещё не подключены/i)).toBeNull()
       expect(screen.queryByText('Подключенные репозитории')).toBeNull()
     })
@@ -129,11 +132,9 @@ describe('RepositoriesPage', () => {
 
     renderWithClient(<RepositoriesPage />)
 
-    await waitFor(() => {
-      expect(screen.getByRole('switch')).toBeDefined()
+    const switchBtn = await screen.findByRole('switch', {
+      name: 'Ревью для larchanka-training/dmc-268-ui-t6',
     })
-
-    const switchBtn = screen.getByRole('switch')
     expect(switchBtn.getAttribute('aria-checked')).toBe('true')
 
     fireEvent.click(switchBtn)
@@ -148,9 +149,126 @@ describe('RepositoriesPage', () => {
     // PATCH fails with HTTP 500
     resolvePatch(new Response('Internal Server Error', { status: 500 }))
 
-    // Switch must roll back to original state 'true' via onError
+    // Switch must roll back to original state 'true' via onError and display formatted error
+    expect(
+      await screen.findByText('Внутренняя ошибка сервера (500). Повторите попытку позже.'),
+    ).toBeDefined()
+
     await waitFor(() => {
       expect(switchBtn.getAttribute('aria-checked')).toBe('true')
+    })
+  })
+
+  it('supports parallel row mutations: disables both while pending, and reenables completed row independently', async () => {
+    const repo1 = {
+      id: '11111111-1111-4111-8111-111111111111',
+      fullName: 'org/repo-1',
+      url: 'https://github.com/org/repo-1',
+      defaultBranch: 'main',
+      enabled: true,
+      defaultEngine: 'fast',
+      waitForCi: 'auto',
+      maxComments: 10,
+      reviewEvent: 'COMMENT',
+    }
+    const repo2 = {
+      id: '22222222-2222-4222-8222-222222222222',
+      fullName: 'org/repo-2',
+      url: 'https://github.com/org/repo-2',
+      defaultBranch: 'main',
+      enabled: true,
+      defaultEngine: 'fast',
+      waitForCi: 'auto',
+      maxComments: 10,
+      reviewEvent: 'COMMENT',
+    }
+
+    let resolvePatch1!: (res: Response) => void
+    const patch1Promise = new Promise<Response>((resolve) => {
+      resolvePatch1 = resolve
+    })
+
+    let resolvePatch2!: (res: Response) => void
+    const patch2Promise = new Promise<Response>((resolve) => {
+      resolvePatch2 = resolve
+    })
+
+    let getReposCount = 0
+    globalThis.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      const urlStr = typeof url === 'string' ? url : ''
+      if (init?.method === 'PATCH') {
+        if (urlStr.includes(repo1.id)) {
+          return patch1Promise
+        }
+        if (urlStr.includes(repo2.id)) {
+          return patch2Promise
+        }
+      }
+      if (!init?.method || init.method === 'GET') {
+        getReposCount++
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify([repo1, repo2]), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      )
+    })
+
+    renderWithClient(<RepositoriesPage />)
+
+    const switch1 = await screen.findByRole('switch', { name: 'Ревью для org/repo-1' })
+    const switch2 = await screen.findByRole('switch', { name: 'Ревью для org/repo-2' })
+
+    expect(switch1.hasAttribute('disabled')).toBe(false)
+    expect(switch2.hasAttribute('disabled')).toBe(false)
+    expect(getReposCount).toBe(1)
+
+    // 1. Toggle repo1 -> switch1 becomes disabled, switch2 is still enabled
+    fireEvent.click(switch1)
+    await waitFor(() => {
+      expect(switch1.hasAttribute('disabled')).toBe(true)
+      expect(switch2.hasAttribute('disabled')).toBe(false)
+    })
+
+    // 2. Toggle repo2 -> now BOTH switches are disabled
+    fireEvent.click(switch2)
+    await waitFor(() => {
+      expect(switch1.hasAttribute('disabled')).toBe(true)
+      expect(switch2.hasAttribute('disabled')).toBe(true)
+    })
+
+    // 3. Resolve patch1 -> switch1 becomes enabled again, while switch2 remains disabled
+    resolvePatch1(
+      new Response(JSON.stringify({ ...repo1, enabled: false }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+
+    await waitFor(() => {
+      expect(switch1.hasAttribute('disabled')).toBe(false)
+      expect(switch2.hasAttribute('disabled')).toBe(true)
+    })
+
+    // While patch2 is still in-flight, onSettled must NOT prematurely trigger GET /api/repos
+    expect(getReposCount).toBe(1)
+
+    // 4. Resolve patch2 -> switch2 becomes enabled again and queryClient invalidates queries
+    resolvePatch2(
+      new Response(JSON.stringify({ ...repo2, enabled: false }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+
+    await waitFor(() => {
+      expect(switch1.hasAttribute('disabled')).toBe(false)
+      expect(switch2.hasAttribute('disabled')).toBe(false)
+    })
+
+    await waitFor(() => {
+      expect(getReposCount).toBe(2)
     })
   })
 
@@ -171,7 +289,7 @@ describe('RepositoriesPage', () => {
     globalThis.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
       const urlStr = typeof url === 'string' ? url : ''
       if (urlStr.includes('/api/repos') && init?.method === 'PATCH') {
-        patchSpy()
+        patchSpy(typeof init.body === 'string' ? JSON.parse(init.body) : undefined)
         return Promise.resolve(new Response('Server Error', { status: 500 }))
       }
       return Promise.resolve(
@@ -198,26 +316,21 @@ describe('RepositoriesPage', () => {
     })
 
     const maxCommentsInput = document.getElementById('maxComments') as HTMLInputElement
-    expect(maxCommentsInput).toBeDefined()
+    expect(maxCommentsInput).not.toBeNull()
     fireEvent.change(maxCommentsInput, { target: { value: '5' } })
     expect(maxCommentsInput.value).toBe('5')
 
     const saveBtn = screen.getByRole('button', { name: /сохранить/i })
     fireEvent.click(saveBtn)
 
-    // Wait until PATCH request has actually been executed and failed
-    await waitFor(() => {
-      expect(patchSpy).toHaveBeenCalled()
-    })
+    // Wait until PATCH request has actually been executed and message error is shown
+    await screen.findByText('Внутренняя ошибка сервера (500). Повторите попытку позже.')
+    expect(patchSpy).toHaveBeenCalledTimes(1)
+    expect(patchSpy).toHaveBeenCalledWith(expect.objectContaining({ maxComments: 5 }))
 
-    // After PATCH failure, modal must stay open and not hidden, with values intact
-    await waitFor(() => {
-      expect(document.querySelector('.ant-fade-leave')).toBeNull()
-      expect(
-        screen.getByText('Настройки репозитория larchanka-training/dmc-268-ui-t6'),
-      ).toBeDefined()
-      const currentInput = document.getElementById('maxComments') as HTMLInputElement
-      expect(currentInput.value).toBe('5')
-    })
+    // After PATCH failure, modal must stay open with values intact
+    expect(screen.getByText('Настройки репозитория larchanka-training/dmc-268-ui-t6')).toBeDefined()
+    const currentInput = document.getElementById('maxComments') as HTMLInputElement
+    expect(currentInput.value).toBe('5')
   })
 })

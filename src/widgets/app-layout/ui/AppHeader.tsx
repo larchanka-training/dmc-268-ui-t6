@@ -32,11 +32,7 @@ export const AppHeader: FC<AppHeaderProps> = ({ extra }) => {
             AI Code Reviewer
           </Title>
         </Flex>
-        <Text
-          className={styles.headerSubtext}
-          style={{ fontSize: token.fontSizeSM }}
-          type="secondary"
-        >
+        <Text style={{ fontSize: token.fontSizeSM }} type="secondary">
           Team 6
         </Text>
       </Flex>

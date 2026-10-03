@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { Repository } from '../../../entities/repository'
@@ -52,8 +52,31 @@ describe('RepositoryList', () => {
     expect(screen.getByText('larchanka-training/dmc-268-api-t6')).toBeDefined()
     expect(screen.getByText('main')).toBeDefined()
     expect(screen.getByText('master')).toBeDefined()
-    expect(screen.getByText('Auto')).toBeDefined()
-    expect(screen.getByText('Never')).toBeDefined()
+    expect(screen.getByText('Авто')).toBeDefined()
+    expect(screen.getByText('Никогда')).toBeDefined()
+    expect(screen.getByText('Комментарий')).toBeDefined()
+    expect(screen.getByText('Запрос изменений')).toBeDefined()
+    expect(
+      screen.getByRole('switch', { name: 'Ревью для larchanka-training/dmc-268-ui-t6' }),
+    ).toBeDefined()
+    expect(
+      screen.getByRole('switch', { name: 'Ревью для larchanka-training/dmc-268-api-t6' }),
+    ).toBeDefined()
+  })
+
+  it('disables only the switches matching updatingRepoIds', () => {
+    const updatingRepoIds = new Set(['a1b2c3d4-e5f6-7890-abcd-ef1234567890'])
+    render(<RepositoryList repositories={mockRepos} updatingRepoIds={updatingRepoIds} />)
+
+    const switch1 = screen.getByRole('switch', {
+      name: 'Ревью для larchanka-training/dmc-268-ui-t6',
+    })
+    const switch2 = screen.getByRole('switch', {
+      name: 'Ревью для larchanka-training/dmc-268-api-t6',
+    })
+
+    expect(switch1.hasAttribute('disabled')).toBe(true)
+    expect(switch2.hasAttribute('disabled')).toBe(false)
   })
 
   it('renders settings button with unique per-row aria-label', () => {
@@ -92,5 +115,40 @@ describe('RepositoryList', () => {
     expect(button.hasAttribute('disabled')).toBe(true)
     expect(button.getAttribute('href')).toBeNull()
     expect(screen.queryByRole('link', { name: /установить github app/i })).toBeNull()
+  })
+
+  it('keeps settings modal open if onUpdateRepository rejects', async () => {
+    const onUpdate = vi.fn().mockRejectedValue(new Error('Update failed'))
+    render(<RepositoryList onUpdateRepository={onUpdate} repositories={mockRepos} />)
+
+    const settingsBtn = screen.getByLabelText(/настройки larchanka-training\/dmc-268-ui-t6/i)
+    fireEvent.click(settingsBtn)
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Настройки репозитория larchanka-training/dmc-268-ui-t6'),
+      ).toBeDefined()
+    })
+
+    const maxCommentsInput = document.getElementById('maxComments') as HTMLInputElement
+    expect(maxCommentsInput).not.toBeNull()
+    fireEvent.change(maxCommentsInput, { target: { value: '5' } })
+
+    const saveBtn = screen.getByRole('button', { name: /сохранить/i })
+    fireEvent.click(saveBtn)
+
+    const targetRepo = mockRepos[0]
+    expect(targetRepo).toBeDefined()
+    if (!targetRepo) {
+      throw new Error('mockRepos[0] is undefined')
+    }
+
+    await waitFor(() => {
+      expect(onUpdate).toHaveBeenCalledWith(targetRepo.id, { maxComments: 5 })
+    })
+
+    // Modal dialog is still present in DOM and open
+    expect(screen.getByRole('dialog')).toBeDefined()
+    expect(screen.getByText('Настройки репозитория larchanka-training/dmc-268-ui-t6')).toBeDefined()
   })
 })

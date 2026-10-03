@@ -43,8 +43,8 @@ const { Text, Link } = Typography
 export interface RepositoryListProps {
   repositories: Repository[]
   loading?: boolean
-  updatingRepoId?: string
-  onToggleEnabled?: (id: string, enabled: boolean) => void
+  updatingRepoIds?: string[] | ReadonlySet<string>
+  onToggleEnabled?: (id: string, enabled: boolean) => Promise<void> | void
   onUpdateRepository?: (id: string, patch: UpdateRepositoryInput) => Promise<void> | void
   onRefresh?: () => void
 }
@@ -52,7 +52,7 @@ export interface RepositoryListProps {
 export const RepositoryList: FC<RepositoryListProps> = ({
   repositories,
   loading = false,
-  updatingRepoId,
+  updatingRepoIds,
   onToggleEnabled,
   onUpdateRepository,
   onRefresh,
@@ -187,25 +187,22 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       key: 'defaultEngine',
       render: (engine: RepositoryEngine) => (
         <Tag color={engine === 'deep' ? 'purple' : 'cyan'}>
-          {engine === 'deep' ? 'SandboxEngine (Deep)' : 'DiffEngine (Fast)'}
+          {engine === 'deep' ? 'SandboxEngine (глубокий)' : 'DiffEngine (быстрый)'}
         </Tag>
       ),
     },
     {
-      title: 'CI Gate',
+      title: 'Ожидание CI',
       dataIndex: 'waitForCi',
       key: 'waitForCi',
       render: (wait: WaitForCi) => {
-        switch (wait) {
-          case 'auto':
-            return <Badge status="processing" text="Auto" />
-          case 'always':
-            return <Badge status="success" text="Always" />
-          case 'never':
-            return <Badge status="default" text="Never" />
-          default:
-            return <Badge status="default" text={wait} />
+        const config: Record<WaitForCi, { color: string; label: string }> = {
+          auto: { color: 'blue', label: 'Авто' },
+          always: { color: 'green', label: 'Всегда' },
+          never: { color: 'default', label: 'Никогда' },
         }
+        const item = config[wait]
+        return <Tag color={item.color}>{item.label}</Tag>
       },
     },
     {
@@ -219,23 +216,33 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       dataIndex: 'reviewEvent',
       key: 'reviewEvent',
       render: (event: ReviewEvent) => (
-        <Tag color={event === 'REQUEST_CHANGES' ? 'volcano' : 'blue'}>{event}</Tag>
+        <Tag color={event === 'REQUEST_CHANGES' ? 'volcano' : 'blue'}>
+          {event === 'REQUEST_CHANGES' ? 'Запрос изменений' : 'Комментарий'}
+        </Tag>
       ),
     },
     {
       title: 'Статус',
       dataIndex: 'enabled',
       key: 'enabled',
-      render: (enabled: boolean, record: Repository) => (
-        <Switch
-          checked={enabled}
-          checkedChildren="Активен"
-          disabled={updatingRepoId === record.id}
-          loading={updatingRepoId === record.id}
-          onChange={(checked) => onToggleEnabled?.(record.id, checked)}
-          unCheckedChildren="Пауза"
-        />
-      ),
+      render: (enabled: boolean, record: Repository) => {
+        const updating = updatingRepoIds
+          ? Array.isArray(updatingRepoIds)
+            ? updatingRepoIds.includes(record.id)
+            : updatingRepoIds.has(record.id)
+          : false
+        return (
+          <Switch
+            aria-label={`Ревью для ${record.fullName}`}
+            checked={enabled}
+            checkedChildren="Активен"
+            disabled={updating}
+            loading={updating}
+            onChange={(checked) => void onToggleEnabled?.(record.id, checked)}
+            unCheckedChildren="Пауза"
+          />
+        )
+      },
     },
     {
       title: 'Настройки',
@@ -357,12 +364,12 @@ export const RepositoryList: FC<RepositoryListProps> = ({
             />
           </Form.Item>
 
-          <Form.Item label="Ожидание CI (waitForCi)" name="waitForCi" rules={[{ required: true }]}>
+          <Form.Item label="Ожидание CI" name="waitForCi" rules={[{ required: true }]}>
             <Select
               options={[
-                { value: 'auto', label: 'Auto (ожидать CI, если настроен)' },
-                { value: 'always', label: 'Always (всегда ждать успешного CI)' },
-                { value: 'never', label: 'Never (запускать ревью без ожидания CI)' },
+                { value: 'auto', label: 'Авто (ожидать CI при наличии проверок)' },
+                { value: 'always', label: 'Всегда (всегда ждать успешного CI)' },
+                { value: 'never', label: 'Никогда (запускать ревью без ожидания CI)' },
               ]}
             />
           </Form.Item>
@@ -378,17 +385,13 @@ export const RepositoryList: FC<RepositoryListProps> = ({
             <InputNumber className={styles.fullWidth} max={10} min={1} precision={0} />
           </Form.Item>
 
-          <Form.Item
-            label="Публикация вердикта (reviewEvent)"
-            name="reviewEvent"
-            rules={[{ required: true }]}
-          >
+          <Form.Item label="Публикация вердикта" name="reviewEvent" rules={[{ required: true }]}>
             <Select
               options={[
-                { value: 'COMMENT', label: 'COMMENT (обычный комментарий ревью)' },
+                { value: 'COMMENT', label: 'Комментарий (при любых замечаниях)' },
                 {
                   value: 'REQUEST_CHANGES',
-                  label: 'REQUEST_CHANGES (блокирующее ревью при замечаниях)',
+                  label: 'Запрос изменений (при блокирующих)',
                 },
               ]}
             />

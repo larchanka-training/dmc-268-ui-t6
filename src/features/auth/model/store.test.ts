@@ -55,8 +55,45 @@ describe('useAuthStore', () => {
 
     const state = useAuthStore.getState()
     expect(state.isAuthenticated).toBe(true)
+    expect(state.isInitialized).toBe(true)
     expect(getAccessToken()).toBe('access_jwt_backend')
     expect(sessionStorage.getItem(STATE_STORAGE_KEY)).toBeNull()
+  })
+
+  it('handleCallback with mock OAuth code marks session authenticated and initialized', async () => {
+    const mockUser = {
+      id: 114473628,
+      login: 'skvertl',
+      name: 'Denis',
+      avatarUrl: null,
+    }
+
+    setMockAuthAdapter({
+      getMockOAuthCode: () => 'mock_code_test',
+    })
+
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          accessToken: 'mock_jwt_token_skvertl_dmc',
+          tokenType: 'Bearer',
+          expiresIn: 900,
+          user: mockUser,
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        },
+      ),
+    )
+    globalThis.fetch = mockFetch
+
+    await useAuthStore.getState().handleCallback('mock_code_test', null)
+
+    const state = useAuthStore.getState()
+    expect(state.isAuthenticated).toBe(true)
+    expect(state.isInitialized).toBe(true)
+    expect(getAccessToken()).toBe('mock_jwt_token_skvertl_dmc')
   })
 
   it('handleCallback with mismatched state rejects without making network request', async () => {
@@ -329,5 +366,20 @@ describe('useAuthStore', () => {
     const state = useAuthStore.getState()
     expect(state.isAuthenticated).toBe(false)
     expect(getAccessToken()).toBeNull()
+  })
+
+  it('markInitialized sets isInitialized to true without altering other state', () => {
+    useAuthStore.setState({
+      isInitialized: false,
+      isAuthenticated: false,
+      isLoading: false,
+      error: null,
+    })
+
+    useAuthStore.getState().markInitialized()
+
+    const state = useAuthStore.getState()
+    expect(state.isInitialized).toBe(true)
+    expect(state.isAuthenticated).toBe(false)
   })
 })

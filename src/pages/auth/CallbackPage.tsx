@@ -15,6 +15,7 @@ export interface CallbackPageProps {
 export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError, onBackToLogin }) => {
   const { token } = theme.useToken()
   const handleCallback = useAuthStore((state) => state.handleCallback)
+  const markInitialized = useAuthStore((state) => state.markInitialized)
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const processedRef = useRef(false)
@@ -45,6 +46,7 @@ export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError, onBack
         } catch {
           // Ignore storage errors
         }
+        markInitialized()
         setStatus('error')
         const msg =
           oauthErrorDesc ??
@@ -61,6 +63,7 @@ export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError, onBack
         } catch {
           // Ignore storage errors
         }
+        markInitialized()
         setStatus('error')
         setErrorMessage('Отсутствует код авторизации (параметр code не найден)')
         return
@@ -82,7 +85,7 @@ export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError, onBack
     }
 
     void processCode()
-  }, [handleCallback, onSuccess])
+  }, [handleCallback, markInitialized, onSuccess])
 
   return (
     <Layout

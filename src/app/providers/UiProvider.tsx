@@ -27,6 +27,11 @@ export function UiProvider({ children }: { children: ReactNode }) {
       locale={ruRU}
       theme={{
         algorithm: mode === 'dark' ? theme.darkAlgorithm : theme.defaultAlgorithm,
+        components: {
+          Menu: {
+            activeBarBorderWidth: 0,
+          },
+        },
       }}
     >
       <AntApp>

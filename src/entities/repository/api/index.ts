@@ -7,6 +7,7 @@ import { RepositorySchema, UpdateRepositorySchema } from '../model/schemas'
 import type { Repository, UpdateRepositoryInput } from '../model/schemas'
 
 export const REPOSITORIES_QUERY_KEY = ['repos'] as const
+export const UPDATE_REPOSITORY_MUTATION_KEY = ['updateRepo'] as const
 
 export const repoApi = {
   list: { endpoint: endpoints.repos.list, response: z.array(RepositorySchema) },
@@ -39,11 +40,11 @@ export async function updateRepository(
   return RepositorySchema.parse(data)
 }
 
-export function useRepositories(options?: { refetchOnWindowFocus?: boolean }) {
+export function useRepositories() {
   return useQuery({
     queryKey: REPOSITORIES_QUERY_KEY,
     queryFn: fetchRepositories,
-    refetchOnWindowFocus: options?.refetchOnWindowFocus ?? true,
+    refetchOnWindowFocus: 'always',
   })
 }
 
@@ -56,6 +57,7 @@ export function useUpdateRepository() {
   const queryClient = useQueryClient()
 
   return useMutation({
+    mutationKey: UPDATE_REPOSITORY_MUTATION_KEY,
     mutationFn: ({ id, patch }: UpdateRepositoryVariables) => updateRepository(id, patch),
     onMutate: async ({ id, patch }) => {
       // 1. Cancel in-flight queries
@@ -93,8 +95,10 @@ export function useUpdateRepository() {
       )
     },
     onSettled: () => {
-      // Revalidate to maintain server cache consistency
-      void queryClient.invalidateQueries({ queryKey: REPOSITORIES_QUERY_KEY })
+      // Invalidate queries only when all concurrent mutations have settled
+      if (queryClient.isMutating({ mutationKey: UPDATE_REPOSITORY_MUTATION_KEY }) <= 1) {
+        void queryClient.invalidateQueries({ queryKey: REPOSITORIES_QUERY_KEY })
+      }
     },
   })
 }
