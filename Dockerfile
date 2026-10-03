@@ -21,7 +21,7 @@ RUN pnpm run build
 FROM nginxinc/nginx-unprivileged:1.30-alpine AS runtime
 
 USER root
-RUN apk upgrade --no-cache
+RUN apk update && apk upgrade --no-cache && apk add --no-cache --upgrade pcre2
 
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
