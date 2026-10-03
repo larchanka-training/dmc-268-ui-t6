@@ -36,8 +36,3 @@
 .sidebarToggleCollapsed {
   justify-content: center;
 }
-
-:global(.ant-menu-light.ant-menu-root.ant-menu-inline).sidebarMenu,
-:global(.ant-menu-light.ant-menu-root.ant-menu-vertical).sidebarMenu {
-  border-inline-end: 0;
-}

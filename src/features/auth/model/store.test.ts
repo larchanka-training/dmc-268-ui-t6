@@ -330,4 +330,19 @@ describe('useAuthStore', () => {
     expect(state.isAuthenticated).toBe(false)
     expect(getAccessToken()).toBeNull()
   })
+
+  it('markInitialized sets isInitialized to true without altering other state', () => {
+    useAuthStore.setState({
+      isInitialized: false,
+      isAuthenticated: false,
+      isLoading: false,
+      error: null,
+    })
+
+    useAuthStore.getState().markInitialized()
+
+    const state = useAuthStore.getState()
+    expect(state.isInitialized).toBe(true)
+    expect(state.isAuthenticated).toBe(false)
+  })
 })

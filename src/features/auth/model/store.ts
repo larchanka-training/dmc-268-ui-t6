@@ -60,6 +60,7 @@ export interface AuthState {
   loginAsMockUser: () => void
   logout: () => Promise<void>
   initAuth: () => Promise<void>
+  markInitialized: () => void
 }
 
 let isLoggingOut = false
@@ -69,6 +70,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   isInitialized: false,
   error: null,
   isAuthenticated: false,
+
+  markInitialized: () => {
+    set({ isInitialized: true })
+  },
 
   loginWithGitHub: () => {
     if (typeof window === 'undefined') return

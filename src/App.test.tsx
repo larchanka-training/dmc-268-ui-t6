@@ -619,4 +619,42 @@ describe('App root integration and protected routes', () => {
 
     expect(screen.queryByText(/feat: add login flow/i)).toBeNull()
   })
+
+  it('navigates from callback error=access_denied back to /login with interactive login screen', async () => {
+    window.history.pushState(
+      {},
+      '',
+      '/auth/callback?error=access_denied&error_description=Access+denied',
+    )
+    render(<App />)
+
+    const backBtn = await screen.findByRole('button', { name: /вернуться к экрану входа/i })
+    expect(backBtn).toBeDefined()
+    expect(screen.getByText(/доступ отклонён|access denied/i)).toBeDefined()
+
+    fireEvent.click(backBtn)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /войти через github/i })).toBeDefined()
+      expect(screen.getByText('AI Code Reviewer')).toBeDefined()
+    })
+    expect(useAuthStore.getState().isInitialized).toBe(true)
+  })
+
+  it('navigates from callback without code param back to /login with interactive login screen', async () => {
+    window.history.pushState({}, '', '/auth/callback')
+    render(<App />)
+
+    const backBtn = await screen.findByRole('button', { name: /вернуться к экрану входа/i })
+    expect(backBtn).toBeDefined()
+    expect(screen.getByText('Отсутствует код авторизации (параметр code не найден)')).toBeDefined()
+
+    fireEvent.click(backBtn)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /войти через github/i })).toBeDefined()
+      expect(screen.getByText('AI Code Reviewer')).toBeDefined()
+    })
+    expect(useAuthStore.getState().isInitialized).toBe(true)
+  })
 })

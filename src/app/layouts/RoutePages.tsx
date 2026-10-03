@@ -2,6 +2,7 @@ import { lazy, type FC } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 
 import { useAuthStore } from '../../features/auth'
+import { PageFallback } from './RouteLayouts'
 
 const LoginPage = lazy(() =>
   import('../../pages/login/LoginPage').then((m) => ({ default: m.LoginPage })),
@@ -40,7 +41,7 @@ export const RoutedLoginPage: FC = () => {
   const isLoading = useAuthStore((state) => state.isLoading)
 
   if (!isInitialized || isLoading) {
-    return null
+    return <PageFallback />
   }
 
   if (isAuthenticated) {
@@ -58,12 +59,16 @@ export const RoutedLoginPage: FC = () => {
 
 export const RoutedCallbackPage: FC = () => {
   const navigate = useNavigate()
+  const markInitialized = useAuthStore((state) => state.markInitialized)
+
   return (
     <CallbackPage
       onBackToLogin={() => {
+        markInitialized()
         void navigate('/login', { replace: true })
       }}
       onError={() => {
+        markInitialized()
         void navigate('/login', { replace: true })
       }}
       onSuccess={() => {

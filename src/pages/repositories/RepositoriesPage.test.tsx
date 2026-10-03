@@ -149,7 +149,11 @@ describe('RepositoriesPage', () => {
     // PATCH fails with HTTP 500
     resolvePatch(new Response('Internal Server Error', { status: 500 }))
 
-    // Switch must roll back to original state 'true' via onError
+    // Switch must roll back to original state 'true' via onError and display formatted error
+    expect(
+      await screen.findByText('Внутренняя ошибка сервера (500). Повторите попытку позже.'),
+    ).toBeDefined()
+
     await waitFor(() => {
       expect(switchBtn.getAttribute('aria-checked')).toBe('true')
     })
@@ -189,6 +193,7 @@ describe('RepositoriesPage', () => {
       resolvePatch2 = resolve
     })
 
+    let getReposCount = 0
     globalThis.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
       const urlStr = typeof url === 'string' ? url : ''
       if (init?.method === 'PATCH') {
@@ -198,6 +203,9 @@ describe('RepositoriesPage', () => {
         if (urlStr.includes(repo2.id)) {
           return patch2Promise
         }
+      }
+      if (!init?.method || init.method === 'GET') {
+        getReposCount++
       }
       return Promise.resolve(
         new Response(JSON.stringify([repo1, repo2]), {
@@ -214,6 +222,7 @@ describe('RepositoriesPage', () => {
 
     expect(switch1.hasAttribute('disabled')).toBe(false)
     expect(switch2.hasAttribute('disabled')).toBe(false)
+    expect(getReposCount).toBe(1)
 
     // 1. Toggle repo1 -> switch1 becomes disabled, switch2 is still enabled
     fireEvent.click(switch1)
@@ -242,7 +251,10 @@ describe('RepositoriesPage', () => {
       expect(switch2.hasAttribute('disabled')).toBe(true)
     })
 
-    // 4. Resolve patch2 -> switch2 becomes enabled again
+    // While patch2 is still in-flight, onSettled must NOT prematurely trigger GET /api/repos
+    expect(getReposCount).toBe(1)
+
+    // 4. Resolve patch2 -> switch2 becomes enabled again and queryClient invalidates queries
     resolvePatch2(
       new Response(JSON.stringify({ ...repo2, enabled: false }), {
         status: 200,
@@ -253,6 +265,10 @@ describe('RepositoriesPage', () => {
     await waitFor(() => {
       expect(switch1.hasAttribute('disabled')).toBe(false)
       expect(switch2.hasAttribute('disabled')).toBe(false)
+    })
+
+    await waitFor(() => {
+      expect(getReposCount).toBe(2)
     })
   })
 
