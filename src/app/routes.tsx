@@ -12,9 +12,7 @@ import {
 
 import { useAuthStore } from '../features/auth'
 import { AppLayout } from '../widgets/app-layout'
-import type { FileDiff } from '../entities/diff'
-import type { ReviewComment } from '../entities/review'
-import type { RunAction, RunSession } from '../entities/run'
+import { DEMO_RUN_ID } from '../shared/config/demoRun'
 import styles from './routes.module.css'
 
 const LoginPage = lazy(() =>
@@ -27,8 +25,8 @@ const RepositoriesPage = lazy(() =>
   import('../pages/repositories/RepositoriesPage').then((m) => ({ default: m.RepositoriesPage })),
 )
 const RunsPage = lazy(() => import('../pages/runs/RunsPage').then((m) => ({ default: m.RunsPage })))
-const ReviewPage = lazy(() =>
-  import('../pages/review/ReviewPage').then((m) => ({ default: m.ReviewPage })),
+const RunDetailPage = lazy(() =>
+  import('../pages/runs/RunDetailPage').then((m) => ({ default: m.RunDetailPage })),
 )
 
 export const PageFallback: FC = () => (
@@ -115,37 +113,7 @@ function RoutedRepositoriesPage() {
 }
 
 function RoutedRunsPage() {
-  const [data, setData] = useState<{ actions: RunAction[]; sessions: RunSession[] }>({
-    actions: [],
-    sessions: [],
-  })
-
-  useEffect(() => {
-    if (import.meta.env.VITE_USE_MOCKS === 'true') {
-      void import('./mocks/app-state').then((m) => {
-        setData({ actions: m.mockRunActions, sessions: m.mockRunSessions })
-      })
-    }
-  }, [])
-
-  return <RunsPage runActions={data.actions} runSessions={data.sessions} />
-}
-
-function RoutedReviewPage() {
-  const [data, setData] = useState<{ diffs: FileDiff[]; comments: ReviewComment[] }>({
-    diffs: [],
-    comments: [],
-  })
-
-  useEffect(() => {
-    if (import.meta.env.VITE_USE_MOCKS === 'true') {
-      void import('./mocks/app-state').then((m) => {
-        setData({ diffs: m.mockFileDiffs, comments: m.mockReviewComments })
-      })
-    }
-  }, [])
-
-  return <ReviewPage fileDiffs={data.diffs} reviewComments={data.comments} />
+  return <RunsPage />
 }
 
 function RoutedLoginPage() {
@@ -222,8 +190,12 @@ export function createRoutes() {
                   element: <RoutedRunsPage />,
                 },
                 {
+                  path: '/runs/:runId',
+                  element: <RunDetailPage />,
+                },
+                {
                   path: '/review',
-                  element: <RoutedReviewPage />,
+                  element: <Navigate replace to={`/runs/${DEMO_RUN_ID}`} />,
                 },
               ],
             },

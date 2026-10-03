@@ -45,11 +45,12 @@ afterEach(() => {
 
 describe('DiffViewer', () => {
   it('renders the unified diff with a widget for the resolvable comment', () => {
-    const { container } = render(<DiffViewer file={FILE} comments={COMMENTS} />)
+    const { container } = render(<DiffViewer comments={COMMENTS} file={FILE} />)
     expect(container.querySelectorAll('.diff-line')).toHaveLength(10)
     expect(container.querySelectorAll('.diff-widget')).toHaveLength(1)
-    expect(screen.getByText('правило: no-magic-numbers')).toBeTruthy()
     expect(screen.getByText('Magic number')).toBeTruthy()
+    fireEvent.click(screen.getByText('Magic number'))
+    expect(screen.getByText('правило: no-magic-numbers')).toBeTruthy()
     const widgetRow = container.querySelector('tr.diff-widget')
     expect(widgetRow?.previousElementSibling?.textContent).toContain('line 2')
   })
@@ -114,5 +115,32 @@ describe('DiffViewer', () => {
     const wrapper = row?.querySelector('.diff-widget-content > div')
     expect(wrapper?.children.length).toBe(3)
     expect(row?.querySelectorAll('.inline-comment')).toHaveLength(3)
+  })
+
+  it('shows findings outside the loaded diff in a dedicated block', () => {
+    render(
+      <DiffViewer
+        file={FILE}
+        findings={[
+          {
+            id: '33333333-3333-4333-8333-000000000010',
+            file: FILE.filename,
+            oldLine: null,
+            newLine: 500,
+            endLine: null,
+            side: 'RIGHT',
+            severity: 'info',
+            category: 'readability',
+            title: 'Outside',
+            body: 'Not in patch',
+            suggestion: null,
+            confidence: 0.5,
+            ruleName: null,
+          },
+        ]}
+      />,
+    )
+    expect(screen.getByTestId('findings-outside-diff')).toBeTruthy()
+    expect(screen.getByText('Outside')).toBeTruthy()
   })
 })

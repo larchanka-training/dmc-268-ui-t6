@@ -36,6 +36,10 @@ describe('commentKey', () => {
     expect(commentKey({ oldLine: null, newLine: 99 }, file)).toBeNull()
   })
 
+  it('anchors multiline findings on endLine', () => {
+    expect(commentKey({ oldLine: null, newLine: 4, endLine: 5 }, file)).toBe('N4')
+  })
+
   it('matches getChangeKey for every change in the parsed patch', () => {
     const hunk = parseDiff(SAMPLE_PATCH_A.patch)[0]?.hunks[0]
     if (!hunk) {

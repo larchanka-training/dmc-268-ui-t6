@@ -327,8 +327,9 @@ Summary-only прогон (дифф больше 3 000 строк, Р-15 в [SD 
 отклоняется), `RunSession.summaryOnly` — обязательный `boolean`, как `cancelRequested`. Связь «`summaryOnly`
 ⇔ все `patch: null`» схемы не проверяют: это два разных ответа API, её держит UI (§6).
 
-Run detail (Ф-16; [PIPELINE_SPEC §11][ps-11], схема `RunDetail` в [`openapi.yaml`][openapi]; поля
-сверх `RunSession` реализует api#34, в Zod их пока нет — #57): `GET /api/runs/{id}` отдаёт поля
+Run detail (Ф-16; [PIPELINE_SPEC §11][ps-11], схема `RunDetail` в [`openapi.yaml`][openapi]): Zod —
+`RunDetailSchema` в `entities/run` (поля сверх `RunSession` с дефолтами для legacy API до api#34).
+Карточки строятся по `findings` (`FindingView`, якорь `endLine ?? newLine`, §6).
 `RunSession` и сверх них `findings` (`FindingView` — поля `ReviewComment` без `createdAt`, плюс
 `side`, `suggestion`, `confidence`), `summary { problem, doneWell, effort } | null`,
 `verdict: blocking | attention | clean | null`, `severityCounts { critical, high, medium, low, info }`
@@ -449,7 +450,8 @@ Summary-only прогон рисует `RunDiff`: при `summaryOnly: true` —
 (больше 3 000 строк, построчного ревью нет) и список имён файлов, без `DiffViewer` и хунков; при
 `false` — `DiffViewer` на каждый файл (имя файла он выводит и комментарии по
 `comment.file` фильтрует сам). `RunDiff` получает флаг, а не весь `RunSession`, — виджет не зависит от
-`entities/run`. Страницы, которая передаёт `run.summaryOnly` в `RunDiff`, пока нет (§11).
+`entities/run`. Страница `RunDetailPage` (`/runs/:runId`) передаёт `run.summaryOnly` и
+`findings` из `RunDetail` в `RunDiff` (TanStack Query, ключи §2).
 
 Ключ привязки комментария — `commentKey` (`src/entities/diff/lib/commentKey.ts`), реализует
 правило N/I/D:
@@ -648,7 +650,7 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
   - PR репозитория — `GET /api/repos/{id}/pulls?state&cursor` → `{ items, nextCursor }`, у
     элемента `latestRun { id, status, verdict } | null`.
 - **Summary-only прогоны** (diff > 3000 строк, [SD §12][sd-12]) — схемы, адаптер и `RunDiff` поддерживают
-  с #42 (§4, §6); страницы, которая берёт `run.summaryOnly` и передаёт его в `RunDiff`, ещё нет.
+  с #42 (§4, §6); страница `/runs/:runId` (`RunDetailPage`) передаёт `run.summaryOnly` и findings в `RunDiff`.
 - **`POST /api/runs/{id}/rerun`** — есть в [`openapi.yaml`][openapi] (реализация — api#34): `202` →
   новый `RunSession` в `queued` для того же PR и `headSha`; `409`, если у PR уже есть активный
   прогон. В `src/shared/api/endpoints.ts` его нет (`endpoints.runs` содержит только `cancel`) —

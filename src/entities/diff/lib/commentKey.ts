@@ -3,14 +3,16 @@ import type { FileDiff } from '../model/schemas'
 interface CommentTarget {
   oldLine: number | null
   newLine: number | null
+  endLine?: number | null
 }
 
 export function commentKey(target: CommentTarget, file: FileDiff): string | null {
   const lines = file.chunks.flatMap((chunk) => chunk.lines)
   if (target.newLine !== null) {
-    const line = lines.find((l) => l.newLine === target.newLine)
+    const anchorNew = target.endLine ?? target.newLine
+    const line = lines.find((l) => l.newLine === anchorNew)
     if (line?.type === 'added') {
-      return `I${String(target.newLine)}`
+      return `I${String(anchorNew)}`
     }
     if (line?.type === 'context' && line.oldLine !== null) {
       return `N${String(line.oldLine)}`

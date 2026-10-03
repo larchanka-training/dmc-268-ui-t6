@@ -79,7 +79,7 @@ describe('mockReviewComments', () => {
 
   it('maps to the expected change keys via commentKey', () => {
     const keys = mockReviewComments.map((c) => commentKey(c, findFileDiff(c.file)))
-    expect(keys).toEqual(['I2', 'N3', 'I2'])
+    expect(keys).toEqual(['I2', 'N4', 'I2'])
   })
 })
 

@@ -332,6 +332,14 @@ describe('App root integration and protected routes', () => {
           }),
         )
       }
+      if (urlStr.includes('/runs') && !/\/runs\/[^/?]+/.exec(urlStr)) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ items: [], nextCursor: null }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        )
+      }
       return Promise.resolve(new Response('{}', { status: 200 }))
     })
 
@@ -361,7 +369,7 @@ describe('App root integration and protected routes', () => {
 
     // Wait for RunsPage to render
     await waitFor(() => {
-      expect(screen.getByText('Инспектор прогонов AI Review')).toBeDefined()
+      expect(screen.getByText('Прогоны AI Review')).toBeDefined()
     })
 
     // Verify sidebar remains collapsed
@@ -420,6 +428,14 @@ describe('App root integration and protected routes', () => {
           }),
         )
       }
+      if (urlStr.includes('/runs') && !/\/runs\/[^/?]+/.exec(urlStr)) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ items: [], nextCursor: null }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        )
+      }
       return Promise.resolve(new Response('{}', { status: 200 }))
     })
 
@@ -431,8 +447,8 @@ describe('App root integration and protected routes', () => {
 
     await waitFor(
       () => {
-        expect(screen.getByText('Инспектор прогонов AI Review')).toBeDefined()
-        expect(screen.getByText('Нет доступных прогонов для инспекции')).toBeDefined()
+        expect(screen.getByText('Прогоны AI Review')).toBeDefined()
+        expect(screen.getByText('Нет прогонов ревью')).toBeDefined()
       },
       { timeout: 5000 },
     )

@@ -11,6 +11,9 @@ const pullRequest = {
   title: 'Add feature',
   url: 'https://github.com/org/repo/pull/42',
   headSha: 'abc123',
+  author: null,
+  headRef: null,
+  baseRef: null,
 }
 
 const runSession = {
@@ -82,6 +85,58 @@ describe('RunSessionSchema', () => {
     expect(result.success).toBe(false)
     if (!result.success) {
       expect(result.error.issues[0]?.path).toEqual(['summaryOnly'])
+    }
+  })
+
+  it('accepts a pullRequest without author/headRef/baseRef', () => {
+    const result = RunSessionSchema.safeParse({
+      ...runSession,
+      pullRequest: {
+        repo: 'org/repo',
+        number: 42,
+        title: 'Add feature',
+        url: 'https://github.com/org/repo/pull/42',
+        headSha: 'abc123',
+      },
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('accepts a pullRequest with author, headRef and baseRef set', () => {
+    const result = RunSessionSchema.safeParse({
+      ...runSession,
+      pullRequest: { ...pullRequest, author: 'octocat', headRef: 'feature/x', baseRef: 'main' },
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.pullRequest.author).toBe('octocat')
+    }
+  })
+
+  it('accepts a pullRequest with author null', () => {
+    const result = RunSessionSchema.safeParse({
+      ...runSession,
+      pullRequest: { ...pullRequest, author: null },
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('accepts a pullRequest with author null and branches set', () => {
+    const result = RunSessionSchema.safeParse({
+      ...runSession,
+      pullRequest: { ...pullRequest, author: null, headRef: 'feature/x', baseRef: 'main' },
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects a pullRequest with a non-string author', () => {
+    const result = RunSessionSchema.safeParse({
+      ...runSession,
+      pullRequest: { ...pullRequest, author: 42 },
+    })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues[0]?.path).toEqual(['pullRequest', 'author'])
     }
   })
 })

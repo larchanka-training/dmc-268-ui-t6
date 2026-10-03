@@ -1,16 +1,12 @@
-import { Card, Empty, Flex, Select, Space, Tag, Typography } from 'antd'
-import { useState, type FC } from 'react'
+import { Alert, Button, Card, Flex, Space, Spin, Table, Tag, Typography } from 'antd'
+import type { ColumnsType } from 'antd/es/table'
+import type { FC } from 'react'
+import { useNavigate } from 'react-router'
 
-import type { RunAction, RunSession, RunStatus } from '../../entities/run'
-import { RunInspector } from '../../widgets/run-inspector'
-import styles from './RunsPage.module.css'
+import type { RunSession, RunStatus } from '../../entities/run'
+import { useRunList } from '../../entities/run/api'
 
 const { Title, Text } = Typography
-
-export interface RunsPageProps {
-  runSessions?: RunSession[]
-  runActions?: RunAction[]
-}
 
 const statusColorMap: Record<RunStatus, string> = {
   queued: 'default',
@@ -22,59 +18,104 @@ const statusColorMap: Record<RunStatus, string> = {
   skipped: 'default',
 }
 
-export const RunsPage: FC<RunsPageProps> = ({ runSessions = [], runActions = [] }) => {
-  const [selectedRunId, setSelectedRunId] = useState<string>(
-    runSessions[3]?.id ?? runSessions[0]?.id ?? '',
-  )
+const ACTIVE_STATUSES: RunStatus[] = ['queued', 'running', 'publishing']
 
-  const currentRun = runSessions.find((r) => r.id === selectedRunId) ?? runSessions[0]
+export const RunsPage: FC = () => {
+  const navigate = useNavigate()
+  const { data, isLoading, isError, error, refetch } = useRunList()
+  const runSessions = data?.items ?? []
+
+  const columns: ColumnsType<RunSession> = [
+    {
+      title: 'PR',
+      key: 'pr',
+      render: (_, run) => (
+        <Space orientation="vertical" size={0}>
+          <Text strong>{`#${String(run.pullRequest.number)}`}</Text>
+          <Text type="secondary">{run.pullRequest.title}</Text>
+        </Space>
+      ),
+    },
+    {
+      title: 'Репозиторий',
+      dataIndex: ['pullRequest', 'repo'],
+      key: 'repo',
+    },
+    {
+      title: 'Статус ревью',
+      key: 'status',
+      render: (_, run) => (
+        <Space wrap>
+          <Tag color={statusColorMap[run.status]}>{run.status}</Tag>
+          {ACTIVE_STATUSES.some((s) => s === run.status) ? (
+            <Tag color="processing">в процессе</Tag>
+          ) : null}
+          {run.summaryOnly ? <Tag>summary-only</Tag> : null}
+        </Space>
+      ),
+    },
+    {
+      title: 'Движок',
+      dataIndex: 'engine',
+      key: 'engine',
+    },
+  ]
 
   return (
     <Flex vertical gap="large">
       <Card>
         <Flex align="center" justify="space-between" wrap="wrap" gap="middle">
           <div>
-            <Title className={styles.title} level={4}>
-              Инспектор прогонов AI Review
+            <Title level={4} style={{ margin: 0 }}>
+              Прогоны AI Review
             </Title>
             <Text type="secondary">
-              Просмотр трейса выполнения, шагов агента и вызовов инструментов
+              Pull request'ы, по которым выполнялось или выполняется ревью (GET /api/runs)
             </Text>
           </div>
-
-          {runSessions.length > 0 ? (
-            <Space>
-              <Text strong>Выбрать прогон:</Text>
-              <Select
-                className={styles.runSelect}
-                onChange={(val) => {
-                  setSelectedRunId(val)
-                }}
-                options={runSessions.map((r) => ({
-                  value: r.id,
-                  label: (
-                    <Space>
-                      <Tag color={statusColorMap[r.status]}>{r.status}</Tag>
-                      <span>
-                        PR #{r.pullRequest.number}: {r.pullRequest.title}
-                      </span>
-                    </Space>
-                  ),
-                }))}
-                value={currentRun?.id}
-              />
-            </Space>
-          ) : null}
+          <Button
+            onClick={() => {
+              void refetch()
+            }}
+          >
+            Обновить
+          </Button>
         </Flex>
       </Card>
 
-      {currentRun ? (
-        <RunInspector actions={runActions} now={new Date()} run={currentRun} />
-      ) : (
-        <Card>
-          <Empty description="Нет доступных прогонов для инспекции" />
+      {isLoading ? (
+        <Flex align="center" justify="center" style={{ minHeight: 160 }}>
+          <Spin />
+        </Flex>
+      ) : null}
+
+      {isError ? (
+        <Alert
+          description={error instanceof Error ? error.message : 'Не удалось загрузить список'}
+          showIcon
+          title="Ошибка загрузки"
+          type="error"
+        />
+      ) : null}
+
+      {!isLoading && !isError ? (
+        <Card title="Pull request'ы с ревью">
+          <Table<RunSession>
+            columns={columns}
+            dataSource={runSessions}
+            locale={{ emptyText: 'Нет прогонов ревью' }}
+            onRow={(run) => ({
+              onClick: () => {
+                void navigate(`/runs/${run.id}`)
+              },
+              style: { cursor: 'pointer' },
+            })}
+            pagination={false}
+            rowKey="id"
+            size="middle"
+          />
         </Card>
-      )}
+      ) : null}
     </Flex>
   )
 }

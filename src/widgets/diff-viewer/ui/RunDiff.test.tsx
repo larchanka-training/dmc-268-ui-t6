@@ -50,7 +50,7 @@ describe('RunDiff', () => {
     const files = diffApi.diff.response.parse(SUMMARY_ONLY_DIFF_WIRE).map(fromPatch)
 
     const { container } = render(
-      <RunDiff summaryOnly={run.summaryOnly} files={files} comments={[]} />,
+      <RunDiff findings={[]} files={files} summaryOnly={run.summaryOnly} />,
     )
 
     expect(screen.getByText('Дифф слишком большой')).toBeTruthy()
@@ -72,7 +72,7 @@ describe('RunDiff', () => {
     const files = diffApi.diff.response.parse(SAMPLE_PATCHES).map(fromPatch)
 
     const { container } = render(
-      <RunDiff summaryOnly={run.summaryOnly} files={files} comments={[]} />,
+      <RunDiff findings={[]} files={files} summaryOnly={run.summaryOnly} />,
     )
 
     expect(screen.getAllByText('src/a.ts').length).toBeGreaterThan(0)
@@ -92,7 +92,7 @@ describe('RunDiff', () => {
       .map(fromPatch)
 
     const { container } = render(
-      <RunDiff summaryOnly={run.summaryOnly} files={files} comments={[]} />,
+      <RunDiff findings={[]} files={files} summaryOnly={run.summaryOnly} />,
     )
 
     expect(screen.getByText('docs/huge.md')).toBeTruthy()

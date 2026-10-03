@@ -9,9 +9,10 @@ import {
   setOnUnauthorized,
 } from '../../../shared/api/client'
 import { endpoints } from '../../../shared/api/endpoints'
-import { GITHUB_CLIENT_ID } from '../../../shared/config/env'
+import { GITHUB_CLIENT_ID, USE_MOCKS } from '../../../shared/config/env'
 
 export const STATE_STORAGE_KEY = 'dmc_auth_oauth_state'
+export const MOCK_TOKEN = 'mock_jwt_token_skvertl_dmc'
 
 export function generateRandomState(): string {
   const bytes = new Uint8Array(32)
@@ -39,6 +40,13 @@ let mockAuthAdapter: MockAuthAdapter | null = null
 
 export function setMockAuthAdapter(adapter: MockAuthAdapter | null): void {
   mockAuthAdapter = adapter
+}
+
+function isMockOAuthCode(code: string): boolean {
+  if (mockAuthAdapter?.getMockOAuthCode?.() === code) {
+    return true
+  }
+  return USE_MOCKS && code.startsWith('mock_')
 }
 
 export interface AuthState {
@@ -100,6 +108,21 @@ export const useAuthStore = create<AuthState>((set) => ({
         // Ignore storage errors
       }
 
+      if (isMockOAuthCode(code)) {
+        const res = await apiClient<unknown>(endpoints.auth.githubCallback(), {
+          body: { code },
+        })
+        const parsed = AuthSessionSchema.parse(res)
+
+        setAccessToken(parsed.accessToken)
+        set({
+          isAuthenticated: true,
+          isLoading: false,
+          error: null,
+        })
+        return
+      }
+
       if (!savedState || !state || state !== savedState) {
         setAccessToken(null)
         const errorMsg = 'Недействительный параметр безопасности state (защита от CSRF)'
@@ -111,7 +134,6 @@ export const useAuthStore = create<AuthState>((set) => ({
         throw new Error(errorMsg)
       }
 
-      // Code exchange via POST /api/auth/github/callback
       const res = await apiClient<unknown>(endpoints.auth.githubCallback(), {
         body: { code },
       })
@@ -187,7 +209,6 @@ export const useAuthStore = create<AuthState>((set) => ({
         return
       }
 
-      // FA Ф-15: fail closed — verify session via GET /api/auth/me
       await fetchMe(newToken)
 
       set({
@@ -205,7 +226,6 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 }))
 
-// Automatically connect 401 unauthorized handler to logout
 setOnUnauthorized(() => {
   void useAuthStore.getState().logout()
 })
