@@ -59,16 +59,13 @@ export const RoutedLoginPage: FC = () => {
 
 export const RoutedCallbackPage: FC = () => {
   const navigate = useNavigate()
-  const markInitialized = useAuthStore((state) => state.markInitialized)
 
   return (
     <CallbackPage
       onBackToLogin={() => {
-        markInitialized()
         void navigate('/login', { replace: true })
       }}
       onError={() => {
-        markInitialized()
         void navigate('/login', { replace: true })
       }}
       onSuccess={() => {

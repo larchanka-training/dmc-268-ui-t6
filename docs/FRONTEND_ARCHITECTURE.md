@@ -103,7 +103,7 @@ flowchart TD
 
 | Область [SD §2][sd-2]                            | Срез                                                                                           |
 | ------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| Карточка прогона с диффом и инлайн-комментариями | `entities/diff`, `entities/review`, `widgets/diff-viewer`, `pages/review`                      |
+| Карточка прогона с диффом и инлайн-комментариями | `entities/diff`, `entities/review`, `widgets/diff-viewer`, `pages/runs/RunDetailPage`          |
 | Инспектор трейса (`RunSession → RunAction`)      | `entities/run`, `widgets/run-inspector`, `pages/runs`                                          |
 | Аутентификация и App Shell                       | `entities/user`, `features/auth`, `features/theme`, `widgets/app-layout`, `pages/{login,auth}` |
 | Репозитории                                      | `entities/repository`, `widgets/repository-list`, `pages/repositories`                         |
@@ -120,6 +120,10 @@ src/app/layouts/RoutePages.tsx
 src/app/layouts/index.ts
 src/app/mocks/app-state.test.ts
 src/app/mocks/app-state.ts
+src/app/mocks/mockRunReview.test.ts
+src/app/mocks/mockRunReview.ts
+src/app/mocks/mockRunsList.fixture.test.ts
+src/app/mocks/mockRunsList.fixture.ts
 src/app/mocks/mockTransport.ts
 src/app/providers/QueryProvider.tsx
 src/app/providers/UiProvider.test.tsx
@@ -134,6 +138,8 @@ src/entities/diff/lib/commentKey.test.ts
 src/entities/diff/lib/commentKey.ts
 src/entities/diff/lib/expandContext.test.ts
 src/entities/diff/lib/expandContext.ts
+src/entities/diff/lib/extractNewSideLines.ts
+src/entities/diff/lib/fileLanguage.ts
 src/entities/diff/lib/fromPatch.test.ts
 src/entities/diff/lib/fromPatch.ts
 src/entities/diff/lib/toHunks.test.ts
@@ -147,8 +153,13 @@ src/entities/repository/model/schemas.test.ts
 src/entities/repository/model/schemas.ts
 src/entities/review/api/index.ts
 src/entities/review/index.ts
+src/entities/review/lib/findingAnchor.ts
+src/entities/review/lib/reviewCommentToFinding.ts
+src/entities/review/lib/severityBadge.ts
 src/entities/review/model/schemas.test.ts
 src/entities/review/model/schemas.ts
+src/entities/run/api/fetchRunDetail.test.ts
+src/entities/run/api/fetchRunList.test.ts
 src/entities/run/api/index.test.ts
 src/entities/run/api/index.ts
 src/entities/run/index.ts
@@ -157,6 +168,7 @@ src/entities/run/lib/groupActions.test.ts
 src/entities/run/lib/groupActions.ts
 src/entities/run/lib/status.test.ts
 src/entities/run/lib/status.ts
+src/entities/run/model/runDetailSchema.test.ts
 src/entities/run/model/schemas.test.ts
 src/entities/run/model/schemas.ts
 src/entities/user/api/index.ts
@@ -192,13 +204,16 @@ src/pages/review/.gitkeep
 src/pages/review/ReviewPage.module.css
 src/pages/review/ReviewPage.tsx
 src/pages/runs/.gitkeep
+src/pages/runs/RunDetailPage.tsx
 src/pages/runs/RunsPage.module.css
+src/pages/runs/RunsPage.test.tsx
 src/pages/runs/RunsPage.tsx
 src/shared/api/client.test.ts
 src/shared/api/client.ts
 src/shared/api/endpoints.test.ts
 src/shared/api/endpoints.ts
 src/shared/api/schemas.ts
+src/shared/config/demoRun.ts
 src/shared/config/env.test.ts
 src/shared/config/env.ts
 src/shared/fixtures/sample.patch.ts
@@ -211,10 +226,14 @@ src/widgets/app-layout/ui/AppLayout.test.tsx
 src/widgets/app-layout/ui/AppLayout.tsx
 src/widgets/app-layout/ui/AppSidebar.tsx
 src/widgets/diff-viewer/index.ts
+src/widgets/diff-viewer/lib/tokensForHunks.test.ts
+src/widgets/diff-viewer/lib/tokensForHunks.ts
 src/widgets/diff-viewer/model/store.ts
 src/widgets/diff-viewer/model/types.ts
+src/widgets/diff-viewer/ui/DiffSuggestion.tsx
 src/widgets/diff-viewer/ui/DiffViewer.test.tsx
 src/widgets/diff-viewer/ui/DiffViewer.tsx
+src/widgets/diff-viewer/ui/InlineComment.test.tsx
 src/widgets/diff-viewer/ui/InlineComment.tsx
 src/widgets/diff-viewer/ui/LoadMoreContext.tsx
 src/widgets/diff-viewer/ui/RunDiff.test.tsx
@@ -227,6 +246,7 @@ src/widgets/run-inspector/index.ts
 src/widgets/run-inspector/lib/format.ts
 src/widgets/run-inspector/model/store.ts
 src/widgets/run-inspector/ui/ActionTree.tsx
+src/widgets/run-inspector/ui/RunHeader.test.tsx
 src/widgets/run-inspector/ui/RunHeader.tsx
 src/widgets/run-inspector/ui/RunInspector.test.tsx
 src/widgets/run-inspector/ui/RunInspector.tsx
@@ -658,13 +678,14 @@ issue прямо выносит подключение логирования з
   `get_blob`×11 + 4 одиночных: `get_pull_request`×2, `get_diff`, `post_review`);
 - `src/app/mocks/app-state.test.ts` — валидация всего мока схемами;
 - тесты компонентов под jsdom: `DiffViewer.test.tsx`, `RunDiff.test.tsx`, `RunInspector.test.tsx`,
-  `App.test.tsx`, `LoginPage.test.tsx`, `CallbackPage.test.tsx`, `RepositoriesPage.test.tsx`,
-  `RepositoryList.test.tsx`, `UserMenu.test.tsx`, `ThemeToggle.test.tsx`;
+  `RunHeader.test.tsx`, `InlineComment.test.tsx`, `App.test.tsx`, `LoginPage.test.tsx`,
+  `CallbackPage.test.tsx`, `RepositoriesPage.test.tsx`, `RepositoryList.test.tsx`,
+  `RunsPage.test.tsx`, `UserMenu.test.tsx`, `ThemeToggle.test.tsx`;
 - тесты сторов и утилит: `auth/model/store.test.ts`, `theme/model/store.test.ts` (включая `getInitialTheme`),
   `client.test.ts`, `formatError.test.ts`.
 
 Гейты (`AGENTS.md`): `pnpm lint`, `pnpm check-types`, `pnpm format:check`, `pnpm test` (`vitest run`),
-`pnpm build`. Итого 194 теста в 34 файлах (`pnpm test`, 2026-10-02).
+`pnpm build`. Итого 239 тестов в 43 файлах (`pnpm test`, 2026-10-03).
 
 Vitest настроен без `globals`, поэтому RTL не чистит DOM сама — в jsdom-тестах (`DiffViewer.test.tsx`,
 `RunDiff.test.tsx`, `RunInspector.test.tsx`) `afterEach(cleanup)` вызывается явно.

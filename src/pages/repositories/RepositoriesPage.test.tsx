@@ -289,7 +289,7 @@ describe('RepositoriesPage', () => {
     globalThis.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
       const urlStr = typeof url === 'string' ? url : ''
       if (urlStr.includes('/api/repos') && init?.method === 'PATCH') {
-        patchSpy()
+        patchSpy(typeof init.body === 'string' ? JSON.parse(init.body) : undefined)
         return Promise.resolve(new Response('Server Error', { status: 500 }))
       }
       return Promise.resolve(
@@ -325,6 +325,8 @@ describe('RepositoriesPage', () => {
 
     // Wait until PATCH request has actually been executed and message error is shown
     await screen.findByText('Внутренняя ошибка сервера (500). Повторите попытку позже.')
+    expect(patchSpy).toHaveBeenCalledTimes(1)
+    expect(patchSpy).toHaveBeenCalledWith(expect.objectContaining({ maxComments: 5 }))
 
     // After PATCH failure, modal must stay open with values intact
     expect(screen.getByText('Настройки репозитория larchanka-training/dmc-268-ui-t6')).toBeDefined()

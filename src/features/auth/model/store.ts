@@ -124,6 +124,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         setAccessToken(parsed.accessToken)
         set({
           isAuthenticated: true,
+          isInitialized: true,
           isLoading: false,
           error: null,
         })
