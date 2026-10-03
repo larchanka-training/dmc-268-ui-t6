@@ -5,3 +5,5 @@ dist/
 *.log
 .eslintcache
 .stylelintcache
+__pycache__/
+.pytest_cache/
