@@ -13,6 +13,7 @@ import {
 import { useAuthStore } from '../features/auth'
 import { AppLayout } from '../widgets/app-layout'
 import { DEMO_RUN_ID } from '../shared/config/demoRun'
+import styles from './routes.module.css'
 
 const LoginPage = lazy(() =>
   import('../pages/login/LoginPage').then((m) => ({ default: m.LoginPage })),
@@ -29,7 +30,7 @@ const RunDetailPage = lazy(() =>
 )
 
 export const PageFallback: FC = () => (
-  <Flex align="center" justify="center" style={{ minHeight: '60vh' }}>
+  <Flex align="center" className={styles.fallbackContainer} justify="center">
     <Spin size="large" />
   </Flex>
 )
@@ -39,7 +40,7 @@ export const RouteErrorFallback: FC = () => {
   const msg = error instanceof Error ? error.message : 'Непредвиденная ошибка приложения'
 
   return (
-    <Flex align="center" justify="center" style={{ minHeight: '100vh', padding: 24 }}>
+    <Flex align="center" className={styles.errorContainer} justify="center">
       <Result
         extra={
           <Button onClick={() => (window.location.href = '/repositories')} type="primary">
@@ -76,7 +77,7 @@ export const ProtectedLayout: FC = () => {
 
   if (!initialized || isLoading) {
     return (
-      <Flex align="center" justify="center" style={{ minHeight: '100vh' }}>
+      <Flex align="center" className={styles.fullPageContainer} justify="center">
         <Spin size="large" />
       </Flex>
     )

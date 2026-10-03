@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-import { AuthSessionSchema } from '../../../entities/user'
+import { AuthSessionSchema, fetchMe } from '../../../entities/user'
 import {
   apiClient,
   getAccessToken,
@@ -12,6 +12,7 @@ import { endpoints } from '../../../shared/api/endpoints'
 import { GITHUB_CLIENT_ID, USE_MOCKS } from '../../../shared/config/env'
 
 export const STATE_STORAGE_KEY = 'dmc_auth_oauth_state'
+export const MOCK_TOKEN = 'mock_jwt_token_skvertl_dmc'
 
 export function generateRandomState(): string {
   const bytes = new Uint8Array(32)
@@ -23,12 +24,29 @@ export function generateRandomState(): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-export const MOCK_TOKEN = 'mock_jwt_token_skvertl_dmc'
-
 let onLogoutCallback: (() => void) | null = null
 
 export function setOnLogout(callback: () => void): void {
   onLogoutCallback = callback
+}
+
+export interface MockAuthAdapter {
+  getMockOAuthCode?: () => string
+  loginAsMockUser?: () => void
+  isMockToken?: (token: string | null) => boolean
+}
+
+let mockAuthAdapter: MockAuthAdapter | null = null
+
+export function setMockAuthAdapter(adapter: MockAuthAdapter | null): void {
+  mockAuthAdapter = adapter
+}
+
+function isMockOAuthCode(code: string): boolean {
+  if (mockAuthAdapter?.getMockOAuthCode?.() === code) {
+    return true
+  }
+  return USE_MOCKS && code.startsWith('mock_')
 }
 
 export interface AuthState {
@@ -55,8 +73,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     const redirectUri = `${window.location.origin}/auth/callback`
     if (!GITHUB_CLIENT_ID) {
-      if (USE_MOCKS) {
-        window.location.href = `${redirectUri}?code=mock_code_123`
+      const mockCode = mockAuthAdapter?.getMockOAuthCode?.()
+      if (mockCode) {
+        window.location.href = `${redirectUri}?code=${mockCode}`
       } else {
         set({ error: 'Вход не настроен (VITE_GITHUB_CLIENT_ID)' })
       }
@@ -89,9 +108,13 @@ export const useAuthStore = create<AuthState>((set) => ({
         // Ignore storage errors
       }
 
-      // If mock mode is enabled and mock code is passed without real client ID
-      if (USE_MOCKS && code.startsWith('mock_')) {
-        setAccessToken(MOCK_TOKEN)
+      if (isMockOAuthCode(code)) {
+        const res = await apiClient<unknown>(endpoints.auth.githubCallback(), {
+          body: { code },
+        })
+        const parsed = AuthSessionSchema.parse(res)
+
+        setAccessToken(parsed.accessToken)
         set({
           isAuthenticated: true,
           isLoading: false,
@@ -102,15 +125,15 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       if (!savedState || !state || state !== savedState) {
         setAccessToken(null)
+        const errorMsg = 'Недействительный параметр безопасности state (защита от CSRF)'
         set({
           isAuthenticated: false,
           isLoading: false,
-          error: 'Недействительный параметр безопасности state (защита от CSRF)',
+          error: errorMsg,
         })
-        throw new Error('Invalid OAuth state parameter')
+        throw new Error(errorMsg)
       }
 
-      // Real code exchange via POST /api/auth/github/callback
       const res = await apiClient<unknown>(endpoints.auth.githubCallback(), {
         body: { code },
       })
@@ -135,13 +158,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   loginAsMockUser: () => {
-    if (!USE_MOCKS && import.meta.env.MODE !== 'test') return
-    setAccessToken(MOCK_TOKEN)
-    set({
-      isAuthenticated: true,
-      isLoading: false,
-      error: null,
-    })
+    mockAuthAdapter?.loginAsMockUser?.()
   },
 
   logout: async () => {
@@ -164,8 +181,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   initAuth: async () => {
-    // If mock mode is explicitly on and mock user is in memory
-    if (USE_MOCKS && getAccessToken() === MOCK_TOKEN) {
+    if (mockAuthAdapter?.isMockToken?.(getAccessToken())) {
       set({
         isAuthenticated: true,
         isLoading: false,
@@ -184,6 +200,17 @@ export const useAuthStore = create<AuthState>((set) => ({
         return
       }
 
+      if (mockAuthAdapter?.isMockToken?.(newToken)) {
+        set({
+          isAuthenticated: true,
+          isLoading: false,
+          error: null,
+        })
+        return
+      }
+
+      await fetchMe(newToken)
+
       set({
         isAuthenticated: true,
         isLoading: false,
@@ -199,7 +226,6 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 }))
 
-// Automatically connect 401 unauthorized handler to logout
 setOnUnauthorized(() => {
   void useAuthStore.getState().logout()
 })

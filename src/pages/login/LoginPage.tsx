@@ -1,10 +1,11 @@
 import { CheckCircleOutlined, RobotOutlined } from '@ant-design/icons'
-import { Alert, Card, Flex, Layout, List, Typography, theme } from 'antd'
+import { Alert, Button, Card, Flex, Layout, List, Typography, theme } from 'antd'
 import type { FC } from 'react'
 
 import { useMe } from '../../entities/user'
 import { LoginButton, useAuthStore } from '../../features/auth'
 import { ThemeToggle } from '../../features/theme'
+import styles from './LoginPage.module.css'
 
 const { Title, Paragraph, Text } = Typography
 
@@ -27,43 +28,36 @@ export const LoginPage: FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
   return (
     <Layout
+      className={styles.container}
       style={{
-        minHeight: '100vh',
         background: token.colorBgLayout,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 24,
       }}
     >
-      <div style={{ position: 'absolute', top: 20, right: 24 }}>
+      <div className={styles.themeToggleWrapper}>
         <ThemeToggle size="large" />
       </div>
 
       <Card
+        className={styles.card}
         style={{
-          width: '100%',
-          maxWidth: 520,
           boxShadow: token.boxShadowSecondary,
           borderRadius: token.borderRadiusLG,
         }}
       >
-        <Flex align="center" gap="middle" style={{ marginBottom: 24 }}>
+        <Flex align="center" className={styles.headerFlex} gap="middle">
           <div
+            className={styles.iconWrapper}
             style={{
-              width: 56,
-              height: 56,
-              borderRadius: '50%',
               background: token.colorPrimaryBg,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
             }}
           >
-            <RobotOutlined style={{ fontSize: 32, color: token.colorPrimary }} />
+            <RobotOutlined
+              className={styles.headerIcon}
+              style={{ fontSize: token.fontSizeHeading1, color: token.colorPrimary }}
+            />
           </div>
           <div>
-            <Title level={3} style={{ margin: 0 }}>
+            <Title className={styles.title} level={3}>
               AI Code Reviewer
             </Title>
             <Text type="secondary">Платформа инспекции кода — Команда 6</Text>
@@ -76,28 +70,30 @@ export const LoginPage: FC<LoginPageProps> = ({ onLoginSuccess }) => {
         </Paragraph>
 
         <List
+          className={styles.list}
           dataSource={features}
           renderItem={(item) => (
-            <List.Item style={{ padding: '8px 0', border: 'none' }}>
+            <List.Item className={styles.listItem}>
               <Flex align="center" gap="small">
                 <CheckCircleOutlined style={{ color: token.colorSuccess }} />
-                <Text style={{ fontSize: 13 }}>{item}</Text>
+                <Text className={styles.featureText} style={{ fontSize: token.fontSizeSM }}>
+                  {item}
+                </Text>
               </Flex>
             </List.Item>
           )}
-          style={{ marginBottom: 32 }}
         />
 
         {authError ? (
-          <Alert showIcon style={{ marginBottom: 16 }} title={authError} type="error" />
+          <Alert className={styles.alert} showIcon title={authError} type="error" />
         ) : null}
 
         {isAuthenticated ? (
           <Flex vertical gap="small">
             <Text strong>Вы уже авторизованы как {user?.login ?? 'пользователь'}</Text>
-            <div style={{ marginTop: 8 }}>
-              <button
-                className="ant-btn ant-btn-primary ant-btn-lg"
+            <div className={styles.buttonContainer}>
+              <Button
+                block
                 onClick={() => {
                   if (onLoginSuccess) {
                     onLoginSuccess()
@@ -105,17 +101,21 @@ export const LoginPage: FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     window.location.href = '/repositories'
                   }
                 }}
-                style={{ width: '100%' }}
-                type="button"
+                size="large"
+                type="primary"
               >
                 Перейти в панель управления
-              </button>
+              </Button>
             </div>
           </Flex>
         ) : (
           <Flex align="center" gap="middle" vertical>
             <LoginButton size="large" />
-            <Text style={{ fontSize: 12 }} type="secondary">
+            <Text
+              className={styles.helpText}
+              style={{ fontSize: token.fontSizeSM }}
+              type="secondary"
+            >
               Вход выполняется через GitHub App бота-ревьюера
             </Text>
           </Flex>

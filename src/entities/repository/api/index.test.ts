@@ -102,5 +102,20 @@ describe('repository API client methods', () => {
     })
 
     expect(capturedBody).toEqual({ enabled: false })
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/repos/a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+      expect.objectContaining({ method: 'PATCH' }),
+    )
+  })
+
+  it('fetchRepositories throws error when response does not match repository schema', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify([{ id: 'x' }]), {
+        status: 200,
+        statusText: 'OK',
+      }),
+    )
+
+    await expect(fetchRepositories()).rejects.toThrow()
   })
 })

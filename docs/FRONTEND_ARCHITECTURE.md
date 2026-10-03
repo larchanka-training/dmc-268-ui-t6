@@ -37,7 +37,7 @@ antd, TanStack Query и jsdom — патчи от 2026-09-24.
 | Ф-9  | Новый эндпоинт `GET /api/runs/{id}/files?path&offset&limit`                                                                                                     | дочитывание контекста порциями; путь внесён в [SD §12][sd-12] (§5, п. 7).                                                                                                                                   |
 | Ф-10 | JSON на проводе — camelCase                                                                                                                                     | Zod-схемы фронта — источник истины — [SD §12][sd-12]; иначе трансформер на каждом ответе.                                                                                                                   |
 | Ф-11 | Самые свежие стабильные версии (React 19.3, Vite 8.3, Vitest 5.0, TS 7.0.2, линтер — 6.0.3) — решение роли 5 при отсутствии ответа команды; уточнено 2026-09-24 | peer-совместимость проверена по npm registry; у TS 7.0 нет JS API — typescript-eslint (peer `typescript >=4.8.4 <6.1.0`) на 6.0.x, рядом с 7.0 — #47; расхождения с PR #26/#33 — предложениями в их тредах. |
-| Ф-12 | react-router 8 / Mantine 9 только названы, не установлены                                                                                                       | экранов в спринте нет (non-goal); React 19.3 их peer-требования (≥ 19.2) выполняет.                                                                                                                         |
+| Ф-12 | react-router 8 установлен (^8.4.0) для декларативной маршрутизации; Mantine 9 — не установлен                                                                   | SPA-роутер App Shell (/login, /auth/callback, /repositories, /runs, /review); React 19.3 выполняет peer-требование (≥ 19.2.7).                                                                              |
 | Ф-13 | Стили: antd tokens для темизации + CSS Modules для layout-контейнеров; Tailwind — нет                                                                           | один источник цветов/отступов, layout без рантайма; stylelint-override для `*.module.css` — [решение техлида][tl-2026-09-24-46] (§3).                                                                       |
 | Ф-14 | SSE — `fetch`-стрим с `Authorization: Bearer`, а не `EventSource`                                                                                               | `EventSource` не отправляет заголовки, а `/api/stream` требует Bearer ([решение техлида][tl-2026-09-27-api20], api#20 D4); `401` → refresh → переподключение (§2).                                          |
 | Ф-15 | Авторизация — GitHub App user authorization; access-токен только в памяти, refresh — httpOnly-cookie; fail closed                                               | [решение техлида][tl-2026-09-27-api20], api#20 D4; токен в памяти — дефолт плана api#20; fail closed, общий refresh, старт refresh → `/me` — правила клиента (§11).                                         |
@@ -582,8 +582,7 @@ issue прямо выносит подключение логирования з
 `tsconfig.node.json` — follow-up (§11). Прод-порт
 — зона ответственности инфры (роль 3, PR #28, сейчас `:8080` захардкожен).
 
-**Роутер.** Назван **react-router 8** (8.4.0, peer react ≥ 19.2.7 — выполняется), не установлен —
-экранов в спринте нет.
+**Роутер.** Установлен **react-router 8** (^8.4.0, peer react ≥ 19.2.7 — выполняется), настроен в `src/app/routes.tsx` с `AppLayoutRoute` и `ProtectedLayout`.
 
 ---
 

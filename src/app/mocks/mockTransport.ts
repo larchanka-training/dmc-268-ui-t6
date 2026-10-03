@@ -1,17 +1,22 @@
-import { ApiError, setMockTransport } from '../../shared/api/client'
+import { z } from 'zod'
+
 import { RawFileDiffSchema } from '../../entities/diff'
 import { RepositorySchema, UpdateRepositorySchema } from '../../entities/repository'
+import { setMockAuthAdapter, useAuthStore } from '../../features/auth'
+import { ApiError, setAccessToken, setMockTransport } from '../../shared/api/client'
 import { USE_MOCKS } from '../../shared/config/env'
-import { z } from 'zod'
+import { SAMPLE_PATCHES } from '../../shared/fixtures/sample.patch'
+import { mockCurrentUser, mockRepositories, mockSummaryOnlyDiff } from './app-state'
+import { mockRunsListPage } from './mockRunsList.fixture'
 import {
+  REVIEW_LEGACY_RUN_ID,
   buildMockRunDetail,
   mockLegacyRunSessionPayload,
   mockRawDiffForRun,
-  REVIEW_LEGACY_RUN_ID,
 } from './mockRunReview'
-import { mockRunsListPage } from './mockRunsList.fixture'
-import { mockCurrentUser, mockRepositories, mockSummaryOnlyDiff } from './app-state'
-import { SAMPLE_PATCHES } from '../../shared/fixtures/sample.patch'
+
+export const MOCK_TOKEN = 'mock_jwt_token_skvertl_dmc'
+export const MOCK_OAUTH_CODE = 'mock_code_123'
 
 function findRunSession(id: string) {
   return mockRunsListPage.items.find((run) => run.id === id)
@@ -19,6 +24,19 @@ function findRunSession(id: string) {
 
 export function initMockTransport(): void {
   if (!USE_MOCKS) return
+
+  setMockAuthAdapter({
+    getMockOAuthCode: () => MOCK_OAUTH_CODE,
+    loginAsMockUser: () => {
+      setAccessToken(MOCK_TOKEN)
+      useAuthStore.setState({
+        isAuthenticated: true,
+        isLoading: false,
+        error: null,
+      })
+    },
+    isMockToken: (token) => token === MOCK_TOKEN,
+  })
 
   setMockTransport((endpoint, options) => {
     if (endpoint.path === '/repos' && endpoint.method === 'GET') {
@@ -109,7 +127,7 @@ export function initMockTransport(): void {
 
     if (endpoint.path === '/auth/refresh' && endpoint.method === 'POST') {
       return {
-        accessToken: 'mock_jwt_token_skvertl_dmc',
+        accessToken: MOCK_TOKEN,
         tokenType: 'Bearer',
         expiresIn: 900,
         user: mockCurrentUser,
@@ -118,7 +136,7 @@ export function initMockTransport(): void {
 
     if (endpoint.path === '/auth/github/callback' && endpoint.method === 'POST') {
       return {
-        accessToken: 'mock_jwt_token_skvertl_dmc',
+        accessToken: MOCK_TOKEN,
         tokenType: 'Bearer',
         expiresIn: 900,
         user: mockCurrentUser,

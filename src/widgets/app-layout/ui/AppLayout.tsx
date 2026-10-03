@@ -2,6 +2,7 @@ import { Layout, theme } from 'antd'
 import type { FC, ReactNode } from 'react'
 
 import { AppHeader } from './AppHeader'
+import styles from './AppLayout.module.css'
 import { AppSidebar } from './AppSidebar'
 
 const { Content } = Layout
@@ -22,16 +23,14 @@ export const AppLayout: FC<AppLayoutProps> = ({
   const { token } = theme.useToken()
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    <Layout className={styles.layout}>
       <AppHeader extra={headerExtra} />
       <Layout>
         <AppSidebar currentPath={currentPath} onNavigate={onNavigate} />
         <Content
+          className={styles.content}
           style={{
-            padding: 24,
             background: token.colorBgLayout,
-            minHeight: 'calc(100vh - 64px)',
-            overflow: 'auto',
           }}
         >
           {children}

@@ -24,6 +24,7 @@ import {
   Tag,
   Tooltip,
   Typography,
+  theme,
 } from 'antd'
 import { useMemo, useState, type FC } from 'react'
 
@@ -35,6 +36,7 @@ import type {
   WaitForCi,
 } from '../../../entities/repository'
 import { GITHUB_APP_SLUG } from '../../../shared/config/env'
+import styles from './RepositoryList.module.css'
 
 const { Text, Link } = Typography
 
@@ -55,6 +57,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
   onUpdateRepository,
   onRefresh,
 }) => {
+  const { token } = theme.useToken()
   const [search, setSearch] = useState('')
   const [filterActive, setFilterActive] = useState<'all' | 'active'>('all')
   const [editingRepo, setEditingRepo] = useState<Repository | null>(null)
@@ -64,7 +67,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
   const isAppConfigured = Boolean(GITHUB_APP_SLUG)
   const appInstallUrl = isAppConfigured
     ? `https://github.com/apps/${GITHUB_APP_SLUG}/installations/new`
-    : 'https://github.com/apps'
+    : undefined
 
   const filteredRepositories = useMemo(() => {
     return repositories.filter((repo) => {
@@ -127,7 +130,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
   const connectButton = (
     <Button
       disabled={!isAppConfigured}
-      href={isAppConfigured ? appInstallUrl : undefined}
+      href={appInstallUrl}
       icon={<PlusOutlined />}
       rel="noopener noreferrer"
       target="_blank"
@@ -140,7 +143,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
   const emptyConnectButton = (
     <Button
       disabled={!isAppConfigured}
-      href={isAppConfigured ? appInstallUrl : undefined}
+      href={appInstallUrl}
       icon={<GithubOutlined />}
       rel="noopener noreferrer"
       target="_blank"
@@ -159,12 +162,12 @@ export const RepositoryList: FC<RepositoryListProps> = ({
         const shortName = fullName.split('/')[1] ?? fullName
         return (
           <Flex align="center" gap="small">
-            <GithubOutlined style={{ fontSize: 18 }} />
+            <GithubOutlined style={{ fontSize: token.fontSizeLG }} />
             <Flex vertical>
               <Link href={record.url} rel="noopener noreferrer" strong target="_blank">
                 {fullName}
               </Link>
-              <Text style={{ fontSize: 12 }} type="secondary">
+              <Text style={{ fontSize: token.fontSizeSM }} type="secondary">
                 {shortName} • {record.id}
               </Text>
             </Flex>
@@ -264,7 +267,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
               <span>{connectButton}</span>
             </Tooltip>
           ) : (
-            connectButton
+            <Tooltip title="После установки GitHub App нажмите «Обновить»">{connectButton}</Tooltip>
           )}
         </Space>
       }
@@ -274,20 +277,20 @@ export const RepositoryList: FC<RepositoryListProps> = ({
           <Badge
             count={repositories.length}
             overflowCount={999}
-            style={{ backgroundColor: '#1677ff' }}
+            style={{ backgroundColor: token.colorPrimary }}
           />
         </Flex>
       }
     >
-      <Flex gap="middle" justify="space-between" style={{ marginBottom: 16 }} wrap="wrap">
+      <Flex className={styles.toolbar} gap="middle" justify="space-between" wrap="wrap">
         <Input
           allowClear
+          className={styles.searchInput}
           onChange={(e) => {
             setSearch(e.target.value)
           }}
           placeholder="Поиск по названию..."
           prefix={<SearchOutlined />}
-          style={{ maxWidth: 320 }}
           value={search}
         />
 
@@ -306,7 +309,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
 
       {repositories.length === 0 && !loading ? (
         <Empty
-          description="Репозитории ещё не подключены. Установите GitHub App для предоставления доступа к вашим репозиториям."
+          description="Репозитории ещё не подключены. Установите GitHub App для предоставления доступа к вашим репозиториям. После установки нажмите «Обновить»."
           image={Empty.PRESENTED_IMAGE_SIMPLE}
         >
           {!isAppConfigured ? (
@@ -314,7 +317,9 @@ export const RepositoryList: FC<RepositoryListProps> = ({
               <span>{emptyConnectButton}</span>
             </Tooltip>
           ) : (
-            emptyConnectButton
+            <Tooltip title="После установки GitHub App нажмите «Обновить»">
+              {emptyConnectButton}
+            </Tooltip>
           )}
         </Empty>
       ) : (
@@ -370,7 +375,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
               { type: 'number', min: 1, max: 10, message: 'Число от 1 до 10' },
             ]}
           >
-            <InputNumber max={10} min={1} precision={0} style={{ width: '100%' }} />
+            <InputNumber className={styles.fullWidth} max={10} min={1} precision={0} />
           </Form.Item>
 
           <Form.Item

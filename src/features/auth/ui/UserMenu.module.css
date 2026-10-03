@@ -1,0 +1,9 @@
+.trigger {
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.loginText {
+  max-width: 120px;
+}

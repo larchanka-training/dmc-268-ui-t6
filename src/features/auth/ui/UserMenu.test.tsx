@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -28,19 +28,25 @@ describe('UserMenu', () => {
     queryClient.clear()
   })
 
-  it('renders nothing when user is null', () => {
+  it('renders fallback trigger with logout available when user is undefined', async () => {
     vi.spyOn(userApi, 'useMe').mockReturnValue({
       data: undefined,
       isLoading: false,
-      isError: false,
+      isError: true,
     } as unknown as ReturnType<typeof userApi.useMe>)
 
-    const { container } = render(
+    render(
       <QueryClientProvider client={queryClient}>
         <UserMenu />
       </QueryClientProvider>,
     )
-    expect(container.firstChild).toBeNull()
+    const trigger = screen.getByLabelText('Меню пользователя')
+    expect(trigger).toBeDefined()
+    expect(screen.getByText('Пользователь')).toBeDefined()
+
+    // Click trigger to open dropdown and verify logout button is present
+    fireEvent.click(trigger)
+    expect(await screen.findByText('Выйти')).toBeDefined()
   })
 
   it('renders user details when user is loaded', () => {

@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { getAccessToken, setAccessToken, setMockTransport } from '../../../shared/api/client'
-import { MOCK_TOKEN, STATE_STORAGE_KEY, setOnLogout, useAuthStore } from './store'
+import { STATE_STORAGE_KEY, setMockAuthAdapter, setOnLogout, useAuthStore } from './store'
 
 describe('useAuthStore', () => {
   const originalFetch = globalThis.fetch
@@ -11,6 +11,7 @@ describe('useAuthStore', () => {
     sessionStorage.clear()
     setAccessToken(null)
     setMockTransport(null)
+    setMockAuthAdapter(null)
     useAuthStore.setState({
       isAuthenticated: false,
       isLoading: false,
@@ -24,6 +25,7 @@ describe('useAuthStore', () => {
     sessionStorage.clear()
     setAccessToken(null)
     setMockTransport(null)
+    setMockAuthAdapter(null)
   })
 
   it('handleCallback verifies state and creates session on successful exchange', async () => {
@@ -64,7 +66,7 @@ describe('useAuthStore', () => {
     globalThis.fetch = mockFetch
 
     await expect(useAuthStore.getState().handleCallback('valid_code', 'bad_state')).rejects.toThrow(
-      'Invalid OAuth state parameter',
+      /защита от CSRF/i,
     )
 
     expect(mockFetch).not.toHaveBeenCalled()
@@ -81,7 +83,7 @@ describe('useAuthStore', () => {
 
     await expect(
       useAuthStore.getState().handleCallback('attacker_code', 'attacker_state'),
-    ).rejects.toThrow('Invalid OAuth state parameter')
+    ).rejects.toThrow(/защита от CSRF/i)
 
     expect(mockFetch).not.toHaveBeenCalled()
     const state = useAuthStore.getState()
@@ -158,26 +160,43 @@ describe('useAuthStore', () => {
     )
   })
 
-  it('initAuth sets isAuthenticated: true when refresh succeeds with complete AuthSession fixture', async () => {
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          accessToken: 'new_token_123',
-          tokenType: 'Bearer',
-          expiresIn: 900,
-          user: {
-            id: 114473628,
-            login: 'skvertl',
-            name: 'Denis',
-            avatarUrl: null,
-          },
-        }),
-        {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        },
-      ),
-    )
+  it('initAuth sets isAuthenticated: true when refresh and GET /api/auth/me succeed', async () => {
+    const mockUser = {
+      id: 114473628,
+      login: 'skvertl',
+      name: 'Denis',
+      avatarUrl: null,
+      workspaces: [],
+    }
+
+    const mockFetch = vi.fn().mockImplementation((url: RequestInfo | URL) => {
+      const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url
+      if (urlStr.includes('/auth/refresh')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              accessToken: 'new_token_123',
+              tokenType: 'Bearer',
+              expiresIn: 900,
+              user: mockUser,
+            }),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            },
+          ),
+        )
+      }
+      if (urlStr.includes('/auth/me')) {
+        return Promise.resolve(
+          new Response(JSON.stringify(mockUser), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        )
+      }
+      return Promise.resolve(new Response('{}', { status: 200 }))
+    })
     globalThis.fetch = mockFetch
 
     await useAuthStore.getState().initAuth()
@@ -187,35 +206,113 @@ describe('useAuthStore', () => {
     expect(getAccessToken()).toBe('new_token_123')
   })
 
+  it('initAuth fails closed when refresh succeeds but GET /api/auth/me returns 500', async () => {
+    const mockFetch = vi.fn().mockImplementation((url: RequestInfo | URL) => {
+      const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url
+      if (urlStr.includes('/auth/refresh')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              accessToken: 'new_token_123',
+              tokenType: 'Bearer',
+              expiresIn: 900,
+              user: {
+                id: 114473628,
+                login: 'skvertl',
+                name: 'Denis',
+                avatarUrl: null,
+              },
+            }),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            },
+          ),
+        )
+      }
+      if (urlStr.includes('/auth/me')) {
+        return Promise.resolve(new Response('Server error', { status: 500 }))
+      }
+      return Promise.resolve(new Response('{}', { status: 200 }))
+    })
+    globalThis.fetch = mockFetch
+
+    await useAuthStore.getState().initAuth()
+
+    const state = useAuthStore.getState()
+    expect(state.isAuthenticated).toBe(false)
+    expect(getAccessToken()).toBeNull()
+  })
+
+  it('initAuth fails closed when refresh succeeds but GET /api/auth/me returns schema-invalid response without workspaces', async () => {
+    const mockFetch = vi.fn().mockImplementation((url: RequestInfo | URL) => {
+      const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url
+      if (urlStr.includes('/auth/refresh')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              accessToken: 'new_token_123',
+              tokenType: 'Bearer',
+              expiresIn: 900,
+              user: {
+                id: 114473628,
+                login: 'skvertl',
+                name: 'Denis',
+                avatarUrl: null,
+              },
+            }),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            },
+          ),
+        )
+      }
+      if (urlStr.includes('/auth/me')) {
+        // Missing required 'workspaces' array per MeSchema
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              id: 114473628,
+              login: 'skvertl',
+              name: 'Denis',
+              avatarUrl: null,
+            }),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            },
+          ),
+        )
+      }
+      return Promise.resolve(new Response('{}', { status: 200 }))
+    })
+    globalThis.fetch = mockFetch
+
+    await useAuthStore.getState().initAuth()
+
+    const state = useAuthStore.getState()
+    expect(state.isAuthenticated).toBe(false)
+    expect(getAccessToken()).toBeNull()
+  })
+
   it('initAuth in mock mode with mock token restores session without network fetch', async () => {
     const fetchSpy = vi.fn()
     globalThis.fetch = fetchSpy
 
-    setMockTransport((endpoint) => {
-      if (endpoint.path === '/auth/refresh') {
-        return {
-          accessToken: MOCK_TOKEN,
-          tokenType: 'Bearer',
-          expiresIn: 900,
-          user: {
-            id: 114473628,
-            login: 'skvertl',
-            name: 'Denis',
-            avatarUrl: null,
-          },
-        }
-      }
-      return undefined
+    const LOCAL_MOCK_TOKEN = 'mock_jwt_token_local_test'
+    setMockAuthAdapter({
+      isMockToken: (t) => t === LOCAL_MOCK_TOKEN,
     })
 
-    // No token in memory initially
-    setAccessToken(null)
+    // Pre-set token in memory
+    setAccessToken(LOCAL_MOCK_TOKEN)
 
     await useAuthStore.getState().initAuth()
 
     const state = useAuthStore.getState()
     expect(state.isAuthenticated).toBe(true)
-    expect(getAccessToken()).toBe(MOCK_TOKEN)
+    expect(getAccessToken()).toBe(LOCAL_MOCK_TOKEN)
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 

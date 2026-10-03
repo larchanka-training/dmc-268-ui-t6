@@ -2,6 +2,7 @@ import { Button, Card, Flex, Layout, Result, Spin, Typography, theme } from 'ant
 import { useEffect, useRef, useState, type FC } from 'react'
 
 import { STATE_STORAGE_KEY, useAuthStore } from '../../features/auth'
+import styles from './CallbackPage.module.css'
 
 const { Text } = Typography
 
@@ -85,27 +86,21 @@ export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError, onBack
 
   return (
     <Layout
+      className={styles.container}
       style={{
-        minHeight: '100vh',
         background: token.colorBgLayout,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 24,
       }}
     >
       <Card
+        className={styles.card}
         style={{
-          width: '100%',
-          maxWidth: 480,
-          textAlign: 'center',
           boxShadow: token.boxShadowSecondary,
         }}
       >
         {status === 'loading' ? (
-          <Flex vertical align="center" gap="middle" style={{ padding: '32px 0' }}>
+          <Flex align="center" className={styles.loadingContent} gap="middle" vertical>
             <Spin size="large" />
-            <Text strong style={{ fontSize: 16 }}>
+            <Text strong style={{ fontSize: token.fontSizeLG }}>
               Авторизация через GitHub...
             </Text>
             <Text type="secondary">Обмениваем код подтверждения на сессионный токен</Text>
