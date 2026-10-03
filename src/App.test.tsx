@@ -332,7 +332,7 @@ describe('App root integration and protected routes', () => {
           }),
         )
       }
-      if (urlStr.includes('/runs') && !urlStr.match(/\/runs\/[^/?]+/)) {
+      if (urlStr.includes('/runs') && !/\/runs\/[^/?]+/.exec(urlStr)) {
         return Promise.resolve(
           new Response(JSON.stringify({ items: [], nextCursor: null }), {
             status: 200,
@@ -428,7 +428,7 @@ describe('App root integration and protected routes', () => {
           }),
         )
       }
-      if (urlStr.includes('/runs') && !urlStr.match(/\/runs\/[^/?]+/)) {
+      if (urlStr.includes('/runs') && !/\/runs\/[^/?]+/.exec(urlStr)) {
         return Promise.resolve(
           new Response(JSON.stringify({ items: [], nextCursor: null }), {
             status: 200,
