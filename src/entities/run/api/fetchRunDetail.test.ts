@@ -10,7 +10,7 @@ vi.mock('../../../shared/api/client', () => ({
 import { apiClient } from '../../../shared/api/client'
 
 describe('fetchRunDetail', () => {
-  it('parses a legacy RunSession wire payload with defaults', async () => {
+  it('parses a running run detail wire payload', async () => {
     vi.mocked(apiClient).mockResolvedValueOnce({
       id: '11111111-1111-4111-8111-000000000002',
       engine: 'deep',
@@ -30,6 +30,11 @@ describe('fetchRunDetail', () => {
       },
       actionCount: 12,
       errorCode: null,
+      findings: [],
+      summary: null,
+      verdict: null,
+      severityCounts: { critical: 0, high: 0, medium: 0, low: 0, info: 0 },
+      budget: null,
     })
 
     const run = await fetchRunDetail('11111111-1111-4111-8111-000000000002')

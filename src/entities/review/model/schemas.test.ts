@@ -48,6 +48,17 @@ describe('ReviewCommentSchema', () => {
     }
   })
 
+  it.each(['oldLine', 'newLine', 'endLine'] as const)(
+    'rejects %s 0 — contract sets minimum 1',
+    (field) => {
+      const result = ReviewCommentSchema.safeParse({ ...reviewComment, oldLine: 3, [field]: 0 })
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error.issues[0]?.path).toEqual([field])
+      }
+    },
+  )
+
   it('rejects an unknown severity value', () => {
     expect(ReviewCommentSchema.safeParse({ ...reviewComment, severity: 'blocker' }).success).toBe(
       false,

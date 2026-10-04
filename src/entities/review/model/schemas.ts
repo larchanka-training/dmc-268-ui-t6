@@ -13,9 +13,9 @@ export const ReviewCommentSchema = z
   .object({
     id: z.uuid(),
     file: z.string(),
-    oldLine: z.int().nonnegative().nullable(),
-    newLine: z.int().nonnegative().nullable(),
-    endLine: z.int().nonnegative().nullable(),
+    oldLine: z.int().min(1).nullable(),
+    newLine: z.int().min(1).nullable(),
+    endLine: z.int().min(1).nullable(),
     body: z.string(),
     ruleName: z.string().nullable(),
     severity: SeveritySchema,
@@ -38,11 +38,9 @@ export const FindingViewSchema = z
   .object({
     id: z.uuid(),
     file: z.string(),
-    // Contract `FindingView` sets `minimum: 1` on all three — unlike `ReviewComment`
-    // above, which is `minimum: 0`. Deliberately not unified with the sibling schema.
-    oldLine: z.int().positive().nullable(),
-    newLine: z.int().positive().nullable(),
-    endLine: z.int().positive().nullable(),
+    oldLine: z.int().min(1).nullable(),
+    newLine: z.int().min(1).nullable(),
+    endLine: z.int().min(1).nullable(),
     side: SideSchema,
     severity: SeveritySchema,
     category: CategorySchema,

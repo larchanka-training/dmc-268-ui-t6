@@ -4,12 +4,12 @@ import type { RunDetail, RunSession, Verdict } from '../../entities/run'
 import { DEMO_RUN_ID } from '../../shared/config/demoRun'
 
 export const REVIEW_DEMO_RUN_ID = DEMO_RUN_ID
-export const REVIEW_LEGACY_RUN_ID = '11111111-1111-4111-8111-000000000002'
 export const REVIEW_SUMMARY_ONLY_RUN_ID = '11111111-1111-4111-8111-000000000008'
 export const REVIEW_ATTENTION_RUN_ID = '11111111-1111-4111-8111-000000000009'
 export const REVIEW_CLEAN_RUN_ID = '11111111-1111-4111-8111-000000000010'
 
 const REPO = 'larchanka-training/dmc-268-ui-t6'
+const NO_FINDINGS = { critical: 0, high: 0, medium: 0, low: 0, info: 0 }
 
 function pullRequestUrl(number: number): string {
   return `https://github.com/${REPO}/pull/${String(number)}`
@@ -178,24 +178,13 @@ export const mockReviewFindings: FindingView[] = [
 ]
 
 export function buildMockRunDetail(session: RunSession): RunDetail {
-  if (session.id === REVIEW_LEGACY_RUN_ID) {
-    return {
-      ...session,
-      findings: [],
-      summary: null,
-      verdict: null,
-      severityCounts: null,
-      budget: null,
-    }
-  }
-
   if (session.id === REVIEW_SUMMARY_ONLY_RUN_ID) {
     return {
       ...session,
       findings: [],
       summary: null,
       verdict: null,
-      severityCounts: null,
+      severityCounts: NO_FINDINGS,
       budget: null,
     }
   }
@@ -240,7 +229,7 @@ export function buildMockRunDetail(session: RunSession): RunDetail {
     findings: [],
     summary: null,
     verdict: null,
-    severityCounts: null,
+    severityCounts: NO_FINDINGS,
     budget: null,
   }
 }
@@ -257,8 +246,4 @@ export function mockRawDiffForRun(
     return [...defaultDiff, { filename: 'package.json', patch: null }]
   }
   return defaultDiff
-}
-
-export function mockLegacyRunSessionPayload(session: RunSession): RunSession {
-  return session
 }
