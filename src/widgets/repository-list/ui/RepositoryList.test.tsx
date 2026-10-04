@@ -183,4 +183,30 @@ describe('RepositoryList', () => {
       })
     })
   })
+
+  it('calls onSyncAccess when "Обновить доступ" button is clicked in header', () => {
+    const handleSyncAccess = vi.fn()
+    render(<RepositoryList onSyncAccess={handleSyncAccess} repositories={mockRepos} />)
+
+    const syncBtn = screen.getByRole('button', { name: /обновить доступ/i })
+    fireEvent.click(syncBtn)
+
+    expect(handleSyncAccess).toHaveBeenCalledOnce()
+  })
+
+  it('renders "Обновить доступ" button in empty state and triggers callback', () => {
+    const handleSyncAccess = vi.fn()
+    render(<RepositoryList onSyncAccess={handleSyncAccess} repositories={[]} />)
+
+    const syncButtons = screen.getAllByRole('button', { name: /обновить доступ/i })
+    expect(syncButtons.length).toBe(2)
+    const targetBtn = syncButtons[1]
+    expect(targetBtn).toBeDefined()
+    if (!targetBtn) {
+      throw new Error('Button not found')
+    }
+    fireEvent.click(targetBtn)
+
+    expect(handleSyncAccess).toHaveBeenCalledOnce()
+  })
 })
