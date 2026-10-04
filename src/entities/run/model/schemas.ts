@@ -131,12 +131,12 @@ export const RunBudgetSchema = z.object({
 })
 export type RunBudget = z.infer<typeof RunBudgetSchema>
 
-/** RunSession plus review fields; missing extras default for legacy `GET /runs/{id}` (pre api#34). */
+/** RunSession plus review fields; all five are required, as in the contract. */
 export const RunDetailSchema = RunSessionSchema.extend({
-  findings: z.array(FindingViewSchema).optional().default([]),
-  summary: ReviewSummarySchema.nullable().optional().default(null),
-  verdict: VerdictSchema.nullable().optional().default(null),
-  severityCounts: SeverityCountsSchema.nullable().optional().default(null),
-  budget: RunBudgetSchema.nullable().optional().default(null),
+  findings: z.array(FindingViewSchema),
+  summary: ReviewSummarySchema.nullable(),
+  verdict: VerdictSchema.nullable(),
+  severityCounts: SeverityCountsSchema,
+  budget: RunBudgetSchema.nullable(),
 })
 export type RunDetail = z.infer<typeof RunDetailSchema>

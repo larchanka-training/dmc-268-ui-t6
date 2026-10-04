@@ -23,15 +23,17 @@ const runSession = {
   errorCode: null,
 }
 
+const reviewFields = {
+  findings: [],
+  summary: null,
+  verdict: null,
+  severityCounts: { critical: 0, high: 0, medium: 0, low: 0, info: 0 },
+  budget: null,
+}
+
 describe('RunDetailSchema', () => {
-  it('defaults missing review fields for a legacy RunSession payload', () => {
-    const result = RunDetailSchema.safeParse(runSession)
-    expect(result.success).toBe(true)
-    if (result.success) {
-      expect(result.data.findings).toEqual([])
-      expect(result.data.verdict).toBeNull()
-      expect(result.data.severityCounts).toBeNull()
-    }
+  it('accepts a running run: nullable review fields are null, counts are zeros', () => {
+    expect(RunDetailSchema.safeParse({ ...runSession, ...reviewFields }).success).toBe(true)
   })
 
   it('accepts a full run detail payload', () => {
@@ -46,6 +48,29 @@ describe('RunDetailSchema', () => {
       budget: null,
     })
     expect(result.success).toBe(true)
+  })
+
+  it.each(Object.keys(reviewFields))('rejects a payload without %s', (field) => {
+    const payload = Object.fromEntries(
+      Object.entries({ ...runSession, ...reviewFields }).filter(([key]) => key !== field),
+    )
+    const result = RunDetailSchema.safeParse(payload)
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues[0]?.path).toEqual([field])
+    }
+  })
+
+  it('rejects null severityCounts — the contract requires counts', () => {
+    const result = RunDetailSchema.safeParse({
+      ...runSession,
+      ...reviewFields,
+      severityCounts: null,
+    })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues[0]?.path).toEqual(['severityCounts'])
+    }
   })
 
   it('RunSessionSchema still parses without review fields', () => {

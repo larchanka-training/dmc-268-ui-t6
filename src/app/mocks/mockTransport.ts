@@ -8,12 +8,7 @@ import { USE_MOCKS } from '../../shared/config/env'
 import { SAMPLE_PATCHES } from '../../shared/fixtures/sample.patch'
 import { mockCurrentUser, mockRepositories, mockSummaryOnlyDiff } from './app-state'
 import { mockRunsListPage } from './mockRunsList.fixture'
-import {
-  REVIEW_LEGACY_RUN_ID,
-  buildMockRunDetail,
-  mockLegacyRunSessionPayload,
-  mockRawDiffForRun,
-} from './mockRunReview'
+import { buildMockRunDetail, mockRawDiffForRun } from './mockRunReview'
 
 export const MOCK_TOKEN = 'mock_jwt_token_skvertl_dmc'
 export const MOCK_OAUTH_CODE = 'mock_code_123'
@@ -87,9 +82,6 @@ export function initMockTransport(): void {
       const session = findRunSession(runId)
       if (!session) {
         throw new ApiError(404, 'Not Found', { message: 'Run not found' })
-      }
-      if (runId === REVIEW_LEGACY_RUN_ID) {
-        return mockLegacyRunSessionPayload(session)
       }
       return buildMockRunDetail(session)
     }
