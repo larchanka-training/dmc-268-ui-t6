@@ -26,6 +26,7 @@ export default defineConfig({
           ) {
             return 'vendor-react'
           }
+          return undefined
         },
       },
     },
