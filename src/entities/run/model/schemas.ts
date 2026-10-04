@@ -73,7 +73,7 @@ export const RunActionSchema = z.object({
   runId: z.uuid(),
   index: z.int().nonnegative(),
   tool: z.string(),
-  request: z.unknown(),
+  request: z.record(z.string(), z.unknown()),
   response: z.unknown().nullable(),
   responseRef: z.string().nullable(),
   startedAt: z.iso.datetime(),
