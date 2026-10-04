@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '../config/env'
+import { formatApiErrorMessage } from './apiErrorMessage'
 import type { Endpoint } from './endpoints'
 import { endpoints, resolveUrl } from './endpoints'
 import { RefreshResponseSchema, type RefreshResponse } from './schemas'
@@ -17,7 +18,7 @@ export class ApiError extends Error {
     public readonly statusText: string,
     public readonly data: unknown,
   ) {
-    super(`API Error ${String(status)}: ${statusText}`)
+    super(formatApiErrorMessage(status, statusText, data))
     this.name = 'ApiError'
   }
 }

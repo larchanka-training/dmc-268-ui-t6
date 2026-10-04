@@ -2,7 +2,7 @@ import { Button, Flex, Result, Spin } from 'antd'
 import { Suspense, type FC } from 'react'
 import { Navigate, Outlet, useLocation, useNavigate, useRouteError } from 'react-router'
 
-import { useAuthStore } from '../../features/auth'
+import { useAuthStore, saveAuthReturnTo } from '../../features/auth'
 import { AppLayout } from '../../widgets/app-layout'
 import styles from './RouteLayouts.module.css'
 
@@ -33,6 +33,7 @@ export const RouteErrorFallback: FC = () => {
 }
 
 export const ProtectedLayout: FC = () => {
+  const location = useLocation()
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   const isLoading = useAuthStore((state) => state.isLoading)
   const isInitialized = useAuthStore((state) => state.isInitialized)
@@ -46,6 +47,7 @@ export const ProtectedLayout: FC = () => {
   }
 
   if (!isAuthenticated) {
+    saveAuthReturnTo(location.pathname, location.search)
     return <Navigate replace to="/login" />
   }
 

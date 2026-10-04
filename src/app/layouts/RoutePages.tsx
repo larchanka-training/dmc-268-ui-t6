@@ -1,7 +1,7 @@
 import { lazy, type FC } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 
-import { useAuthStore } from '../../features/auth'
+import { useAuthStore, consumeAuthReturnTo } from '../../features/auth'
 import { PageFallback } from './RouteLayouts'
 
 const LoginPage = lazy(() =>
@@ -45,7 +45,7 @@ export const RoutedLoginPage: FC = () => {
   }
 
   if (isAuthenticated) {
-    return <Navigate replace to="/repositories" />
+    return <Navigate replace to={consumeAuthReturnTo('/repositories')} />
   }
 
   return (
@@ -69,7 +69,7 @@ export const RoutedCallbackPage: FC = () => {
         void navigate('/login', { replace: true })
       }}
       onSuccess={() => {
-        void navigate('/repositories', { replace: true })
+        void navigate(consumeAuthReturnTo('/repositories'), { replace: true })
       }}
     />
   )

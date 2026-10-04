@@ -29,6 +29,7 @@ export const endpoints = {
     comments: (id: string): Endpoint => ({ method: 'GET', path: `/runs/${id}/comments` }),
     files: (id: string): Endpoint => ({ method: 'GET', path: `/runs/${id}/files` }),
     cancel: (id: string): Endpoint => ({ method: 'POST', path: `/runs/${id}/cancel` }),
+    rerun: (id: string): Endpoint => ({ method: 'POST', path: `/runs/${id}/rerun` }),
   },
   stream: (): Endpoint => ({ method: 'GET', path: '/stream' }),
 } as const

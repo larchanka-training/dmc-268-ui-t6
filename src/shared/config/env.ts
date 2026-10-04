@@ -20,3 +20,8 @@ export const API_BASE_URL = env.VITE_API_BASE_URL
 export const GITHUB_CLIENT_ID = env.VITE_GITHUB_CLIENT_ID
 export const GITHUB_APP_SLUG = env.VITE_GITHUB_APP_SLUG
 export const USE_MOCKS = env.VITE_USE_MOCKS
+
+/** Single entry point for mock mode (Refs #65). */
+export function isMockMode(): boolean {
+  return USE_MOCKS
+}

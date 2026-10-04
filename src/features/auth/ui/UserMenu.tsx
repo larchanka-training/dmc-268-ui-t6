@@ -1,6 +1,6 @@
 import { LogoutOutlined, UserOutlined } from '@ant-design/icons'
 import { Avatar, Dropdown, Flex, type MenuProps, theme, Typography } from 'antd'
-import type { FC } from 'react'
+import { useState, type FC, type KeyboardEvent } from 'react'
 
 import { useMe } from '../../../entities/user'
 import { useAuthStore } from '../model/store'
@@ -9,9 +9,11 @@ import styles from './UserMenu.module.css'
 const { Text } = Typography
 
 export const UserMenu: FC = () => {
-  const { data: user } = useMe()
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
+  const { data: user } = useMe(isAuthenticated)
   const logout = useAuthStore((state) => state.logout)
   const { token } = theme.useToken()
+  const [open, setOpen] = useState(false)
 
   const items: MenuProps['items'] = [
     ...(user
@@ -44,14 +46,31 @@ export const UserMenu: FC = () => {
     },
   ]
 
+  const onTriggerKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      setOpen((value) => !value)
+    }
+  }
+
   return (
-    <Dropdown menu={{ items }} placement="bottomRight" trigger={['click']}>
+    <Dropdown
+      menu={{ items }}
+      onOpenChange={setOpen}
+      open={open}
+      placement="bottomRight"
+      trigger={['click']}
+    >
       <Flex
         align="center"
+        aria-expanded={open}
+        aria-haspopup="menu"
         aria-label="Меню пользователя"
         className={styles.trigger}
         gap="small"
+        onKeyDown={onTriggerKeyDown}
         role="button"
+        tabIndex={0}
       >
         <Avatar
           alt={user?.login ?? 'Пользователь'}

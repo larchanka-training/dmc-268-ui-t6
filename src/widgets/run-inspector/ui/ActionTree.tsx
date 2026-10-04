@@ -1,14 +1,15 @@
-import type { JSX } from 'react'
-import { Collapse, Tree, Typography } from 'antd'
+import type { JSX, ReactNode } from 'react'
+import { Collapse, Spin, Tree, Typography } from 'antd'
 import type { TreeDataNode } from 'antd'
 
 import type { ActionTreeNode, RunAction } from '../../../entities/run'
-import { groupActions } from '../../../entities/run'
+import { groupActions, useRunActionResponse } from '../../../entities/run'
 import { formatDuration } from '../lib/format'
 import { useRunInspectorStore } from '../model/store'
 
 interface ActionTreeProps {
   actions: RunAction[]
+  runId: string
 }
 
 function actionTitle(action: RunAction): string {
@@ -51,15 +52,35 @@ function parseActionIndex(key: string): number | null {
 }
 
 export function ActionTree(props: ActionTreeProps): JSX.Element {
-  const { actions } = props
+  const { actions, runId } = props
   const treeData = groupActions(actions).map(toDataNode)
   const expandedKeys = useRunInspectorStore((s) => s.expandedKeys)
   const setExpandedKeys = useRunInspectorStore((s) => s.setExpandedKeys)
   const selectedActionIndex = useRunInspectorStore((s) => s.selectedActionIndex)
   const selectAction = useRunInspectorStore((s) => s.selectAction)
+  const responseQuery = useRunActionResponse(runId, selectedActionIndex)
 
   const selectedKeys = selectedActionIndex !== null ? [`action-${String(selectedActionIndex)}`] : []
   const selectedAction = actions.find((action) => action.index === selectedActionIndex)
+
+  function responseBody(): ReactNode {
+    if (selectedAction === undefined) {
+      return null
+    }
+    if (selectedAction.response !== null) {
+      return <pre>{JSON.stringify(selectedAction.response, null, 2)}</pre>
+    }
+    if (selectedAction.responseRef === null) {
+      return <Typography.Text type="secondary">—</Typography.Text>
+    }
+    if (responseQuery.isLoading) {
+      return <Spin size="small" />
+    }
+    if (responseQuery.isError) {
+      return <Typography.Text type="danger">Не удалось загрузить ответ</Typography.Text>
+    }
+    return <pre>{JSON.stringify(responseQuery.data, null, 2)}</pre>
+  }
 
   return (
     <div>
@@ -88,14 +109,7 @@ export function ActionTree(props: ActionTreeProps): JSX.Element {
             {
               key: 'response',
               label: 'response',
-              children:
-                selectedAction.response === null && selectedAction.responseRef !== null ? (
-                  <Typography.Text type="secondary">
-                    {`тело вынесено: ${selectedAction.responseRef}`}
-                  </Typography.Text>
-                ) : (
-                  <pre>{JSON.stringify(selectedAction.response, null, 2)}</pre>
-                ),
+              children: responseBody(),
             },
           ]}
         />

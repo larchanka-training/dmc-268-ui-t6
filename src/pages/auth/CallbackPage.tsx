@@ -2,6 +2,7 @@ import { Button, Card, Flex, Layout, Result, Spin, Typography, theme } from 'ant
 import { useEffect, useRef, useState, type FC } from 'react'
 
 import { STATE_STORAGE_KEY, useAuthStore } from '../../features/auth'
+import { oauthCallbackErrorMessage } from './oauthErrors'
 import styles from './CallbackPage.module.css'
 
 const { Text } = Typography
@@ -29,7 +30,6 @@ export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError, onBack
 
       const urlParams = new URLSearchParams(window.location.search)
       const oauthError = urlParams.get('error')
-      const oauthErrorDesc = urlParams.get('error_description')
       const code = urlParams.get('code')
       const state = urlParams.get('state')
 
@@ -48,12 +48,7 @@ export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError, onBack
         }
         markInitialized()
         setStatus('error')
-        const msg =
-          oauthErrorDesc ??
-          (oauthError === 'access_denied'
-            ? 'Доступ отклонён пользователем на стороне GitHub'
-            : `Ошибка авторизации GitHub: ${oauthError}`)
-        setErrorMessage(msg)
+        setErrorMessage(oauthCallbackErrorMessage(oauthError))
         return
       }
 

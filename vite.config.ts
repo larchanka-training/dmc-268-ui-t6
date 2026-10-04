@@ -13,10 +13,23 @@ export default defineConfig({
     },
   },
   build: {
-    // Rolldown автоматически распределяет компоненты antd между ленивыми страницами.
-    // Самый большой несжатый чанк (typography / core-runtime) составляет ~607 кБ;
-    // поднятый до 700 кБ лимит устраняет ложное предупреждение сборки.
-    chunkSizeWarningLimit: 700,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/antd') || id.includes('@ant-design/icons')) {
+            return 'vendor-antd'
+          }
+          if (
+            id.includes('node_modules/react-dom') ||
+            id.includes('node_modules/react/') ||
+            id.includes('node_modules/react-router')
+          ) {
+            return 'vendor-react'
+          }
+        },
+      },
+    },
+    chunkSizeWarningLimit: 500,
   },
   test: {
     include: ['src/**/*.test.{ts,tsx}'],

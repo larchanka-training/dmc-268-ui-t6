@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import { Navigate, createBrowserRouter } from 'react-router'
 
-import { DEMO_RUN_ID } from '../shared/config/demoRun'
+import { ReviewRedirect } from '../pages/review/ReviewRedirect'
 import {
   AppLayoutRoute,
   PageFallback,
@@ -59,7 +59,7 @@ export function createRoutes() {
                 },
                 {
                   path: '/review',
-                  element: <Navigate replace to={`/runs/${DEMO_RUN_ID}`} />,
+                  element: <ReviewRedirect />,
                 },
               ],
             },

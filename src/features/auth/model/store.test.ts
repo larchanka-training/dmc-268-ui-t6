@@ -176,7 +176,7 @@ describe('useAuthStore', () => {
     expect(onLogout).toHaveBeenCalled()
   })
 
-  it('logout calls POST /api/auth/logout even when in-memory token is null to clear server cookie', async () => {
+  it('logout skips POST /api/auth/logout when in-memory token is absent', async () => {
     setAccessToken(null)
     useAuthStore.setState({
       isAuthenticated: false,
@@ -191,21 +191,10 @@ describe('useAuthStore', () => {
 
     await useAuthStore.getState().logout()
 
-    expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining('/auth/logout'),
-      expect.objectContaining({ method: 'POST' }),
-    )
+    expect(mockFetch).not.toHaveBeenCalled()
   })
 
-  it('initAuth sets isAuthenticated: true when refresh and GET /api/auth/me succeed', async () => {
-    const mockUser = {
-      id: 114473628,
-      login: 'skvertl',
-      name: 'Denis',
-      avatarUrl: null,
-      workspaces: [],
-    }
-
+  it('initAuth sets isAuthenticated after refresh without calling GET /auth/me', async () => {
     const mockFetch = vi.fn().mockImplementation((url: RequestInfo | URL) => {
       const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url
       if (urlStr.includes('/auth/refresh')) {
@@ -215,7 +204,6 @@ describe('useAuthStore', () => {
               accessToken: 'new_token_123',
               tokenType: 'Bearer',
               expiresIn: 900,
-              user: mockUser,
             }),
             {
               status: 200,
@@ -225,12 +213,7 @@ describe('useAuthStore', () => {
         )
       }
       if (urlStr.includes('/auth/me')) {
-        return Promise.resolve(
-          new Response(JSON.stringify(mockUser), {
-            status: 200,
-            headers: { 'content-type': 'application/json' },
-          }),
-        )
+        throw new Error('initAuth must not call /auth/me')
       }
       return Promise.resolve(new Response('{}', { status: 200 }))
     })
@@ -243,94 +226,19 @@ describe('useAuthStore', () => {
     expect(getAccessToken()).toBe('new_token_123')
   })
 
-  it('initAuth fails closed when refresh succeeds but GET /api/auth/me returns 500', async () => {
-    const mockFetch = vi.fn().mockImplementation((url: RequestInfo | URL) => {
-      const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url
-      if (urlStr.includes('/auth/refresh')) {
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              accessToken: 'new_token_123',
-              tokenType: 'Bearer',
-              expiresIn: 900,
-              user: {
-                id: 114473628,
-                login: 'skvertl',
-                name: 'Denis',
-                avatarUrl: null,
-              },
-            }),
-            {
-              status: 200,
-              headers: { 'content-type': 'application/json' },
-            },
-          ),
-        )
-      }
-      if (urlStr.includes('/auth/me')) {
-        return Promise.resolve(new Response('Server error', { status: 500 }))
-      }
-      return Promise.resolve(new Response('{}', { status: 200 }))
-    })
+  it('initAuth does not POST logout when refresh fails on anonymous visit', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response('No cookie', {
+        status: 401,
+        statusText: 'Unauthorized',
+      }),
+    )
     globalThis.fetch = mockFetch
 
     await useAuthStore.getState().initAuth()
 
-    const state = useAuthStore.getState()
-    expect(state.isAuthenticated).toBe(false)
-    expect(getAccessToken()).toBeNull()
-  })
-
-  it('initAuth fails closed when refresh succeeds but GET /api/auth/me returns schema-invalid response without workspaces', async () => {
-    const mockFetch = vi.fn().mockImplementation((url: RequestInfo | URL) => {
-      const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url
-      if (urlStr.includes('/auth/refresh')) {
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              accessToken: 'new_token_123',
-              tokenType: 'Bearer',
-              expiresIn: 900,
-              user: {
-                id: 114473628,
-                login: 'skvertl',
-                name: 'Denis',
-                avatarUrl: null,
-              },
-            }),
-            {
-              status: 200,
-              headers: { 'content-type': 'application/json' },
-            },
-          ),
-        )
-      }
-      if (urlStr.includes('/auth/me')) {
-        // Missing required 'workspaces' array per MeSchema
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              id: 114473628,
-              login: 'skvertl',
-              name: 'Denis',
-              avatarUrl: null,
-            }),
-            {
-              status: 200,
-              headers: { 'content-type': 'application/json' },
-            },
-          ),
-        )
-      }
-      return Promise.resolve(new Response('{}', { status: 200 }))
-    })
-    globalThis.fetch = mockFetch
-
-    await useAuthStore.getState().initAuth()
-
-    const state = useAuthStore.getState()
-    expect(state.isAuthenticated).toBe(false)
-    expect(getAccessToken()).toBeNull()
+    const logoutCalls = mockFetch.mock.calls.filter(([url]) => String(url).includes('/auth/logout'))
+    expect(logoutCalls).toHaveLength(0)
   })
 
   it('initAuth in mock mode with mock token restores session without network fetch', async () => {

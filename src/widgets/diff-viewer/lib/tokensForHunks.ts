@@ -1,19 +1,15 @@
 import { tokenize } from 'react-diff-view'
 import type { HunkData, HunkTokens } from 'react-diff-view'
-import { refractor } from 'refractor'
-import javascript from 'refractor/javascript'
-import json from 'refractor/json'
-import markdown from 'refractor/markdown'
-import tsx from 'refractor/tsx'
-import typescript from 'refractor/typescript'
 
 import { languageFromFilename } from '../../../entities/diff/lib/fileLanguage'
+import { refractorForDiffView } from './refractorForDiffView'
 
-refractor.register(typescript)
-refractor.register(tsx)
-refractor.register(javascript)
-refractor.register(markdown)
-refractor.register(json)
+/** Above this many new-side lines, skip sync tokenize to keep the tab responsive (Refs #65). */
+export const MAX_LINES_FOR_SYNC_HIGHLIGHT = 3000
+
+function countNewSideLines(hunks: HunkData[]): number {
+  return hunks.reduce((sum, hunk) => sum + hunk.newLines, 0)
+}
 
 export function tokensForHunks(filename: string, hunks: HunkData[]): HunkTokens | undefined {
   const language = languageFromFilename(filename)
@@ -21,13 +17,18 @@ export function tokensForHunks(filename: string, hunks: HunkData[]): HunkTokens 
     return undefined
   }
 
+  if (countNewSideLines(hunks) > MAX_LINES_FOR_SYNC_HIGHLIGHT) {
+    return undefined
+  }
+
   try {
     return tokenize(hunks, {
       highlight: true,
-      refractor,
+      refractor: refractorForDiffView,
       language,
     })
-  } catch {
+  } catch (error: unknown) {
+    console.error('tokensForHunks: tokenize failed', { filename, language, error })
     return undefined
   }
 }

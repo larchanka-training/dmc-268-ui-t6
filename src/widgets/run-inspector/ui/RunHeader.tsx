@@ -28,6 +28,18 @@ function shortSha(sha: string): string {
   return sha.slice(0, 7)
 }
 
+function safeHttpUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return url
+    }
+  } catch {
+    return null
+  }
+  return null
+}
+
 function formatRefs(
   headRef: string | null | undefined,
   baseRef: string | null | undefined,
@@ -49,16 +61,19 @@ export function RunHeader(props: RunHeaderProps): JSX.Element {
   const duration = runDuration(run, now)
   const pr = run.pullRequest
   const refs = formatRefs(pr.headRef, pr.baseRef)
+  const prHref = safeHttpUrl(pr.url)
 
   const items = [
     { key: 'repo', label: 'Репозиторий', children: pr.repo },
     {
       key: 'pullRequest',
       label: 'PR',
-      children: (
-        <a href={pr.url} rel="noreferrer" target="_blank">
+      children: prHref ? (
+        <a href={prHref} rel="noreferrer" target="_blank">
           {`#${String(pr.number)} ${pr.title}`}
         </a>
+      ) : (
+        `#${String(pr.number)} ${pr.title}`
       ),
     },
     { key: 'headSha', label: 'Commit', children: shortSha(pr.headSha) },
