@@ -175,6 +175,27 @@ describe('RunActionSchema', () => {
       expect(result.error.issues[0]?.path).toEqual(['runId'])
     }
   })
+
+  it.each([{ request: null }, { request: [] }, { request: 'src/a.ts' }])(
+    'rejects a RunAction whose request is $request — the contract requires an object',
+    ({ request }) => {
+      const result = RunActionSchema.safeParse({
+        id: UUID,
+        runId: UUID,
+        index: 0,
+        tool: 'lint',
+        request,
+        response: null,
+        responseRef: null,
+        startedAt: ISO,
+        durationMs: 1,
+      })
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error.issues[0]?.path).toEqual(['request'])
+      }
+    },
+  )
 })
 
 describe('RunListPageSchema', () => {

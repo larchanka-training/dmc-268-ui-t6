@@ -19,7 +19,7 @@ function padIndex(index: number): string {
 }
 
 interface ActionPayload {
-  request: unknown
+  request: Record<string, unknown>
   response: unknown
   responseRef: string | null
 }
