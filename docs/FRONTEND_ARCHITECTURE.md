@@ -407,7 +407,8 @@ Summary-only прогон (дифф больше 3 000 строк, Р-15 в [SD 
 ⇔ все `patch: null`» схемы не проверяют: это два разных ответа API, её держит UI (§6).
 
 Run detail (Ф-16; [PIPELINE_SPEC §11][ps-11], схема `RunDetail` в [`openapi.yaml`][openapi]): Zod —
-`RunDetailSchema` в `entities/run` (поля сверх `RunSession` с дефолтами для legacy API до api#34).
+`RunDetailSchema` в `entities/run`: все пять полей сверх `RunSession` обязательные, `summary`, `verdict` и
+`budget` — nullable, `findings` и `severityCounts` — нет; ответ без них — ошибка разбора.
 Карточки строятся по `findings` (`FindingView`, якорь `endLine ?? newLine`, §6).
 `RunSession` и сверх них `findings` (`FindingView` — поля `ReviewComment` без `createdAt`, плюс
 `side`, `suggestion`, `confidence`), `summary { problem, doneWell, effort } | null`,

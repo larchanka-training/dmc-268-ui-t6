@@ -9,7 +9,7 @@ export const REVIEW_ATTENTION_RUN_ID = '11111111-1111-4111-8111-000000000009'
 export const REVIEW_CLEAN_RUN_ID = '11111111-1111-4111-8111-000000000010'
 
 const REPO = 'larchanka-training/dmc-268-ui-t6'
-const NO_FINDINGS = { critical: 0, high: 0, medium: 0, low: 0, info: 0 }
+const NO_SEVERITY_COUNTS = { critical: 0, high: 0, medium: 0, low: 0, info: 0 }
 
 function pullRequestUrl(number: number): string {
   return `https://github.com/${REPO}/pull/${String(number)}`
@@ -184,7 +184,7 @@ export function buildMockRunDetail(session: RunSession): RunDetail {
       findings: [],
       summary: null,
       verdict: null,
-      severityCounts: NO_FINDINGS,
+      severityCounts: { ...NO_SEVERITY_COUNTS },
       budget: null,
     }
   }
@@ -229,7 +229,7 @@ export function buildMockRunDetail(session: RunSession): RunDetail {
     findings: [],
     summary: null,
     verdict: null,
-    severityCounts: NO_FINDINGS,
+    severityCounts: { ...NO_SEVERITY_COUNTS },
     budget: null,
   }
 }

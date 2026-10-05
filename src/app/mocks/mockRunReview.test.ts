@@ -8,6 +8,7 @@ import {
   buildMockRunDetail,
   mockVerdictVariantRuns,
 } from './mockRunReview'
+import { mockRunsListPage } from './mockRunsList.fixture'
 
 describe('mockRunReview verdict variants', () => {
   it('builds attention and clean run details for mock list runs', () => {
@@ -25,4 +26,13 @@ describe('mockRunReview verdict variants', () => {
     expect(RunDetailSchema.safeParse(cleanDetail).success).toBe(true)
     expect(cleanDetail.verdict).toBe('clean')
   })
+})
+
+describe('buildMockRunDetail', () => {
+  it.each([...mockRunsListPage.items, ...mockVerdictVariantRuns].map((run) => [run.id, run]))(
+    'builds a contract-valid run detail for %s',
+    (_id, run) => {
+      expect(RunDetailSchema.safeParse(buildMockRunDetail(run)).success).toBe(true)
+    },
+  )
 })
