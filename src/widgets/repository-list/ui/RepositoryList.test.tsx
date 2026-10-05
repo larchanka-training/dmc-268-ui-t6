@@ -35,7 +35,7 @@ const mockRepos: Repository[] = [
     url: 'https://github.com/larchanka-training/dmc-268-api-t6',
     defaultBranch: 'master',
     enabled: false,
-    defaultEngine: 'deep',
+    defaultEngine: 'fast',
     waitForCi: 'never',
     maxComments: 5,
     reviewEvent: 'REQUEST_CHANGES',

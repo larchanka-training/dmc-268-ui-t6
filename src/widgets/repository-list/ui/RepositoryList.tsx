@@ -30,7 +30,6 @@ import { useMemo, useState, type FC } from 'react'
 
 import type {
   Repository,
-  RepositoryEngine,
   ReviewEvent,
   UpdateRepositoryInput,
   WaitForCi,
@@ -98,12 +97,6 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       const patch: UpdateRepositoryInput = {}
       if (values.enabled !== undefined && values.enabled !== editingRepo.enabled) {
         patch.enabled = values.enabled
-      }
-      if (
-        values.defaultEngine !== undefined &&
-        values.defaultEngine !== editingRepo.defaultEngine
-      ) {
-        patch.defaultEngine = values.defaultEngine
       }
       if (values.waitForCi !== undefined && values.waitForCi !== editingRepo.waitForCi) {
         patch.waitForCi = values.waitForCi
@@ -185,11 +178,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       title: 'Движок',
       dataIndex: 'defaultEngine',
       key: 'defaultEngine',
-      render: (engine: RepositoryEngine) => (
-        <Tag color={engine === 'deep' ? 'purple' : 'cyan'}>
-          {engine === 'deep' ? 'SandboxEngine (глубокий)' : 'DiffEngine (быстрый)'}
-        </Tag>
-      ),
+      render: () => <Tag color="cyan">DiffEngine (быстрый)</Tag>,
     },
     {
       title: 'Ожидание CI',
@@ -357,10 +346,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
 
           <Form.Item label="Движок анализа" name="defaultEngine" rules={[{ required: true }]}>
             <Select
-              options={[
-                { value: 'fast', label: 'DiffEngine (быстрый синтаксический анализ)' },
-                { value: 'deep', label: 'SandboxEngine (глубокий анализ в песочнице)' },
-              ]}
+              options={[{ value: 'fast', label: 'DiffEngine (быстрый синтаксический анализ)' }]}
             />
           </Form.Item>
 
