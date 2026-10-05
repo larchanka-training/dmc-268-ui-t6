@@ -20,16 +20,19 @@ describe('RepositorySchema', () => {
     expect(parsed).toEqual(validRepo)
   })
 
-  it('accepts deep engine and REQUEST_CHANGES reviewEvent', () => {
+  it('accepts the always CI mode and REQUEST_CHANGES reviewEvent', () => {
     const parsed = RepositorySchema.parse({
       ...validRepo,
-      defaultEngine: 'deep',
       waitForCi: 'always',
       reviewEvent: 'REQUEST_CHANGES',
     })
-    expect(parsed.defaultEngine).toBe('deep')
+    expect(parsed.defaultEngine).toBe('fast')
     expect(parsed.waitForCi).toBe('always')
     expect(parsed.reviewEvent).toBe('REQUEST_CHANGES')
+  })
+
+  it('rejects the deep engine until phase 3', () => {
+    expect(() => RepositorySchema.parse({ ...validRepo, defaultEngine: 'deep' })).toThrow()
   })
 
   it('rejects maxComments greater than 10', () => {
@@ -64,13 +67,13 @@ describe('UpdateRepositorySchema', () => {
   it('allows partial updates with valid values', () => {
     const parsed = UpdateRepositorySchema.parse({
       enabled: false,
-      defaultEngine: 'deep',
+      defaultEngine: 'fast',
       waitForCi: 'never',
       maxComments: 5,
       reviewEvent: 'REQUEST_CHANGES',
     })
     expect(parsed.enabled).toBe(false)
-    expect(parsed.defaultEngine).toBe('deep')
+    expect(parsed.defaultEngine).toBe('fast')
     expect(parsed.waitForCi).toBe('never')
     expect(parsed.maxComments).toBe(5)
     expect(parsed.reviewEvent).toBe('REQUEST_CHANGES')

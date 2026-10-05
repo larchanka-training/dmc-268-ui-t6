@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
-export const RepositoryEngineSchema = z.enum(['fast', 'deep'])
+// deep (SandboxEngine) is phase 3: the api accepts only fast until then (api#52).
+export const RepositoryEngineSchema = z.enum(['fast'])
 export type RepositoryEngine = z.infer<typeof RepositoryEngineSchema>
 
 export const WaitForCiSchema = z.enum(['auto', 'always', 'never'])
