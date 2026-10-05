@@ -49,6 +49,15 @@ describe('ReviewCommentSchema', () => {
   })
 
   it.each(['oldLine', 'newLine', 'endLine'] as const)(
+    'accepts %s 1 — the contract minimum',
+    (field) => {
+      expect(
+        ReviewCommentSchema.safeParse({ ...reviewComment, oldLine: 3, [field]: 1 }).success,
+      ).toBe(true)
+    },
+  )
+
+  it.each(['oldLine', 'newLine', 'endLine'] as const)(
     'rejects %s 0 — contract sets minimum 1',
     (field) => {
       const result = ReviewCommentSchema.safeParse({ ...reviewComment, oldLine: 3, [field]: 0 })
@@ -155,6 +164,15 @@ describe('FindingViewSchema', () => {
       expect(result.error.issues[0]?.path).toEqual(['confidence'])
     }
   })
+
+  it.each(['oldLine', 'newLine', 'endLine'] as const)(
+    'accepts %s 1 — the contract minimum',
+    (field) => {
+      expect(FindingViewSchema.safeParse({ ...findingView, oldLine: 3, [field]: 1 }).success).toBe(
+        true,
+      )
+    },
+  )
 
   it('rejects oldLine 0 — contract sets minimum 1', () => {
     const result = FindingViewSchema.safeParse({ ...findingView, side: 'LEFT', oldLine: 0 })
