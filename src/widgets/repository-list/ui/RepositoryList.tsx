@@ -30,6 +30,7 @@ import { useMemo, useState, type FC } from 'react'
 
 import type {
   Repository,
+  RepositoryEngine,
   ReviewEvent,
   UpdateRepositoryInput,
   WaitForCi,
@@ -178,7 +179,11 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       title: 'Движок',
       dataIndex: 'defaultEngine',
       key: 'defaultEngine',
-      render: () => <Tag color="cyan">DiffEngine (быстрый)</Tag>,
+      render: (engine: RepositoryEngine) => {
+        // deep (SandboxEngine) is phase 3; the api returns only fast until then.
+        const labels: Record<RepositoryEngine, string> = { fast: 'DiffEngine (быстрый)' }
+        return <Tag color="cyan">{labels[engine]}</Tag>
+      },
     },
     {
       title: 'Ожидание CI',
@@ -344,7 +349,11 @@ export const RepositoryList: FC<RepositoryListProps> = ({
             <Switch checkedChildren="Активен" unCheckedChildren="Пауза" />
           </Form.Item>
 
-          <Form.Item label="Движок анализа" name="defaultEngine" rules={[{ required: true }]}>
+          <Form.Item
+            extra="SandboxEngine (глубокий анализ в песочнице) появится в фазе 3"
+            label="Движок анализа"
+            name="defaultEngine"
+          >
             <Select
               options={[{ value: 'fast', label: 'DiffEngine (быстрый синтаксический анализ)' }]}
             />
