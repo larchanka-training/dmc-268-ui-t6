@@ -151,4 +151,36 @@ describe('RepositoryList', () => {
     expect(screen.getByRole('dialog')).toBeDefined()
     expect(screen.getByText('Настройки репозитория larchanka-training/dmc-268-ui-t6')).toBeDefined()
   })
+
+  it('offers only DiffEngine and never sends the engine in the settings patch', async () => {
+    const onUpdate = vi.fn().mockResolvedValue(undefined)
+    render(<RepositoryList onUpdateRepository={onUpdate} repositories={mockRepos} />)
+
+    fireEvent.click(screen.getByLabelText(/настройки larchanka-training\/dmc-268-ui-t6/i))
+    await waitFor(() => {
+      expect(screen.getByText('Движок анализа')).toBeDefined()
+    })
+
+    const engineSelect = document.getElementById('defaultEngine') as HTMLInputElement
+    expect(engineSelect).not.toBeNull()
+    fireEvent.mouseDown(engineSelect)
+    await waitFor(() => {
+      expect(document.querySelectorAll('.ant-select-item-option').length).toBeGreaterThan(0)
+    })
+    const engineOptions = [...document.querySelectorAll('.ant-select-item-option')].map(
+      (option) => option.textContent,
+    )
+    expect(engineOptions).toEqual(['DiffEngine (быстрый синтаксический анализ)'])
+    expect(screen.queryByText('SandboxEngine (глубокий анализ в песочнице)')).toBeNull()
+
+    const maxCommentsInput = document.getElementById('maxComments') as HTMLInputElement
+    fireEvent.change(maxCommentsInput, { target: { value: '5' } })
+    fireEvent.click(screen.getByRole('button', { name: /сохранить/i }))
+
+    await waitFor(() => {
+      expect(onUpdate).toHaveBeenCalledWith('a1b2c3d4-e5f6-7890-abcd-ef1234567890', {
+        maxComments: 5,
+      })
+    })
+  })
 })
