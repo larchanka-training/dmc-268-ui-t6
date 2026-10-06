@@ -6,7 +6,7 @@
 | Владелец            | инфраструктура (роль 3)                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | Связанные документы | в репозитории [dmc-268-api-t6](https://github.com/larchanka-training/dmc-268-api-t6): [SYSTEM_DESIGN.md](https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md#14-развёртывание-v1) (§14), [CICD.md](https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/CICD.md) (edge-прокси), [INFRASTRUCTURE.md](https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/INFRASTRUCTURE.md) (Terraform-стек `ui-staging`) |
 
-Пайплайн собирает статический React UI в OCI-образ, сканирует его и выкатывает на staging. Реестр — **GitHub Container Registry**. Цель выката — общий курсовой VPS за edge-прокси (по умолчанию) или отдельный Terraform-хост в Hetzner Cloud (§2). Edge-прокси, Terraform-стек `terraform/ui-staging/` и DNS живут только в **API-репозитории**: этот репозиторий их не выкатывает и `terraform apply` не делает.
+Пайплайн прогоняет гейты качества, собирает статический React UI в OCI-образ, сканирует его и выкатывает на staging. Реестр — **GitHub Container Registry**. Цель выката — общий курсовой VPS за edge-прокси (по умолчанию) или отдельный Terraform-хост в Hetzner Cloud (§2). Edge-прокси, Terraform-стек `terraform/ui-staging/` и DNS живут только в **API-репозитории**: этот репозиторий их не выкатывает и `terraform apply` не делает.
 
 ---
 
@@ -14,9 +14,11 @@
 
 ```mermaid
 flowchart TD
-  pr["PR / push"] --> build["docker build (один раз)"]
+  pr["PR / push"] --> quality["lint, check-types, format:check, test, build\n(required check)"]
+  pr --> build["docker build (один раз)\n(required check)"]
   build --> scan["trivy: vuln / secret / misconfig"]
-  scan --> gate{"main?"}
+  quality --> gate{"main?"}
+  scan --> gate
   gate -->|нет| stop["CI зелёный, без выката"]
   gate -->|да| push["push :sha (@digest) в GHCR"]
   push --> target["Resolve staging target"]
@@ -33,6 +35,7 @@ flowchart TD
 
 | Job                           | Когда                              | Permissions                                                                                            | Что делает                                                                                                                                                                                     |
 | ----------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `UI quality`                  | PR и `main`                        | `contents: read`                                                                                       | гейты качества: `pnpm lint`, `pnpm check-types`, `pnpm format:check`, `pnpm test`, `pnpm build`; required check в правилах `main` (§8)                                                         |
 | `Docker image build`          | PR и `main`                        | `contents: read`                                                                                       | один build, artifact для scan/push                                                                                                                                                             |
 | `Docker image security scan`  | после сборки                       | `contents: read`                                                                                       | Trivy того же artifact                                                                                                                                                                         |
 | `Push Docker image`           | только `main`                      | `contents: read`, `packages: write`, `actions: read`                                                   | push `:sha`, resolve digest (тот же artifact, что прошёл Trivy)                                                                                                                                |
@@ -41,6 +44,8 @@ flowchart TD
 | `Rollback staging` (workflow) | `workflow_dispatch`, только `main` | `rollback`: `contents: read`, `packages: read`; `promote-staging`: `contents: read`, `packages: write` | откат на VM, проверка снаружи, синхронизация `:staging` (§6)                                                                                                                                   |
 
 Корневые permissions: `contents: read`, остальное — только у job, которому нужно. Все jobs работают на `ubuntu-latest`.
+
+`UI quality` ставит Node.js 24 (как build-стадия `Dockerfile`) и pnpm версии из `packageManager`, затем выполняет `pnpm install --frozen-lockfile` и пять гейтов по порядку; первый упавший шаг делает job красным. Job стоит в `needs` у `Push Docker image`: с красными гейтами образ не пушится и staging не выкатывается. На PR job отменяется вместе со всем run при новом push в ветку (`cancel-in-progress` в `concurrency` workflow). Лимит job — 15 минут (`timeout-minutes`): зависший прогон не держит обязательную проверку и `Push Docker image` до стандартных шести часов.
 
 Шаги `Deploy staging`: **Resolve staging target** → копирование `deploy/` в `APP_DIR` (`appleboy/scp-action`) → **Prepare host** → (курсовой VPS) ожидание TLS → **Deploy image** (`deploy.sh`) → **Health check** → при ошибке **Rollback on failed deploy or health check** (`ROLLBACK_MODE=auto`) → job красный.
 
@@ -211,6 +216,21 @@ Jobs `deploy-staging`, `promote-staging` (CI/CD) и workflow Rollback ссыла
 | `STAGING_HEALTH_URL`      | variable | необязательно; иначе `http://<STAGING_HOST>/health`                                                                   |
 
 `GITHUB_TOKEN` выдаёт Actions сам — в репозиторий его не кладут. `ACTIONS_STEP_DEBUG` / `ACTIONS_RUNNER_DEBUG` для `staging` не включать: отладочные логи могут повторить переданные на SSH переменные.
+
+### Ruleset `main` — обязательные проверки
+
+Ruleset `Protect Default Branch` меняет только администратор репозитория. Правило `required_status_checks` не даёт смёржить PR, пока не зелёные обе проверки:
+
+| Required check       | Job в `ci-cd.yml` | Что не пропускает в `main`                                                                           |
+| -------------------- | ----------------- | ---------------------------------------------------------------------------------------------------- |
+| `UI quality`         | `ui-quality`      | ошибку eslint или stylelint, ошибку типов, неотформатированный файл, падающий тест, сломанную сборку |
+| `Docker image build` | `docker-build`    | образ, который не собирается                                                                         |
+
+- Ruleset сверяет check по имени: оно должно буквально совпадать с `name:` у job. Переименовали job без правки ruleset — проверка с прежним именем не приходит, и все PR блокируются. Имя job и ruleset меняются вместе.
+- Check добавляется в ruleset с источником GitHub Actions, как `Docker image build`: без источника требование закроет любой commit status с тем же именем.
+- Включён `strict_required_status_checks_policy`: ветка PR должна быть актуальна относительно `main`, иначе merge недоступен даже с зелёными проверками.
+- `[skip ci]` в сообщении head-коммита PR пропускает workflow целиком: обязательные проверки остаются в ожидании, и merge заблокирован до следующего коммита без этой метки.
+- Те же гейты локально: `pnpm lint && pnpm check-types && pnpm format:check && pnpm test && pnpm build`.
 
 ---
 
