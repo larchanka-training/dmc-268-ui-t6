@@ -1,8 +1,12 @@
 // Vitest setup for jsdom tests. jsdom 30 provides neither `window.matchMedia`
 // (needed by antd `Descriptions`/Grid via responsiveObserver) nor `ResizeObserver`
 // (needed by `@rc-component/virtual-list` inside antd `Tree`). Both are stubbed here.
-import { cleanup } from '@testing-library/react'
+import { cleanup, configure } from '@testing-library/react'
 import { afterEach, vi } from 'vitest'
+
+// antd-heavy pages render slower than the 1000 ms default of `waitFor`/`findBy*` on a busy
+// machine or CI runner. Keep this below `testTimeout` in `vite.config.ts`.
+configure({ asyncUtilTimeout: 5000 })
 
 afterEach(() => {
   cleanup()
