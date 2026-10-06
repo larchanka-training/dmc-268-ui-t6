@@ -14,7 +14,7 @@ vi.mock('../../shared/api/client', () => ({
   refreshAccessToken: vi.fn(),
 }))
 
-import { refreshAccessToken } from '../../shared/api/client'
+import { getAccessToken, refreshAccessToken } from '../../shared/api/client'
 
 function sseBody(chunks: string[]): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder()
@@ -183,6 +183,38 @@ describe('runStreamUntilAborted', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3)
     await vi.advanceTimersByTimeAsync(1)
     expect(fetchMock).toHaveBeenCalledTimes(4)
+
+    controller.abort()
+    await done
+  })
+
+  it('caps 401 retries per attempt then backs off before the next fetch', async () => {
+    vi.useFakeTimers()
+    let tokenIndex = 0
+    vi.mocked(refreshAccessToken).mockImplementation(() => {
+      tokenIndex += 1
+      return Promise.resolve(`token_${String(tokenIndex)}`)
+    })
+    vi.mocked(getAccessToken).mockReturnValue('token_loop')
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 401, statusText: 'Unauthorized' }))
+    globalThis.fetch = fetchMock
+
+    const controller = new AbortController()
+    const done = runStreamUntilAborted(controller.signal, 'token_a')
+
+    await Promise.resolve()
+    await Promise.resolve()
+    await Promise.resolve()
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(fetchMock).toHaveBeenCalledTimes(MAX_STREAM_401_RETRIES + 1)
+
+    await vi.advanceTimersByTimeAsync(STREAM_RECONNECT_DELAY_MS - 1)
+    expect(fetchMock).toHaveBeenCalledTimes(MAX_STREAM_401_RETRIES + 1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(fetchMock).toHaveBeenCalledTimes((MAX_STREAM_401_RETRIES + 1) * 2)
 
     controller.abort()
     await done

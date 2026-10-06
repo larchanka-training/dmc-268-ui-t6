@@ -513,12 +513,16 @@ describe('RunDetailPage', () => {
       }
       if (endpoint.path.includes('/files?') && endpoint.method === 'GET') {
         filesPaths.push(endpoint.path)
+        const params = new URLSearchParams(endpoint.path.split('?')[1] ?? '')
+        const offset = Number(params.get('offset') ?? '0')
+        const limit = Number(params.get('limit') ?? '0')
+        const nextOffset = offset + limit < 599 ? offset + limit : null
         return {
           path: 'src/a.ts',
-          startLine: 2,
-          lines: Array.from({ length: 500 }, (_, index) => `ctx ${String(index)}`),
+          startLine: offset + 1,
+          lines: Array.from({ length: limit }, (_, index) => `ctx ${String(offset + index)}`),
           totalLines: 600,
-          nextOffset: 501,
+          nextOffset,
         }
       }
       return undefined
@@ -530,10 +534,21 @@ describe('RunDetailPage', () => {
     })
     fireEvent.click(screen.getByText('Показать ещё 500 строк'))
     await waitFor(() => {
-      expect(filesPaths.length).toBeGreaterThan(0)
+      expect(filesPaths).toHaveLength(1)
     })
     expect(filesPaths[0]).toMatch(/limit=500/)
     expect(filesPaths[0]).not.toMatch(/limit=598/)
+    await waitFor(() => {
+      expect(screen.getByText('Показать ещё 98 строк')).toBeTruthy()
+    })
+    fireEvent.click(screen.getByText('Показать ещё 98 строк'))
+    await waitFor(() => {
+      expect(filesPaths).toHaveLength(2)
+    })
+    expect(filesPaths[1]).toMatch(/limit=98/)
+    await waitFor(() => {
+      expect(screen.queryByText(/Показать ещё/)).toBeNull()
+    })
     expect(screen.queryByText('Не удалось дочитать контекст файла')).toBeNull()
   })
 })

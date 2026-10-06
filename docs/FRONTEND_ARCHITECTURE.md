@@ -708,7 +708,7 @@ issue прямо выносит подключение логирования з
 **Сборка и чанки.** `vite.config.ts`: `build.rolldownOptions.output.codeSplitting`
 (`vendor-react`, `vendor-query`, `maxSize: 400_000`, `includeDependenciesRecursively: false`);
 antd раскладывается по ленивым страницам, как на `main`. `chunkSizeWarningLimit: 500`.
-Первая загрузка (script + modulepreload JS): ~939 кБ / ~302 кБ gzip vs `main` ~944 кБ / ~298 кБ gzip.
+Первая загрузка (script + modulepreload JS): ~542 кБ / ~175 кБ gzip vs `main` ~944 кБ / ~298 кБ gzip.
 Prod без демо: `pnpm build && pnpm verify:prod-bundle` (Refs #65, AC 3.3 / 3.5).
 
 ---

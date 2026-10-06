@@ -32,7 +32,7 @@ export default defineConfig(({ mode }) => {
           }
           return deps.filter(
             (dep) =>
-              !/(?:RunDetailPage|LoginPage|CallbackPage|RepositoriesPage|RunsPage|ReviewRedirect|mockTransport|diff-)/.test(
+              !/(?:RunDetailPage|LoginPage|CallbackPage|RepositoriesPage|RunsPage|ReviewRedirect|mockTransport|diff-|typography-)/.test(
                 dep,
               ),
           )
