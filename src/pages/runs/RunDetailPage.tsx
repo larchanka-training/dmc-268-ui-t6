@@ -1,5 +1,5 @@
 import { ArrowLeftOutlined } from '@ant-design/icons'
-import { Button, Card, Empty, Flex, Spin, Typography } from 'antd'
+import { Alert, Button, Card, Empty, Flex, Spin, Typography } from 'antd'
 import type { FC } from 'react'
 import { useCallback, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
@@ -11,6 +11,7 @@ import { useRunComments } from '../../entities/review'
 import { RunDiff } from '../../widgets/diff-viewer'
 import type { ContextGap } from '../../widgets/diff-viewer/model/types'
 import { RunControls, RunInspector } from '../../widgets/run-inspector'
+import { contextChunkLimit } from '../../widgets/diff-viewer/lib/contextChunkSize'
 import { runDetailLoadMessage, runDiffLoadMessage } from './lib/runLoadErrors'
 
 const { Title, Text } = Typography
@@ -39,7 +40,7 @@ export const RunDetailPage: FC = () => {
       void fetchRunFileSlice(runId, {
         path: file.filename,
         offset: gap.startLine - 1,
-        limit: gap.count,
+        limit: contextChunkLimit(gap.count),
       })
         .then((slice) => {
           setExpandedFiles((prev) => {
@@ -65,7 +66,7 @@ export const RunDetailPage: FC = () => {
     return <Empty description="Не указан id прогона" />
   }
 
-  if (runQuery.isLoading || diffQuery.isLoading) {
+  if (runQuery.isLoading) {
     return (
       <Flex align="center" justify="center" style={{ minHeight: 240 }}>
         <Spin size="large" />
@@ -84,15 +85,6 @@ export const RunDetailPage: FC = () => {
 
   if (!runQuery.data) {
     return <Empty description="Прогон не найден" data-testid="run-detail-run-error" />
-  }
-
-  if (diffQuery.isError) {
-    return (
-      <Empty
-        description={runDiffLoadMessage(diffQuery.error)}
-        data-testid="run-detail-diff-error"
-      />
-    )
   }
 
   const run = runQuery.data
@@ -142,13 +134,26 @@ export const RunDetailPage: FC = () => {
 
       {loadError ? <Text type="danger">{loadError}</Text> : null}
 
-      <RunDiff
-        comments={comments}
-        files={displayFiles}
-        findings={run.findings}
-        onLoadMore={run.summaryOnly ? undefined : handleLoadMore}
-        summaryOnly={run.summaryOnly}
-      />
+      {diffQuery.isError ? (
+        <Alert
+          data-testid="run-detail-diff-error"
+          showIcon
+          title={runDiffLoadMessage(diffQuery.error)}
+          type="error"
+        />
+      ) : diffQuery.isLoading ? (
+        <Flex align="center" justify="center" style={{ minHeight: 120 }}>
+          <Spin />
+        </Flex>
+      ) : (
+        <RunDiff
+          comments={comments}
+          files={displayFiles}
+          findings={run.findings}
+          onLoadMore={run.summaryOnly ? undefined : handleLoadMore}
+          summaryOnly={run.summaryOnly}
+        />
+      )}
     </Flex>
   )
 }

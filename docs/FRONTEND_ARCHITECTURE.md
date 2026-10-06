@@ -284,21 +284,22 @@ TanStack Query — не замена Zustand, а дополнение: серв�
 по разным сторонам (issue AC явно требует эту формулировку). Стор Zustand живёт в виджете, а не в
 `shared` — UI-состояние принадлежит домену виджета, `shared` о нём не знает (план, D17).
 
-SSE-мост (follow-up, **не реализовано**; Ф-14): `app/providers` открывает
-`fetch(API_BASE_URL + '/stream')` с заголовком `Authorization: Bearer <accessToken>` и читает кадры
-`event:`/`data:` из `response.body`; на событие `run.updated` вызывает
-`queryClient.invalidateQueries({ queryKey: ['runs', runId] })`. `EventSource` не подходит: он не
-умеет отправлять заголовки, а `/api/stream`, как и остальные `/api/*`, требует Bearer
-([api#20, D4][tl-2026-09-27-api20]). Ответ `401` при подключении или переподключении — общий
-refresh (§11), затем повтор подключения с новым токеном; refresh не удался — выход
-(fail closed). Сейчас в `src/app/providers/`
-есть только `QueryProvider` (создаёт `QueryClient`, см. `src/app/providers/queryClient.ts`) и
-`UiProvider` (antd `ConfigProvider` с русской локалью) — оба без сети.
+SSE-мост (Ф-14, **реализовано**; Refs ui#65): `RunStreamBridge` внутри `QueryProvider` вызывает
+`useRunStreamSubscription` → `runStreamConnect.ts`: `fetch(API_BASE_URL + '/stream')` с
+`Authorization: Bearer <accessToken>`, разбор кадров `event:`/`data:` (`runStreamParse.ts`); на
+`run.updated` — `invalidateQueries` для `['runs', runId]` и `['runs', runId, 'actions']`.
+`EventSource` не используется (нет Bearer). `401` — refresh с лимитом повторов
+(`MAX_STREAM_401_RETRIES`), затем переподключение с backoff (`STREAM_RECONNECT_DELAY_MS`); refresh
+не удался — подписка прекращается (fail closed, §11). Контрактный follow-up для api#20:
+[`docs/plans/65-api20-comment.md`](plans/65-api20-comment.md).
+
+`QueryProvider` также регистрирует `setOnLogout` → `queryClient.clear()`. `UiProvider` — antd
+`ConfigProvider` (русская локаль), без сети.
 
 ```mermaid
 sequenceDiagram
   participant SSE as fetch(/api/stream)
-  participant Bridge as app/providers (follow-up)
+  participant Bridge as RunStreamBridge
   participant QC as QueryClient
   participant UI as widgets
 
@@ -707,9 +708,10 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
 - **`steiger`** — FSD-линтер, форматирует нарушения правил §1 автоматически; не подключён.
 - **`PORT` в `vite.config.ts`** — нужен `@types/node` в `tsconfig.node.json` (роль 4); не сделано.
   С TS 6.0 `types` по умолчанию `[]`, поэтому пакет придётся назвать в `types` явно.
-- **SSE-мост** (§2, Ф-14) — `fetch`-стрим с Bearer (не `EventSource`: он не отправляет
-  заголовки), повтор после `401` → refresh → переподключение и `invalidateQueries` не реализованы,
-  только спроектированы.
+- **SSE-мост** (§2, Ф-14) — реализован: `RunStreamBridge`, `runStreamConnect.ts`, лимит `401`,
+  reconnect; см. §2 и [`docs/plans/65-api20-comment.md`](plans/65-api20-comment.md).
+- **`pages/review/ReviewPage.tsx`** — файл сохранён, но маршрут `/review` монтирует redirect
+  (mock → demo run, prod → `/runs`); полноценная страница не в прод-маршрутизации (Refs ui#65).
 - **Fetch-клиент и авторизация** (Ф-15) — контракт авторизации и сессии ([решение техлида api#20 D4][tl-2026-09-27-api20] и `/api/auth/*` в [`openapi.yaml`][openapi], реализован в PR #55 и #63):
   - вход — GitHub App user authorization без OAuth scopes; `state` SPA генерирует сама, хранит в
     `sessionStorage` и сверяет на `/auth/callback`;

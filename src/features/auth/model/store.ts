@@ -194,9 +194,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: async () => {
     if (isLoggingOut) return
     isLoggingOut = true
-    const hadToken = getAccessToken() !== null
+    const hadSession = getAccessToken() !== null || useAuthStore.getState().isAuthenticated
     try {
-      if (hadToken) {
+      if (hadSession) {
         await apiClient(endpoints.auth.logout())
       }
     } catch {

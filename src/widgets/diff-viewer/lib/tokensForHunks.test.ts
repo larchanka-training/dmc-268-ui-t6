@@ -1,9 +1,10 @@
+import type { HunkData } from 'react-diff-view'
 import { describe, expect, it, vi } from 'vitest'
 
 import { fromPatch, toHunks } from '../../../entities/diff'
 import { SAMPLE_PATCH_A } from '../../../shared/fixtures/sample.patch'
 import { refractorForDiffView } from './refractorForDiffView'
-import { tokensForHunks } from './tokensForHunks'
+import { countDiffSideLines, MAX_LINES_FOR_SYNC_HIGHLIGHT, tokensForHunks } from './tokensForHunks'
 
 describe('tokensForHunks', () => {
   it('returns real tokens from tokenize for a TypeScript file (no mock)', () => {
@@ -39,6 +40,43 @@ describe('tokensForHunks', () => {
 
   it('returns undefined when hunks are empty for a known language', () => {
     expect(tokensForHunks('src/a.ts', [])).toBeUndefined()
+  })
+
+  it('returns undefined when diff-side line count exceeds the sync threshold', () => {
+    const file = fromPatch(SAMPLE_PATCH_A)
+    const hunks = toHunks(file)
+    expect(countDiffSideLines(hunks)).toBeLessThanOrEqual(MAX_LINES_FOR_SYNC_HIGHLIGHT)
+
+    const first = hunks[0]
+    if (first === undefined) {
+      throw new Error('expected at least one hunk')
+    }
+    const hugeHunks: HunkData[] = [
+      {
+        ...first,
+        oldLines: MAX_LINES_FOR_SYNC_HIGHLIGHT,
+        newLines: 1,
+      },
+    ]
+    expect(tokensForHunks(file.filename, hugeHunks)).toBeUndefined()
+  })
+
+  it('returns tokens for a deletion-only hunk', () => {
+    const file = fromPatch({
+      filename: 'src/remove.ts',
+      patch: [
+        'diff --git a/src/remove.ts b/src/remove.ts',
+        'index 1111111..2222222 100644',
+        '--- a/src/remove.ts',
+        '+++ b/src/remove.ts',
+        '@@ -1,3 +0,0 @@',
+        '-const a = 1',
+        '-const b = 2',
+        '-export {}',
+      ].join('\n'),
+    })
+    const tokens = tokensForHunks(file.filename, toHunks(file))
+    expect(tokens).toBeDefined()
   })
 
   it('logs and returns undefined when tokenize throws', () => {

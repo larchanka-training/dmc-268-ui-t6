@@ -176,7 +176,7 @@ describe('useAuthStore', () => {
     expect(onLogout).toHaveBeenCalled()
   })
 
-  it('logout skips POST /api/auth/logout when in-memory token is absent', async () => {
+  it('logout skips POST /api/auth/logout when session was never authenticated', async () => {
     setAccessToken(null)
     useAuthStore.setState({
       isAuthenticated: false,
@@ -192,6 +192,23 @@ describe('useAuthStore', () => {
     await useAuthStore.getState().logout()
 
     expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('logout POSTs /api/auth/logout when authenticated even if the in-memory token was cleared', async () => {
+    setAccessToken(null)
+    useAuthStore.setState({
+      isAuthenticated: true,
+    })
+
+    const mockFetch = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
+    globalThis.fetch = mockFetch
+
+    await useAuthStore.getState().logout()
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/auth/logout'),
+      expect.objectContaining({ method: 'POST' }),
+    )
   })
 
   it('initAuth sets isAuthenticated: true when refresh and GET /api/auth/me succeed', async () => {

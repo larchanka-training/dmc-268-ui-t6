@@ -4,6 +4,7 @@ import { Descriptions, Space, Tag, Typography } from 'antd'
 import type { RunSession, SeverityCounts, Verdict } from '../../../entities/run'
 import { isStaleRunning, statusColor } from '../../../entities/run'
 import { formatDateTime, formatDuration, runDuration } from '../lib/format'
+import { safeHttpUrl } from '../lib/safeHttpUrl'
 
 interface RunHeaderProps {
   run: RunSession
@@ -26,18 +27,6 @@ const VERDICT_COLOR: Record<Verdict, string> = {
 
 function shortSha(sha: string): string {
   return sha.slice(0, 7)
-}
-
-function safeHttpUrl(url: string): string | null {
-  try {
-    const parsed = new URL(url)
-    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-      return url
-    }
-  } catch {
-    return null
-  }
-  return null
 }
 
 function formatRefs(

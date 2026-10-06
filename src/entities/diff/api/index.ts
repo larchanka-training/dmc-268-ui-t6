@@ -3,13 +3,13 @@ import { z } from 'zod'
 
 import { apiClient } from '../../../shared/api/client'
 import { endpoints } from '../../../shared/api/endpoints'
-import { runQueryKeys } from '../../run/api'
 import { fromPatch } from '../lib/fromPatch'
 import { FileSliceQuerySchema, FileSliceSchema, RawFileDiffSchema } from '../model/schemas'
 import type { FileDiff, FileSliceQuery } from '../model/schemas'
 
+/** Keep aligned with `runQueryKeys` / FRONTEND_ARCHITECTURE §2 (no cross-entity import). */
 export const diffQueryKeys = {
-  diff: (runId: string) => runQueryKeys.diff(runId),
+  diff: (runId: string) => ['runs', runId, 'diff'] as const,
   fileSlice: (runId: string, path: string, offset: number) =>
     ['runs', runId, 'files', path, offset] as const,
 }

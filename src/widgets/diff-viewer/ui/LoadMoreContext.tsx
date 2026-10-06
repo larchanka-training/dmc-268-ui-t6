@@ -1,6 +1,7 @@
 import type { JSX } from 'react'
 import { Button } from 'antd'
 
+import { contextChunkLimit } from '../lib/contextChunkSize'
 import type { ContextGap } from '../model/types'
 
 interface LoadMoreContextProps {
@@ -18,7 +19,7 @@ export function LoadMoreContext(props: LoadMoreContextProps): JSX.Element {
         onLoadMore(gap)
       }}
     >
-      {`Показать ещё ${String(gap.count)} строк`}
+      {`Показать ещё ${String(contextChunkLimit(gap.count))} строк`}
     </Button>
   )
 }

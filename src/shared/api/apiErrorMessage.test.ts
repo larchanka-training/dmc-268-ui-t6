@@ -14,4 +14,14 @@ describe('formatApiErrorMessage', () => {
     const error = new ApiError(400, 'Bad Request', { detail: 'Неверный код' })
     expect(error.message).toBe('Неверный код')
   })
+
+  it('maps OAuth callback error codes to Russian', () => {
+    expect(formatApiErrorMessage(400, 'Bad Request', { detail: { code: 'invalid_grant' } })).toBe(
+      'Код авторизации недействителен или истёк',
+    )
+  })
+
+  it('does not surface raw HTML error bodies', () => {
+    expect(formatApiErrorMessage(500, 'Error', '<html><body>fail</body></html>')).toBe('Ошибка API')
+  })
 })

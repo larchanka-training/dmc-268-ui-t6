@@ -1,4 +1,5 @@
 import type { JSX, ReactElement, ReactNode } from 'react'
+import { useMemo } from 'react'
 import { Alert, Segmented, Typography } from 'antd'
 import { Decoration, Diff, Hunk } from 'react-diff-view'
 import type { HunkData } from 'react-diff-view'
@@ -83,6 +84,11 @@ export function DiffViewer(props: DiffViewerProps): JSX.Element {
   const { file, findings = [], comments = [], totalLines, onLoadMore } = props
   const viewType = useDiffViewerStore((s) => s.viewType)
   const setViewType = useDiffViewerStore((s) => s.setViewType)
+  const hunks = useMemo(
+    () => (file.hasPatch && file.chunks.length > 0 ? toHunks(file) : []),
+    [file],
+  )
+  const tokens = useMemo(() => tokensForHunks(file.filename, hunks), [file.filename, hunks])
 
   if (!file.hasPatch) {
     return (
@@ -102,7 +108,6 @@ export function DiffViewer(props: DiffViewerProps): JSX.Element {
     )
   }
 
-  const hunks = toHunks(file)
   const fileFindings = mergeFindings(findings, comments).filter((f) => f.file === file.filename)
 
   const outOfDiff: FindingView[] = []
@@ -142,8 +147,6 @@ export function DiffViewer(props: DiffViewerProps): JSX.Element {
         </div>
       )
   }
-
-  const tokens = tokensForHunks(file.filename, hunks)
 
   const renderHunks = (hunksArg: HunkData[]): ReactElement[] => {
     if (!onLoadMore) {

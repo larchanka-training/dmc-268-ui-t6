@@ -17,6 +17,7 @@ import { initMockTransport } from '../../app/mocks/mockTransport'
 import { REVIEW_LEGACY_RUN_ID } from '../../app/mocks/mockRunReview'
 import { DEMO_RUN_ID } from '../../shared/config/demoRun'
 import { ApiError, setAccessToken, setMockTransport } from '../../shared/api/client'
+import { runQueryKeys } from '../../entities/run/api'
 import { useAuthStore } from '../../features/auth'
 import { useDiffViewerStore } from '../../widgets/diff-viewer/model/store'
 import { useRunInspectorStore } from '../../widgets/run-inspector/model/store'
@@ -163,6 +164,36 @@ describe('RunDetailPage', () => {
     expect(screen.getByText('Прогон не найден')).toBeTruthy()
   })
 
+  it('shows the Critical severity badge on inline findings', async () => {
+    renderRunDetail(DEMO_RUN_ID)
+    await waitFor(() => {
+      expect(screen.getByText('Critical: unsafe pattern')).toBeTruthy()
+    })
+    expect(screen.getAllByText('Critical').length).toBeGreaterThan(0)
+  })
+
+  it('invalidates run list after a successful rerun', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const invalidateSpy = vi.spyOn(client, 'invalidateQueries')
+    const router = createMemoryRouter([{ path: '/runs/:runId', element: <RunDetailPage /> }], {
+      initialEntries: [`/runs/${DEMO_RUN_ID}`],
+    })
+    render(
+      <QueryClientProvider client={client}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Перезапустить')).toBeTruthy()
+    })
+    fireEvent.click(screen.getByText('Перезапустить'))
+
+    await waitFor(() => {
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: runQueryKeys.list() })
+    })
+  })
+
   it('shows a dedicated message when diff loading fails with 404', async () => {
     initMockTransport()
     setMockTransport((endpoint) => {
@@ -233,5 +264,7 @@ describe('RunDetailPage', () => {
       expect(screen.getByTestId('run-detail-diff-error')).toBeTruthy()
     })
     expect(screen.getByText('Дифф для этого прогона не найден')).toBeTruthy()
+    expect(screen.getByTestId('run-detail-page')).toBeTruthy()
+    expect(screen.getByText('Перезапустить')).toBeTruthy()
   })
 })
