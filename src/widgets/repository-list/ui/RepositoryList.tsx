@@ -41,6 +41,17 @@ import styles from './RepositoryList.module.css'
 
 const { Text, Link } = Typography
 
+export const SYNC_ACCESS_TOOLTIP =
+  'Повторная авторизация через GitHub обновит список ваших установок GitHub App. Откроется GitHub, затем вы вернётесь на эту страницу'
+
+export const REFRESH_TOOLTIP = 'После добавления репозиториев в установку нажмите «Обновить»'
+
+export const APP_INSTALL_TOOLTIP =
+  'После установки GitHub App на новый аккаунт нажмите «Обновить доступ»: откроется GitHub, затем вы вернётесь сюда. Репозиторий может появиться с задержкой до нескольких минут'
+
+export const EMPTY_REPOSITORIES_DESCRIPTION =
+  'Репозитории ещё не подключены. После установки GitHub App на новый аккаунт нажмите «Обновить доступ»: откроется GitHub, затем вы вернётесь сюда. Репозиторий может появиться с задержкой до нескольких минут. Если репозитории добавлены в уже подключённую установку — нажмите «Обновить».'
+
 export interface RepositoryListProps {
   repositories: Repository[]
   loading?: boolean
@@ -265,10 +276,12 @@ export const RepositoryList: FC<RepositoryListProps> = ({
     <Card
       extra={
         <Space>
-          <Button icon={<ReloadOutlined />} onClick={onRefresh}>
-            Обновить
-          </Button>
-          <Tooltip title="Синхронизировать доступ без выхода из системы (если GitHub App установлен в отдельной вкладке)">
+          <Tooltip title={REFRESH_TOOLTIP}>
+            <Button icon={<ReloadOutlined />} onClick={onRefresh}>
+              Обновить
+            </Button>
+          </Tooltip>
+          <Tooltip title={SYNC_ACCESS_TOOLTIP}>
             <Button onClick={handleSyncAccess}>Обновить доступ</Button>
           </Tooltip>
           {!isAppConfigured ? (
@@ -276,9 +289,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
               <span>{connectButton}</span>
             </Tooltip>
           ) : (
-            <Tooltip title="Установите GitHub App на репозитории. После завершения авторизация синхронизируется автоматически">
-              {connectButton}
-            </Tooltip>
+            <Tooltip title={APP_INSTALL_TOOLTIP}>{connectButton}</Tooltip>
           )}
         </Space>
       }
@@ -319,21 +330,16 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       </Flex>
 
       {repositories.length === 0 && !loading ? (
-        <Empty
-          description="Репозитории ещё не подключены. Установите GitHub App для предоставления доступа к вашим репозиториям. Если репозитории не появились автоматически, нажмите «Обновить доступ»."
-          image={Empty.PRESENTED_IMAGE_SIMPLE}
-        >
+        <Empty description={EMPTY_REPOSITORIES_DESCRIPTION} image={Empty.PRESENTED_IMAGE_SIMPLE}>
           <Space>
             {!isAppConfigured ? (
               <Tooltip title="Инсталляция недоступна: не задан VITE_GITHUB_APP_SLUG">
                 <span>{emptyConnectButton}</span>
               </Tooltip>
             ) : (
-              <Tooltip title="Установите GitHub App на репозитории. После завершения авторизация синхронизируется автоматически">
-                {emptyConnectButton}
-              </Tooltip>
+              <Tooltip title={APP_INSTALL_TOOLTIP}>{emptyConnectButton}</Tooltip>
             )}
-            <Tooltip title="Синхронизировать доступ без выхода из системы">
+            <Tooltip title={SYNC_ACCESS_TOOLTIP}>
               <Button onClick={handleSyncAccess}>Обновить доступ</Button>
             </Tooltip>
           </Space>

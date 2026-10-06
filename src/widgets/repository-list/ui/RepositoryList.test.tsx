@@ -3,7 +3,14 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { Repository } from '../../../entities/repository'
-import { RepositoryList } from './RepositoryList'
+import { useAuthStore } from '../../../features/auth'
+import {
+  APP_INSTALL_TOOLTIP,
+  EMPTY_REPOSITORIES_DESCRIPTION,
+  REFRESH_TOOLTIP,
+  RepositoryList,
+  SYNC_ACCESS_TOOLTIP,
+} from './RepositoryList'
 
 let mockSlug = ''
 vi.mock('../../../shared/config/env', () => ({
@@ -12,9 +19,12 @@ vi.mock('../../../shared/config/env', () => ({
   },
 }))
 
+const originalLoginWithGitHub = useAuthStore.getState().loginWithGitHub
+
 afterEach(() => {
   cleanup()
   mockSlug = ''
+  useAuthStore.setState({ loginWithGitHub: originalLoginWithGitHub })
 })
 
 const mockRepos: Repository[] = [
@@ -208,5 +218,60 @@ describe('RepositoryList', () => {
     fireEvent.click(targetBtn)
 
     expect(handleSyncAccess).toHaveBeenCalledOnce()
+  })
+
+  it('calls loginWithGitHub from auth store when onSyncAccess is not provided in header', () => {
+    const spy = vi.fn()
+    useAuthStore.setState({ loginWithGitHub: spy })
+    render(<RepositoryList repositories={mockRepos} />)
+
+    const syncBtn = screen.getByRole('button', { name: /обновить доступ/i })
+    fireEvent.click(syncBtn)
+
+    expect(spy).toHaveBeenCalledOnce()
+  })
+
+  it('calls loginWithGitHub from auth store when onSyncAccess is not provided in empty state', () => {
+    const spy = vi.fn()
+    useAuthStore.setState({ loginWithGitHub: spy })
+    render(<RepositoryList repositories={[]} />)
+
+    const syncButtons = screen.getAllByRole('button', { name: /обновить доступ/i })
+    expect(syncButtons.length).toBe(2)
+    const targetBtn = syncButtons[1]
+    expect(targetBtn).toBeDefined()
+    if (!targetBtn) {
+      throw new Error('Button not found')
+    }
+    fireEvent.click(targetBtn)
+
+    expect(spy).toHaveBeenCalledOnce()
+  })
+
+  it('renders empty state description explaining both installation scenarios', () => {
+    render(<RepositoryList repositories={[]} />)
+    expect(screen.getByText(EMPTY_REPOSITORIES_DESCRIPTION)).toBeDefined()
+  })
+
+  it('displays tooltip on hover over "Обновить доступ"', async () => {
+    render(<RepositoryList repositories={mockRepos} />)
+    const syncBtn = screen.getByRole('button', { name: /обновить доступ/i })
+    fireEvent.mouseEnter(syncBtn)
+    expect(await screen.findByText(SYNC_ACCESS_TOOLTIP)).toBeDefined()
+  })
+
+  it('displays tooltip on hover over "Обновить"', async () => {
+    render(<RepositoryList repositories={mockRepos} />)
+    const refreshBtn = screen.getByRole('button', { name: /обновить$/i })
+    fireEvent.mouseEnter(refreshBtn)
+    expect(await screen.findByText(REFRESH_TOOLTIP)).toBeDefined()
+  })
+
+  it('displays install tooltip on hover over connect button when app is configured', async () => {
+    mockSlug = 'my-github-app'
+    render(<RepositoryList repositories={mockRepos} />)
+    const connectBtn = screen.getByRole('link', { name: /подключить репозиторий/i })
+    fireEvent.mouseEnter(connectBtn)
+    expect(await screen.findByText(APP_INSTALL_TOOLTIP)).toBeDefined()
   })
 })
