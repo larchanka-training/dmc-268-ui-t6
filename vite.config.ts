@@ -39,7 +39,8 @@ export default defineConfig({
         },
       },
     },
-    chunkSizeWarningLimit: 500,
+    // vendor-antd is ~1.1 MB minified; isolated chunk is intentional (Refs #65, AC 3.5).
+    chunkSizeWarningLimit: 1200,
   },
   test: {
     include: ['src/**/*.test.{ts,tsx}'],

@@ -4,11 +4,11 @@ import { Button, Tag, Typography } from 'antd'
 import { extractNewSideLines, type FileDiff } from '../../../entities/diff'
 import type { FindingView } from '../../../entities/review'
 import {
+  findingLineRangeLabel,
   SEVERITY_BADGE_COLOR,
   SEVERITY_BADGE_LABEL,
   severityBadgeGroup,
-} from '../../../entities/review/lib/severityBadge'
-import { findingLineRangeLabel } from '../../../entities/review/lib/findingAnchor'
+} from '../../../entities/review'
 import { DiffSuggestion } from './DiffSuggestion'
 
 interface InlineCommentProps {

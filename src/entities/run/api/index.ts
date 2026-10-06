@@ -12,7 +12,7 @@ import {
   RunUpdatedEventSchema,
 } from '../model/schemas'
 import type { RunAction, RunDetail, RunListPage, RunSession } from '../model/schemas'
-import { FindingViewSchema } from '../../review/model/schemas'
+import { FindingViewSchema } from '../../review'
 
 export const runQueryKeys = {
   list: () => ['runs', 'list'] as const,
@@ -49,6 +49,8 @@ export function runMutationErrorMessage(error: unknown): string {
   }
   return 'Не удалось выполнить операцию'
 }
+
+export { parseRunUpdatedEvent, parseSseBuffer } from './runStreamParse'
 
 export async function fetchRunList(): Promise<RunListPage> {
   const data = await apiClient<unknown>(endpoints.runs.list())

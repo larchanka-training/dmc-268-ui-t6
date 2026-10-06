@@ -8,10 +8,8 @@ import { expandContext, fetchRunFileSlice, useRunDiff } from '../../entities/dif
 import type { FileDiff } from '../../entities/diff'
 import { useRunActions, useRunDetail } from '../../entities/run'
 import { useRunComments } from '../../entities/review'
-import { RunDiff } from '../../widgets/diff-viewer'
-import type { ContextGap } from '../../widgets/diff-viewer/model/types'
+import { contextChunkLimit, RunDiff, type ContextGap } from '../../widgets/diff-viewer'
 import { RunControls, RunInspector } from '../../widgets/run-inspector'
-import { contextChunkLimit } from '../../widgets/diff-viewer/lib/contextChunkSize'
 import { runDetailLoadMessage, runDiffLoadMessage } from './lib/runLoadErrors'
 
 const { Title, Text } = Typography

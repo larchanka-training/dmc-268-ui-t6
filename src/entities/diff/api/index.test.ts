@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { SAMPLE_PATCHES } from '../../../shared/fixtures/sample.patch'
-import { runQueryKeys } from '../../run/api'
+import { runQueryKeys } from '../../run'
 import { diffApi, diffQueryKeys } from './index'
 
 describe('diffApi', () => {

@@ -81,6 +81,80 @@ describe('RunDiff', () => {
     expect(screen.queryByText('Дифф слишком большой')).toBeNull()
   })
 
+  it('shows findings outside diff for a file with patch null', () => {
+    const run = RunSessionSchema.parse({
+      ...SUMMARY_ONLY_RUN_WIRE,
+      id: '33333333-3333-4333-8333-000000000004',
+      summaryOnly: false,
+    })
+    const files = diffApi.diff.response
+      .parse([{ filename: 'docs/huge.md', patch: null }])
+      .map(fromPatch)
+
+    render(
+      <RunDiff
+        findings={[
+          {
+            id: '33333333-3333-4333-8333-000000000010',
+            file: 'docs/huge.md',
+            oldLine: null,
+            newLine: 1,
+            endLine: null,
+            side: 'RIGHT',
+            severity: 'info',
+            category: 'readability',
+            title: 'Finding on patchless file',
+            body: 'No inline anchor',
+            suggestion: null,
+            confidence: 0.5,
+            ruleName: null,
+          },
+        ]}
+        files={files}
+        summaryOnly={run.summaryOnly}
+      />,
+    )
+
+    expect(screen.getByTestId('findings-outside-diff')).toBeTruthy()
+    expect(screen.getByText('Finding on patchless file')).toBeTruthy()
+  })
+
+  it('shows findings outside diff when the file is missing from the diff list', () => {
+    const run = RunSessionSchema.parse({
+      ...SUMMARY_ONLY_RUN_WIRE,
+      id: '33333333-3333-4333-8333-000000000005',
+      summaryOnly: false,
+    })
+    const files = diffApi.diff.response.parse(SAMPLE_PATCHES).map(fromPatch)
+
+    render(
+      <RunDiff
+        findings={[
+          {
+            id: '33333333-3333-4333-8333-000000000011',
+            file: 'src/not-in-diff.ts',
+            oldLine: null,
+            newLine: 10,
+            endLine: null,
+            side: 'RIGHT',
+            severity: 'low',
+            category: 'correctness',
+            title: 'Missing file finding',
+            body: 'File not in /diff payload',
+            suggestion: null,
+            confidence: 0.4,
+            ruleName: null,
+          },
+        ]}
+        files={files}
+        summaryOnly={run.summaryOnly}
+      />,
+    )
+
+    expect(screen.getByTestId('findings-outside-diff')).toBeTruthy()
+    expect(screen.getByText('Missing file finding')).toBeTruthy()
+  })
+
   it('renders a per-file "no diff" placeholder alongside full diffs in the same normal run', () => {
     const run = RunSessionSchema.parse({
       ...SUMMARY_ONLY_RUN_WIRE,

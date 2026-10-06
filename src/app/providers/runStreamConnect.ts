@@ -1,5 +1,4 @@
-import { parseRunUpdatedEvent, parseSseBuffer } from '../../entities/run/api/runStreamParse'
-import { runQueryKeys } from '../../entities/run/api'
+import { parseRunUpdatedEvent, parseSseBuffer, runQueryKeys } from '../../entities/run'
 import { getAccessToken, refreshAccessToken } from '../../shared/api/client'
 import { API_BASE_URL } from '../../shared/config/env'
 import { endpoints, resolveUrl } from '../../shared/api/endpoints'

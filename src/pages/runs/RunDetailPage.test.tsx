@@ -13,14 +13,15 @@ vi.mock('../../shared/config/env', async (importOriginal) => {
   }
 })
 
+import { mockRunsListPage } from '../../app/mocks/mockRunsList.fixture'
 import { initMockTransport } from '../../app/mocks/mockTransport'
 import { REVIEW_LEGACY_RUN_ID } from '../../app/mocks/mockRunReview'
 import { DEMO_RUN_ID } from '../../shared/config/demoRun'
 import { ApiError, setAccessToken, setMockTransport } from '../../shared/api/client'
-import { runQueryKeys } from '../../entities/run/api'
+import { runQueryKeys } from '../../entities/run'
 import { useAuthStore } from '../../features/auth'
-import { useDiffViewerStore } from '../../widgets/diff-viewer/model/store'
-import { useRunInspectorStore } from '../../widgets/run-inspector/model/store'
+import { useDiffViewerStore } from '../../widgets/diff-viewer'
+import { useRunInspectorStore } from '../../widgets/run-inspector'
 import { RunDetailPage } from './RunDetailPage'
 
 function renderRunDetail(runId: string) {
@@ -191,6 +192,37 @@ describe('RunDetailPage', () => {
 
     await waitFor(() => {
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: runQueryKeys.list() })
+    })
+  })
+
+  it('refetches run detail when the cache is invalidated like a live stream event', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const router = createMemoryRouter([{ path: '/runs/:runId', element: <RunDetailPage /> }], {
+      initialEntries: [`/runs/${DEMO_RUN_ID}`],
+    })
+    render(
+      <QueryClientProvider client={client}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('succeeded')).toBeTruthy()
+    })
+
+    const session = mockRunsListPage.items.find((run) => run.id === DEMO_RUN_ID)
+    if (!session) {
+      throw new Error('demo run missing from mock list')
+    }
+    session.status = 'running'
+    session.finishedAt = null
+
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: runQueryKeys.detail(DEMO_RUN_ID) })
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('running')).toBeTruthy()
     })
   })
 

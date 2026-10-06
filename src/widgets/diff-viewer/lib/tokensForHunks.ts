@@ -1,7 +1,7 @@
 import { tokenize } from 'react-diff-view'
 import type { HunkData, HunkTokens } from 'react-diff-view'
 
-import { languageFromFilename } from '../../../entities/diff/lib/fileLanguage'
+import { languageFromFilename } from '../../../entities/diff'
 import { refractorForDiffView } from './refractorForDiffView'
 
 /** Above this many diff-side lines, skip sync tokenize to keep the tab responsive (Refs #65). */

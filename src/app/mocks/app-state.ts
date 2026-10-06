@@ -1,4 +1,4 @@
-import { makeDuoActions } from '../../entities/run/lib/duoActions.fixture'
+import { makeDuoActions } from '../../entities/run'
 import type { RunAction, RunSession } from '../../entities/run'
 import { fromPatch } from '../../entities/diff'
 import type { FileDiff, RawFileDiff } from '../../entities/diff'
