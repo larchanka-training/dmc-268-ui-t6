@@ -570,7 +570,7 @@ Summary-only прогон рисует `RunDiff`: при `summaryOnly: true` —
 
 Однострочная находка приходит с `endLine = null`; диапазон строк —
 `[newLine ?? oldLine, endLine ?? newLine ?? oldLine]`. `commentKey` ищет строку по `newLine` /
-`oldLine`, поэтому комментарий к диапазону встаёт на его первую строку.
+`oldLine` (для диапазона — якорь `endLine ?? newLine`, см. `commentKey.ts`).
 
 «Дочитать контекст» — зазор вычисляется в `DiffViewer.tsx` (`gapBeforeHunk`/`gapAfterLastHunk`):
 для каждой пары соседних хунков зазор — это `{ startLine: prev.newStart + prev.newLines, count:

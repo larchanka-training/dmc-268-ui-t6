@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import React from 'react'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -65,6 +66,54 @@ describe('CallbackPage OAuth errors', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Недействительный код авторизации GitHub')).toBeTruthy()
+    })
+  })
+
+  it('shows a Russian schema message when the callback API returns 200 without accessToken', async () => {
+    initMockTransport()
+    withMockTransportOverlay((endpoint) => {
+      if (endpoint.path === '/auth/github/callback' && endpoint.method === 'POST') {
+        return {}
+      }
+      return undefined
+    })
+    sessionStorage.setItem(STATE_STORAGE_KEY, 'csrf_test_state')
+    window.history.pushState(
+      {},
+      '',
+      '/auth/callback?code=github_exchange_code&state=csrf_test_state',
+    )
+
+    render(<CallbackPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Ответ сервера не прошёл проверку схемы')).toBeTruthy()
+    })
+  })
+
+  it('renders inside StrictMode and exchanges the OAuth code exactly once', async () => {
+    let callbackPosts = 0
+    withMockTransportOverlay((endpoint) => {
+      if (endpoint.path === '/auth/github/callback' && endpoint.method === 'POST') {
+        callbackPosts += 1
+      }
+      return undefined
+    })
+    sessionStorage.setItem(STATE_STORAGE_KEY, 'csrf_test_state')
+    window.history.pushState(
+      {},
+      '',
+      '/auth/callback?code=github_exchange_code&state=csrf_test_state',
+    )
+
+    render(
+      <React.StrictMode>
+        <CallbackPage />
+      </React.StrictMode>,
+    )
+
+    await waitFor(() => {
+      expect(callbackPosts).toBe(1)
     })
   })
 

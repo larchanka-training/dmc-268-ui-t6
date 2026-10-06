@@ -22,6 +22,13 @@ describe('auth returnTo', () => {
     expect(consumeAuthReturnTo('/runs')).toBe('/runs')
   })
 
+  it('rejects absolute URLs and javascript pseudo-schemes', () => {
+    expect(isSafeAuthReturnPath('https://evil.com')).toBe(false)
+    expect(isSafeAuthReturnPath('javascript:alert(1)')).toBe(false)
+    saveAuthReturnTo('https://evil.com')
+    expect(consumeAuthReturnTo('/repositories')).toBe('/repositories')
+  })
+
   it('rejects open redirects and backslash paths', () => {
     expect(isSafeAuthReturnPath('//evil.com')).toBe(false)
     expect(isSafeAuthReturnPath('/\\evil')).toBe(false)

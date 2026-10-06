@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 import { RawFileDiffSchema } from '../../entities/diff'
-import { makeDuoActions } from '../../entities/run'
+import { makeDuoActions } from '../../entities/run/lib/duoActions.fixture'
 import { RepositorySchema, UpdateRepositorySchema } from '../../entities/repository'
 import { setMockAuthAdapter, useAuthStore } from '../../features/auth'
 import {

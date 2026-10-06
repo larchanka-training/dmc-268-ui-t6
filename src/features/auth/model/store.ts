@@ -1,15 +1,14 @@
 import { create } from 'zustand'
 
-import { AuthSessionSchema, fetchMe } from '../../../entities/user'
+import { AuthSessionSchema, fetchMe, type Me } from '../../../entities/user'
 import {
   apiClient,
-  ApiError,
   getAccessToken,
   refreshAccessToken,
   setAccessToken,
   setOnUnauthorized,
 } from '../../../shared/api/client'
-import { formatApiErrorMessage } from '../../../shared/api/apiErrorMessage'
+import { formatAuthCallbackFailure } from '../lib/authCallbackErrors'
 import { endpoints } from '../../../shared/api/endpoints'
 import { GITHUB_CLIENT_ID, isMockMode } from '../../../shared/config/env'
 
@@ -27,9 +26,14 @@ export function generateRandomState(): string {
 }
 
 let onLogoutCallback: (() => void) | null = null
+let onAuthMeHydrated: ((me: Me) => void) | null = null
 
 export function setOnLogout(callback: () => void): void {
   onLogoutCallback = callback
+}
+
+export function setOnAuthMeHydrated(callback: (me: Me) => void): void {
+  onAuthMeHydrated = callback
 }
 
 export interface MockAuthAdapter {
@@ -170,19 +174,16 @@ export const useAuthStore = create<AuthState>((set) => ({
       })
     } catch (err) {
       setAccessToken(null)
-      const message =
-        err instanceof ApiError
-          ? formatApiErrorMessage(err.status, err.statusText, err.data)
-          : err instanceof Error
-            ? err.message
-            : 'Ошибка аутентификации'
+      const message = formatAuthCallbackFailure(err)
       set({
         isAuthenticated: false,
         isInitialized: true,
         isLoading: false,
         error: message,
       })
-      throw err
+      // User-facing message is formatted above; CallbackPage reads `Error.message`.
+      // eslint-disable-next-line preserve-caught-error -- auth callback maps unknown errors to Russian text
+      throw new Error(message)
     }
   },
 
@@ -251,7 +252,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         return
       }
 
-      await fetchMe(newToken)
+      const me = await fetchMe(newToken)
+      onAuthMeHydrated?.(me)
 
       set({
         isAuthenticated: true,

@@ -1,7 +1,7 @@
 import { ArrowLeftOutlined } from '@ant-design/icons'
 import { Alert, Button, Card, Empty, Flex, Spin, Typography } from 'antd'
 import type { FC } from 'react'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 
 import { expandContext, fetchRunFileSlice, useRunDiff } from '../../entities/diff'
@@ -28,12 +28,18 @@ export const RunDetailPage: FC = () => {
   const commentsQuery = useRunComments(runId)
   const [expandedFiles, setExpandedFiles] = useState<Map<string, FileDiff>>(() => new Map())
   const [loadError, setLoadError] = useState<string | null>(null)
+  const inflightGapKeyRef = useRef<string | null>(null)
 
   const handleLoadMore = useCallback(
     (file: FileDiff, gap: ContextGap) => {
       if (!runId) {
         return
       }
+      const gapKey = `${file.filename}:${String(gap.startLine)}`
+      if (inflightGapKeyRef.current === gapKey) {
+        return
+      }
+      inflightGapKeyRef.current = gapKey
       setLoadError(null)
       void fetchRunFileSlice(runId, {
         path: file.filename,
@@ -50,6 +56,11 @@ export const RunDetailPage: FC = () => {
         })
         .catch(() => {
           setLoadError('Не удалось дочитать контекст файла')
+        })
+        .finally(() => {
+          if (inflightGapKeyRef.current === gapKey) {
+            inflightGapKeyRef.current = null
+          }
         })
     },
     [runId],

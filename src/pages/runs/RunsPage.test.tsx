@@ -7,15 +7,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mockRunsListPage } from '../../app/mocks/mockRunsList.fixture'
 import { RunsPage } from './RunsPage'
 
-vi.mock('../../entities/run/api', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../entities/run/api')>()
+vi.mock('../../entities/run', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../entities/run')>()
   return {
     ...actual,
     useRunList: vi.fn(),
   }
 })
 
-import { useRunList } from '../../entities/run/api'
+import { useRunList } from '../../entities/run'
 
 function renderPage(initialEntry = '/runs') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })

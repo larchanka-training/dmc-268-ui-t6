@@ -5,5 +5,9 @@ const OAUTH_ERROR_MESSAGES: Record<string, string> = {
 }
 
 export function oauthCallbackErrorMessage(code: string): string {
-  return OAUTH_ERROR_MESSAGES[code] ?? 'Не удалось войти через GitHub'
+  const mapped = OAUTH_ERROR_MESSAGES[code]
+  if (mapped !== undefined) {
+    return mapped
+  }
+  return 'Не удалось войти через GitHub'
 }

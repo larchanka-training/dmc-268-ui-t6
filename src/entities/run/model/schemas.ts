@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { FindingViewSchema } from '../../review/model/schemas'
+import { FindingViewSchema } from '../../review'
 
 export const RunStatusSchema = z.enum([
   'queued',

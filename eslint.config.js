@@ -48,7 +48,12 @@ export default tseslint.config(
         {
           patterns: [
             {
-              group: ['**/entities/*/lib/**', '**/entities/*/model/**', '**/entities/*/api/**'],
+              group: [
+                '**/entities/*/lib/**',
+                '**/entities/*/model/**',
+                '**/entities/*/api',
+                '**/entities/*/api/**',
+              ],
               message: 'Import from the entity public index (FSD).',
             },
             {

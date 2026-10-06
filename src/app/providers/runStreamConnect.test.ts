@@ -2,7 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { runQueryKeys } from '../../entities/run'
 import { queryClient } from './queryClient'
-import { connectRunStream, MAX_STREAM_401_RETRIES } from './runStreamConnect'
+import {
+  connectRunStream,
+  MAX_STREAM_401_RETRIES,
+  runStreamUntilAborted,
+  STREAM_RECONNECT_DELAY_MS,
+} from './runStreamConnect'
 
 vi.mock('../../shared/api/client', () => ({
   getAccessToken: vi.fn(),
@@ -68,5 +73,31 @@ describe('connectRunStream', () => {
     await connectRunStream(controller.signal, 'token_a')
 
     expect(fetchMock).toHaveBeenCalledTimes(MAX_STREAM_401_RETRIES + 1)
+  })
+})
+
+describe('runStreamUntilAborted', () => {
+  const originalFetch = globalThis.fetch
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+    vi.useRealTimers()
+  })
+
+  it('reconnects after a failed stream response until aborted', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 503, statusText: 'Unavailable' }))
+    globalThis.fetch = fetchMock
+
+    const controller = new AbortController()
+    const done = runStreamUntilAborted(controller.signal, 'token_a')
+
+    await vi.advanceTimersByTimeAsync(STREAM_RECONNECT_DELAY_MS + 10)
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(2)
+
+    controller.abort()
+    await done
   })
 })

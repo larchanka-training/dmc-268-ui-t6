@@ -1,5 +1,4 @@
 export * from './model/schemas'
 export * from './lib/groupActions'
 export * from './lib/status'
-export { makeDuoActions } from './lib/duoActions.fixture'
 export * from './api'

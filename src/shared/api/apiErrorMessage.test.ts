@@ -15,9 +15,9 @@ describe('formatApiErrorMessage', () => {
     expect(error.message).toBe('Неверный код')
   })
 
-  it('maps OAuth callback error codes to Russian', () => {
-    expect(formatApiErrorMessage(400, 'Bad Request', { detail: { code: 'invalid_grant' } })).toBe(
-      'Код авторизации недействителен или истёк',
+  it('passes through English API detail without GitHub-specific wording', () => {
+    expect(formatApiErrorMessage(502, 'Bad Gateway', { detail: 'upstream timeout' })).toBe(
+      'upstream timeout',
     )
   })
 
@@ -25,18 +25,7 @@ describe('formatApiErrorMessage', () => {
     expect(formatApiErrorMessage(500, 'Error', '<html><body>fail</body></html>')).toBe('Ошибка API')
   })
 
-  it('maps GitHub callback English detail strings to Russian', () => {
-    expect(
-      formatApiErrorMessage(400, 'Bad Request', { detail: 'invalid GitHub authorization code' }),
-    ).toBe('Недействительный код авторизации GitHub')
-    expect(
-      formatApiErrorMessage(502, 'Bad Gateway', { detail: 'GitHub authentication is unavailable' }),
-    ).toBe('Вход через GitHub временно недоступен')
-  })
-
-  it('uses a Russian fallback for unknown English callback detail on 400/502', () => {
-    expect(formatApiErrorMessage(400, 'Bad Request', { detail: 'some other server message' })).toBe(
-      'Не удалось войти через GitHub (код 400)',
-    )
+  it('falls back to status when detail is missing', () => {
+    expect(formatApiErrorMessage(502, 'Bad Gateway', null)).toBe('Ошибка API (502: Bad Gateway)')
   })
 })

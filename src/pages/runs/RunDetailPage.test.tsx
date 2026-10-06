@@ -18,6 +18,8 @@ import { z } from 'zod'
 import { RawFileDiffSchema } from '../../entities/diff'
 import { mockRunsListPage } from '../../app/mocks/mockRunsList.fixture'
 import { buildMockRunDetail } from '../../app/mocks/mockRunReview'
+
+const RERUN_RUN_ID = '11111111-1111-4111-8111-000000000099'
 import { initMockTransport, withMockTransportOverlay } from '../../app/mocks/mockTransport'
 import { SAMPLE_PATCHES } from '../../shared/fixtures/sample.patch'
 import { REVIEW_LEGACY_RUN_ID } from '../../app/mocks/mockRunReview'
@@ -262,6 +264,49 @@ describe('RunDetailPage', () => {
     expect(screen.getAllByText('Critical').length).toBeGreaterThan(0)
   })
 
+  it('navigates to the new run and renders detail when prod staleTime keeps cache cold', async () => {
+    withMockTransportOverlay((endpoint) => {
+      if (endpoint.path === `/runs/${RERUN_RUN_ID}` && endpoint.method === 'GET') {
+        const base = mockRunsListPage.items.find((run) => run.id === DEMO_RUN_ID)
+        if (!base) {
+          throw new Error('demo run missing from fixture')
+        }
+        return buildMockRunDetail({
+          ...base,
+          id: RERUN_RUN_ID,
+          status: 'queued',
+          startedAt: null,
+          finishedAt: null,
+          attempt: base.attempt + 1,
+          cancelRequested: false,
+        })
+      }
+      return undefined
+    })
+
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
+    })
+    const router = createMemoryRouter([{ path: '/runs/:runId', element: <RunDetailPage /> }], {
+      initialEntries: [`/runs/${DEMO_RUN_ID}`],
+    })
+    render(
+      <QueryClientProvider client={client}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Перезапустить')).toBeTruthy()
+    })
+    fireEvent.click(screen.getByText('Перезапустить'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('run-detail-page')).toBeTruthy()
+      expect(screen.getByText('queued')).toBeTruthy()
+    })
+  })
+
   it('invalidates run list after a successful rerun', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const invalidateSpy = vi.spyOn(client, 'invalidateQueries')
@@ -303,6 +348,8 @@ describe('RunDetailPage', () => {
     if (!session) {
       throw new Error('demo run missing from mock list')
     }
+    const previousStatus = session.status
+    const previousFinishedAt = session.finishedAt
     session.status = 'running'
     session.finishedAt = null
 
@@ -313,6 +360,9 @@ describe('RunDetailPage', () => {
     await waitFor(() => {
       expect(screen.getByText('running')).toBeTruthy()
     })
+
+    session.status = previousStatus
+    session.finishedAt = previousFinishedAt
   })
 
   it('shows a dedicated message when diff loading fails with 404', async () => {
