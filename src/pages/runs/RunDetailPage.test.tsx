@@ -23,7 +23,6 @@ import { mockSummaryOnlyDiff } from '../../app/mocks/app-state'
 const RERUN_RUN_ID = '11111111-1111-4111-8111-000000000099'
 import { initMockTransport, withMockTransportOverlay } from '../../app/mocks/mockTransport'
 import { SAMPLE_PATCHES } from '../../shared/fixtures/sample.patch'
-import { REVIEW_LEGACY_RUN_ID } from '../../app/mocks/mockRunReview'
 import { DEMO_RUN_ID } from '../../shared/config/demoRun'
 import { ApiError, setAccessToken, setMockTransport } from '../../shared/api/client'
 import { runQueryKeys } from '../../entities/run'
@@ -74,14 +73,24 @@ describe('RunDetailPage', () => {
     expect(screen.getByText('src/a.ts')).toBeTruthy()
   })
 
-  it('renders a legacy RunSession payload without review extras', async () => {
-    renderRunDetail(REVIEW_LEGACY_RUN_ID)
-    await waitFor(() => {
-      expect(screen.getByTestId('run-detail-page')).toBeTruthy()
+  it('shows a schema error when run detail omits required review fields', async () => {
+    const incompleteRunId = '11111111-1111-4111-8111-000000000002'
+    withMockTransportOverlay((endpoint) => {
+      if (endpoint.path === `/runs/${incompleteRunId}` && endpoint.method === 'GET') {
+        const session = mockRunsListPage.items.find((run) => run.id === DEMO_RUN_ID)
+        if (!session) {
+          return undefined
+        }
+        return { ...session }
+      }
+      return undefined
     })
-    expect(screen.getByText('running')).toBeTruthy()
-    expect(screen.queryByText('Blocking')).toBeNull()
-    expect(screen.queryByText('Attention')).toBeNull()
+
+    renderRunDetail(incompleteRunId)
+    await waitFor(() => {
+      expect(screen.getByTestId('run-detail-run-error')).toBeTruthy()
+    })
+    expect(screen.getByText('Ответ сервера не прошёл проверку схемы')).toBeTruthy()
   })
 
   it('expands a collapsed action group in the inspector', async () => {

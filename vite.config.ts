@@ -25,19 +25,6 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
-      modulePreload: {
-        resolveDependencies: (_filename, deps, { hostType }) => {
-          if (hostType !== 'html') {
-            return deps
-          }
-          return deps.filter(
-            (dep) =>
-              !/(?:RunDetailPage|LoginPage|CallbackPage|RepositoriesPage|RunsPage|ReviewRedirect|mockTransport|diff-|typography-)/.test(
-                dep,
-              ),
-          )
-        },
-      },
       rolldownOptions: {
         output: {
           codeSplitting: {

@@ -83,7 +83,7 @@ describe('fetchRunDetail', () => {
       ],
       summary: null,
       verdict: null,
-      severityCounts: null,
+      severityCounts: { critical: 1, high: 0, medium: 0, low: 0, info: 0 },
       budget: null,
     })
 

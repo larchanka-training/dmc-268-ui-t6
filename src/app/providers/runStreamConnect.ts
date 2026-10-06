@@ -54,28 +54,38 @@ export async function connectRunStream(
   let buffer = ''
   let readChunk = false
 
-  while (!signal.aborted) {
-    const { done, value } = await reader.read()
-    if (done) {
-      break
-    }
-    readChunk = true
-    buffer += decoder.decode(value, { stream: true })
-    const parsed = parseSseBuffer(buffer)
-    buffer = parsed.rest
-    for (const frame of parsed.events) {
-      if (frame.event !== 'run.updated') {
-        continue
+  try {
+    while (!signal.aborted) {
+      const { done, value } = await reader.read()
+      if (done) {
+        break
       }
-      const payload = parseRunUpdatedEvent(frame.data)
-      if (payload === null) {
-        continue
+      readChunk = true
+      buffer += decoder.decode(value, { stream: true })
+      const parsed = parseSseBuffer(buffer)
+      buffer = parsed.rest
+      for (const frame of parsed.events) {
+        if (frame.event !== 'run.updated') {
+          continue
+        }
+        const payload = parseRunUpdatedEvent(frame.data)
+        if (payload === null) {
+          continue
+        }
+        void queryClient.invalidateQueries({ queryKey: runQueryKeys.detail(payload.runId) })
+        void queryClient.invalidateQueries({ queryKey: runQueryKeys.actions(payload.runId) })
+        void queryClient.invalidateQueries({ queryKey: runQueryKeys.diff(payload.runId) })
+        void queryClient.invalidateQueries({ queryKey: runQueryKeys.comments(payload.runId) })
       }
-      void queryClient.invalidateQueries({ queryKey: runQueryKeys.detail(payload.runId) })
-      void queryClient.invalidateQueries({ queryKey: runQueryKeys.actions(payload.runId) })
-      void queryClient.invalidateQueries({ queryKey: runQueryKeys.diff(payload.runId) })
-      void queryClient.invalidateQueries({ queryKey: runQueryKeys.comments(payload.runId) })
     }
+  } catch (error: unknown) {
+    if (isAborted(signal) || isAbortError(error)) {
+      throw error
+    }
+    if (readChunk) {
+      return true
+    }
+    throw error
   }
   return readChunk
 }

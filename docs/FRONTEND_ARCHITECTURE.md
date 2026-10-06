@@ -706,9 +706,10 @@ issue прямо выносит подключение логирования з
 **Роутер.** Установлен **react-router 8** (^8.4.0, peer react ≥ 19.2.7 — выполняется), настроен в `src/app/routes.tsx`. Лэйауты (`AppLayoutRoute`, `ProtectedLayout`, `PageFallback`, `RouteErrorFallback`) и обёртки страниц (`RoutedRepositoriesPage` и др.) вынесены в `src/app/layouts/`, чтобы файл роутера оставался чистой конфигурацией маршрутов без отключения правил Fast Refresh (`react-refresh/only-export-components`).
 
 **Сборка и чанки.** `vite.config.ts`: `build.rolldownOptions.output.codeSplitting`
-(`vendor-react`, `vendor-query`, `maxSize: 400_000`, `includeDependenciesRecursively: false`);
+(`vendor-react`, `vendor-query`, `includeDependenciesRecursively: false`);
 antd раскладывается по ленивым страницам, как на `main`. `chunkSizeWarningLimit: 500`.
-Первая загрузка (script + modulepreload JS): ~542 кБ / ~175 кБ gzip vs `main` ~944 кБ / ~298 кБ gzip.
+Первая загрузка (script + modulepreload JS): ~961 кБ / ~310 кБ gzip vs `main` ~944 кБ / ~298 кБ gzip
+(+~4 % gzip за живой SSE в корне, решение техлида).
 Prod без демо: `pnpm build && pnpm verify:prod-bundle` (Refs #65, AC 3.3 / 3.5).
 
 ---

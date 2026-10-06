@@ -148,6 +148,38 @@ describe('runStreamUntilAborted', () => {
     errorSpy.mockRestore()
   })
 
+  it('resets reconnect delay after read() throws once a chunk was received', async () => {
+    vi.useFakeTimers()
+    const readError = new TypeError('network read failed')
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('event: ping\ndata: x\n\n'))
+            controller.error(readError)
+          },
+        }),
+        { status: 200, headers: { 'content-type': 'text/event-stream' } },
+      ),
+    )
+    fetchMock.mockResolvedValue(new Response(null, { status: 503, statusText: 'Unavailable' }))
+    globalThis.fetch = fetchMock
+
+    const controller = new AbortController()
+    const done = runStreamUntilAborted(controller.signal, 'token_a')
+
+    await Promise.resolve()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(STREAM_RECONNECT_DELAY_MS - 1)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+
+    controller.abort()
+    await done
+  })
+
   it('grows reconnect delay on 503 and resets only after a successful read', async () => {
     vi.useFakeTimers()
     const fetchMock = vi

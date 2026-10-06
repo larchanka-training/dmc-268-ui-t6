@@ -13,11 +13,15 @@ import {
 } from './RepositoryList'
 
 let mockSlug = ''
-vi.mock('../../../shared/config/env', () => ({
-  get GITHUB_APP_SLUG() {
-    return mockSlug
-  },
-}))
+vi.mock('../../../shared/config/env', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../shared/config/env')>()
+  return {
+    ...actual,
+    get GITHUB_APP_SLUG() {
+      return mockSlug
+    },
+  }
+})
 
 const originalLoginWithGitHub = useAuthStore.getState().loginWithGitHub
 

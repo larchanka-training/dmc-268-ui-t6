@@ -17,7 +17,12 @@ export function RunInspector(props: RunInspectorProps): JSX.Element {
   const { run, actions, now, verdict = null, severityCounts = null, headerExtra = null } = props
   return (
     <section>
-      <RunHeader now={now} run={run} severityCounts={severityCounts} verdict={verdict} />
+      <RunHeader
+        now={now}
+        run={run}
+        severityCounts={severityCounts ?? undefined}
+        verdict={verdict}
+      />
       {headerExtra}
       <ActionTree actions={actions} runId={run.id} />
     </section>
