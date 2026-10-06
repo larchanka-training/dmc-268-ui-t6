@@ -95,7 +95,9 @@ flowchart TD
 Правила:
 
 - импорты — только вниз по стрелке; наверх и «вбок» — нельзя;
-- срезы одного слоя друг друга не импортируют (кроме `shared`, у него срезов нет);
+- срезы одного слоя друг друга не импортируют (кроме `shared`, у него срезов нет).
+  Исключение: `entities/run` импортирует `FindingViewSchema` из публичного индекса
+  `entities/review` (разбор `findings[]` в `RunDetail`; ESLint `no-restricted-imports`);
 - `shared` никогда не импортирует `entities` (граница из плана, D18: `shared/api/endpoints.ts` —
   только пути/методы, domain-agnostic; привязка «эндпоинт → Zod-схема» — в `entities/*/api`);
 - файл компонента экспортирует только компоненты — следствие `react-refresh` (тулинг PR #26):
@@ -126,12 +128,17 @@ src/app/mocks/mockRunReview.test.ts
 src/app/mocks/mockRunReview.ts
 src/app/mocks/mockRunsList.fixture.test.ts
 src/app/mocks/mockRunsList.fixture.ts
+src/app/mocks/mockTransport.test.ts
 src/app/mocks/mockTransport.ts
 src/app/providers/QueryProvider.tsx
+src/app/providers/RunStreamBridge.tsx
 src/app/providers/UiProvider.test.tsx
 src/app/providers/UiProvider.tsx
 src/app/providers/index.ts
 src/app/providers/queryClient.ts
+src/app/providers/runStreamConnect.test.ts
+src/app/providers/runStreamConnect.ts
+src/app/providers/useRunStream.ts
 src/app/routes.tsx
 src/entities/diff/api/index.test.ts
 src/entities/diff/api/index.ts
@@ -140,6 +147,7 @@ src/entities/diff/lib/commentKey.test.ts
 src/entities/diff/lib/commentKey.ts
 src/entities/diff/lib/expandContext.test.ts
 src/entities/diff/lib/expandContext.ts
+src/entities/diff/lib/extractNewSideLines.test.ts
 src/entities/diff/lib/extractNewSideLines.ts
 src/entities/diff/lib/fileLanguage.ts
 src/entities/diff/lib/fromPatch.test.ts
@@ -153,6 +161,7 @@ src/entities/repository/api/index.ts
 src/entities/repository/index.ts
 src/entities/repository/model/schemas.test.ts
 src/entities/repository/model/schemas.ts
+src/entities/review/api/index.test.ts
 src/entities/review/api/index.ts
 src/entities/review/index.ts
 src/entities/review/lib/findingAnchor.ts
@@ -160,10 +169,13 @@ src/entities/review/lib/reviewCommentToFinding.ts
 src/entities/review/lib/severityBadge.ts
 src/entities/review/model/schemas.test.ts
 src/entities/review/model/schemas.ts
+src/entities/run/api/fetchRunActions.test.ts
 src/entities/run/api/fetchRunDetail.test.ts
 src/entities/run/api/fetchRunList.test.ts
 src/entities/run/api/index.test.ts
 src/entities/run/api/index.ts
+src/entities/run/api/runStreamParse.test.ts
+src/entities/run/api/runStreamParse.ts
 src/entities/run/index.ts
 src/entities/run/lib/duoActions.fixture.ts
 src/entities/run/lib/groupActions.test.ts
@@ -179,6 +191,10 @@ src/entities/user/model/schemas.test.ts
 src/entities/user/model/schemas.ts
 src/features/.gitkeep
 src/features/auth/index.ts
+src/features/auth/lib/authCallbackErrors.test.ts
+src/features/auth/lib/authCallbackErrors.ts
+src/features/auth/lib/returnTo.test.ts
+src/features/auth/lib/returnTo.ts
 src/features/auth/model/store.test.ts
 src/features/auth/model/store.ts
 src/features/auth/ui/LoginButton.test.tsx
@@ -195,6 +211,8 @@ src/main.tsx
 src/pages/auth/CallbackPage.module.css
 src/pages/auth/CallbackPage.test.tsx
 src/pages/auth/CallbackPage.tsx
+src/pages/auth/oauthErrors.test.ts
+src/pages/auth/oauthErrors.ts
 src/pages/login/LoginPage.module.css
 src/pages/login/LoginPage.test.tsx
 src/pages/login/LoginPage.tsx
@@ -205,16 +223,24 @@ src/pages/repositories/lib/formatError.ts
 src/pages/review/.gitkeep
 src/pages/review/ReviewPage.module.css
 src/pages/review/ReviewPage.tsx
+src/pages/review/ReviewRedirect.test.tsx
+src/pages/review/ReviewRedirect.tsx
 src/pages/runs/.gitkeep
+src/pages/runs/RunDetailPage.test.tsx
 src/pages/runs/RunDetailPage.tsx
 src/pages/runs/RunsPage.module.css
 src/pages/runs/RunsPage.test.tsx
 src/pages/runs/RunsPage.tsx
+src/pages/runs/lib/runLoadErrors.test.ts
+src/pages/runs/lib/runLoadErrors.ts
+src/shared/api/apiErrorMessage.test.ts
+src/shared/api/apiErrorMessage.ts
 src/shared/api/client.test.ts
 src/shared/api/client.ts
 src/shared/api/endpoints.test.ts
 src/shared/api/endpoints.ts
 src/shared/api/schemas.ts
+src/shared/config/buildFlags.ts
 src/shared/config/demoRun.ts
 src/shared/config/env.test.ts
 src/shared/config/env.ts
@@ -226,8 +252,13 @@ src/widgets/app-layout/ui/AppHeader.tsx
 src/widgets/app-layout/ui/AppLayout.module.css
 src/widgets/app-layout/ui/AppLayout.test.tsx
 src/widgets/app-layout/ui/AppLayout.tsx
+src/widgets/app-layout/ui/AppSidebar.test.tsx
 src/widgets/app-layout/ui/AppSidebar.tsx
 src/widgets/diff-viewer/index.ts
+src/widgets/diff-viewer/lib/contextChunkSize.test.ts
+src/widgets/diff-viewer/lib/contextChunkSize.ts
+src/widgets/diff-viewer/lib/refractorForDiffView.test.ts
+src/widgets/diff-viewer/lib/refractorForDiffView.ts
 src/widgets/diff-viewer/lib/tokensForHunks.test.ts
 src/widgets/diff-viewer/lib/tokensForHunks.ts
 src/widgets/diff-viewer/model/store.ts
@@ -246,8 +277,12 @@ src/widgets/repository-list/ui/RepositoryList.test.tsx
 src/widgets/repository-list/ui/RepositoryList.tsx
 src/widgets/run-inspector/index.ts
 src/widgets/run-inspector/lib/format.ts
+src/widgets/run-inspector/lib/safeHttpUrl.test.ts
+src/widgets/run-inspector/lib/safeHttpUrl.ts
 src/widgets/run-inspector/model/store.ts
 src/widgets/run-inspector/ui/ActionTree.tsx
+src/widgets/run-inspector/ui/RunControls.test.tsx
+src/widgets/run-inspector/ui/RunControls.tsx
 src/widgets/run-inspector/ui/RunHeader.test.tsx
 src/widgets/run-inspector/ui/RunHeader.tsx
 src/widgets/run-inspector/ui/RunInspector.test.tsx
@@ -269,18 +304,18 @@ src/widgets/run-inspector/ui/RunInspector.tsx
 
 ## 2. Состояние
 
-| Данное                                | Где живёт                                                  | Инвалидация                                   |
-| ------------------------------------- | ---------------------------------------------------------- | --------------------------------------------- |
-| Список прогонов                       | TanStack Query, ключ `['runs', 'list']` (дефолтный query)  | по времени (`staleTime: 30s`) + `run.updated` |
-| Прогон (детали)                       | TanStack Query, ключ `['runs', id]`                        | `run.updated` для этого `runId`               |
-| Действия прогона                      | TanStack Query, ключ `['runs', id, 'actions']`             | вместе с прогоном                             |
-| Дифф прогона                          | TanStack Query, ключ `['runs', id, 'diff']`                | `run.updated` / SSE (Refs ui#65)              |
-| Комментарии ревью                     | TanStack Query, ключ `['runs', id, 'comments']`            | вместе с прогоном                             |
-| Дочитанные срезы файла                | TanStack Query, ключ `['runs', id, 'files', path, offset]` | не инвалидируется (append-only)               |
-| `viewType` (unified/split)            | Zustand, `widgets/diff-viewer/model/store.ts`              | — (UI-состояние, не сервер)                   |
-| `selectedFile` (diff-viewer)          | Zustand, `widgets/diff-viewer/model/store.ts`              | —                                             |
-| `expandedKeys`, `selectedActionIndex` | Zustand, `widgets/run-inspector/model/store.ts`            | —                                             |
-| Черновики комментариев                | —                                                          | future (не реализовано в этом спринте)        |
+| Данное                                | Где живёт                                                                                                                  | Инвалидация                                        |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| Список прогонов                       | TanStack Query, ключ `['runs', 'list']` (дефолтный query)                                                                  | по времени (`staleTime: 30s`) + `run.updated`      |
+| Прогон (детали)                       | TanStack Query, ключ `['runs', id]`                                                                                        | `run.updated` для этого `runId`                    |
+| Действия прогона                      | TanStack Query, ключ `['runs', id, 'actions']`                                                                             | вместе с прогоном                                  |
+| Дифф прогона                          | TanStack Query, ключ `['runs', id, 'diff']`                                                                                | `run.updated` / SSE (Refs ui#65)                   |
+| Комментарии ревью                     | TanStack Query, ключ `['runs', id, 'comments']`                                                                            | вместе с прогоном                                  |
+| Дочитанные срезы файла                | `useState` на `RunDetailPage` (слияние в `FileDiff`); ключ Query `diffQueryKeys.fileSlice` зарезервирован, не используется | не инвалидируется (append-only, живёт с страницей) |
+| `viewType` (unified/split)            | Zustand, `widgets/diff-viewer/model/store.ts`                                                                              | — (UI-состояние, не сервер)                        |
+| `selectedFile` (diff-viewer)          | Zustand, `widgets/diff-viewer/model/store.ts`                                                                              | —                                                  |
+| `expandedKeys`, `selectedActionIndex` | Zustand, `widgets/run-inspector/model/store.ts`                                                                            | —                                                  |
+| Черновики комментариев                | —                                                                                                                          | future (не реализовано в этом спринте)             |
 
 TanStack Query — не замена Zustand, а дополнение: серверный кэш и клиентский UI-стейт разнесены
 по разным сторонам (issue AC явно требует эту формулировку). Стор Zustand живёт в виджете, а не в
@@ -670,8 +705,11 @@ issue прямо выносит подключение логирования з
 
 **Роутер.** Установлен **react-router 8** (^8.4.0, peer react ≥ 19.2.7 — выполняется), настроен в `src/app/routes.tsx`. Лэйауты (`AppLayoutRoute`, `ProtectedLayout`, `PageFallback`, `RouteErrorFallback`) и обёртки страниц (`RoutedRepositoriesPage` и др.) вынесены в `src/app/layouts/`, чтобы файл роутера оставался чистой конфигурацией маршрутов без отключения правил Fast Refresh (`react-refresh/only-export-components`).
 
-**Сборка и чанки.** В `vite.config.ts` заданы `manualChunks` (`vendor-antd`, `vendor-diff`, `vendor-react`, `vendor-query`);
-`chunkSizeWarningLimit: 500` кБ (дефолт Vite) — единственный крупный чанк `vendor-antd` (~1.1 МБ minified) намеренно изолирован (Refs #65, AC 3.5); entry и lazy-страницы остаются ниже порога.
+**Сборка и чанки.** `vite.config.ts`: `build.rolldownOptions.output.codeSplitting`
+(`vendor-react`, `vendor-query`, `maxSize: 400_000`, `includeDependenciesRecursively: false`);
+antd раскладывается по ленивым страницам, как на `main`. `chunkSizeWarningLimit: 500`.
+Первая загрузка (script + modulepreload JS): ~939 кБ / ~302 кБ gzip vs `main` ~944 кБ / ~298 кБ gzip.
+Prod без демо: `pnpm build && pnpm verify:prod-bundle` (Refs #65, AC 3.3 / 3.5).
 
 ---
 

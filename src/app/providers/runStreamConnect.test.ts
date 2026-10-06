@@ -66,6 +66,9 @@ describe('connectRunStream', () => {
     let tokenIndex = 0
     vi.mocked(refreshAccessToken).mockImplementation(() => {
       tokenIndex += 1
+      if (tokenIndex > 10) {
+        return Promise.resolve(null)
+      }
       return Promise.resolve(`token_${String(tokenIndex)}`)
     })
     const fetchMock = vi
@@ -118,6 +121,68 @@ describe('runStreamUntilAborted', () => {
 
     await vi.advanceTimersByTimeAsync(STREAM_RECONNECT_DELAY_MS + 10)
     expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(2)
+
+    controller.abort()
+    await done
+  })
+
+  it('does not log when the in-flight stream is aborted', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    globalThis.fetch = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+      return new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener(
+          'abort',
+          () => {
+            reject(new DOMException('Aborted', 'AbortError'))
+          },
+          { once: true },
+        )
+      })
+    })
+
+    const controller = new AbortController()
+    const done = runStreamUntilAborted(controller.signal, 'token_a')
+    controller.abort()
+    await done
+    expect(errorSpy).not.toHaveBeenCalled()
+    errorSpy.mockRestore()
+  })
+
+  it('grows reconnect delay on 503 and resets only after a successful read', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 503, statusText: 'Unavailable' }))
+      .mockResolvedValueOnce(new Response(null, { status: 503, statusText: 'Unavailable' }))
+      .mockResolvedValueOnce(
+        new Response(sseBody(['event: ping\ndata: x\n\n']), {
+          status: 200,
+          headers: { 'content-type': 'text/event-stream' },
+        }),
+      )
+      .mockResolvedValue(new Response(null, { status: 503, statusText: 'Unavailable' }))
+    globalThis.fetch = fetchMock
+
+    const controller = new AbortController()
+    const done = runStreamUntilAborted(controller.signal, 'token_a')
+
+    await Promise.resolve()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(STREAM_RECONNECT_DELAY_MS - 1)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+
+    await vi.advanceTimersByTimeAsync(STREAM_RECONNECT_DELAY_MS * 2 - 1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+
+    await vi.advanceTimersByTimeAsync(STREAM_RECONNECT_DELAY_MS - 1)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(fetchMock).toHaveBeenCalledTimes(4)
 
     controller.abort()
     await done

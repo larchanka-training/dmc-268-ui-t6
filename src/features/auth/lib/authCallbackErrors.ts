@@ -46,7 +46,7 @@ function messageFromDetail(detail: unknown, status: number): string | null {
       }
     }
     if ('message' in detail && typeof detail.message === 'string') {
-      return sanitizeUserFacingText(detail.message)
+      return `Не удалось войти через GitHub (код ${String(status)})`
     }
   }
   return null

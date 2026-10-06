@@ -8,24 +8,21 @@ describe('parseEnv', () => {
       VITE_API_BASE_URL: '/api',
       VITE_GITHUB_CLIENT_ID: '',
       VITE_GITHUB_APP_SLUG: '',
-      VITE_USE_MOCKS: false,
     })
   })
 
-  it('keeps provided variables and parses VITE_USE_MOCKS', () => {
+  it('keeps provided variables', () => {
     expect(
       parseEnv({
         VITE_API_BASE_URL: 'http://localhost:8000/api',
         VITE_GITHUB_CLIENT_ID: 'gh_custom_id',
         VITE_GITHUB_APP_SLUG: 'my-app',
-        VITE_USE_MOCKS: 'true',
         MODE: 'test',
       }),
     ).toEqual({
       VITE_API_BASE_URL: 'http://localhost:8000/api',
       VITE_GITHUB_CLIENT_ID: 'gh_custom_id',
       VITE_GITHUB_APP_SLUG: 'my-app',
-      VITE_USE_MOCKS: true,
     })
   })
 

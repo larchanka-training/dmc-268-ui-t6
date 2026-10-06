@@ -6,7 +6,6 @@ import { diffApi, fromPatch } from '../../../entities/diff'
 import { RunSessionSchema } from '../../../entities/run'
 import { SAMPLE_PATCH_A, SAMPLE_PATCHES } from '../../../shared/fixtures/sample.patch'
 import { useDiffViewerStore } from '../model/store'
-import { MAX_SYNC_HIGHLIGHT_TOTAL_LINES } from '../lib/tokensForHunks'
 import { RunDiff } from './RunDiff'
 
 function addedLinesPatch(filename: string, lineCount: number) {
@@ -111,7 +110,7 @@ describe('RunDiff', () => {
   })
 
   it('disables syntax highlighting when total diff lines exceed the sync budget', () => {
-    const lineCount = Math.floor(MAX_SYNC_HIGHLIGHT_TOTAL_LINES / 3) + 1
+    const lineCount = 400
     const files = diffApi.diff.response
       .parse([
         addedLinesPatch('src/a.ts', lineCount),

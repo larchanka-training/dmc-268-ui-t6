@@ -5,6 +5,11 @@ import { describe, expect, it, vi } from 'vitest'
 import { isMockMode } from '../../../shared/config/env'
 import { AppSidebar } from './AppSidebar'
 
+vi.mock('../../../shared/config/buildFlags', () => ({
+  VITE_MOCKS_BUILD: false,
+  mocksEnabledAtRuntime: (isMockMode: () => boolean) => isMockMode(),
+}))
+
 vi.mock('../../../shared/config/env', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../shared/config/env')>()
   return {

@@ -462,4 +462,78 @@ describe('RunDetailPage', () => {
       expect(screen.getByText('Перезапустить')).toBeTruthy()
     }
   })
+
+  it('renders published review comments that are not in findings', async () => {
+    renderRunDetail(DEMO_RUN_ID)
+    await waitFor(() => {
+      expect(screen.getByText('Magic number replaced a named line')).toBeTruthy()
+    })
+  })
+
+  it('loads more context through GET /files when Показать ещё is clicked', async () => {
+    const filesPaths: string[] = []
+    withMockTransportOverlay((endpoint) => {
+      if (endpoint.path.includes('/files?') && endpoint.method === 'GET') {
+        filesPaths.push(endpoint.path)
+      }
+      return undefined
+    })
+
+    renderRunDetail(DEMO_RUN_ID)
+    await waitFor(() => {
+      expect(screen.getByText('Показать ещё 5 строк')).toBeTruthy()
+    })
+    fireEvent.click(screen.getByText('Показать ещё 5 строк'))
+    await waitFor(() => {
+      expect(filesPaths.length).toBeGreaterThan(0)
+    })
+    expect(filesPaths[0]).toMatch(/limit=5/)
+    expect(screen.queryByText('Не удалось дочитать контекст файла')).toBeNull()
+  })
+
+  it('requests /files with limit 500 when the hunk gap is larger than 500', async () => {
+    const filesPaths: string[] = []
+    const largeGapPatch = {
+      filename: 'src/a.ts',
+      patch:
+        [
+          'diff --git a/src/a.ts b/src/a.ts',
+          'index 1111111..2222222 100644',
+          '--- a/src/a.ts',
+          '+++ b/src/a.ts',
+          '@@ -1,1 +1,1 @@',
+          ' first',
+          '@@ -600,1 +600,1 @@',
+          ' last',
+        ].join('\n') + '\n',
+    }
+    withMockTransportOverlay((endpoint) => {
+      if (endpoint.path === `/runs/${DEMO_RUN_ID}/diff` && endpoint.method === 'GET') {
+        return z.array(RawFileDiffSchema).parse([largeGapPatch])
+      }
+      if (endpoint.path.includes('/files?') && endpoint.method === 'GET') {
+        filesPaths.push(endpoint.path)
+        return {
+          path: 'src/a.ts',
+          startLine: 2,
+          lines: Array.from({ length: 500 }, (_, index) => `ctx ${String(index)}`),
+          totalLines: 600,
+          nextOffset: 501,
+        }
+      }
+      return undefined
+    })
+
+    renderRunDetail(DEMO_RUN_ID)
+    await waitFor(() => {
+      expect(screen.getByText('Показать ещё 500 строк')).toBeTruthy()
+    })
+    fireEvent.click(screen.getByText('Показать ещё 500 строк'))
+    await waitFor(() => {
+      expect(filesPaths.length).toBeGreaterThan(0)
+    })
+    expect(filesPaths[0]).toMatch(/limit=500/)
+    expect(filesPaths[0]).not.toMatch(/limit=598/)
+    expect(screen.queryByText('Не удалось дочитать контекст файла')).toBeNull()
+  })
 })

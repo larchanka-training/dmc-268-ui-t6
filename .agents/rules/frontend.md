@@ -42,7 +42,9 @@ What enforces the gates today:
 FSD lite: `app → pages → widgets → features → entities → shared`.
 
 1. Imports only go down the layer order above — never sideways, never up.
-2. Slices within the same layer never import each other.
+2. Slices within the same layer never import each other, except `entities/run` →
+   `entities/review` (`FindingViewSchema` for `RunDetail.findings`; documented in
+   `docs/FRONTEND_ARCHITECTURE.md` §1).
 3. `shared` never imports from `entities` or higher.
 4. A component file exports components only — no mixed component + hook +
    type barrel.

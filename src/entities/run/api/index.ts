@@ -12,7 +12,8 @@ import {
   RunUpdatedEventSchema,
 } from '../model/schemas'
 import type { RunAction, RunDetail, RunListPage, RunSession } from '../model/schemas'
-// Run detail parses `findings[]` with `FindingViewSchema` from `entities/review` (allowed cross-entity import; see FRONTEND_ARCHITECTURE §4).
+// Run detail parses `findings[]` with `FindingViewSchema` from `entities/review`
+// (allowed cross-entity import; see FRONTEND_ARCHITECTURE §1 and `.agents/rules/frontend.md`).
 import { FindingViewSchema } from '../../review'
 
 export const runQueryKeys = {

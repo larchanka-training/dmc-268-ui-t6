@@ -30,6 +30,19 @@ describe('formatAuthCallbackApiMessage', () => {
       'Не удалось войти через GitHub (код 502)',
     )
   })
+
+  it('does not surface nested English detail.message', () => {
+    expect(
+      formatAuthCallbackApiMessage(422, 'Unprocessable Entity', {
+        detail: { message: 'Something broke' },
+      }),
+    ).toBe('Не удалось войти через GitHub (код 422)')
+    expect(
+      formatAuthCallbackApiMessage(400, 'Bad Request', {
+        detail: { code: 'x', message: 'Something broke' },
+      }),
+    ).toBe('Не удалось войти через GitHub (код 400)')
+  })
 })
 
 describe('formatAuthCallbackFailure', () => {

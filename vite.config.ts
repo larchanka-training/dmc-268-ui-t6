@@ -2,9 +2,14 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
+function parseUseMocksFlag(value: unknown): boolean {
+  return value === true || value === 'true' || value === '1'
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '')
-  const viteMocksBuild = env.VITE_USE_MOCKS === 'true' || env.VITE_USE_MOCKS === '1'
+  // Vitest must not inherit `.env.local` `VITE_USE_MOCKS` via `define` (Refs #65, AC 3.3).
+  const viteMocksBuild = mode === 'test' ? false : parseUseMocksFlag(env.VITE_USE_MOCKS)
 
   return {
     define: {
@@ -20,35 +25,38 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
-      rollupOptions: {
+      modulePreload: {
+        resolveDependencies: (_filename, deps, { hostType }) => {
+          if (hostType !== 'html') {
+            return deps
+          }
+          return deps.filter(
+            (dep) =>
+              !/(?:RunDetailPage|LoginPage|CallbackPage|RepositoriesPage|RunsPage|ReviewRedirect|mockTransport|diff-)/.test(
+                dep,
+              ),
+          )
+        },
+      },
+      rolldownOptions: {
         output: {
-          manualChunks(id) {
-            if (id.includes('node_modules/antd') || id.includes('@ant-design/icons')) {
-              return 'vendor-antd'
-            }
-            if (
-              id.includes('node_modules/react-dom') ||
-              id.includes('node_modules/react/') ||
-              id.includes('node_modules/react-router') ||
-              id.includes('node_modules/scheduler') ||
-              id.includes('node_modules/react-is')
-            ) {
-              return 'vendor-react'
-            }
-            if (
-              id.includes('node_modules/refractor') ||
-              id.includes('node_modules/react-diff-view')
-            ) {
-              return 'vendor-diff'
-            }
-            if (id.includes('node_modules/@tanstack')) {
-              return 'vendor-query'
-            }
-            return undefined
+          codeSplitting: {
+            maxSize: 400_000,
+            groups: [
+              {
+                name: 'vendor-react',
+                test: /[/\\]node_modules[/\\](?:react|react-dom|scheduler|react-router)[/\\]/,
+                includeDependenciesRecursively: false,
+              },
+              {
+                name: 'vendor-query',
+                test: /[/\\]node_modules[/\\]@tanstack[/\\]/,
+                includeDependenciesRecursively: false,
+              },
+            ],
           },
         },
       },
-      // vendor-antd ~1.1 MB minified — isolated chunk; page chunks stay under default 500 kB.
       chunkSizeWarningLimit: 500,
     },
     test: {
