@@ -21,6 +21,7 @@ interface DiffViewerProps {
   findings?: FindingView[]
   comments?: ReviewComment[]
   totalLines?: number
+  diffTotalLines?: number
   onLoadMore?: (gap: ContextGap) => void
 }
 
@@ -81,14 +82,17 @@ function mergeFindings(findings: FindingView[], comments: ReviewComment[]): Find
 }
 
 export function DiffViewer(props: DiffViewerProps): JSX.Element {
-  const { file, findings = [], comments = [], totalLines, onLoadMore } = props
+  const { file, findings = [], comments = [], totalLines, diffTotalLines, onLoadMore } = props
   const viewType = useDiffViewerStore((s) => s.viewType)
   const setViewType = useDiffViewerStore((s) => s.setViewType)
   const hunks = useMemo(
     () => (file.hasPatch && file.chunks.length > 0 ? toHunks(file) : []),
     [file],
   )
-  const tokens = useMemo(() => tokensForHunks(file.filename, hunks), [file.filename, hunks])
+  const tokens = useMemo(
+    () => tokensForHunks(file.filename, hunks, { diffTotalLines }),
+    [diffTotalLines, file.filename, hunks],
+  )
 
   if (!file.hasPatch) {
     return (

@@ -18,9 +18,8 @@ function mergeFileLists(base: FileDiff[], overrides: Map<string, FileDiff>): Fil
   return base.map((file) => overrides.get(file.filename) ?? file)
 }
 
-export const RunDetailPage: FC = () => {
+const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
   const navigate = useNavigate()
-  const { runId } = useParams<{ runId: string }>()
   const now = new Date()
   const runQuery = useRunDetail(runId)
   const diffQuery = useRunDiff(runId)
@@ -71,10 +70,6 @@ export const RunDetailPage: FC = () => {
     return mergeFileLists(base, expandedFiles)
   }, [diffQuery.data, expandedFiles])
 
-  if (!runId) {
-    return <Empty description="Не указан id прогона" />
-  }
-
   if (runQuery.isLoading) {
     return (
       <Flex align="center" justify="center" style={{ minHeight: 240 }}>
@@ -99,6 +94,8 @@ export const RunDetailPage: FC = () => {
   const run = runQuery.data
   const actions = actionsQuery.data ?? []
   const comments = commentsQuery.data ?? []
+  const diffFiles = diffQuery.data
+  const showDiffLoadError = diffQuery.isError && diffFiles === undefined
 
   return (
     <Flex data-testid="run-detail-page" gap="large" vertical>
@@ -143,14 +140,14 @@ export const RunDetailPage: FC = () => {
 
       {loadError ? <Text type="danger">{loadError}</Text> : null}
 
-      {diffQuery.isError ? (
+      {showDiffLoadError ? (
         <Alert
           data-testid="run-detail-diff-error"
           showIcon
           title={runDiffLoadMessage(diffQuery.error)}
           type="error"
         />
-      ) : diffQuery.isLoading ? (
+      ) : diffQuery.isPending && diffFiles === undefined ? (
         <Flex align="center" justify="center" style={{ minHeight: 120 }}>
           <Spin />
         </Flex>
@@ -165,4 +162,12 @@ export const RunDetailPage: FC = () => {
       )}
     </Flex>
   )
+}
+
+export const RunDetailPage: FC = () => {
+  const { runId } = useParams<{ runId: string }>()
+  if (!runId) {
+    return <Empty description="Не указан id прогона" />
+  }
+  return <RunDetailPageContent key={runId} runId={runId} />
 }

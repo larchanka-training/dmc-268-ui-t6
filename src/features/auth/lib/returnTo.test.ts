@@ -27,6 +27,14 @@ describe('auth returnTo', () => {
     expect(isSafeAuthReturnPath('javascript:alert(1)')).toBe(false)
     saveAuthReturnTo('https://evil.com')
     expect(consumeAuthReturnTo('/repositories')).toBe('/repositories')
+    sessionStorage.setItem(AUTH_RETURN_TO_KEY, 'javascript:alert(1)')
+    expect(consumeAuthReturnTo('/repositories')).toBe('/repositories')
+  })
+
+  it('rejects paths without a leading slash', () => {
+    expect(isSafeAuthReturnPath('runs')).toBe(false)
+    saveAuthReturnTo('runs')
+    expect(consumeAuthReturnTo('/repositories')).toBe('/repositories')
   })
 
   it('rejects open redirects and backslash paths', () => {

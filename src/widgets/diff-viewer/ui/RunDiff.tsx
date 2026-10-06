@@ -1,7 +1,8 @@
 import type { JSX } from 'react'
 import { Alert, List } from 'antd'
 
-import type { FileDiff } from '../../../entities/diff'
+import { toHunks, type FileDiff } from '../../../entities/diff'
+import { countDiffSideLines } from '../lib/tokensForHunks'
 import type { FindingView, ReviewComment } from '../../../entities/review'
 import type { ContextGap } from '../model/types'
 import { InlineComment } from './InlineComment'
@@ -31,6 +32,12 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
   const { summaryOnly, files, findings, comments = [], fileTotalLines, onLoadMore } = props
 
   const outsideFindings = findingsOutsideVisibleDiff(files, findings)
+  const diffTotalLines = files.reduce((sum, file) => {
+    if (!file.hasPatch || file.chunks.length === 0) {
+      return sum
+    }
+    return sum + countDiffSideLines(toHunks(file))
+  }, 0)
 
   if (summaryOnly) {
     return (
@@ -73,6 +80,7 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
         <div key={file.filename}>
           <DiffViewer
             comments={comments}
+            diffTotalLines={diffTotalLines}
             file={file}
             findings={findings}
             onLoadMore={

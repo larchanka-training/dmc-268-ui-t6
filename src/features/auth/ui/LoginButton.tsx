@@ -10,8 +10,13 @@ export interface LoginButtonProps {
   size?: 'small' | 'middle' | 'large'
 }
 
+const showDemoLogin =
+  import.meta.env.VITE_USE_MOCKS === 'true' ||
+  import.meta.env.VITE_USE_MOCKS === '1' ||
+  (import.meta.env.DEV && isMockMode())
+
 export const LoginButton: FC<LoginButtonProps> = ({
-  showMockButton = isMockMode(),
+  showMockButton = showDemoLogin,
   size = 'middle',
 }) => {
   const loginWithGitHub = useAuthStore((state) => state.loginWithGitHub)

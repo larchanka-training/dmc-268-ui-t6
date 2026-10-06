@@ -70,6 +70,30 @@ export default tseslint.config(
     },
   },
 
+  // FSD: entity slices import siblings only through public index.ts (except documented run→review).
+  {
+    files: ['src/entities/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.{ts,tsx}', 'src/entities/run/model/schemas.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '**/entities/*/lib/**',
+                '**/entities/*/model/**',
+                '**/entities/*/api',
+                '**/entities/*/api/**',
+              ],
+              message: 'Import from the entity public index (FSD).',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
   // Конфиги на JS не входят ни в один TS-проект, поэтому type-aware правила
   // для них выключаются — иначе парсер падает на отсутствии типовой информации.
   {

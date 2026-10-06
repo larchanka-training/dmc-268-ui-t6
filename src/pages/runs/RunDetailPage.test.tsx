@@ -307,6 +307,32 @@ describe('RunDetailPage', () => {
     })
   })
 
+  it('invalidates run detail after cancel on a queued run', async () => {
+    const queued = mockRunsListPage.items.find((run) => run.status === 'queued')
+    if (!queued) {
+      throw new Error('fixture must include a queued run')
+    }
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const invalidateSpy = vi.spyOn(client, 'invalidateQueries')
+    const router = createMemoryRouter([{ path: '/runs/:runId', element: <RunDetailPage /> }], {
+      initialEntries: [`/runs/${queued.id}`],
+    })
+    render(
+      <QueryClientProvider client={client}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Отменить')).toBeTruthy()
+    })
+    fireEvent.click(screen.getByText('Отменить'))
+
+    await waitFor(() => {
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: runQueryKeys.detail(queued.id) })
+    })
+  })
+
   it('invalidates run list after a successful rerun', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const invalidateSpy = vi.spyOn(client, 'invalidateQueries')

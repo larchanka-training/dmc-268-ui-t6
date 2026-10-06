@@ -15,9 +15,10 @@ describe('diffApi', () => {
     )
   })
 
-  it('uses the same diff cache key shape as runQueryKeys.diff (FRONTEND_ARCHITECTURE §2)', () => {
+  it('uses the diff cache key shape from FRONTEND_ARCHITECTURE §2', () => {
     const runId = '11111111-1111-4111-8111-000000000004'
-    expect(diffQueryKeys.diff(runId)).toEqual(runQueryKeys.diff(runId))
+    expect(diffQueryKeys.diff(runId)).toEqual(['runs', runId, 'diff'])
+    expect(runQueryKeys.diff(runId)).toEqual(['runs', runId, 'diff'])
   })
 
   it('applies default offset/limit to a file slice query', () => {

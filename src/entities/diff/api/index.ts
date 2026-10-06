@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 
 import { apiClient } from '../../../shared/api/client'
@@ -10,6 +10,7 @@ import type { FileDiff, FileSliceQuery } from '../model/schemas'
 /** Keep aligned with `runQueryKeys` / FRONTEND_ARCHITECTURE §2 (no cross-entity import). */
 export const diffQueryKeys = {
   diff: (runId: string) => ['runs', runId, 'diff'] as const,
+  diffDisabled: () => ['runs', 'diff', null] as const,
   fileSlice: (runId: string, path: string, offset: number) =>
     ['runs', runId, 'files', path, offset] as const,
 }
@@ -42,7 +43,7 @@ export async function fetchRunFileSlice(runId: string, query: FileSliceQuery) {
 
 export function useRunDiff(runId: string | undefined) {
   return useQuery({
-    queryKey: runId ? diffQueryKeys.diff(runId) : (['runs'] as const),
+    queryKey: runId ? diffQueryKeys.diff(runId) : diffQueryKeys.diffDisabled(),
     queryFn: () => {
       if (!runId) {
         throw new Error('runId is required')
@@ -50,5 +51,6 @@ export function useRunDiff(runId: string | undefined) {
       return fetchRunDiff(runId)
     },
     enabled: Boolean(runId),
+    placeholderData: keepPreviousData,
   })
 }

@@ -24,11 +24,17 @@ export function useRunStreamSubscription(): void {
       }
     }
 
-    void runStreamUntilAborted(controller.signal, token).finally(() => {
-      if (abortRef.current === controller) {
-        abortRef.current = null
-      }
-    })
+    void runStreamUntilAborted(controller.signal, token)
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) {
+          console.error('run stream subscription failed', error)
+        }
+      })
+      .finally(() => {
+        if (abortRef.current === controller) {
+          abortRef.current = null
+        }
+      })
 
     return () => {
       controller.abort()

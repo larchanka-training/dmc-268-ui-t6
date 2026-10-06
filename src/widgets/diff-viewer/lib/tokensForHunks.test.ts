@@ -4,7 +4,12 @@ import { describe, expect, it, vi } from 'vitest'
 import { fromPatch, toHunks } from '../../../entities/diff'
 import { SAMPLE_PATCH_A } from '../../../shared/fixtures/sample.patch'
 import { refractorForDiffView } from './refractorForDiffView'
-import { countDiffSideLines, MAX_LINES_FOR_SYNC_HIGHLIGHT, tokensForHunks } from './tokensForHunks'
+import {
+  countDiffSideLines,
+  MAX_LINES_FOR_SYNC_HIGHLIGHT,
+  MAX_SYNC_HIGHLIGHT_TOTAL_LINES,
+  tokensForHunks,
+} from './tokensForHunks'
 
 describe('tokensForHunks', () => {
   it('returns real tokens from tokenize for a TypeScript file (no mock)', () => {
@@ -40,6 +45,16 @@ describe('tokensForHunks', () => {
 
   it('returns undefined when hunks are empty for a known language', () => {
     expect(tokensForHunks('src/a.ts', [])).toBeUndefined()
+  })
+
+  it('returns undefined when the total diff budget is exceeded', () => {
+    const file = fromPatch(SAMPLE_PATCH_A)
+    const hunks = toHunks(file)
+    expect(
+      tokensForHunks(file.filename, hunks, {
+        diffTotalLines: MAX_SYNC_HIGHLIGHT_TOTAL_LINES + 1,
+      }),
+    ).toBeUndefined()
   })
 
   it('returns undefined when diff-side line count exceeds the sync threshold', () => {

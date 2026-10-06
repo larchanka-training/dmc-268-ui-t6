@@ -43,6 +43,8 @@ antd, TanStack Query и jsdom — патчи от 2026-09-24.
 | Ф-15 | Авторизация — GitHub App user authorization; access-токен только в памяти, refresh — httpOnly-cookie; fail closed                                               | [решение техлида][tl-2026-09-27-api20], api#20 D4; токен в памяти — дефолт плана api#20; fail closed, общий refresh, старт refresh → `/me` — правила клиента (§11).                                         |
 | Ф-16 | Вердикт (`blocking`/`attention`/`clean`) и `severityCounts` считает сервер; Critical/Warning/Info — группировка в UI                                            | [решение техлида][tl-2026-09-27-api20], api#20 D3: UI вердикт сам не выводит, API отдаёт пять уровней severity (§4).                                                                                        |
 | Ф-17 | Репозиторий подключается установкой GitHub App; настройки — `PATCH /api/repos/{id}`                                                                             | [решение техлида][tl-2026-09-27-api20], api#20 D10: `POST /api/repos` нет; поля настроек — дефолт, утверждённый с планом api#20 (§11).                                                                      |
+| Ф-18 | Синхронная подсветка диффа — бюджет ~1000 строк на файл и на весь дифф; выше — без `tokenize` (worker — follow-up)                                              | AC ui#65 ч. 1; API `summary_only` >3000 строк; замеры в `docs/plans/65-plan.md` (Refs ui#65).                                                                                                               |
+| Ф-19 | Список PR репозитория (`GET /repos/{id}/pulls`) в UI **не** входит в scope #65; навигация — со страницы репозиториев / внешняя ссылка на GitHub                 | Открытый вопрос плана закрыт: follow-up issue при появлении API в продукте (Refs ui#65).                                                                                                                    |
 
 Ф-11 уточнено 2026-09-24 (#49): TypeScript поднят 5.9.3 → 6.0.3. Потолок — именно 6.0.x, а не
 «6.x»: у TypeScript 7.0 нет JS API компилятора, поэтому peer typescript-eslint остаётся
@@ -269,10 +271,10 @@ src/widgets/run-inspector/ui/RunInspector.tsx
 
 | Данное                                | Где живёт                                                  | Инвалидация                                   |
 | ------------------------------------- | ---------------------------------------------------------- | --------------------------------------------- |
-| Список прогонов                       | TanStack Query, ключ `['runs', query]`                     | по времени (`staleTime: 30s`) + `run.updated` |
+| Список прогонов                       | TanStack Query, ключ `['runs', 'list']` (дефолтный query)  | по времени (`staleTime: 30s`) + `run.updated` |
 | Прогон (детали)                       | TanStack Query, ключ `['runs', id]`                        | `run.updated` для этого `runId`               |
 | Действия прогона                      | TanStack Query, ключ `['runs', id, 'actions']`             | вместе с прогоном                             |
-| Дифф прогона                          | TanStack Query, ключ `['runs', id, 'diff']`                | не меняется после публикации                  |
+| Дифф прогона                          | TanStack Query, ключ `['runs', id, 'diff']`                | `run.updated` / SSE (Refs ui#65)              |
 | Комментарии ревью                     | TanStack Query, ключ `['runs', id, 'comments']`            | вместе с прогоном                             |
 | Дочитанные срезы файла                | TanStack Query, ключ `['runs', id, 'files', path, offset]` | не инвалидируется (append-only)               |
 | `viewType` (unified/split)            | Zustand, `widgets/diff-viewer/model/store.ts`              | — (UI-состояние, не сервер)                   |
