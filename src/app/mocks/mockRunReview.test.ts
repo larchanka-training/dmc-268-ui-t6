@@ -29,10 +29,11 @@ describe('mockRunReview verdict variants', () => {
 })
 
 describe('buildMockRunDetail', () => {
-  it.each([...mockRunsListPage.items, ...mockVerdictVariantRuns].map((run) => [run.id, run]))(
-    'builds a contract-valid run detail for %s',
-    (_id, run) => {
-      expect(RunDetailSchema.safeParse(buildMockRunDetail(run)).success).toBe(true)
-    },
+  const runs = new Map(
+    [...mockRunsListPage.items, ...mockVerdictVariantRuns].map((run) => [run.id, run]),
   )
+
+  it.each([...runs])('builds a contract-valid run detail for %s', (_id, run) => {
+    expect(RunDetailSchema.safeParse(buildMockRunDetail(run)).success).toBe(true)
+  })
 })

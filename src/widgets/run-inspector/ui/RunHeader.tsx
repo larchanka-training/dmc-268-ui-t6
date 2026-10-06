@@ -9,7 +9,7 @@ interface RunHeaderProps {
   run: RunSession
   now: Date
   verdict?: Verdict | null
-  severityCounts?: SeverityCounts | null
+  severityCounts?: SeverityCounts
 }
 
 const VERDICT_LABEL: Record<Verdict, string> = {
@@ -45,7 +45,7 @@ function formatRefs(
 }
 
 export function RunHeader(props: RunHeaderProps): JSX.Element {
-  const { run, now, verdict = null, severityCounts = null } = props
+  const { run, now, verdict = null, severityCounts } = props
   const duration = runDuration(run, now)
   const pr = run.pullRequest
   const refs = formatRefs(pr.headRef, pr.baseRef)
@@ -79,7 +79,7 @@ export function RunHeader(props: RunHeaderProps): JSX.Element {
         </>
       ),
     },
-    ...(severityCounts
+    ...(severityCounts && run.status === 'succeeded' && !run.summaryOnly
       ? [
           {
             key: 'severityCounts',
