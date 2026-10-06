@@ -328,8 +328,8 @@ SSE-мост (Ф-14, **реализовано**; Refs ui#65): `RunStreamBridge` 
 `['runs', runId, 'diff']` и `['runs', runId, 'comments']` (дифф и комментарии подтягиваются вместе с прогоном).
 `EventSource` не используется (нет Bearer). `401` — refresh с лимитом повторов
 (`MAX_STREAM_401_RETRIES`), затем переподключение с backoff (`STREAM_RECONNECT_DELAY_MS`); refresh
-не удался — подписка прекращается (fail closed, §11). Контрактный follow-up для api#20:
-[`docs/plans/65-api20-comment.md`](plans/65-api20-comment.md).
+не удался — подписка прекращается (fail closed, §11). Контракт run session для api#20:
+[комментарий в api#20](https://github.com/larchanka-training/dmc-268-api-t6/issues/20#issuecomment-6016069919).
 
 `QueryProvider` также регистрирует `setOnLogout` → `queryClient.clear()`. `UiProvider` — antd
 `ConfigProvider` (русская локаль), без сети.

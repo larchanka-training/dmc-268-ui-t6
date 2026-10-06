@@ -10,4 +10,4 @@ UI run detail (`dmc-268-ui-t6` #70 / #65) consumes the run session contract as i
 Invalid items in `findings[]` are dropped via `FindingViewSchema.safeParse` (soft parse).
 No OpenAPI field renames in this change set.
 
-Posted on api#20 from the UI PR so the contract note is not deferred to merge.
+Posted: https://github.com/larchanka-training/dmc-268-api-t6/issues/20#issuecomment-6016069919
