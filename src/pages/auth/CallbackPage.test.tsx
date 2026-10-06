@@ -13,7 +13,7 @@ vi.mock('../../shared/config/env', async (importOriginal) => {
 })
 
 import { initMockTransport, withMockTransportOverlay } from '../../app/mocks/mockTransport'
-import { STATE_STORAGE_KEY } from '../../features/auth'
+import { STATE_STORAGE_KEY, useAuthStore } from '../../features/auth'
 import { ApiError } from '../../shared/api/client'
 import { CallbackPage } from './CallbackPage'
 
@@ -92,13 +92,9 @@ describe('CallbackPage OAuth errors', () => {
   })
 
   it('renders inside StrictMode and exchanges the OAuth code exactly once', async () => {
-    let callbackPosts = 0
-    withMockTransportOverlay((endpoint) => {
-      if (endpoint.path === '/auth/github/callback' && endpoint.method === 'POST') {
-        callbackPosts += 1
-      }
-      return undefined
-    })
+    initMockTransport()
+    const handleCallback = vi.fn(() => Promise.resolve())
+    useAuthStore.setState({ handleCallback })
     sessionStorage.setItem(STATE_STORAGE_KEY, 'csrf_test_state')
     window.history.pushState(
       {},
@@ -113,8 +109,9 @@ describe('CallbackPage OAuth errors', () => {
     )
 
     await waitFor(() => {
-      expect(callbackPosts).toBe(1)
+      expect(handleCallback).toHaveBeenCalledTimes(1)
     })
+    expect(handleCallback).toHaveBeenCalledWith('github_exchange_code', 'csrf_test_state')
   })
 
   it('shows a Russian message when code is missing', async () => {

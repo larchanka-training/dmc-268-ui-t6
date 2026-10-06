@@ -8,6 +8,7 @@ import { queryClient } from './queryClient'
 export const MAX_STREAM_401_RETRIES = 2
 
 export const STREAM_RECONNECT_DELAY_MS = 3000
+export const MAX_STREAM_RECONNECT_DELAY_MS = 30_000
 
 export async function connectRunStream(
   signal: AbortSignal,
@@ -90,9 +91,16 @@ export async function runStreamUntilAborted(
   initialToken: string,
 ): Promise<void> {
   let token = initialToken
+  let reconnectDelay = STREAM_RECONNECT_DELAY_MS
   while (!signal.aborted) {
-    await connectRunStream(signal, token)
-    await sleep(STREAM_RECONNECT_DELAY_MS, signal)
+    try {
+      await connectRunStream(signal, token)
+      reconnectDelay = STREAM_RECONNECT_DELAY_MS
+    } catch (error: unknown) {
+      console.error('run stream connection failed', error)
+    }
+    await sleep(reconnectDelay, signal)
+    reconnectDelay = Math.min(reconnectDelay * 2, MAX_STREAM_RECONNECT_DELAY_MS)
     const refreshed = getAccessToken()
     if (refreshed) {
       token = refreshed

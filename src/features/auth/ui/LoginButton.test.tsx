@@ -1,6 +1,20 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('../../../shared/config/buildFlags', () => ({
+  VITE_MOCKS_BUILD: true,
+  mocksEnabledAtRuntime: (isMockMode: () => boolean) => isMockMode(),
+}))
+
+vi.mock('../../../shared/config/env', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../shared/config/env')>()
+  return {
+    ...actual,
+    USE_MOCKS: true,
+    isMockMode: () => true,
+  }
+})
 
 import { setMockAuthAdapter, useAuthStore } from '../model/store'
 import { LoginButton } from './LoginButton'

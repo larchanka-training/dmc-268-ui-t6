@@ -173,6 +173,13 @@ export function useRerunRun(runId: string | undefined) {
     onSuccess: (session) => {
       void queryClient.invalidateQueries({ queryKey: runQueryKeys.list() })
       void queryClient.invalidateQueries({ queryKey: runQueryKeys.detail(session.id) })
+      void fetchRunDetail(session.id)
+        .then((detail) => {
+          queryClient.setQueryData(runQueryKeys.detail(session.id), detail)
+        })
+        .catch(() => {
+          /* detail query refetches on mount */
+        })
     },
   })
 }

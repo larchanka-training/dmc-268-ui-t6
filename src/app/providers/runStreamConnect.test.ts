@@ -63,7 +63,11 @@ describe('connectRunStream', () => {
   })
 
   it('stops retrying after MAX_STREAM_401_RETRIES refresh attempts', async () => {
-    vi.mocked(refreshAccessToken).mockResolvedValueOnce('token_b').mockResolvedValueOnce('token_c')
+    let tokenIndex = 0
+    vi.mocked(refreshAccessToken).mockImplementation(() => {
+      tokenIndex += 1
+      return Promise.resolve(`token_${String(tokenIndex)}`)
+    })
     const fetchMock = vi
       .fn()
       .mockResolvedValue(new Response(null, { status: 401, statusText: 'Unauthorized' }))
@@ -88,6 +92,24 @@ describe('runStreamUntilAborted', () => {
     vi.useFakeTimers()
     const fetchMock = vi
       .fn()
+      .mockResolvedValue(new Response(null, { status: 503, statusText: 'Unavailable' }))
+    globalThis.fetch = fetchMock
+
+    const controller = new AbortController()
+    const done = runStreamUntilAborted(controller.signal, 'token_a')
+
+    await vi.advanceTimersByTimeAsync(STREAM_RECONNECT_DELAY_MS + 10)
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(2)
+
+    controller.abort()
+    await done
+  })
+
+  it('reconnects after fetch throws a network error', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
       .mockResolvedValue(new Response(null, { status: 503, statusText: 'Unavailable' }))
     globalThis.fetch = fetchMock
 

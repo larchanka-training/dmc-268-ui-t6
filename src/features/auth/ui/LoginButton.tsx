@@ -3,6 +3,7 @@ import { Button, Flex, Tooltip } from 'antd'
 import type { FC } from 'react'
 
 import { GITHUB_CLIENT_ID, isMockMode } from '../../../shared/config/env'
+import { VITE_MOCKS_BUILD, mocksEnabledAtRuntime } from '../../../shared/config/buildFlags'
 import { useAuthStore } from '../model/store'
 
 export interface LoginButtonProps {
@@ -10,10 +11,7 @@ export interface LoginButtonProps {
   size?: 'small' | 'middle' | 'large'
 }
 
-const showDemoLogin =
-  import.meta.env.VITE_USE_MOCKS === 'true' ||
-  import.meta.env.VITE_USE_MOCKS === '1' ||
-  (import.meta.env.DEV && isMockMode())
+const showDemoLogin = mocksEnabledAtRuntime(isMockMode)
 
 export const LoginButton: FC<LoginButtonProps> = ({
   showMockButton = showDemoLogin,
@@ -49,7 +47,7 @@ export const LoginButton: FC<LoginButtonProps> = ({
         githubBtn
       )}
 
-      {showMockButton ? (
+      {VITE_MOCKS_BUILD && showDemoLogin && showMockButton ? (
         <Button
           aria-label="Войти как демо-пользователь"
           icon={<UserOutlined />}

@@ -155,7 +155,7 @@ const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
         <RunDiff
           comments={comments}
           files={displayFiles}
-          findings={run.findings}
+          findings={Array.isArray(run.findings) ? run.findings : []}
           onLoadMore={run.summaryOnly ? undefined : handleLoadMore}
           summaryOnly={run.summaryOnly}
         />

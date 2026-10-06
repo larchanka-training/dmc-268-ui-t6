@@ -54,7 +54,7 @@ function messageFromDetail(detail: unknown, status: number): string | null {
 
 export function formatAuthCallbackApiMessage(
   status: number,
-  statusText: string,
+  _statusText: string,
   data: unknown,
 ): string {
   if (typeof data === 'object' && data !== null && 'detail' in data) {
@@ -64,9 +64,12 @@ export function formatAuthCallbackApiMessage(
     }
   }
   if (typeof data === 'string' && data.length > 0) {
-    return sanitizeUserFacingText(data)
+    if (HTML_LIKE.test(data.trim())) {
+      return 'Не удалось войти через GitHub'
+    }
+    return `Не удалось войти через GitHub (код ${String(status)})`
   }
-  return `Не удалось войти через GitHub (код ${String(status)}${statusText ? `: ${statusText}` : ''})`
+  return `Не удалось войти через GitHub (код ${String(status)})`
 }
 
 export function formatAuthCallbackFailure(err: unknown): string {

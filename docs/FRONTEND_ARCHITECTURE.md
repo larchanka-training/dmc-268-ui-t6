@@ -671,7 +671,7 @@ issue прямо выносит подключение логирования з
 **Роутер.** Установлен **react-router 8** (^8.4.0, peer react ≥ 19.2.7 — выполняется), настроен в `src/app/routes.tsx`. Лэйауты (`AppLayoutRoute`, `ProtectedLayout`, `PageFallback`, `RouteErrorFallback`) и обёртки страниц (`RoutedRepositoriesPage` и др.) вынесены в `src/app/layouts/`, чтобы файл роутера оставался чистой конфигурацией маршрутов без отключения правил Fast Refresh (`react-refresh/only-export-components`).
 
 **Сборка и чанки.** В `vite.config.ts` заданы `manualChunks` (`vendor-antd`, `vendor-diff`, `vendor-react`, `vendor-query`);
-`chunkSizeWarningLimit: 1200` кБ — изолированный `vendor-antd` ~1.1 МБ minified намеренно (Refs #65, AC 3.5), без подавления предупреждений для страничных чанков.
+`chunkSizeWarningLimit: 500` кБ (дефолт Vite) — единственный крупный чанк `vendor-antd` (~1.1 МБ minified) намеренно изолирован (Refs #65, AC 3.5); entry и lazy-страницы остаются ниже порога.
 
 ---
 

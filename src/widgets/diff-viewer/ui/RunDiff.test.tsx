@@ -6,7 +6,25 @@ import { diffApi, fromPatch } from '../../../entities/diff'
 import { RunSessionSchema } from '../../../entities/run'
 import { SAMPLE_PATCH_A, SAMPLE_PATCHES } from '../../../shared/fixtures/sample.patch'
 import { useDiffViewerStore } from '../model/store'
+import { MAX_SYNC_HIGHLIGHT_TOTAL_LINES } from '../lib/tokensForHunks'
 import { RunDiff } from './RunDiff'
+
+function addedLinesPatch(filename: string, lineCount: number) {
+  const adds = Array.from(
+    { length: lineCount },
+    (_, index) => `+const line${String(index)} = ${String(index)}`,
+  )
+  const patch = [
+    `diff --git a/${filename} b/${filename}`,
+    'index 1111111..2222222 100644',
+    `--- a/${filename}`,
+    `+++ b/${filename}`,
+    `@@ -1,1 +1,${String(lineCount + 1)} @@`,
+    ' context',
+    ...adds,
+  ].join('\n')
+  return { filename, patch: `${patch}\n` }
+}
 
 const PULL_REQUEST = {
   repo: 'larchanka-training/dmc-268-ui-t6',
@@ -79,6 +97,32 @@ describe('RunDiff', () => {
     expect(screen.getAllByText('README.md').length).toBeGreaterThan(0)
     expect(container.querySelectorAll('.diff-line').length).toBeGreaterThan(0)
     expect(screen.queryByText('Дифф слишком большой')).toBeNull()
+  })
+
+  it('enables syntax highlighting while total diff lines stay within the sync budget', () => {
+    const lineCount = 400
+    const files = diffApi.diff.response
+      .parse([addedLinesPatch('src/a.ts', lineCount), addedLinesPatch('src/b.ts', lineCount)])
+      .map(fromPatch)
+
+    const { container } = render(<RunDiff findings={[]} files={files} summaryOnly={false} />)
+
+    expect(container.querySelector('span.token')).toBeTruthy()
+  })
+
+  it('disables syntax highlighting when total diff lines exceed the sync budget', () => {
+    const lineCount = Math.floor(MAX_SYNC_HIGHLIGHT_TOTAL_LINES / 3) + 1
+    const files = diffApi.diff.response
+      .parse([
+        addedLinesPatch('src/a.ts', lineCount),
+        addedLinesPatch('src/b.ts', lineCount),
+        addedLinesPatch('src/c.ts', lineCount),
+      ])
+      .map(fromPatch)
+
+    const { container } = render(<RunDiff findings={[]} files={files} summaryOnly={false} />)
+
+    expect(container.querySelector('span.token')).toBeNull()
   })
 
   it('shows findings outside diff for a file with patch null', () => {

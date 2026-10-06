@@ -17,7 +17,8 @@ import { z } from 'zod'
 
 import { RawFileDiffSchema } from '../../entities/diff'
 import { mockRunsListPage } from '../../app/mocks/mockRunsList.fixture'
-import { buildMockRunDetail } from '../../app/mocks/mockRunReview'
+import { buildMockRunDetail, mockRawDiffForRun } from '../../app/mocks/mockRunReview'
+import { mockSummaryOnlyDiff } from '../../app/mocks/app-state'
 
 const RERUN_RUN_ID = '11111111-1111-4111-8111-000000000099'
 import { initMockTransport, withMockTransportOverlay } from '../../app/mocks/mockTransport'
@@ -256,12 +257,16 @@ describe('RunDetailPage', () => {
     expect(screen.getByText('Прогон не найден')).toBeTruthy()
   })
 
-  it('shows the Critical severity badge on inline findings', async () => {
+  it('shows the Critical severity badge inside the finding card', async () => {
     renderRunDetail(DEMO_RUN_ID)
     await waitFor(() => {
       expect(screen.getByText('Critical: unsafe pattern')).toBeTruthy()
     })
-    expect(screen.getAllByText('Critical').length).toBeGreaterThan(0)
+    const card = screen
+      .getByText('Critical: unsafe pattern')
+      .closest('[data-testid="inline-comment"]')
+    expect(card).toBeTruthy()
+    expect(within(card as HTMLElement).getByText('Critical')).toBeTruthy()
   })
 
   it('navigates to the new run and renders detail when prod staleTime keeps cache cold', async () => {
@@ -271,15 +276,29 @@ describe('RunDetailPage', () => {
         if (!base) {
           throw new Error('demo run missing from fixture')
         }
-        return buildMockRunDetail({
-          ...base,
+        const demoSession = mockRunsListPage.items.find((run) => run.id === DEMO_RUN_ID)
+        if (!demoSession) {
+          throw new Error('demo run missing from fixture')
+        }
+        const demoDetail = buildMockRunDetail(demoSession)
+        return {
+          ...demoDetail,
           id: RERUN_RUN_ID,
           status: 'queued',
           startedAt: null,
           finishedAt: null,
           attempt: base.attempt + 1,
           cancelRequested: false,
-        })
+        }
+      }
+      if (endpoint.path === `/runs/${RERUN_RUN_ID}/diff` && endpoint.method === 'GET') {
+        return z.array(RawFileDiffSchema).parse(
+          mockRawDiffForRun(
+            RERUN_RUN_ID,
+            SAMPLE_PATCHES.map(({ filename, patch }) => ({ filename, patch })),
+            mockSummaryOnlyDiff,
+          ),
+        )
       }
       return undefined
     })
@@ -304,6 +323,32 @@ describe('RunDetailPage', () => {
     await waitFor(() => {
       expect(screen.getByTestId('run-detail-page')).toBeTruthy()
       expect(screen.getByText('queued')).toBeTruthy()
+      expect(screen.getByText('src/a.ts')).toBeTruthy()
+      expect(screen.getByText('Critical: unsafe pattern')).toBeTruthy()
+    })
+  })
+
+  it('invalidates run detail query after a successful rerun', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const invalidateSpy = vi.spyOn(client, 'invalidateQueries')
+    const router = createMemoryRouter([{ path: '/runs/:runId', element: <RunDetailPage /> }], {
+      initialEntries: [`/runs/${DEMO_RUN_ID}`],
+    })
+    render(
+      <QueryClientProvider client={client}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Перезапустить')).toBeTruthy()
+    })
+    fireEvent.click(screen.getByText('Перезапустить'))
+
+    await waitFor(() => {
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: runQueryKeys.detail(RERUN_RUN_ID),
+      })
     })
   })
 
@@ -391,77 +436,30 @@ describe('RunDetailPage', () => {
     session.finishedAt = previousFinishedAt
   })
 
-  it('shows a dedicated message when diff loading fails with 404', async () => {
-    initMockTransport()
-    setMockTransport((endpoint) => {
-      const diffMatch = /^\/runs\/([^/]+)\/diff$/.exec(endpoint.path)
-      if (diffMatch && endpoint.method === 'GET') {
-        throw new ApiError(404, 'Not Found', null)
-      }
-      if (endpoint.path === '/runs' && endpoint.method === 'GET') {
-        return {
-          items: [
-            {
-              id: DEMO_RUN_ID,
-              engine: 'deep',
-              model: 'claude-sonnet-5',
-              status: 'succeeded',
-              startedAt: '2026-09-18T11:50:00.000Z',
-              finishedAt: '2026-09-18T11:55:12.000Z',
-              attempt: 1,
-              cancelRequested: false,
-              summaryOnly: false,
-              pullRequest: {
-                repo: 'larchanka-training/dmc-268-ui-t6',
-                number: 34,
-                title: 'feat: demo',
-                url: 'https://github.com/larchanka-training/dmc-268-ui-t6/pull/34',
-                headSha: 'abcdef1234567890abcdef1234567890abcdef12',
-              },
-              actionCount: 10,
-              errorCode: null,
-            },
-          ],
-          nextCursor: null,
-        }
-      }
-      const runMatch = /^\/runs\/([^/]+)$/.exec(endpoint.path)
-      if (runMatch && endpoint.method === 'GET' && runMatch[1] === DEMO_RUN_ID) {
-        return {
-          id: DEMO_RUN_ID,
-          engine: 'deep',
-          model: 'claude-sonnet-5',
-          status: 'succeeded',
-          startedAt: '2026-09-18T11:50:00.000Z',
-          finishedAt: '2026-09-18T11:55:12.000Z',
-          attempt: 1,
-          cancelRequested: false,
-          summaryOnly: false,
-          pullRequest: {
-            repo: 'larchanka-training/dmc-268-ui-t6',
-            number: 34,
-            title: 'feat: demo',
-            url: 'https://github.com/larchanka-training/dmc-268-ui-t6/pull/34',
-            headSha: 'abcdef1234567890abcdef1234567890abcdef12',
-          },
-          actionCount: 10,
-          errorCode: null,
-          findings: [],
-          summary: null,
-          verdict: null,
-          severityCounts: null,
-          budget: null,
-        }
-      }
-      return undefined
-    })
+  it('shows a dedicated diff error while keeping run header and controls', async () => {
+    const cases = [
+      { status: 404, message: 'Дифф для этого прогона не найден' },
+      { status: 500, message: 'Не удалось загрузить дифф' },
+    ] as const
 
-    renderRunDetail(DEMO_RUN_ID)
-    await waitFor(() => {
-      expect(screen.getByTestId('run-detail-diff-error')).toBeTruthy()
-    })
-    expect(screen.getByText('Дифф для этого прогона не найден')).toBeTruthy()
-    expect(screen.getByTestId('run-detail-page')).toBeTruthy()
-    expect(screen.getByText('Перезапустить')).toBeTruthy()
+    for (const { status, message } of cases) {
+      cleanup()
+      setMockTransport(null)
+      withMockTransportOverlay((endpoint) => {
+        const diffMatch = /^\/runs\/([^/]+)\/diff$/.exec(endpoint.path)
+        if (diffMatch && endpoint.method === 'GET') {
+          throw new ApiError(status, status === 404 ? 'Not Found' : 'Internal Server Error', null)
+        }
+        return undefined
+      })
+
+      renderRunDetail(DEMO_RUN_ID)
+      await waitFor(() => {
+        expect(screen.getByTestId('run-detail-diff-error')).toBeTruthy()
+      })
+      expect(screen.getByText(message)).toBeTruthy()
+      expect(screen.getByTestId('run-detail-page')).toBeTruthy()
+      expect(screen.getByText('Перезапустить')).toBeTruthy()
+    }
   })
 })

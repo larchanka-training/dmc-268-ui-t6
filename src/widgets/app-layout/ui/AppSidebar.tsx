@@ -8,6 +8,7 @@ import {
 import { Button, Layout, Menu, theme } from 'antd'
 import { useState, type FC } from 'react'
 
+import { mocksEnabledAtRuntime } from '../../../shared/config/buildFlags'
 import { isMockMode } from '../../../shared/config/env'
 import styles from './AppLayout.module.css'
 
@@ -33,7 +34,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({ currentPath = '/repositories',
       icon: <AuditOutlined />,
       label: 'Прогоны',
     },
-    ...(isMockMode()
+    ...(mocksEnabledAtRuntime(isMockMode)
       ? [
           {
             key: '/review',

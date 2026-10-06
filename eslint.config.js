@@ -81,6 +81,10 @@ export default tseslint.config(
           patterns: [
             {
               group: [
+                '../../*/lib/**',
+                '../../*/model/**',
+                '../../*/api',
+                '../../*/api/**',
                 '**/entities/*/lib/**',
                 '**/entities/*/model/**',
                 '**/entities/*/api',

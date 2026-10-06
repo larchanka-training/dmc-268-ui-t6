@@ -24,6 +24,12 @@ describe('formatAuthCallbackApiMessage', () => {
       'Не удалось войти через GitHub',
     )
   })
+
+  it('uses a Russian fallback for plain-text error bodies', () => {
+    expect(formatAuthCallbackApiMessage(502, 'Bad Gateway', 'Bad Gateway')).toBe(
+      'Не удалось войти через GitHub (код 502)',
+    )
+  })
 })
 
 describe('formatAuthCallbackFailure', () => {
