@@ -51,6 +51,24 @@ describe('RunHeader PR metadata', () => {
     expect(screen.getByText('critical: 1')).toBeTruthy()
   })
 
+  // Same rule as the API verdict (api PIPELINE_SPEC §11): counts are final only for a
+  // succeeded run that reviewed line by line.
+  it.each([
+    { name: 'a running run', run: { ...baseRun, status: 'running' as const, finishedAt: null } },
+    { name: 'a summary-only run', run: { ...baseRun, summaryOnly: true } },
+  ])('hides the zero counts of $name', ({ run }) => {
+    render(
+      <RunHeader
+        now={new Date('2026-09-18T12:00:00.000Z')}
+        run={run}
+        severityCounts={{ critical: 0, high: 0, medium: 0, low: 0, info: 0 }}
+        verdict={null}
+      />,
+    )
+    expect(screen.queryByText('Находки')).toBeNull()
+    expect(screen.queryByText('critical: 0')).toBeNull()
+  })
+
   it('renders without author, branches or verdict when absent', () => {
     render(
       <RunHeader
