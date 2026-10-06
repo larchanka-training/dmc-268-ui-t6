@@ -8,6 +8,12 @@ const AUTH_CALLBACK_MESSAGES: Record<string, string> = {
   access_denied: 'Доступ отклонён',
 }
 
+/** Known English `detail` strings from `dmc-268-api-t6` auth callback (Refs #65, AC 3.1). */
+const API_DETAIL_RU: Record<string, string> = {
+  'invalid GitHub authorization code': 'Недействительный код авторизации GitHub',
+  'GitHub authentication is unavailable': 'Вход через GitHub временно недоступен',
+}
+
 function sanitizeUserFacingText(text: string): string {
   const trimmed = text.trim()
   if (trimmed.length === 0) {
@@ -19,8 +25,15 @@ function sanitizeUserFacingText(text: string): string {
   return trimmed
 }
 
-function messageFromDetail(detail: unknown): string | null {
+function messageFromDetail(detail: unknown, status: number): string | null {
   if (typeof detail === 'string' && detail.length > 0) {
+    const mapped = API_DETAIL_RU[detail]
+    if (mapped) {
+      return mapped
+    }
+    if ((status === 400 || status === 502) && !/[а-яА-ЯёЁ]/.test(detail)) {
+      return `Не удалось войти через GitHub (код ${String(status)})`
+    }
     return sanitizeUserFacingText(detail)
   }
   if (typeof detail === 'object' && detail !== null && !Array.isArray(detail)) {
@@ -42,7 +55,7 @@ export function formatApiErrorMessage(status: number, statusText: string, data: 
     return 'Ответ сервера не прошёл проверку схемы'
   }
   if (typeof data === 'object' && data !== null && 'detail' in data) {
-    const fromDetail = messageFromDetail(data.detail)
+    const fromDetail = messageFromDetail(data.detail, status)
     if (fromDetail) {
       return fromDetail
     }

@@ -28,18 +28,19 @@ const terminalRun: RunSession = {
   errorCode: null,
 }
 
-const mockMutate = vi.fn()
+const mockRerunMutate = vi.fn()
+const mockCancelMutate = vi.fn()
 
 vi.mock('../../../entities/run', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../entities/run')>()
   return {
     ...actual,
     useRerunRun: () => ({
-      mutate: mockMutate,
+      mutate: mockRerunMutate,
       isPending: false,
     }),
     useCancelRun: () => ({
-      mutate: vi.fn(),
+      mutate: mockCancelMutate,
       isPending: false,
     }),
   }
@@ -52,14 +53,28 @@ function renderControls() {
   return render(<RouterProvider router={router} />)
 }
 
+const activeRun: RunSession = {
+  ...terminalRun,
+  status: 'running',
+  finishedAt: null,
+}
+
+function renderActiveControls() {
+  const router = createMemoryRouter([{ path: '/', element: <RunControls run={activeRun} /> }], {
+    initialEntries: ['/'],
+  })
+  return render(<RouterProvider router={router} />)
+}
+
 afterEach(() => {
   cleanup()
-  mockMutate.mockReset()
+  mockRerunMutate.mockReset()
+  mockCancelMutate.mockReset()
 })
 
 describe('RunControls', () => {
   it('surfaces rerun 409 conflicts via antd message', async () => {
-    mockMutate.mockImplementation(
+    mockRerunMutate.mockImplementation(
       (_vars: undefined, options?: { onError?: (error: unknown) => void }) => {
         options?.onError?.(new ApiError(409, 'Conflict', { detail: 'Active run already exists' }))
       },
@@ -67,6 +82,21 @@ describe('RunControls', () => {
 
     renderControls()
     fireEvent.click(screen.getByText('Перезапустить'))
+
+    await waitFor(() => {
+      expect(screen.getByText('У этого PR уже есть активный прогон или PR закрыт')).toBeTruthy()
+    })
+  })
+
+  it('surfaces cancel 409 conflicts via antd message', async () => {
+    mockCancelMutate.mockImplementation(
+      (_vars: undefined, options?: { onError?: (error: unknown) => void }) => {
+        options?.onError?.(new ApiError(409, 'Conflict', { detail: 'Active run already exists' }))
+      },
+    )
+
+    renderActiveControls()
+    fireEvent.click(screen.getByText('Отменить'))
 
     await waitFor(() => {
       expect(screen.getByText('У этого PR уже есть активный прогон или PR закрыт')).toBeTruthy()

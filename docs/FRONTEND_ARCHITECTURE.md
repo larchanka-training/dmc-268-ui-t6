@@ -287,7 +287,8 @@ TanStack Query — не замена Zustand, а дополнение: серв�
 SSE-мост (Ф-14, **реализовано**; Refs ui#65): `RunStreamBridge` внутри `QueryProvider` вызывает
 `useRunStreamSubscription` → `runStreamConnect.ts`: `fetch(API_BASE_URL + '/stream')` с
 `Authorization: Bearer <accessToken>`, разбор кадров `event:`/`data:` (`runStreamParse.ts`); на
-`run.updated` — `invalidateQueries` для `['runs', runId]` и `['runs', runId, 'actions']`.
+`run.updated` — `invalidateQueries` для `['runs', runId]`, `['runs', runId, 'actions']`,
+`['runs', runId, 'diff']` и `['runs', runId, 'comments']` (дифф и комментарии подтягиваются вместе с прогоном).
 `EventSource` не используется (нет Bearer). `401` — refresh с лимитом повторов
 (`MAX_STREAM_401_RETRIES`), затем переподключение с backoff (`STREAM_RECONNECT_DELAY_MS`); refresh
 не удался — подписка прекращается (fail closed, §11). Контрактный follow-up для api#20:
@@ -410,6 +411,8 @@ Summary-only прогон (дифф больше 3 000 строк, Р-15 в [SD 
 Run detail (Ф-16; [PIPELINE_SPEC §11][ps-11], схема `RunDetail` в [`openapi.yaml`][openapi]): Zod —
 `RunDetailSchema` в `entities/run`: все пять полей сверх `RunSession` обязательные, `summary`, `verdict` и
 `budget` — nullable, `findings` и `severityCounts` — нет; ответ без них — ошибка разбора.
+Элементы `findings[]` валидируются через `FindingViewSchema` из `entities/review` (`entities/run/api/index.ts`) —
+единственное осознанное пересечение слайсов run→review на границе парсинга API.
 Карточки строятся по `findings` (`FindingView`, якорь `endLine ?? newLine`, §6).
 `RunSession` и сверх них `findings` (`FindingView` — поля `ReviewComment` без `createdAt`, плюс
 `side`, `suggestion`, `confidence`), `summary { problem, doneWell, effort } | null`,
@@ -665,7 +668,8 @@ issue прямо выносит подключение логирования з
 
 **Роутер.** Установлен **react-router 8** (^8.4.0, peer react ≥ 19.2.7 — выполняется), настроен в `src/app/routes.tsx`. Лэйауты (`AppLayoutRoute`, `ProtectedLayout`, `PageFallback`, `RouteErrorFallback`) и обёртки страниц (`RoutedRepositoriesPage` и др.) вынесены в `src/app/layouts/`, чтобы файл роутера оставался чистой конфигурацией маршрутов без отключения правил Fast Refresh (`react-refresh/only-export-components`).
 
-**Сборка и чанки.** Rolldown автоматически распределяет компоненты antd между ленивыми страницами, изолируя компоненты страниц (таблицы, деревья) в отдельные чанки. Лимит размера чанка в `vite.config.ts` поднят до 700 кБ (`chunkSizeWarningLimit: 700`) под наибольший несжатый чанк antd (`typography` / core-runtime, ~607 кБ), устраняя ложные предупреждения сборщика.
+**Сборка и чанки.** В `vite.config.ts` заданы `manualChunks` (`vendor-antd`, `vendor-diff`, `vendor-react`, `vendor-query`);
+`chunkSizeWarningLimit: 1200` кБ — изолированный `vendor-antd` ~1.1 МБ minified намеренно (Refs #65, AC 3.5), без подавления предупреждений для страничных чанков.
 
 ---
 

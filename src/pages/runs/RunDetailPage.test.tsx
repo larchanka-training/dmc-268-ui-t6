@@ -13,8 +13,13 @@ vi.mock('../../shared/config/env', async (importOriginal) => {
   }
 })
 
+import { z } from 'zod'
+
+import { RawFileDiffSchema } from '../../entities/diff'
 import { mockRunsListPage } from '../../app/mocks/mockRunsList.fixture'
-import { initMockTransport } from '../../app/mocks/mockTransport'
+import { buildMockRunDetail } from '../../app/mocks/mockRunReview'
+import { initMockTransport, withMockTransportOverlay } from '../../app/mocks/mockTransport'
+import { SAMPLE_PATCHES } from '../../shared/fixtures/sample.patch'
 import { REVIEW_LEGACY_RUN_ID } from '../../app/mocks/mockRunReview'
 import { DEMO_RUN_ID } from '../../shared/config/demoRun'
 import { ApiError, setAccessToken, setMockTransport } from '../../shared/api/client'
@@ -155,6 +160,90 @@ describe('RunDetailPage', () => {
       expect(screen.getByTestId('findings-outside-diff')).toBeTruthy()
     })
     expect(screen.getByText('Outside diff')).toBeTruthy()
+  })
+
+  it('shows outside-diff findings when /diff returns patch null for that file', async () => {
+    const session = mockRunsListPage.items.find((run) => run.id === DEMO_RUN_ID)
+    if (!session) {
+      throw new Error('demo run missing from mock list')
+    }
+    withMockTransportOverlay((endpoint) => {
+      if (endpoint.path === `/runs/${DEMO_RUN_ID}/diff` && endpoint.method === 'GET') {
+        return z.array(RawFileDiffSchema).parse([{ filename: 'docs/huge.md', patch: null }])
+      }
+      if (endpoint.path === `/runs/${DEMO_RUN_ID}` && endpoint.method === 'GET') {
+        return {
+          ...buildMockRunDetail(session),
+          findings: [
+            {
+              id: '33333333-3333-4333-8333-000000000020',
+              file: 'docs/huge.md',
+              oldLine: null,
+              newLine: 1,
+              endLine: null,
+              side: 'RIGHT',
+              severity: 'info',
+              category: 'readability',
+              title: 'Page patchless finding',
+              body: 'No inline anchor on run page',
+              suggestion: null,
+              confidence: 0.5,
+              ruleName: null,
+            },
+          ],
+        }
+      }
+      return undefined
+    })
+
+    renderRunDetail(DEMO_RUN_ID)
+    await waitFor(() => {
+      expect(screen.getByTestId('findings-outside-diff')).toBeTruthy()
+    })
+    expect(screen.getByText('Page patchless finding')).toBeTruthy()
+  })
+
+  it('shows outside-diff findings when the file is missing from /diff', async () => {
+    const session = mockRunsListPage.items.find((run) => run.id === DEMO_RUN_ID)
+    if (!session) {
+      throw new Error('demo run missing from mock list')
+    }
+    withMockTransportOverlay((endpoint) => {
+      if (endpoint.path === `/runs/${DEMO_RUN_ID}/diff` && endpoint.method === 'GET') {
+        return z
+          .array(RawFileDiffSchema)
+          .parse(SAMPLE_PATCHES.map(({ filename, patch }) => ({ filename, patch })))
+      }
+      if (endpoint.path === `/runs/${DEMO_RUN_ID}` && endpoint.method === 'GET') {
+        return {
+          ...buildMockRunDetail(session),
+          findings: [
+            {
+              id: '33333333-3333-4333-8333-000000000021',
+              file: 'src/not-in-diff.ts',
+              oldLine: null,
+              newLine: 10,
+              endLine: null,
+              side: 'RIGHT',
+              severity: 'low',
+              category: 'correctness',
+              title: 'Page missing-file finding',
+              body: 'File not in /diff payload',
+              suggestion: null,
+              confidence: 0.4,
+              ruleName: null,
+            },
+          ],
+        }
+      }
+      return undefined
+    })
+
+    renderRunDetail(DEMO_RUN_ID)
+    await waitFor(() => {
+      expect(screen.getByTestId('findings-outside-diff')).toBeTruthy()
+    })
+    expect(screen.getByText('Page missing-file finding')).toBeTruthy()
   })
 
   it('shows a not-found message for an unknown run id', async () => {

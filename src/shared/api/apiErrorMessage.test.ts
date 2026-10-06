@@ -4,8 +4,8 @@ import { formatApiErrorMessage } from './apiErrorMessage'
 import { ApiError } from './client'
 
 describe('formatApiErrorMessage', () => {
-  it('uses detail from JSON error bodies', () => {
-    expect(formatApiErrorMessage(400, 'Bad Request', { detail: 'Неверный код' })).toBe(
+  it('uses detail from JSON error bodies when already Russian', () => {
+    expect(formatApiErrorMessage(418, 'Bad Request', { detail: 'Неверный код' })).toBe(
       'Неверный код',
     )
   })
@@ -23,5 +23,20 @@ describe('formatApiErrorMessage', () => {
 
   it('does not surface raw HTML error bodies', () => {
     expect(formatApiErrorMessage(500, 'Error', '<html><body>fail</body></html>')).toBe('Ошибка API')
+  })
+
+  it('maps GitHub callback English detail strings to Russian', () => {
+    expect(
+      formatApiErrorMessage(400, 'Bad Request', { detail: 'invalid GitHub authorization code' }),
+    ).toBe('Недействительный код авторизации GitHub')
+    expect(
+      formatApiErrorMessage(502, 'Bad Gateway', { detail: 'GitHub authentication is unavailable' }),
+    ).toBe('Вход через GitHub временно недоступен')
+  })
+
+  it('uses a Russian fallback for unknown English callback detail on 400/502', () => {
+    expect(formatApiErrorMessage(400, 'Bad Request', { detail: 'some other server message' })).toBe(
+      'Не удалось войти через GitHub (код 400)',
+    )
   })
 })

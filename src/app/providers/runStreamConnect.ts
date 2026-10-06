@@ -62,6 +62,8 @@ export async function connectRunStream(
       }
       void queryClient.invalidateQueries({ queryKey: runQueryKeys.detail(payload.runId) })
       void queryClient.invalidateQueries({ queryKey: runQueryKeys.actions(payload.runId) })
+      void queryClient.invalidateQueries({ queryKey: runQueryKeys.diff(payload.runId) })
+      void queryClient.invalidateQueries({ queryKey: runQueryKeys.comments(payload.runId) })
     }
   }
 }

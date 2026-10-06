@@ -28,7 +28,7 @@ Refs: [larchanka-training/dmc-268-ui-t6#65](https://github.com/larchanka-trainin
 2.x не выбран (грамматики, lockfile). Регрессия — unit/DOM-тесты `tokensForHunks` без мока `tokenize`.
 | Ошибки токенизации | `undefined` + console | **`console.error` (или shared logger) + `undefined`** | AC: не глотать молча; UI без подсветки для unknown lang |
 | `jsx` в `fileLanguage.ts` | register `jsx` grammar; map `jsx` → `tsx` | **register или убрать из маппинга** — одно из двух, с тестом на `.jsx` |
-| Большие диффы | Worker; отключение highlight | **Порог строк (например 3000)** → `useTokenizeWorker` из `react-diff-view` **или** явное `highlight: false` с UI-подсказкой | AC ui#57 / #65 |
+| Большие диффы | Worker; отключение highlight | **Синхронный порог** `MAX_LINES_FOR_SYNC_HIGHLIGHT = 3000` в `tokensForHunks.ts`: выше порога `tokenize` не вызывается (без подсветки, UI остаётся отзывчивым). `useTokenizeWorker` не подключали: mock/prod диффы в спринте укладываются в порог; worker — follow-up при регрессии perf в браузере | AC ui#57 / #65 |
 | SSE | `EventSource` | **fetch + ReadableStream / полифил SSE с Bearer** (FRONTEND_ARCHITECTURE §2) | Заголовок Authorization; переподписка после refresh (~15 min) |
 | Инвалидация run | `['runs']` prefix | **`['runs', runId]`** для detail; stream invalidates `runQueryKeys.detail(id)`; не инвалидировать весь префикс `['runs']` при disabled diff | Issue «мины» |
 | PR «Ревью» в prod | `/runs` list; скрыть пункт | **`DEMO_RUN_ID` и `/review` только при `isMockMode()`**; иначе Navigate `/runs` или убрать пункт sidebar | Отдельный первый PR части 2 допустим |

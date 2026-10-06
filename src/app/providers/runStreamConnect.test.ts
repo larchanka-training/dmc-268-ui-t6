@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { runQueryKeys } from '../../entities/run/api'
+import { runQueryKeys } from '../../entities/run'
 import { queryClient } from './queryClient'
 import { connectRunStream, MAX_STREAM_401_RETRIES } from './runStreamConnect'
 
@@ -53,6 +53,8 @@ describe('connectRunStream', () => {
 
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: runQueryKeys.detail(runId) })
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: runQueryKeys.actions(runId) })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: runQueryKeys.diff(runId) })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: runQueryKeys.comments(runId) })
   })
 
   it('stops retrying after MAX_STREAM_401_RETRIES refresh attempts', async () => {
