@@ -49,6 +49,10 @@ export default defineConfig(({ mode }) => {
     test: {
       include: ['src/**/*.test.{ts,tsx}'],
       setupFiles: ['./src/test/setup.ts'],
+      // Выше `asyncUtilTimeout` из `src/test/setup.ts` и явных `timeout` в `waitFor`, с запасом на
+      // несколько ожиданий подряд: иначе под нагрузкой тест падает с «Test timed out» раньше,
+      // чем срабатывает само ожидание.
+      testTimeout: 20_000,
     },
   }
 })
