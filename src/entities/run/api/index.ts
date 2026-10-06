@@ -169,7 +169,7 @@ export function useRerunRun(runId: string | undefined) {
     },
     onSuccess: (session) => {
       void queryClient.invalidateQueries({ queryKey: runQueryKeys.list() })
-      queryClient.setQueryData(runQueryKeys.detail(session.id), session)
+      void queryClient.invalidateQueries({ queryKey: runQueryKeys.detail(session.id) })
     },
   })
 }

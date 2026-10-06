@@ -72,7 +72,11 @@ function mergeFindings(findings: FindingView[], comments: ReviewComment[]): Find
   if (comments.length === 0) {
     return findings
   }
-  return [...findings, ...comments.map(reviewCommentToFinding)]
+  const seen = new Set(findings.map((finding) => finding.id))
+  const fromComments = comments
+    .map(reviewCommentToFinding)
+    .filter((finding) => !seen.has(finding.id))
+  return [...findings, ...fromComments]
 }
 
 export function DiffViewer(props: DiffViewerProps): JSX.Element {

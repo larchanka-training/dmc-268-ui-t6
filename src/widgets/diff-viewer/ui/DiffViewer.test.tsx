@@ -179,6 +179,36 @@ describe('DiffViewer', () => {
     expect(row?.querySelectorAll('.inline-comment')).toHaveLength(3)
   })
 
+  it('deduplicates findings and comments that share the same id', () => {
+    const sharedId = '11111111-1111-4111-8111-111111111199'
+    render(
+      <DiffViewer
+        comments={[makeComment({ id: sharedId, newLine: 2, title: 'From comments' })]}
+        file={FILE}
+        findings={[
+          {
+            id: sharedId,
+            file: FILE.filename,
+            oldLine: null,
+            newLine: 2,
+            endLine: null,
+            side: 'RIGHT',
+            severity: 'medium',
+            category: 'readability',
+            title: 'From findings',
+            body: 'Prefer the finding payload',
+            suggestion: 'const x = 1',
+            confidence: 0.9,
+            ruleName: null,
+          },
+        ]}
+      />,
+    )
+    expect(screen.getByText('From findings')).toBeTruthy()
+    expect(screen.queryByText('From comments')).toBeNull()
+    expect(screen.getAllByTestId('inline-comment')).toHaveLength(1)
+  })
+
   it('shows findings outside the loaded diff in a dedicated block', () => {
     render(
       <DiffViewer

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-import { AuthSessionSchema } from '../../../entities/user'
+import { AuthSessionSchema, fetchMe } from '../../../entities/user'
 import {
   apiClient,
   ApiError,
@@ -250,6 +250,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         })
         return
       }
+
+      await fetchMe(newToken)
 
       set({
         isAuthenticated: true,
