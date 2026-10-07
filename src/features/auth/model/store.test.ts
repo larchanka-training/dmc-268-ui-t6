@@ -1,7 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { getAccessToken, setAccessToken, setMockTransport } from '../../../shared/api/client'
+import {
+  ApiError,
+  getAccessToken,
+  setAccessToken,
+  setMockTransport,
+} from '../../../shared/api/client'
 import { STATE_STORAGE_KEY, setMockAuthAdapter, setOnLogout, useAuthStore } from './store'
 
 describe('useAuthStore', () => {
@@ -146,6 +151,46 @@ describe('useAuthStore', () => {
     const state = useAuthStore.getState()
     expect(state.isAuthenticated).toBe(false)
     expect(getAccessToken()).toBeNull()
+  })
+
+  it('handleCallback keeps the original ApiError as the cause of the rejected error', async () => {
+    sessionStorage.setItem(STATE_STORAGE_KEY, 'valid_state')
+
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ detail: 'Code invalid or expired' }), {
+        status: 400,
+        statusText: 'Bad Request',
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+
+    const error: unknown = await useAuthStore
+      .getState()
+      .handleCallback('expired_code', 'valid_state')
+      .catch((err: unknown) => err)
+
+    expect(error).toBeInstanceOf(Error)
+    const cause = (error as Error).cause
+    expect(cause).toBeInstanceOf(ApiError)
+    expect((cause as ApiError).status).toBe(400)
+  })
+
+  it('handleCallback keeps the original network error as the cause of the rejected error', async () => {
+    sessionStorage.setItem(STATE_STORAGE_KEY, 'valid_state')
+
+    const networkError = new TypeError('Failed to fetch')
+    globalThis.fetch = vi.fn().mockRejectedValue(networkError)
+
+    const error: unknown = await useAuthStore
+      .getState()
+      .handleCallback('any_code', 'valid_state')
+      .catch((err: unknown) => err)
+
+    expect(error).toBeInstanceOf(Error)
+    expect((error as Error).message).toBe(
+      'Не удалось связаться с сервером. Проверьте подключение к сети',
+    )
+    expect((error as Error).cause).toBe(networkError)
   })
 
   it('logout calls POST /api/auth/logout, clears token and invokes onLogout callback', async () => {
