@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { diffApi, fromPatch } from '../../../entities/diff'
 import { RunSessionSchema } from '../../../entities/run'
 import { SAMPLE_PATCH_A, SAMPLE_PATCHES } from '../../../shared/fixtures/sample.patch'
-import { diffThemeVars } from '../lib/diffTheme'
 import { useDiffViewerStore } from '../model/store'
 import { RunDiff } from './RunDiff'
 
@@ -197,9 +196,7 @@ describe('RunDiff', () => {
     expect(suggestion).not.toBeNull()
     expect(suggestion?.classList.contains('diff-theme')).toBe(true)
     expect(suggestion?.style.getPropertyValue('--diff-code-insert-background-color')).toBe(
-      diffThemeVars(theme.getDesignToken({ algorithm: theme.defaultAlgorithm }))[
-        '--diff-code-insert-background-color'
-      ],
+      theme.getDesignToken({ algorithm: theme.defaultAlgorithm }).colorSuccessBg,
     )
     expect(suggestion?.querySelector('.diff-code-insert span.token.keyword')).not.toBeNull()
   })

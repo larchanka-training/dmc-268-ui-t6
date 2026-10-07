@@ -209,7 +209,9 @@ describe('demo run suggestion finding', () => {
 })
 
 describe('demo run severityCounts', () => {
-  it('matches the findings of the demo run', () => {
+  const EXPECTED = { critical: 1, high: 2, medium: 3, low: 1, info: 1 }
+
+  it('pins the demo severity distribution and keeps it consistent with the findings', () => {
     const session = mockRunsListPage.items.find((run) => run.id === REVIEW_DEMO_RUN_ID)
     if (!session) {
       throw new Error('demo run missing from mock list')
@@ -219,7 +221,8 @@ describe('demo run severityCounts', () => {
     for (const item of detail.findings) {
       tally[item.severity] += 1
     }
-    expect(detail.severityCounts).toEqual(tally)
+    expect(detail.severityCounts).toEqual(EXPECTED)
+    expect(tally).toEqual(EXPECTED)
     expect(RunDetailSchema.safeParse(detail).success).toBe(true)
   })
 })

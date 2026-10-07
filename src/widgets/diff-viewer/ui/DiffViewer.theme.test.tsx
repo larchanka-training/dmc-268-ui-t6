@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { fromPatch } from '../../../entities/diff'
 import { SAMPLE_PATCH_A } from '../../../shared/fixtures/sample.patch'
-import { diffThemeVars } from '../lib/diffTheme'
 import { useDiffViewerStore } from '../model/store'
 import { DiffViewer } from './DiffViewer'
 
@@ -22,9 +21,8 @@ function themeRoot(container: HTMLElement): HTMLElement {
   return root
 }
 
-function expectedVars(algorithm: typeof theme.darkAlgorithm): Record<string, string> {
-  return diffThemeVars(theme.getDesignToken({ algorithm }))
-}
+const LIGHT = theme.getDesignToken({ algorithm: theme.defaultAlgorithm })
+const DARK = theme.getDesignToken({ algorithm: theme.darkAlgorithm })
 
 beforeEach(() => {
   useDiffViewerStore.setState({ viewType: 'unified', selectedFile: null })
@@ -39,9 +37,7 @@ describe('DiffViewer theme', () => {
     const { container } = render(<DiffViewer file={FILE} />)
     const root = themeRoot(container)
     expect(root.querySelector('table.diff')).not.toBeNull()
-    expect(root.style.getPropertyValue(INSERT_BG)).toBe(
-      expectedVars(theme.defaultAlgorithm)[INSERT_BG],
-    )
+    expect(root.style.getPropertyValue(INSERT_BG)).toBe(LIGHT.colorSuccessBg)
   })
 
   it('differs between a dark and a light ConfigProvider', () => {
@@ -63,10 +59,12 @@ describe('DiffViewer theme', () => {
     )
     const darkRoot = themeRoot(dark.container)
 
-    expect(lightInsert).toBe(expectedVars(theme.defaultAlgorithm)[INSERT_BG])
-    expect(darkRoot.style.getPropertyValue(INSERT_BG)).toBe(
-      expectedVars(theme.darkAlgorithm)[INSERT_BG],
-    )
+    expect(lightInsert).toBe(LIGHT.colorSuccessBg)
+    expect(lightDelete).toBe(LIGHT.colorErrorBg)
+    expect(lightText).toBe(LIGHT.colorText)
+    expect(darkRoot.style.getPropertyValue(INSERT_BG)).toBe(DARK.colorSuccessBg)
+    expect(darkRoot.style.getPropertyValue(DELETE_BG)).toBe(DARK.colorErrorBg)
+    expect(darkRoot.style.getPropertyValue(TEXT)).toBe(DARK.colorText)
     expect(darkRoot.style.getPropertyValue(INSERT_BG)).not.toBe(lightInsert)
     expect(darkRoot.style.getPropertyValue(DELETE_BG)).not.toBe(lightDelete)
     expect(darkRoot.style.getPropertyValue(TEXT)).not.toBe(lightText)
