@@ -14,8 +14,8 @@
 
 ```mermaid
 flowchart TD
-  pr["PR / push"] --> quality["lint, check-types, format:check, test, build\n(required check)"]
-  pr --> build["docker build (один раз)\n(required check)"]
+  pr["PR / push"] --> quality["lint, check-types, format:check, test, build<br/>(required check)"]
+  pr --> build["docker build (один раз)<br/>(required check)"]
   build --> scan["trivy: vuln / secret / misconfig"]
   quality --> gate{"main?"}
   scan --> gate
@@ -86,10 +86,10 @@ Caddy (compose project `dmc-268-edge`) принимает 80/443 на VPS, вы�
 - `DEPLOY_MODE` (`edge|ports`) и `EDGE_ALIAS` сохраняются в `<APP_DIR>/.env`; `rollback.sh` читает их оттуда.
 - Перед выкатом (и перед Rollback) job до 180 с ждёт успешного TLS-рукопожатия с `https://staging-ui.<APP_DOMAIN>/` (любой HTTP-статус, 502 тоже). Без сертификата job падает до изменения запущенного релиза (файлы деплоя уже загружены, **Prepare host** уже выполнен), поэтому медленный первый выпуск в Let's Encrypt не запускает авто-rollback.
 
-| Hostname (`APP_DOMAIN` = `dmc268-t6.axyi.ru`) | Upstream в `dmc268-edge` | Статус                              |
-| --------------------------------------------- | ------------------------ | ----------------------------------- |
-| `staging-ui.<APP_DOMAIN>`                     | `ui-staging:8080`        | выкатывает этот репозиторий         |
-| `ui.<APP_DOMAIN>`                             | `ui-prod:8080`           | prod-выката пока нет → заглушка 503 |
+| Hostname (`APP_DOMAIN` = `dmc268-t6.axyi.ru`) | Upstream в `dmc268-edge`                                     | Статус                                                     |
+| --------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------- |
+| `staging-ui.<APP_DOMAIN>`                     | `/api/*` → `api-staging:8000`, остальное → `ui-staging:8080` | UI выкатывает этот репозиторий, `/api/*` — репозиторий API |
+| `ui.<APP_DOMAIN>`                             | `/api/*` → `api-prod:8000`, остальное → `ui-prod:8080`       | prod-выката пока нет → заглушка 503                        |
 
 Пока upstream не запущен, `staging-ui` отвечает 502, а `ui` — заглушкой 503 edge-прокси ([CICD.md API, §8.2](https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/CICD.md#82-edge-прокси)); остальные маршруты прокси работают.
 
