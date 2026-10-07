@@ -56,6 +56,9 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Verify prod bundle
+        run: pnpm verify:prod-bundle
+
   docker-build:
     name: Docker image build
     runs-on: ubuntu-latest
