@@ -144,6 +144,7 @@ src/app/providers/index.ts
 src/app/providers/queryClient.ts
 src/app/providers/runStreamConnect.test.ts
 src/app/providers/runStreamConnect.ts
+src/app/providers/useRunStream.test.tsx
 src/app/providers/useRunStream.ts
 src/app/routes.tsx
 src/entities/diff/api/index.test.ts
