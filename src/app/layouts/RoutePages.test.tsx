@@ -17,9 +17,9 @@ afterEach(() => {
   window.history.replaceState(null, '', originalUrl)
 })
 
-it('returns an already authenticated user to repositories after a sync-access OAuth callback', async () => {
+it('returns to saved repositories after an OAuth callback and clears return-to and query', async () => {
   const handleCallback = vi.fn().mockResolvedValue(undefined)
-  useAuthStore.setState({ isAuthenticated: true, isInitialized: true, handleCallback })
+  useAuthStore.setState({ handleCallback })
   saveAuthReturnTo('/repositories')
   window.history.replaceState(null, '', '/auth/callback?code=new-access&state=csrf-state')
   const router = createMemoryRouter(

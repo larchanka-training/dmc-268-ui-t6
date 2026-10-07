@@ -35,7 +35,7 @@ import type {
   UpdateRepositoryInput,
   WaitForCi,
 } from '../../../entities/repository'
-import { GITHUB_APP_SLUG, GITHUB_CLIENT_ID } from '../../../shared/config/env'
+import { GITHUB_APP_SLUG, GITHUB_CLIENT_ID, isMockMode } from '../../../shared/config/env'
 import { safeHttpUrl } from '../../../shared/lib/safeHttpUrl'
 import styles from './RepositoryList.module.css'
 
@@ -79,7 +79,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
   const [form] = Form.useForm<UpdateRepositoryInput>()
 
   const isAppConfigured = Boolean(GITHUB_APP_SLUG)
-  const isSyncConfigured = Boolean(GITHUB_CLIENT_ID)
+  const isSyncConfigured = Boolean(GITHUB_CLIENT_ID || isMockMode())
   const appInstallUrl = isAppConfigured
     ? `https://github.com/apps/${GITHUB_APP_SLUG}/installations/new`
     : undefined

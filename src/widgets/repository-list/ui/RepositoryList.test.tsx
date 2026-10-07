@@ -9,10 +9,12 @@ import { RepositoryList } from './RepositoryList'
 
 let mockSlug = ''
 let mockClientId = 'test-client'
+const mockMode = vi.hoisted(() => ({ enabled: false }))
 vi.mock('../../../shared/config/env', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../shared/config/env')>()
   return {
     ...actual,
+    isMockMode: () => mockMode.enabled,
     get GITHUB_CLIENT_ID() {
       return mockClientId
     },
@@ -28,6 +30,7 @@ afterEach(() => {
   cleanup()
   mockSlug = ''
   mockClientId = 'test-client'
+  mockMode.enabled = false
   useAuthStore.setState({ loginWithGitHub: originalLoginWithGitHub })
 })
 
@@ -146,7 +149,9 @@ describe('RepositoryList', () => {
       maxComments: 10,
       reviewEvent: 'COMMENT',
     }
-    const { container } = render(<RepositoryList onSyncAccess={vi.fn()} repositories={[unsafeRepo]} />)
+    const { container } = render(
+      <RepositoryList onSyncAccess={vi.fn()} repositories={[unsafeRepo]} />,
+    )
 
     // React rewrites a javascript: href instead of dropping it, so match on the scheme.
     expect(container.querySelector('a[href*="javascript:"]')).toBeNull()
@@ -179,9 +184,12 @@ describe('RepositoryList', () => {
     // role query below tells an open modal from a closed one
     render(
       <ConfigProvider theme={{ token: { motion: false } }}>
-        <RepositoryList onSyncAccess={vi.fn()} onUpdateRepository={onUpdate} repositories={mockRepos} />
+        <RepositoryList
+          onSyncAccess={vi.fn()}
+          onUpdateRepository={onUpdate}
+          repositories={mockRepos}
+        />
       </ConfigProvider>,
-
     )
 
     const settingsBtn = screen.getByLabelText(/настройки larchanka-training\/dmc-268-ui-t6/i)
@@ -310,6 +318,21 @@ describe('RepositoryList', () => {
       expect(
         await screen.findByText('Обновление доступа недоступно: не задан VITE_GITHUB_CLIENT_ID'),
       ).toBeDefined()
+    },
+  )
+
+  it.each([{ repositories: [] }, { repositories: mockRepos }])(
+    'enables sync access without a client ID in mock mode for $repositories.length repositories',
+    ({ repositories }) => {
+      mockClientId = ''
+      mockMode.enabled = true
+      const onSyncAccess = vi.fn()
+      render(<RepositoryList onSyncAccess={onSyncAccess} repositories={repositories} />)
+
+      const button = screen.getByRole('button', { name: 'Обновить доступ' })
+      expect(button.hasAttribute('disabled')).toBe(false)
+      fireEvent.click(button)
+      expect(onSyncAccess).toHaveBeenCalledOnce()
     },
   )
 
