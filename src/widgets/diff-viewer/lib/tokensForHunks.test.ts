@@ -6,6 +6,7 @@ import { SAMPLE_PATCH_A } from '../../../shared/fixtures/sample.patch'
 import { refractorForDiffView } from './refractorForDiffView'
 import {
   countDiffSideLines,
+  highlightBudgetLines,
   MAX_LINES_FOR_SYNC_HIGHLIGHT,
   MAX_SYNC_HIGHLIGHT_TOTAL_LINES,
   tokensForHunks,
@@ -116,5 +117,35 @@ describe('tokensForHunks', () => {
     expect(errorSpy).toHaveBeenCalled()
     highlightSpy.mockRestore()
     errorSpy.mockRestore()
+  })
+})
+
+describe('highlightBudgetLines', () => {
+  function addedLinesFile(filename: string, lineCount: number) {
+    return fromPatch({
+      filename,
+      patch:
+        [
+          `diff --git a/${filename} b/${filename}`,
+          'index 1111111..2222222 100644',
+          `--- a/${filename}`,
+          `+++ b/${filename}`,
+          `@@ -1,1 +1,${String(lineCount + 1)} @@`,
+          ' context',
+          ...Array.from({ length: lineCount }, (_, index) => `+const line${String(index)} = 1`),
+        ].join('\n') + '\n',
+    })
+  }
+
+  it('sums the diff-side lines of files that have a grammar and skips the rest', () => {
+    const tsFile = addedLinesFile('src/a.ts', 10)
+    const pyFile = addedLinesFile('lib/run.py', 5)
+    const noGrammar = addedLinesFile('docs/big.txt', 50)
+    expect(countDiffSideLines(toHunks(noGrammar))).toBeGreaterThan(0)
+
+    expect(highlightBudgetLines([tsFile, noGrammar, pyFile])).toBe(
+      countDiffSideLines(toHunks(tsFile)) + countDiffSideLines(toHunks(pyFile)),
+    )
+    expect(highlightBudgetLines([noGrammar])).toBe(0)
   })
 })

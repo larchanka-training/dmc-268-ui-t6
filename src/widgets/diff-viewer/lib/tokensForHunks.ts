@@ -1,7 +1,8 @@
 import { tokenize } from 'react-diff-view'
 import type { HunkData, HunkTokens } from 'react-diff-view'
 
-import { languageFromFilename } from '../../../entities/diff'
+import { languageFromFilename, toHunks } from '../../../entities/diff'
+import type { FileDiff } from '../../../entities/diff'
 import { refractorForDiffView } from './refractorForDiffView'
 
 /**
@@ -13,6 +14,20 @@ export const MAX_SYNC_HIGHLIGHT_TOTAL_LINES = 1000
 
 export function countDiffSideLines(hunks: HunkData[]): number {
   return hunks.reduce((sum, hunk) => sum + hunk.oldLines + hunk.newLines, 0)
+}
+
+/** Total-budget lines of a file list: files with a patch and a grammar only (no grammar, no tokens). */
+export function highlightBudgetLines(files: FileDiff[]): number {
+  return files.reduce((sum, file) => {
+    if (
+      !file.hasPatch ||
+      file.chunks.length === 0 ||
+      languageFromFilename(file.filename) === null
+    ) {
+      return sum
+    }
+    return sum + countDiffSideLines(toHunks(file))
+  }, 0)
 }
 
 export function tokensForHunks(

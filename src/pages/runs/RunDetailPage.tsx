@@ -151,6 +151,7 @@ const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
         </Flex>
       ) : (
         <RunDiff
+          budgetFiles={diffFiles}
           comments={comments}
           files={displayFiles}
           findings={Array.isArray(run.findings) ? run.findings : []}
