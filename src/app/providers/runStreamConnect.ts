@@ -38,10 +38,12 @@ function createStreamSession(): StreamSession {
 }
 
 /**
- * `fetch` throws on a header value outside HTTP field-value bytes (NUL, other control characters,
- * code points above 0xFF); such an id would break every reconnect, so it is never kept.
+ * Visible ASCII plus tab and space. `fetch` throws on NUL, CR/LF and code points above 0xFF, which
+ * would break every reconnect; a control character or DEL is sent but a server or proxy answers
+ * 400; a non-ASCII id would go out as a Latin-1 byte where the server sent UTF-8, altering it. An
+ * id outside this set is never kept.
  */
-const SENDABLE_EVENT_ID = /^[\t\x20-\x7e\x80-\xff]*$/
+const SENDABLE_EVENT_ID = /^[\t\x20-\x7e]*$/
 
 /** The queries one `run.updated` event invalidates for a run; also used after a reconnect. */
 function invalidateRunQueries(runId: string): void {
@@ -215,15 +217,15 @@ export function sleep(ms: number, signal: AbortSignal): Promise<void> {
     return Promise.resolve()
   }
   return new Promise((resolve) => {
-    const timer = setTimeout(resolve, ms)
-    signal.addEventListener(
-      'abort',
-      () => {
-        clearTimeout(timer)
-        resolve()
-      },
-      { once: true },
-    )
+    const onAbort = (): void => {
+      clearTimeout(timer)
+      resolve()
+    }
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
+    signal.addEventListener('abort', onAbort, { once: true })
   })
 }
 

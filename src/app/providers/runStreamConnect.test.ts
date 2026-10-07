@@ -577,37 +577,63 @@ describe('runStreamUntilAborted reconnect state', () => {
   })
 
   it.each([
-    ['a code point above 0xFF', 'идентификатор'],
-    ['a control character', 'a\u0001b'],
-    ['DEL', '\u007f'],
-  ])(
-    'never sends an id with %s, which fetch would reject, and keeps the previous one',
-    async (_label, unsendable) => {
-      vi.useFakeTimers()
-      const fetchMock = vi
-        .fn<typeof fetch>()
-        .mockResolvedValueOnce(new Response(sseBody([`id: ${unsendable}\n\n`]), SSE_RESPONSE_INIT))
-        .mockResolvedValueOnce(
-          new Response(sseBody(['id: 5\n\n', `id: ${unsendable}\n\n`]), SSE_RESPONSE_INIT),
-        )
-        .mockResolvedValue(new Response(null, { status: 503, statusText: 'Unavailable' }))
-      globalThis.fetch = fetchMock
+    ['a code point above 0xFF, which makes fetch throw', 'идентификатор'],
+    ['a control character, which a server or proxy rejects', 'a\u0001b'],
+    ['DEL, which a server or proxy rejects', '\u007f'],
+    ['a Latin-1 character, which would be re-encoded', 'é'],
+  ])('never sends an id with %s, and keeps the previous one', async (_label, unsendable) => {
+    vi.useFakeTimers()
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(sseBody([`id: ${unsendable}\n\n`]), SSE_RESPONSE_INIT))
+      .mockResolvedValueOnce(
+        new Response(sseBody(['id: 5\n\n', `id: ${unsendable}\n\n`]), SSE_RESPONSE_INIT),
+      )
+      .mockResolvedValue(new Response(null, { status: 503, statusText: 'Unavailable' }))
+    globalThis.fetch = fetchMock
 
-      const controller = new AbortController()
-      const done = runStreamUntilAborted(controller.signal, 'token_a')
+    const controller = new AbortController()
+    const done = runStreamUntilAborted(controller.signal, 'token_a')
 
-      await vi.advanceTimersByTimeAsync(STREAM_RECONNECT_DELAY_MS)
-      expect(fetchMock).toHaveBeenCalledTimes(2)
-      expect(requestHeader(fetchMock, 1, 'Last-Event-ID')).toBeNull()
+    await vi.advanceTimersByTimeAsync(STREAM_RECONNECT_DELAY_MS)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(requestHeader(fetchMock, 1, 'Last-Event-ID')).toBeNull()
 
-      await vi.advanceTimersByTimeAsync(STREAM_RECONNECT_DELAY_MS)
-      expect(fetchMock).toHaveBeenCalledTimes(3)
-      expect(requestHeader(fetchMock, 2, 'Last-Event-ID')).toBe('5')
+    await vi.advanceTimersByTimeAsync(STREAM_RECONNECT_DELAY_MS)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(requestHeader(fetchMock, 2, 'Last-Event-ID')).toBe('5')
 
-      controller.abort()
-      await done
-    },
-  )
+    controller.abort()
+    await done
+  })
+
+  it('leaves no abort listener on the outer signal after reconnect cycles', async () => {
+    vi.useFakeTimers()
+    const controller = new AbortController()
+    const addSpy = vi.spyOn(controller.signal, 'addEventListener')
+    const removeSpy = vi.spyOn(controller.signal, 'removeEventListener')
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(null, { status: 503, statusText: 'Unavailable' }))
+    globalThis.fetch = fetchMock
+
+    const done = runStreamUntilAborted(controller.signal, 'token_a')
+    // Fetches at 0, 3 s, 9 s and 21 s: three finished waits and the fourth one still running.
+    await vi.advanceTimersByTimeAsync(
+      STREAM_RECONNECT_DELAY_MS + STREAM_RECONNECT_DELAY_MS * 2 + STREAM_RECONNECT_DELAY_MS * 4,
+    )
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+
+    const added = addSpy.mock.calls.filter(([type]) => type === 'abort').map(([, l]) => l)
+    const removed = new Set(
+      removeSpy.mock.calls.filter(([type]) => type === 'abort').map(([, l]) => l),
+    )
+    // Only the running wait keeps its listener.
+    expect(added.filter((listener) => !removed.has(listener))).toHaveLength(1)
+
+    controller.abort()
+    await done
+  })
 
   it('sends the last event id on the retry after a 401 refresh', async () => {
     vi.useFakeTimers()
@@ -667,6 +693,61 @@ describe('runStreamUntilAborted keep-alive watchdog', () => {
     await vi.advanceTimersByTimeAsync(1)
     expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(requestSignal(fetchMock, 1)?.aborted).toBe(false)
+
+    controller.abort()
+    await done
+  })
+
+  it('trips the watchdog at the frozen 30 s after a keep-alive of a 15 s interval', async () => {
+    vi.useFakeTimers()
+    const { fetchMock, streams } = openStreamFetch()
+    globalThis.fetch = fetchMock
+
+    expect(STREAM_KEEPALIVE_INTERVAL_MS).toBe(15_000)
+
+    const controller = new AbortController()
+    const done = runStreamUntilAborted(controller.signal, 'token_a')
+    await vi.advanceTimersByTimeAsync(0)
+    streams[0]?.send(KEEPALIVE)
+
+    await vi.advanceTimersByTimeAsync(29_999)
+    expect(requestSignal(fetchMock, 0)?.aborted).toBe(false)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(requestSignal(fetchMock, 0)?.aborted).toBe(true)
+
+    await vi.advanceTimersByTimeAsync(STREAM_RECONNECT_DELAY_MS)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+
+    controller.abort()
+    await done
+  })
+
+  it('reconnects after the base delay when the watchdog aborts a connection that delivered data', async () => {
+    vi.useFakeTimers()
+    const { fetchMock, streams } = openStreamFetch()
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 503, statusText: 'Unavailable' }))
+    globalThis.fetch = fetchMock
+
+    const controller = new AbortController()
+    const done = runStreamUntilAborted(controller.signal, 'token_a')
+    await vi.advanceTimersByTimeAsync(0)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    // The 503 waits the base delay and leaves the next wait at twice the base.
+    await vi.advanceTimersByTimeAsync(STREAM_RECONNECT_DELAY_MS)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+
+    // The 503 opened no stream: streams[0] is the body of the second fetch.
+    streams[0]?.send(KEEPALIVE)
+    await vi.advanceTimersByTimeAsync(WATCHDOG_MS)
+    expect(requestSignal(fetchMock, 1)?.aborted).toBe(true)
+
+    // The connection delivered data before it went silent, so the wait is the base delay again.
+    await vi.advanceTimersByTimeAsync(STREAM_RECONNECT_DELAY_MS - 1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
 
     controller.abort()
     await done
@@ -816,6 +897,8 @@ describe('runStreamUntilAborted keep-alive watchdog', () => {
 
     controller.abort()
     await done
+    // The watchdog timer of the aborted connection is cleared, not left to fire later.
+    expect(vi.getTimerCount()).toBe(0)
     await vi.advanceTimersByTimeAsync(10 * WATCHDOG_MS)
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
