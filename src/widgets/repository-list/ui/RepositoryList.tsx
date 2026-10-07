@@ -37,6 +37,7 @@ import type {
 } from '../../../entities/repository'
 import { useAuthStore } from '../../../features/auth'
 import { GITHUB_APP_SLUG } from '../../../shared/config/env'
+import { safeHttpUrl } from '../../../shared/lib/safeHttpUrl'
 import styles from './RepositoryList.module.css'
 
 const { Text, Link } = Typography
@@ -170,13 +171,18 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       key: 'fullName',
       render: (fullName: string, record: Repository) => {
         const shortName = fullName.split('/')[1] ?? fullName
+        const href = safeHttpUrl(record.url)
         return (
           <Flex align="center" gap="small">
             <GithubOutlined style={{ fontSize: token.fontSizeLG }} />
             <Flex vertical>
-              <Link href={record.url} rel="noopener noreferrer" strong target="_blank">
-                {fullName}
-              </Link>
+              {href ? (
+                <Link href={href} rel="noopener noreferrer" strong target="_blank">
+                  {fullName}
+                </Link>
+              ) : (
+                <Text strong>{fullName}</Text>
+              )}
               <Text style={{ fontSize: token.fontSizeSM }} type="secondary">
                 {shortName} • {record.id}
               </Text>

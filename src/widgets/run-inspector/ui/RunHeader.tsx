@@ -3,8 +3,8 @@ import { Descriptions, Space, Tag, Typography } from 'antd'
 
 import type { RunSession, SeverityCounts, Verdict } from '../../../entities/run'
 import { isStaleRunning, statusColor } from '../../../entities/run'
+import { safeHttpUrl } from '../../../shared/lib/safeHttpUrl'
 import { formatDateTime, formatDuration, runDuration } from '../lib/format'
-import { safeHttpUrl } from '../lib/safeHttpUrl'
 
 interface RunHeaderProps {
   run: RunSession
