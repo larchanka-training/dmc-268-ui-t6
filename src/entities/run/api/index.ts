@@ -175,8 +175,12 @@ export function useCancelRun(runId: string | undefined) {
       return cancelRun(runId)
     },
     onSuccess: (session) => {
-      queryClient.setQueryData(runQueryKeys.detail(session.id), (prev: RunDetail | undefined) =>
-        prev ? { ...prev, ...session } : prev,
+      // The api session's `pullRequest` has no author/headRef/baseRef; keep the detail's own
+      // until the refetch below lands.
+      queryClient.setQueryData(
+        runQueryKeys.detail(session.id),
+        (prev: LoadedRunDetail | undefined) =>
+          prev ? { ...prev, ...session, pullRequest: prev.pullRequest } : prev,
       )
       void queryClient.invalidateQueries({ queryKey: runQueryKeys.detail(session.id) })
       void queryClient.invalidateQueries({ queryKey: runQueryKeys.list() })
@@ -196,13 +200,6 @@ export function useRerunRun(runId: string | undefined) {
     onSuccess: (session) => {
       void queryClient.invalidateQueries({ queryKey: runQueryKeys.list() })
       void queryClient.invalidateQueries({ queryKey: runQueryKeys.detail(session.id) })
-      void fetchRunDetail(session.id)
-        .then((detail) => {
-          queryClient.setQueryData(runQueryKeys.detail(session.id), detail)
-        })
-        .catch(() => {
-          /* detail query refetches on mount */
-        })
     },
   })
 }

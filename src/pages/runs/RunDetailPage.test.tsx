@@ -363,6 +363,41 @@ describe('RunDetailPage', () => {
     })
   })
 
+  // The rerun navigates to the new run, whose page fetches the detail on mount; the hook must
+  // not fetch it a second time on its own.
+  it('requests the new run detail once after a rerun', async () => {
+    let newRunDetailGets = 0
+    withMockTransportOverlay((endpoint) => {
+      if (endpoint.path === `/runs/${RERUN_RUN_ID}` && endpoint.method === 'GET') {
+        newRunDetailGets += 1
+        const session = mockRunsListPage.items.find((run) => run.id === DEMO_RUN_ID)
+        if (!session) {
+          throw new Error('demo run missing from fixture')
+        }
+        return {
+          ...buildMockRunDetail(session),
+          id: RERUN_RUN_ID,
+          status: 'queued',
+          startedAt: null,
+          finishedAt: null,
+          cancelRequested: false,
+        }
+      }
+      return undefined
+    })
+
+    renderRunDetail(DEMO_RUN_ID)
+    await waitFor(() => {
+      expect(screen.getByText('Перезапустить')).toBeTruthy()
+    })
+    fireEvent.click(screen.getByText('Перезапустить'))
+
+    await waitFor(() => {
+      expect(screen.getByText('queued')).toBeTruthy()
+    })
+    expect(newRunDetailGets).toBe(1)
+  })
+
   it('invalidates run detail query after a successful rerun', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const invalidateSpy = vi.spyOn(client, 'invalidateQueries')
@@ -411,6 +446,60 @@ describe('RunDetailPage', () => {
     await waitFor(() => {
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: runQueryKeys.detail(queued.id) })
     })
+  })
+
+  // The api cancel response carries a pull request without author/headRef/baseRef; until the
+  // detail refetch lands the header must keep the ones the detail already had.
+  it('keeps the author and branches in the header after cancel until the refetch lands', async () => {
+    const session = mockRunsListPage.items.find((run) => run.id === DEMO_RUN_ID)
+    if (!session) {
+      throw new Error('demo run missing from fixture')
+    }
+    const { repo, number, title, url, headSha } = session.pullRequest
+    let cancelled = false
+    let detailGets = 0
+    withMockTransportOverlay((endpoint) => {
+      if (endpoint.path === `/runs/${DEMO_RUN_ID}` && endpoint.method === 'GET') {
+        detailGets += 1
+        if (cancelled) {
+          return new Promise<never>(() => undefined)
+        }
+        return {
+          ...buildMockRunDetail(session),
+          status: 'queued',
+          startedAt: null,
+          finishedAt: null,
+        }
+      }
+      if (endpoint.path === `/runs/${DEMO_RUN_ID}/cancel` && endpoint.method === 'POST') {
+        cancelled = true
+        return {
+          ...session,
+          status: 'cancelled',
+          cancelRequested: true,
+          pullRequest: { repo, number, title, url, headSha },
+        }
+      }
+      return undefined
+    })
+
+    renderRunDetail(DEMO_RUN_ID)
+    await waitFor(() => {
+      expect(screen.getByText('Отменить')).toBeTruthy()
+    })
+    expect(screen.getByText('AndrewBlinets')).toBeTruthy()
+    expect(screen.getByText('feat/57-pr-review-screen → main')).toBeTruthy()
+
+    fireEvent.click(screen.getByText('Отменить'))
+
+    await waitFor(() => {
+      expect(screen.getByText('cancelled')).toBeTruthy()
+    })
+    await waitFor(() => {
+      expect(detailGets).toBe(2)
+    })
+    expect(screen.getByText('AndrewBlinets')).toBeTruthy()
+    expect(screen.getByText('feat/57-pr-review-screen → main')).toBeTruthy()
   })
 
   it('invalidates run list after a successful rerun', async () => {
