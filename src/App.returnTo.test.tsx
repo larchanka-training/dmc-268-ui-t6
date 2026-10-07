@@ -20,11 +20,12 @@ vi.mock('./shared/config/env', async (importOriginal) => {
 })
 
 import App from './App'
-import { initMockTransport } from './app/mocks/mockTransport'
+import { MOCK_OAUTH_CODE, initMockTransport } from './app/mocks/mockTransport'
 import { createRoutes } from './app/routes'
 import {
   AUTH_RETURN_TO_KEY,
   MOCK_TOKEN,
+  STATE_STORAGE_KEY,
   saveAuthReturnTo,
   setMockAuthAdapter,
   useAuthStore,
@@ -78,6 +79,7 @@ describe('return to the original route after login (StrictMode)', () => {
     resetSession()
     setMockAuthAdapter(null)
     setMockTransport(null)
+    window.history.replaceState(null, '', '/')
   })
 
   it('opens the saved route when /login is visited with an active session', async () => {
@@ -105,6 +107,22 @@ describe('return to the original route after login (StrictMode)', () => {
       expect(router.state.location.pathname).not.toBe('/login')
     })
     expect(router.state.location.pathname).toBe(RUN_PATH)
+  })
+
+  it('opens the saved route after the OAuth callback', async () => {
+    saveAuthReturnTo(RUN_PATH)
+    // `CallbackPage` reads the code and state from `window.location`, not from the memory router.
+    sessionStorage.setItem(STATE_STORAGE_KEY, 'csrf_test_state')
+    const callbackUrl = `/auth/callback?code=${MOCK_OAUTH_CODE}&state=csrf_test_state`
+    window.history.pushState({}, '', callbackUrl)
+
+    const router = renderRouted(callbackUrl)
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe(RUN_PATH)
+    })
+    expect(useAuthStore.getState().isAuthenticated).toBe(true)
+    expect(sessionStorage.getItem(AUTH_RETURN_TO_KEY)).toBeNull()
   })
 
   it('removes the saved route once it is used, so a later /login goes to the fallback', async () => {
