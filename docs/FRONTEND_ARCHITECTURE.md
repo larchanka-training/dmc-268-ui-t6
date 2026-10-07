@@ -173,6 +173,7 @@ src/entities/review/index.ts
 src/entities/review/lib/findingAnchor.ts
 src/entities/review/lib/reviewCommentToFinding.ts
 src/entities/review/lib/severityBadge.ts
+src/entities/review/model/schemas.contract.test.ts
 src/entities/review/model/schemas.test.ts
 src/entities/review/model/schemas.ts
 src/entities/run/api/fetchRunActions.test.ts
@@ -189,6 +190,7 @@ src/entities/run/lib/groupActions.ts
 src/entities/run/lib/status.test.ts
 src/entities/run/lib/status.ts
 src/entities/run/model/runDetailSchema.test.ts
+src/entities/run/model/schemas.contract.test.ts
 src/entities/run/model/schemas.test.ts
 src/entities/run/model/schemas.ts
 src/entities/user/api/index.ts

@@ -19,13 +19,13 @@ Refs: [larchanka-training/dmc-268-ui-t6#65](https://github.com/larchanka-trainin
 
 | Решение                 | Варианты                                                             | Выбор                                                                                                                             | Обоснование                           |
 | ----------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| Совместимость подсветки | Downgrade `refractor` до 2.x; адаптер hast→children; форк `tokenize` | **Адаптер `refractorForDiffView`**: refractor 5 остаётся; `highlight()` отдаёт `root.children` массив для `react-diff-view` 3.3.3 | AC + минимальный риск отката grammars |
+| Совместимость подсветки | Downgrade `refractor` до 3.x; адаптер hast→children; форк `tokenize` | **Адаптер `refractorForDiffView`**: refractor 5 остаётся; `highlight()` отдаёт `root.children` массив для `react-diff-view` 3.3.3 | AC + минимальный риск отката grammars |
 
 **Refractor / react-diff-view (PR #70, P2):** зафиксирована пара `refractor@^5` + `react-diff-view@^3.3.3`.
 `refractorForDiffView` (`src/widgets/diff-viewer/lib/refractorForDiffView.ts`) — единственная точка
 совместимости: `highlight()` возвращает `root.children` (HAST-массив), который ожидает
 `react-diff-view` 3.x `createRoot`, вместо корневого `root`-элемента refractor 5. Downgrade refractor
-2.x не выбран (грамматики, lockfile). Регрессия — unit/DOM-тесты `tokensForHunks` без мока `tokenize`.
+3.x не выбран (грамматики, lockfile). Регрессия — unit/DOM-тесты `tokensForHunks` без мока `tokenize`.
 | Ошибки токенизации | `undefined` + console | **`console.error` (или shared logger) + `undefined`** | AC: не глотать молча; UI без подсветки для unknown lang |
 | `jsx` в `fileLanguage.ts` | register `jsx` grammar; map `jsx` → `tsx` | **register или убрать из маппинга** — одно из двух, с тестом на `.jsx` |
 | Большие диффы | Worker; отключение highlight | **Синхронный бюджет** `MAX_LINES_FOR_SYNC_HIGHLIGHT` и `MAX_SYNC_HIGHLIGHT_TOTAL_LINES` = 1000 в `tokensForHunks.ts` (~0.4s tokenize в Node); выше — без подсветки. `useTokenizeWorker` — follow-up при регрессии в браузере | AC ui#57 / #65 |
@@ -118,7 +118,7 @@ Refs: [larchanka-training/dmc-268-ui-t6#65](https://github.com/larchanka-trainin
 
 | Risk                                          | Impact | Mitigation                                                                      |
 | --------------------------------------------- | ------ | ------------------------------------------------------------------------------- |
-| refractor 2.x не ставится с текущим toolchain | High   | Адаптер + тест; задокументировать в PR                                          |
+| refractor 3.x не ставится с текущим toolchain | High   | Адаптер + тест; задокументировать в PR                                          |
 | SSE обрывается при refresh                    | Med    | Подписка в hook с зависимостью от token; reconnect                              |
 | Инвалидация `['runs']` сносит list cache      | Med    | Точечные ключи из `runQueryKeys`                                                |
 | CSP ломает antd                               | High   | `style-src 'unsafe-inline'` или nonce policy по согласованию DevOps; browser QA |
