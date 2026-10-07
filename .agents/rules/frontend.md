@@ -5,7 +5,8 @@
 - Always use pnpm for dependencies (never npm/yarn).
 - Never `--no-verify`.
 - Run the gates before claiming done: `pnpm lint`, `pnpm check-types`,
-  `pnpm format:check`, `pnpm test`, `pnpm build`.
+  `pnpm format:check`, `pnpm test`, `pnpm build`, `pnpm verify:prod-bundle`
+  (the last one checks the `pnpm build` output).
 - No new dependency without a line in the PR body.
 - Never edit files owned by another open PR without a comment there.
 
@@ -23,13 +24,14 @@
 | Typecheck    | `pnpm check-types`                                          | `package.json` |
 | Test         | `pnpm test`                                                 | `package.json` |
 | Build        | `pnpm build`                                                | `package.json` |
+| Bundle check | `pnpm verify:prod-bundle` (after `pnpm build`)              | `package.json` |
 
 `pnpm-lock.yaml` is committed; `packageManager` is pinned in `package.json`; Node
 ≥ 22.22.0 is required (`engines` in `package.json`).
 
 What enforces the gates today:
 
-- CI (every PR and every push to `main`): all five gates, then `pnpm verify:prod-bundle` after
+- CI (every PR and every push to `main`): all six gates, `pnpm verify:prod-bundle` last, after
   the build — the `UI quality` job in `.github/workflows/ci-cd.yml`, a required status check on
   `main` (`docs/CICD.md` §8).
   The Docker image build in the same workflow runs `pnpm build` once more via

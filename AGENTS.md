@@ -18,7 +18,8 @@ side-by-side), Zod 4, Zustand 5, TanStack Query 5, antd 6, Vitest 5.
 - Always use pnpm for dependencies (never npm/yarn).
 - Never `--no-verify`.
 - Run the gates before claiming done: `pnpm lint`, `pnpm check-types`,
-  `pnpm format:check`, `pnpm test`, `pnpm build`.
+  `pnpm format:check`, `pnpm test`, `pnpm build`, `pnpm verify:prod-bundle`
+  (the last one checks the `pnpm build` output).
 - No new dependency without a line in the PR body.
 - Never edit files owned by another open PR without a comment there.
 - Unknown external input goes through Zod at the boundary — never trust an
@@ -38,6 +39,7 @@ side-by-side), Zod 4, Zustand 5, TanStack Query 5, antd 6, Vitest 5.
 | Typecheck    | `pnpm check-types`                                          | `package.json` |
 | Test         | `pnpm test`                                                 | `package.json` |
 | Build        | `pnpm build`                                                | `package.json` |
+| Bundle check | `pnpm verify:prod-bundle` (after `pnpm build`)              | `package.json` |
 
 ## Layout
 
@@ -83,4 +85,4 @@ only flow downward, `shared` never imports `entities`); details in
   server cache.
 - Do not import sideways or upward across FSD layers.
 - Do not skip the gates (`pnpm lint`, `pnpm check-types`, `pnpm format:check`,
-  `pnpm test`, `pnpm build`) before claiming a task done.
+  `pnpm test`, `pnpm build`, `pnpm verify:prod-bundle`) before claiming a task done.
