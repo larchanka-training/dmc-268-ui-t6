@@ -1,0 +1,57 @@
+/*
+ * Syntax-highlight colours for react-diff-view tokens (refractor class names).
+ * The values live in `--diff-token-*`, set on `.diff-theme` from antd tokens by
+ * `useDiffThemeStyle` (lib/diffTheme.ts) — no colour literal belongs in this file.
+ * Every class sits in exactly one rule, so rule order never decides a colour.
+ * `punctuation` is deliberately not styled: Prism aliases it onto decorators and
+ * interpolation, and those must keep their own colour.
+ */
+
+.diff-theme .token.keyword,
+.diff-theme .token.operator,
+.diff-theme .token.important,
+.diff-theme .token.rule {
+  color: var(--diff-token-keyword);
+}
+
+.diff-theme .token.string,
+.diff-theme .token.template-string,
+.diff-theme .token.triple-quoted-string,
+.diff-theme .token.char,
+.diff-theme .token.url,
+.diff-theme .token.attr-value {
+  color: var(--diff-token-string);
+}
+
+.diff-theme .token.number,
+.diff-theme .token.boolean,
+.diff-theme .token.constant {
+  color: var(--diff-token-number);
+}
+
+.diff-theme .token.function,
+.diff-theme .token.class-name,
+.diff-theme .token.builtin {
+  color: var(--diff-token-function);
+}
+
+.diff-theme .token.tag,
+.diff-theme .token.selector {
+  color: var(--diff-token-tag);
+}
+
+.diff-theme .token.attr-name,
+.diff-theme .token.property,
+.diff-theme .token.key {
+  color: var(--diff-token-attribute);
+}
+
+.diff-theme .token.decorator,
+.diff-theme .token.annotation,
+.diff-theme .token.regex {
+  color: var(--diff-token-special);
+}
+
+.diff-theme .token.comment {
+  color: var(--diff-token-comment);
+}

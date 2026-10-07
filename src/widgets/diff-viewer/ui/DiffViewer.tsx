@@ -4,11 +4,13 @@ import { Alert, Segmented, Typography } from 'antd'
 import { Decoration, Diff, Hunk } from 'react-diff-view'
 import type { HunkData } from 'react-diff-view'
 import 'react-diff-view/style/index.css'
+import './diff-theme.css'
 
 import type { FileDiff } from '../../../entities/diff'
 import { commentKey, toHunks } from '../../../entities/diff'
 import type { FindingView, ReviewComment } from '../../../entities/review'
 import { reviewCommentToFinding } from '../../../entities/review'
+import { useDiffThemeStyle } from '../lib/diffTheme'
 import { tokensForHunks } from '../lib/tokensForHunks'
 import type { DiffViewType } from '../model/store'
 import { useDiffViewerStore } from '../model/store'
@@ -83,6 +85,7 @@ function mergeFindings(findings: FindingView[], comments: ReviewComment[]): Find
 
 export function DiffViewer(props: DiffViewerProps): JSX.Element {
   const { file, findings = [], comments = [], totalLines, diffTotalLines, onLoadMore } = props
+  const diffTheme = useDiffThemeStyle()
   const viewType = useDiffViewerStore((s) => s.viewType)
   const setViewType = useDiffViewerStore((s) => s.setViewType)
   const hunks = useMemo(
@@ -167,7 +170,7 @@ export function DiffViewer(props: DiffViewerProps): JSX.Element {
   }
 
   return (
-    <div>
+    <div className={diffTheme.className} style={diffTheme.style}>
       <div>
         <Typography.Text strong>{file.filename}</Typography.Text>
         <Segmented
