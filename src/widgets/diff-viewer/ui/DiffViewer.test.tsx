@@ -39,6 +39,21 @@ const PY_FILE = fromPatch({
   ].join('\n'),
 })
 
+const TSX_HIGHLIGHT_FILE = fromPatch({
+  filename: 'src/App.tsx',
+  patch: [
+    'diff --git a/src/App.tsx b/src/App.tsx',
+    'index 1111111..2222222 100644',
+    '--- a/src/App.tsx',
+    '+++ b/src/App.tsx',
+    '@@ -1,3 +1,3 @@',
+    ' export function App({ name }: { name: string }) {',
+    '-  return <span>{name}</span>',
+    '+  return <div className="x">{name}</div>',
+    ' }',
+  ].join('\n'),
+})
+
 function expectSyntaxTokens(container: HTMLElement): void {
   const codeCells = container.querySelectorAll('.diff-code')
   expect(codeCells.length).toBeGreaterThan(0)
@@ -88,6 +103,13 @@ describe('DiffViewer', () => {
   it('highlights Python in unified view', () => {
     const { container } = render(<DiffViewer comments={[]} file={PY_FILE} />)
     expectSyntaxTokens(container)
+  })
+
+  it('highlights JSX in a .tsx file (span.token.tag in .diff-code)', () => {
+    const { container } = render(<DiffViewer comments={[]} file={TSX_HIGHLIGHT_FILE} />)
+    expectSyntaxTokens(container)
+    // `tag` comes from refractor's tsx grammar; plain typescript tokenises `<div …>` as operators.
+    expect(container.querySelector('.diff-code span.token.tag')).not.toBeNull()
   })
 
   it('highlights TypeScript in split view', () => {
