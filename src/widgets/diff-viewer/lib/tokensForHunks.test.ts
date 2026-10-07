@@ -40,7 +40,16 @@ describe('tokensForHunks', () => {
   })
 
   it('returns undefined for an unknown file extension', () => {
-    expect(tokensForHunks('docs/notes.xyz', [])).toBeUndefined()
+    const hunks = toHunks(fromPatch(SAMPLE_PATCH_A))
+    // Non-empty hunks, so the language check (not the empty-hunks early return) is what is under test.
+    expect(hunks.length).toBeGreaterThan(0)
+    // Without the check the call still ends in `undefined` through the tokenize catch, so also
+    // pin that the highlighter is never reached.
+    const highlightSpy = vi.spyOn(refractorForDiffView, 'highlight')
+
+    expect(tokensForHunks('docs/notes.xyz', hunks)).toBeUndefined()
+    expect(highlightSpy).not.toHaveBeenCalled()
+    highlightSpy.mockRestore()
   })
 
   it('returns undefined when hunks are empty for a known language', () => {
