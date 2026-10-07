@@ -79,6 +79,9 @@ never deep-import its internals.
 - `setupFiles: src/test/setup.ts`; no `globals` — import explicitly:
   `import { describe, it, expect } from 'vitest'`.
 - `afterEach(() => { cleanup() })` in every component test file.
+- One wait budget: `asyncUtilTimeout` in `src/test/setup.ts`. Do not pass `{ timeout }` to a
+  single `waitFor`/`findBy*`; `testTimeout` in `vite.config.ts` is sized from it. Outside CI a
+  run takes half of the cores (`maxWorkers`), so parallel runs do not starve each other.
 - Every DOM-dependent test file starts with `// @vitest-environment jsdom` (the
   project default is `node`).
 - Assert literal values taken from the spec — never derive an expected value

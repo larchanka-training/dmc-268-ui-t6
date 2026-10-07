@@ -48,15 +48,12 @@ describe('App root integration and protected routes', () => {
 
     render(<App />)
 
-    await waitFor(
-      () => {
-        expect(screen.getByText('AI Code Reviewer')).toBeDefined()
-        expect(screen.getByRole('button', { name: /войти через github/i })).toBeDefined()
-        // Repositories page content must NOT be rendered
-        expect(screen.queryByText('Подключенные репозитории')).toBeNull()
-      },
-      { timeout: 5000 },
-    )
+    await waitFor(() => {
+      expect(screen.getByText('AI Code Reviewer')).toBeDefined()
+      expect(screen.getByRole('button', { name: /войти через github/i })).toBeDefined()
+      // Repositories page content must NOT be rendered
+      expect(screen.queryByText('Подключенные репозитории')).toBeNull()
+    })
   })
 
   it('redirects to /login and does not render cabinet when refresh succeeds but GET /api/auth/me returns 500', async () => {
@@ -83,14 +80,11 @@ describe('App root integration and protected routes', () => {
 
     render(<App />)
 
-    await waitFor(
-      () => {
-        expect(screen.getByText('AI Code Reviewer')).toBeDefined()
-        expect(screen.getByRole('button', { name: /войти через github/i })).toBeDefined()
-        expect(screen.queryByLabelText('Меню пользователя')).toBeNull()
-      },
-      { timeout: 5000 },
-    )
+    await waitFor(() => {
+      expect(screen.getByText('AI Code Reviewer')).toBeDefined()
+      expect(screen.getByRole('button', { name: /войти через github/i })).toBeDefined()
+      expect(screen.queryByLabelText('Меню пользователя')).toBeNull()
+    })
     expect(useAuthStore.getState().isAuthenticated).toBe(false)
   })
 
@@ -157,12 +151,9 @@ describe('App root integration and protected routes', () => {
 
     render(<App />)
 
-    await waitFor(
-      () => {
-        expect(screen.getByText('Подключенные репозитории')).toBeDefined()
-      },
-      { timeout: 5000 },
-    )
+    await waitFor(() => {
+      expect(screen.getByText('Подключенные репозитории')).toBeDefined()
+    })
     expect(meCalls).toBe(1)
   })
 
@@ -238,28 +229,22 @@ describe('App root integration and protected routes', () => {
 
     render(<App />)
 
-    await waitFor(
-      () => {
-        expect(screen.getByText('Подключенные репозитории')).toBeDefined()
-        expect(screen.getByText('larchanka-training/dmc-268-ui-t6')).toBeDefined()
-      },
-      { timeout: 5000 },
-    )
+    await waitFor(() => {
+      expect(screen.getByText('Подключенные репозитории')).toBeDefined()
+      expect(screen.getByText('larchanka-training/dmc-268-ui-t6')).toBeDefined()
+    })
 
     // Now trigger logout
     await act(async () => {
       await useAuthStore.getState().logout()
     })
 
-    await waitFor(
-      () => {
-        // User is at login screen
-        expect(screen.getByRole('button', { name: /войти через github/i })).toBeDefined()
-        // Repositories content is unmounted
-        expect(screen.queryByText('Подключенные репозитории')).toBeNull()
-      },
-      { timeout: 5000 },
-    )
+    await waitFor(() => {
+      // User is at login screen
+      expect(screen.getByRole('button', { name: /войти через github/i })).toBeDefined()
+      // Repositories content is unmounted
+      expect(screen.queryByText('Подключенные репозитории')).toBeNull()
+    })
   })
 
   it('recovers via refresh when GET /api/repos returns 401 and keeps user in cabinet', async () => {
@@ -346,13 +331,10 @@ describe('App root integration and protected routes', () => {
     render(<App />)
 
     // Wait for repositories list to be displayed after transparent refresh recovery
-    await waitFor(
-      () => {
-        expect(screen.getByText('Подключенные репозитории')).toBeDefined()
-        expect(screen.getByText('larchanka-training/dmc-268-ui-t6')).toBeDefined()
-      },
-      { timeout: 5000 },
-    )
+    await waitFor(() => {
+      expect(screen.getByText('Подключенные репозитории')).toBeDefined()
+      expect(screen.getByText('larchanka-training/dmc-268-ui-t6')).toBeDefined()
+    })
 
     // User is in cabinet and not redirected to login
     expect(screen.queryByRole('button', { name: /войти через github/i })).toBeNull()
@@ -463,15 +445,12 @@ describe('App root integration and protected routes', () => {
 
     render(<App />)
 
-    await waitFor(
-      () => {
-        expect(screen.getByText('Ошибка авторизации')).toBeDefined()
-        expect(
-          screen.getByText(/Недействительный параметр безопасности state \(защита от CSRF\)/i),
-        ).toBeDefined()
-      },
-      { timeout: 5000 },
-    )
+    await waitFor(() => {
+      expect(screen.getByText('Ошибка авторизации')).toBeDefined()
+      expect(
+        screen.getByText(/Недействительный параметр безопасности state \(защита от CSRF\)/i),
+      ).toBeDefined()
+    })
 
     expect(useAuthStore.getState().isAuthenticated).toBe(false)
     const callbackCalls = fetchSpy.mock.calls.filter((call) => {
@@ -682,13 +661,10 @@ describe('App root integration and protected routes', () => {
 
     render(<App router={router} />)
 
-    await waitFor(
-      () => {
-        expect(screen.getByText('Прогоны AI Review')).toBeDefined()
-        expect(screen.getByText('Нет прогонов ревью')).toBeDefined()
-      },
-      { timeout: 5000 },
-    )
+    await waitFor(() => {
+      expect(screen.getByText('Прогоны AI Review')).toBeDefined()
+      expect(screen.getByText('Нет прогонов ревью')).toBeDefined()
+    })
 
     expect(screen.queryByText(/feat: add login flow/i)).toBeNull()
   })
@@ -795,12 +771,9 @@ describe('App root integration and protected routes', () => {
 
     render(<App />)
 
-    await waitFor(
-      () => {
-        expect(screen.getByText('larchanka-training/dmc-268-ui-t6')).toBeDefined()
-      },
-      { timeout: 5000 },
-    )
+    await waitFor(() => {
+      expect(screen.getByText('larchanka-training/dmc-268-ui-t6')).toBeDefined()
+    })
     expect(useAuthStore.getState().isInitialized).toBe(true)
     expect(useAuthStore.getState().isAuthenticated).toBe(true)
   })

@@ -4,9 +4,10 @@
 import { cleanup, configure } from '@testing-library/react'
 import { afterEach, vi } from 'vitest'
 
-// antd-heavy pages render slower than the 1000 ms default of `waitFor`/`findBy*` on a busy
-// machine or CI runner. Keep this below `testTimeout` in `vite.config.ts`.
-configure({ asyncUtilTimeout: 5000 })
+// The only wait budget of the suite: antd-heavy pages render far slower than the 1000 ms
+// default of `waitFor`/`findBy*` on a slow or busy machine. Do not pass `{ timeout }` to a
+// single wait; `testTimeout` in `vite.config.ts` is sized from this value.
+configure({ asyncUtilTimeout: 15_000 })
 
 afterEach(() => {
   cleanup()
