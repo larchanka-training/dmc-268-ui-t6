@@ -10,14 +10,24 @@ interface RunInspectorProps {
   now: Date
   verdict?: Verdict | null
   severityCounts?: SeverityCounts | null
+  droppedFindings?: number
   headerExtra?: ReactNode
 }
 
 export function RunInspector(props: RunInspectorProps): JSX.Element {
-  const { run, actions, now, verdict = null, severityCounts = null, headerExtra = null } = props
+  const {
+    run,
+    actions,
+    now,
+    verdict = null,
+    severityCounts = null,
+    droppedFindings = 0,
+    headerExtra = null,
+  } = props
   return (
     <section>
       <RunHeader
+        droppedFindings={droppedFindings}
         now={now}
         run={run}
         severityCounts={severityCounts ?? undefined}

@@ -93,6 +93,32 @@ describe('RunDetailPage', () => {
     expect(screen.getByText('Ответ сервера не прошёл проверку схемы')).toBeTruthy()
   })
 
+  // The detail fetch drops findings that fail the format check but `severityCounts` still
+  // counts them; the header says how many were left out (the whole chain page -> header).
+  it('explains in the header how many findings failed the format check', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    withMockTransportOverlay((endpoint) => {
+      if (endpoint.path === `/runs/${DEMO_RUN_ID}` && endpoint.method === 'GET') {
+        const session = mockRunsListPage.items.find((run) => run.id === DEMO_RUN_ID)
+        if (!session) {
+          return undefined
+        }
+        const detail = buildMockRunDetail(session)
+        return {
+          ...detail,
+          findings: [...detail.findings, { id: 'not-a-uuid', file: '', severity: 'nope' }],
+        }
+      }
+      return undefined
+    })
+
+    renderRunDetail(DEMO_RUN_ID)
+    await waitFor(() => {
+      expect(screen.getByText('Не показано находок: 1 — не прошли проверку формата')).toBeTruthy()
+    })
+    warn.mockRestore()
+  })
+
   it('expands a collapsed action group in the inspector', async () => {
     renderRunDetail(DEMO_RUN_ID)
     await waitFor(() => {

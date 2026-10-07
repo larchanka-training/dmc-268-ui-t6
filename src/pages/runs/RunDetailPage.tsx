@@ -127,6 +127,7 @@ const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
                 <RunControls run={run} />
               </div>
             }
+            droppedFindings={run.droppedFindings}
             now={now}
             run={run}
             severityCounts={run.severityCounts}

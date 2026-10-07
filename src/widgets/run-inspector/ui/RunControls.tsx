@@ -25,8 +25,8 @@ export function RunControls(props: RunControlsProps): JSX.Element {
   const canCancel = ACTIVE_RUN_STATUSES.some((status) => status === run.status)
   const canRerun = TERMINAL_RUN_STATUSES.some((status) => status === run.status)
 
-  const showError = (error: unknown): void => {
-    void messageApi.error(runMutationErrorMessage(error))
+  const showError = (error: unknown, action: 'rerun' | 'cancel'): void => {
+    void messageApi.error(runMutationErrorMessage(error, action))
   }
 
   return (
@@ -38,7 +38,11 @@ export function RunControls(props: RunControlsProps): JSX.Element {
             danger
             loading={cancelMutation.isPending}
             onClick={() => {
-              cancelMutation.mutate(undefined, { onError: showError })
+              cancelMutation.mutate(undefined, {
+                onError: (error) => {
+                  showError(error, 'cancel')
+                },
+              })
             }}
           >
             Отменить
@@ -49,7 +53,9 @@ export function RunControls(props: RunControlsProps): JSX.Element {
             loading={rerunMutation.isPending}
             onClick={() => {
               rerunMutation.mutate(undefined, {
-                onError: showError,
+                onError: (error) => {
+                  showError(error, 'rerun')
+                },
                 onSuccess: (session) => {
                   void navigate(`/runs/${session.id}`)
                 },
