@@ -15,6 +15,7 @@ const PY_ADDED = 'def total(items: list[int]) -> int:\n    return sum(items)'
 
 afterEach(() => {
   cleanup()
+  vi.restoreAllMocks()
 })
 
 function lineText(container: HTMLElement, selector: string): string[] {
@@ -89,7 +90,60 @@ describe('DiffSuggestion', () => {
     expect(container.querySelectorAll('.diff-code-insert')).toHaveLength(1001)
     expect(container.querySelector('span.token')).toBeNull()
     expect(consoleError).not.toHaveBeenCalled()
-    consoleError.mockRestore()
+  })
+
+  it('re-renders the new added text when addedText changes', () => {
+    const { container, rerender } = render(
+      <DiffSuggestion addedText="const a = 1" filename="src/limits.ts" removedLines={TS_REMOVED} />,
+    )
+    expect(lineText(container, '.diff-code-insert')).toEqual(['const a = 1'])
+
+    rerender(
+      <DiffSuggestion addedText="const b = 2" filename="src/limits.ts" removedLines={TS_REMOVED} />,
+    )
+
+    expect(lineText(container, '.diff-code-insert')).toEqual(['const b = 2'])
+    expect(container.textContent).not.toContain('const a = 1')
+  })
+
+  it('highlights after the filename changes from an unknown extension to .ts', () => {
+    const { container, rerender } = render(
+      <DiffSuggestion
+        addedText={TS_ADDED}
+        filename="notes/data.unknownext"
+        removedLines={TS_REMOVED}
+      />,
+    )
+    expect(container.querySelector('span.token')).toBeNull()
+
+    rerender(
+      <DiffSuggestion addedText={TS_ADDED} filename="src/limits.ts" removedLines={TS_REMOVED} />,
+    )
+
+    expect(container.querySelector('.diff-code-insert span.token.keyword')).not.toBeNull()
+    expect(lineText(container, '.diff-code-insert')).toEqual([TS_ADDED])
+  })
+
+  it('re-renders the new removed text when removedLines content changes', () => {
+    const { container, rerender } = render(
+      <DiffSuggestion
+        addedText={TS_ADDED}
+        filename="src/limits.ts"
+        removedLines={['const a = 1']}
+      />,
+    )
+    expect(lineText(container, '.diff-code-delete')).toEqual(['const a = 1'])
+
+    rerender(
+      <DiffSuggestion
+        addedText={TS_ADDED}
+        filename="src/limits.ts"
+        removedLines={['const b = 2', 'const c = 3']}
+      />,
+    )
+
+    expect(lineText(container, '.diff-code-delete')).toEqual(['const b = 2', 'const c = 3'])
+    expect(container.textContent).not.toContain('const a = 1')
   })
 
   it('renders nothing when both sides are empty', () => {
