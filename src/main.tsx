@@ -1,3 +1,4 @@
+import './shared/config/zodJitless'
 import 'antd/dist/reset.css'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
