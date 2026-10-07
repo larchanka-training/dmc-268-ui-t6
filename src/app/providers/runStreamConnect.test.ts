@@ -489,13 +489,61 @@ describe('runStreamUntilAborted reconnect state', () => {
     await done
   })
 
-  it('counts only a 200 with a body as a connection for the reconnect invalidation', async () => {
+  it.each([
+    [
+      'a 503',
+      () => Promise.resolve(new Response(null, { status: 503, statusText: 'Unavailable' })),
+    ],
+    ['a network error', () => Promise.reject(new TypeError('Failed to fetch'))],
+    ['a 200 without a body', () => Promise.resolve(new Response(null, { status: 200 }))],
+    [
+      'a 401 whose refresh gives no token',
+      () => Promise.resolve(new Response(null, { status: 401, statusText: 'Unauthorized' })),
+    ],
+  ])(
+    'invalidates the run queries after the first 200 that follows a failed first attempt: %s',
+    async (_label, firstAttempt) => {
+      vi.useFakeTimers()
+      vi.spyOn(console, 'error').mockImplementation(() => undefined)
+      vi.mocked(refreshAccessToken).mockResolvedValue(null)
+      seedRunQueries()
+      const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+      const fetchMock = vi
+        .fn<typeof fetch>()
+        .mockImplementationOnce(firstAttempt)
+        .mockResolvedValueOnce(new Response(sseBody([PING]), SSE_RESPONSE_INIT))
+        .mockResolvedValue(new Response(null, { status: 503, statusText: 'Unavailable' }))
+      globalThis.fetch = fetchMock
+
+      const controller = new AbortController()
+      const done = runStreamUntilAborted(controller.signal, 'token_a')
+
+      // The failed attempt invalidates nothing by itself: there is no connection to resync yet.
+      await vi.advanceTimersByTimeAsync(0)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(invalidateSpy).not.toHaveBeenCalled()
+
+      // The first 200 is not the first attempt: the stream was down after the page loaded its data.
+      await vi.advanceTimersByTimeAsync(STREAM_RECONNECT_DELAY_MS)
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      const keys = invalidateSpy.mock.calls.map(([filters]) => filters?.queryKey)
+      expect(keys).toHaveLength(8)
+      expect(keys).toEqual(expect.arrayContaining([...runKeys(RUN_A), ...runKeys(RUN_B)]))
+
+      controller.abort()
+      await done
+    },
+  )
+
+  it('invalidates nothing when the first attempt is a 401 refreshed to a 200 within the same attempt', async () => {
     vi.useFakeTimers()
+    vi.mocked(refreshAccessToken).mockResolvedValue('token_b')
+    vi.mocked(getAccessToken).mockReturnValue('token_b')
     seedRunQueries()
     const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
     const fetchMock = vi
       .fn<typeof fetch>()
-      .mockResolvedValueOnce(new Response(null, { status: 503, statusText: 'Unavailable' }))
+      .mockResolvedValueOnce(new Response(null, { status: 401, statusText: 'Unauthorized' }))
       .mockResolvedValueOnce(new Response(sseBody([PING]), SSE_RESPONSE_INIT))
       .mockResolvedValueOnce(new Response(sseBody([PING]), SSE_RESPONSE_INIT))
       .mockResolvedValue(new Response(null, { status: 503, statusText: 'Unavailable' }))
@@ -504,11 +552,13 @@ describe('runStreamUntilAborted reconnect state', () => {
     const controller = new AbortController()
     const done = runStreamUntilAborted(controller.signal, 'token_a')
 
-    // The failed attempt and the first successful connection invalidate nothing.
-    await vi.advanceTimersByTimeAsync(STREAM_RECONNECT_DELAY_MS)
+    // The refresh retry is part of the first attempt: it leaves no gap worth a refetch.
+    await vi.advanceTimersByTimeAsync(0)
     expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(requestHeader(fetchMock, 1, 'Authorization')).toBe('Bearer token_b')
     expect(invalidateSpy).not.toHaveBeenCalled()
 
+    // The next attempt is the second one: it resyncs.
     await vi.advanceTimersByTimeAsync(STREAM_RECONNECT_DELAY_MS)
     expect(fetchMock).toHaveBeenCalledTimes(3)
     expect(invalidateSpy).toHaveBeenCalledTimes(8)

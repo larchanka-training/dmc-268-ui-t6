@@ -29,12 +29,16 @@ export interface StreamSession {
   lastEventId: string
   /** A comment frame (the keep-alive) arrived on some connection: the watchdog is armed from then on. */
   sawKeepAlive: boolean
-  /** Connections so far that got a 200 with a body. */
-  connections: number
+  /**
+   * Attempts of the reconnect loop so far, failed or not; the 401 refresh retry inside an attempt
+   * is not another one. A stream that failed before it first connected was down after the page
+   * loaded its data, so only the very first attempt has nothing to resync.
+   */
+  attempts: number
 }
 
 function createStreamSession(): StreamSession {
-  return { lastEventId: '', sawKeepAlive: false, connections: 0 }
+  return { lastEventId: '', sawKeepAlive: false, attempts: 0 }
 }
 
 /**
@@ -197,10 +201,10 @@ export async function connectRunStream(
       return false
     }
 
-    session.connections += 1
-    if (session.connections > 1) {
-      // Events sent while the stream was down are lost unless the server replays them; refetch
-      // what the cache holds. Duplicates are harmless: an event only invalidates queries.
+    if (session.attempts > 1) {
+      // Every earlier attempt left a gap, a failed one included: the page fetched its data at
+      // mount, the stream was down after that, and with no `Last-Event-ID` yet the server replays
+      // nothing. Refetch what the cache holds; duplicates are harmless, an event only invalidates.
       for (const runId of cachedRunIds()) {
         invalidateRunQueries(runId)
       }
@@ -238,6 +242,7 @@ export async function runStreamUntilAborted(
   const session = createStreamSession()
   while (!isAborted(signal)) {
     let gotChunk = false
+    session.attempts += 1
     try {
       gotChunk = await connectRunStream(signal, token, 0, session)
     } catch (error: unknown) {
