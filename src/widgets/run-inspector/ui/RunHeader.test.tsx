@@ -69,6 +69,31 @@ describe('RunHeader PR metadata', () => {
     expect(screen.queryByText('critical: 0')).toBeNull()
   })
 
+  // The API counts every finding, the client drops the ones that fail the format check:
+  // the note explains why the header can show more findings than there are cards.
+  it('explains dropped findings next to the counts and hides the note at zero', () => {
+    const counts = { critical: 2, high: 0, medium: 0, low: 0, info: 0 }
+    const { rerender } = render(
+      <RunHeader
+        droppedFindings={2}
+        now={new Date('2026-09-18T12:00:00.000Z')}
+        run={baseRun}
+        severityCounts={counts}
+      />,
+    )
+    expect(screen.getByText('Не показано находок: 2 — не прошли проверку формата')).toBeTruthy()
+
+    rerender(
+      <RunHeader
+        droppedFindings={0}
+        now={new Date('2026-09-18T12:00:00.000Z')}
+        run={baseRun}
+        severityCounts={counts}
+      />,
+    )
+    expect(screen.queryByText(/Не показано находок/)).toBeNull()
+  })
+
   it('renders without author, branches or verdict when absent', () => {
     render(
       <RunHeader

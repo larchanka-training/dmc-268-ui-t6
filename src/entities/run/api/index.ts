@@ -37,16 +37,19 @@ export const runApi = {
   stream: { endpoint: endpoints.stream, event: RunUpdatedEventSchema },
 } as const
 
-export function runMutationErrorMessage(error: unknown): string {
+// Fixed text by status code, never the api `detail`: it is English (or a FastAPI validation
+// array on a malformed id) and must not reach the UI.
+export function runMutationErrorMessage(error: unknown, action: 'rerun' | 'cancel'): string {
   if (error instanceof ApiError) {
-    if (error.status === 409) {
-      return 'У этого PR уже есть активный прогон или PR закрыт'
-    }
-    if (typeof error.data === 'object' && error.data !== null && 'detail' in error.data) {
-      const detail = error.data.detail
-      if (typeof detail === 'string' && detail.length > 0) {
-        return detail
-      }
+    switch (error.status) {
+      case 404:
+        return 'Прогон не найден — обновите страницу'
+      case 409:
+        return 'У этого PR уже есть активный прогон или PR закрыт'
+      case 422:
+        return action === 'rerun'
+          ? 'Нельзя перезапустить: у репозитория нет активного правила или версии промпта'
+          : 'Сервер отклонил запрос на отмену'
     }
   }
   return 'Не удалось выполнить операцию'
@@ -66,19 +69,38 @@ export function useRunList() {
   })
 }
 
-export async function fetchRunDetail(id: string): Promise<RunDetail> {
+/**
+ * `RunDetail` plus `droppedFindings`: how many `findings[]` entries failed the format check and
+ * were dropped. Client-only (the api has no such field), so it stays out of `RunDetailSchema`;
+ * `severityCounts` still counts those findings, which is why the header shows the number.
+ */
+export type LoadedRunDetail = RunDetail & { droppedFindings: number }
+
+export async function fetchRunDetail(id: string): Promise<LoadedRunDetail> {
   const data = await apiClient<unknown>(endpoints.runs.detail(id))
+  let droppedFindings = 0
   const sanitized =
     typeof data === 'object' && data !== null && 'findings' in data && Array.isArray(data.findings)
       ? {
           ...data,
           findings: data.findings.flatMap((item) => {
             const parsed = FindingViewSchema.safeParse(item)
-            return parsed.success ? [parsed.data] : []
+            if (!parsed.success) {
+              droppedFindings += 1
+              return []
+            }
+            return [parsed.data]
           }),
         }
       : data
-  return RunDetailSchema.parse(sanitized)
+  const detail = RunDetailSchema.parse(sanitized)
+  if (droppedFindings > 0) {
+    console.warn('fetchRunDetail: dropped invalid findings', {
+      runId: id,
+      dropped: droppedFindings,
+    })
+  }
+  return { ...detail, droppedFindings }
 }
 
 export function useRunDetail(runId: string | undefined) {

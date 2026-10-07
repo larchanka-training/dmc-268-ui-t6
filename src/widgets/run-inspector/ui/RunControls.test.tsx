@@ -102,4 +102,61 @@ describe('RunControls', () => {
       expect(screen.getByText('У этого PR уже есть активный прогон или PR закрыт')).toBeTruthy()
     })
   })
+
+  // Fixed Russian text by status code: the api `detail` (English, or a FastAPI validation
+  // array on a malformed id) never reaches the user. Payloads mirror what the api raises.
+  it.each([
+    { status: 404, detail: 'run not found', text: 'Прогон не найден — обновите страницу' },
+    {
+      status: 422,
+      detail: 'the repository has no active rule or prompt version',
+      text: 'Нельзя перезапустить: у репозитория нет активного правила или версии промпта',
+    },
+  ])('shows fixed Russian text for rerun $status', async ({ status, detail, text }) => {
+    mockRerunMutate.mockImplementation(
+      (_vars: undefined, options?: { onError?: (error: unknown) => void }) => {
+        options?.onError?.(new ApiError(status, 'Error', { detail }))
+      },
+    )
+
+    renderControls()
+    fireEvent.click(screen.getByText('Перезапустить'))
+
+    await waitFor(() => {
+      expect(screen.getByText(text)).toBeTruthy()
+    })
+    expect(screen.queryByText(detail)).toBeNull()
+  })
+
+  it.each([
+    {
+      status: 404,
+      data: { detail: 'run not found' },
+      text: 'Прогон не найден — обновите страницу',
+    },
+    {
+      // FastAPI path validation (a malformed id): `detail` is an array, not a string.
+      status: 422,
+      data: {
+        detail: [
+          { loc: ['path', 'run_id'], msg: 'Input should be a valid UUID', type: 'uuid_parsing' },
+        ],
+      },
+      text: 'Сервер отклонил запрос на отмену',
+    },
+  ])('shows fixed Russian text for cancel $status', async ({ status, data, text }) => {
+    mockCancelMutate.mockImplementation(
+      (_vars: undefined, options?: { onError?: (error: unknown) => void }) => {
+        options?.onError?.(new ApiError(status, 'Error', data))
+      },
+    )
+
+    renderActiveControls()
+    fireEvent.click(screen.getByText('Отменить'))
+
+    await waitFor(() => {
+      expect(screen.getByText(text)).toBeTruthy()
+    })
+    expect(screen.queryByText('run not found')).toBeNull()
+  })
 })

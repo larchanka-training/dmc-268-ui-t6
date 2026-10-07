@@ -11,6 +11,8 @@ interface RunHeaderProps {
   now: Date
   verdict?: Verdict | null
   severityCounts?: SeverityCounts
+  /** Findings the client dropped (failed the format check) but `severityCounts` still counts. */
+  droppedFindings?: number
 }
 
 const VERDICT_LABEL: Record<Verdict, string> = {
@@ -46,7 +48,7 @@ function formatRefs(
 }
 
 export function RunHeader(props: RunHeaderProps): JSX.Element {
-  const { run, now, verdict = null, severityCounts } = props
+  const { run, now, verdict = null, severityCounts, droppedFindings = 0 } = props
   const duration = runDuration(run, now)
   const pr = run.pullRequest
   const refs = formatRefs(pr.headRef, pr.baseRef)
@@ -95,6 +97,11 @@ export function RunHeader(props: RunHeaderProps): JSX.Element {
                 <Tag>medium: {severityCounts.medium}</Tag>
                 <Tag>low: {severityCounts.low}</Tag>
                 <Tag>info: {severityCounts.info}</Tag>
+                {droppedFindings > 0 ? (
+                  <Typography.Text type="secondary">
+                    {`Не показано находок: ${String(droppedFindings)} — не прошли проверку формата`}
+                  </Typography.Text>
+                ) : null}
               </Space>
             ),
           },

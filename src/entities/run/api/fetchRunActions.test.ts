@@ -41,8 +41,35 @@ describe('run api actions', () => {
   it('maps rerun 409 to a user-facing message', () => {
     const message = runMutationErrorMessage(
       new ApiError(409, 'Conflict', { detail: 'Active run already exists' }),
+      'rerun',
     )
     expect(message).toBe('У этого PR уже есть активный прогон или PR закрыт')
+  })
+
+  it.each([
+    { action: 'rerun', status: 404, text: 'Прогон не найден — обновите страницу' },
+    { action: 'cancel', status: 404, text: 'Прогон не найден — обновите страницу' },
+    {
+      action: 'rerun',
+      status: 422,
+      text: 'Нельзя перезапустить: у репозитория нет активного правила или версии промпта',
+    },
+    { action: 'cancel', status: 422, text: 'Сервер отклонил запрос на отмену' },
+    { action: 'rerun', status: 500, text: 'Не удалось выполнить операцию' },
+    { action: 'cancel', status: 503, text: 'Не удалось выполнить операцию' },
+  ] as const)('maps $action $status to fixed text and never returns detail', (row) => {
+    const detail = 'raw english detail'
+    const message = runMutationErrorMessage(
+      new ApiError(row.status, 'Error', { detail }),
+      row.action,
+    )
+    expect(message).toBe(row.text)
+  })
+
+  it('falls back to the generic text for a non-ApiError', () => {
+    expect(runMutationErrorMessage(new Error('boom'), 'cancel')).toBe(
+      'Не удалось выполнить операцию',
+    )
   })
 
   it('rerunRun parses a queued session', async () => {
