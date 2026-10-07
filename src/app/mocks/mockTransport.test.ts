@@ -56,5 +56,20 @@ describe('initMockTransport', () => {
       const list = await apiClient<Repository[]>(endpoints.repos.list())
       expect(list.find((item) => item.id === repo.id)?.maxComments).toBe(patched)
     })
+
+    it('hands out copies of the working copy and drops it on re-init', async () => {
+      const updated = await apiClient<Repository>(endpoints.repos.update(repo.id), {
+        body: { maxComments: patched },
+      })
+      updated.maxComments = patched + 1
+
+      const one = await apiClient<Repository>(endpoints.repos.detail(repo.id))
+      expect(one.maxComments).toBe(patched)
+
+      initMockTransport()
+
+      const reset = await apiClient<Repository>(endpoints.repos.detail(repo.id))
+      expect(reset.maxComments).toBe(repo.maxComments)
+    })
   })
 })
