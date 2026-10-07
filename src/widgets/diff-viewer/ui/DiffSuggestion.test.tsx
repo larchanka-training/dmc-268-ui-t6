@@ -3,7 +3,6 @@ import { cleanup, render } from '@testing-library/react'
 import { ConfigProvider, theme } from 'antd'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { diffThemeVars } from '../lib/diffTheme'
 import { DiffSuggestion } from './DiffSuggestion'
 
 const INSERT_BG = '--diff-code-insert-background-color'
@@ -163,7 +162,7 @@ describe('DiffSuggestion', () => {
     expect(root).not.toBeNull()
     expect(root?.classList.contains('diff-theme')).toBe(true)
     expect(root?.style.getPropertyValue(INSERT_BG)).toBe(
-      diffThemeVars(theme.getDesignToken({ algorithm: theme.defaultAlgorithm }))[INSERT_BG],
+      theme.getDesignToken({ algorithm: theme.defaultAlgorithm }).colorSuccessBg,
     )
     expect(root?.querySelector('table.diff')).not.toBeNull()
   })
@@ -188,9 +187,7 @@ describe('DiffSuggestion', () => {
       .querySelector<HTMLElement>('.diff-theme')
       ?.style.getPropertyValue(INSERT_BG)
 
-    expect(darkValue).toBe(
-      diffThemeVars(theme.getDesignToken({ algorithm: theme.darkAlgorithm }))[INSERT_BG],
-    )
+    expect(darkValue).toBe(theme.getDesignToken({ algorithm: theme.darkAlgorithm }).colorSuccessBg)
     expect(darkValue).not.toBe(lightValue)
   })
 

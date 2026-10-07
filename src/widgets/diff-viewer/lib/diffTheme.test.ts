@@ -93,6 +93,18 @@ const SURFACES = [
   ['--diff-code-selected-background-color', '--diff-code-selected-text-color'],
 ] as const
 
+/** The eight syntax slots of FRONTEND_ARCHITECTURE.md §6; the mapper and the CSS are both held to it. */
+const TOKEN_SLOTS = [
+  '--diff-token-keyword',
+  '--diff-token-string',
+  '--diff-token-number',
+  '--diff-token-function',
+  '--diff-token-tag',
+  '--diff-token-attribute',
+  '--diff-token-special',
+  '--diff-token-comment',
+] as const
+
 function varOf(vars: Record<string, string>, name: string): string {
   const value = vars[name]
   if (value === undefined) {
@@ -162,8 +174,8 @@ describe.each(ALGORITHMS)('diffThemeVars (%s algorithm)', (_name, algorithm) => 
 
   const tokenVars = Object.keys(vars).filter((name) => name.startsWith('--diff-token-'))
 
-  it('emits a syntax palette', () => {
-    expect(tokenVars.length).toBeGreaterThanOrEqual(6)
+  it('emits exactly the eight syntax slots', () => {
+    expect([...tokenVars].sort()).toEqual([...TOKEN_SLOTS].sort())
   })
 
   it.each(['container', 'code insert', 'code delete'])(
@@ -236,9 +248,7 @@ describe('diff-theme.css', () => {
     })
   const varsOfRule = (declarations: string): string[] =>
     [...declarations.matchAll(/var\((--diff-token-[a-z-]+)\)/g)].map((m) => m[1] ?? '')
-  const emitted = Object.keys(
-    diffThemeVars(theme.getDesignToken({ algorithm: theme.darkAlgorithm })),
-  ).filter((name) => name.startsWith('--diff-token-'))
+  const emitted: readonly string[] = TOKEN_SLOTS
 
   it('is read from disk and holds rules', () => {
     expect(rules.length).toBeGreaterThan(0)
@@ -287,7 +297,7 @@ describe('diff-theme.css', () => {
     expect(styled).not.toContain('punctuation')
   })
 
-  it('references only variables diffThemeVars emits, and every emitted one', () => {
+  it('references only the eight syntax slots, and every one of them', () => {
     const referenced = [...new Set(rules.flatMap(({ declarations }) => varsOfRule(declarations)))]
     expect(referenced.filter((name) => !emitted.includes(name))).toEqual([])
     expect(emitted.filter((name) => !referenced.includes(name))).toEqual([])

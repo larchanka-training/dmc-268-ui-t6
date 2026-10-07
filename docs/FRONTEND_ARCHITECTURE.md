@@ -733,17 +733,20 @@ React, без `innerHTML`.
 фон контейнера) в обеих темах: текст на каждой поверхности диффа (контейнер, строки, гаттеры,
 `-edit`, выделение) ≥ 4,5:1, цвет каждого слота на фоне контейнера и строк добавления / удаления
 ≥ 3:1, ни один слот не равен цвету текста; литеральные роли токенов (добавление — `colorSuccessBg*`,
-удаление — `colorErrorBg*`, текст — `colorText`, линия пропуска — `colorError`); согласованность
+удаление — `colorErrorBg*`, текст — `colorText`, линия пропуска — `colorError`); набор из восьми
+слотов `--diff-token-*` задан в тесте литералом, и с ним сверяются и маппер, и CSS; согласованность
 `diff-theme.css` с `diffThemeVars` (нет цветовых литералов, у каждого класса ровно одно правило, на
 каждую переменную палитры есть ссылка и наоборот, пары `.token.keyword` / `string` / `comment` /
 `number` / `function` → одноимённый слот) и подключение: `DiffViewer.tsx` и `DiffSuggestion.tsx`
 содержат `import './diff-theme.css'`. `ui/DiffViewer.theme.test.tsx` — значения переменных на
-`.diff-theme` различаются под светлым и тёмным `ConfigProvider`; первый кадр в тёмной теме и смена
-после `toggleTheme()` без перемонтирования (настоящий `UiProvider`) — в
-`app/providers/UiProvider.diffTheme.test.tsx`; `ui/DiffSuggestion.test.tsx` — тот же корень
-`.diff-theme` вне `DiffViewer`, подсветка `.ts` / `.py` правки и отсутствие токенов выше бюджета в
-1000 строк. jsdom CSS не загружает, поэтому проверяются inline-значения и классы, а не вычисленные
-стили (отсюда и отдельный тест файла CSS с диска).
+`.diff-theme` различаются под светлым и тёмным `ConfigProvider` и равны ролям antd
+(`colorSuccessBg` …), а не результату маппера (так же в `DiffSuggestion.test.tsx` и
+`RunDiff.test.tsx`); первый кадр в тёмной теме и смена после `toggleTheme()` без перемонтирования
+(настоящий `UiProvider`) — в `app/providers/UiProvider.diffTheme.test.tsx`;
+`ui/DiffSuggestion.test.tsx` — тот же корень `.diff-theme` вне `DiffViewer`, подсветка `.ts` /
+`.py` правки и отсутствие токенов выше бюджета в 1000 строк. jsdom CSS не загружает, поэтому
+проверяются inline-значения и классы, а не вычисленные стили (отсюда и отдельный тест файла CSS
+с диска).
 
 ---
 
