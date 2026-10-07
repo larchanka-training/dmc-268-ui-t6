@@ -70,7 +70,9 @@ export default tseslint.config(
     },
   },
 
-  // FSD: entity slices import siblings only through public index.ts (except documented run→review).
+  // FSD: entity slices import siblings only through public index.ts.
+  // Exception: run/model/schemas.ts file-imports review/model/schemas.ts so the
+  // api Zod snapshot generator can load it in Node ESM (no directory imports).
   {
     files: ['src/entities/**/*.{ts,tsx}'],
     ignores: ['**/*.test.{ts,tsx}', 'src/entities/run/model/schemas.ts'],

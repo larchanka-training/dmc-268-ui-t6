@@ -96,8 +96,12 @@ flowchart TD
 
 - импорты — только вниз по стрелке; наверх и «вбок» — нельзя;
 - срезы одного слоя друг друга не импортируют (кроме `shared`, у него срезов нет).
-  Исключение: `entities/run` импортирует `FindingViewSchema` из публичного индекса
-  `entities/review` (разбор `findings[]` в `RunDetail`; ESLint `no-restricted-imports`);
+  Исключение: `entities/run` импортирует `FindingViewSchema` из `entities/review`
+  (разбор `findings[]` в `RunDetail`). `entities/run/api` берёт схему из публичного
+  индекса; `entities/run/model/schemas.ts` импортирует файл
+  `entities/review/model/schemas.ts` напрямую — генератор снимка Zod в api
+  (`tests/generate_ui_zod_contracts.mjs`) грузит схемы в Node ESM, а Node не
+  резолвит импорт каталога. ESLint `no-restricted-imports` это допускает;
 - `shared` никогда не импортирует `entities` (граница из плана, D18: `shared/api/endpoints.ts` —
   только пути/методы, domain-agnostic; привязка «эндпоинт → Zod-схема» — в `entities/*/api`);
 - файл компонента экспортирует только компоненты — следствие `react-refresh` (тулинг PR #26):
