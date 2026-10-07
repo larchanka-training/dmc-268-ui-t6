@@ -40,6 +40,13 @@ export default defineConfig(({ mode }) => {
                 test: /[/\\]node_modules[/\\]@tanstack[/\\]/,
                 includeDependenciesRecursively: false,
               },
+              // zod and its jitless setting (src/shared/config/zodJitless.ts) in one chunk, so every schema
+              // module that imports zod runs after `z.config({ jitless: true })` (Refs #74).
+              {
+                name: 'vendor-zod',
+                test: /[/\\]node_modules[/\\]zod[/\\]|[/\\]src[/\\]shared[/\\]config[/\\]zodJitless\.ts$/,
+                includeDependenciesRecursively: false,
+              },
             ],
           },
         },
