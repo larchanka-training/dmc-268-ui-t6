@@ -430,19 +430,21 @@ describe('RunDetailPage', () => {
     }
     const previousStatus = session.status
     const previousFinishedAt = session.finishedAt
-    session.status = 'running'
-    session.finishedAt = null
+    try {
+      session.status = 'running'
+      session.finishedAt = null
 
-    await act(async () => {
-      await client.invalidateQueries({ queryKey: runQueryKeys.detail(DEMO_RUN_ID) })
-    })
+      await act(async () => {
+        await client.invalidateQueries({ queryKey: runQueryKeys.detail(DEMO_RUN_ID) })
+      })
 
-    await waitFor(() => {
-      expect(screen.getByText('running')).toBeTruthy()
-    })
-
-    session.status = previousStatus
-    session.finishedAt = previousFinishedAt
+      await waitFor(() => {
+        expect(screen.getByText('running')).toBeTruthy()
+      })
+    } finally {
+      session.status = previousStatus
+      session.finishedAt = previousFinishedAt
+    }
   })
 
   it('shows a dedicated diff error while keeping run header and controls', async () => {
