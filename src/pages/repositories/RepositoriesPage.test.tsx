@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { App } from 'antd'
+import { App, ConfigProvider } from 'antd'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { RepositoriesPage } from './RepositoriesPage'
@@ -300,7 +300,13 @@ describe('RepositoriesPage', () => {
       )
     })
 
-    renderWithClient(<RepositoriesPage />)
+    // motion: false makes a closing modal leave the accessibility tree at once, so the
+    // role query below tells an open modal from a closed one
+    renderWithClient(
+      <ConfigProvider theme={{ token: { motion: false } }}>
+        <RepositoriesPage />
+      </ConfigProvider>,
+    )
 
     await waitFor(() => {
       expect(screen.getByText('larchanka-training/dmc-268-ui-t6')).toBeDefined()
@@ -329,6 +335,11 @@ describe('RepositoriesPage', () => {
     expect(patchSpy).toHaveBeenCalledWith(expect.objectContaining({ maxComments: 5 }))
 
     // After PATCH failure, modal must stay open with values intact
+    expect(
+      screen.getByRole('dialog', {
+        name: 'Настройки репозитория larchanka-training/dmc-268-ui-t6',
+      }),
+    ).toBeDefined()
     expect(screen.getByText('Настройки репозитория larchanka-training/dmc-268-ui-t6')).toBeDefined()
     const currentInput = document.getElementById('maxComments') as HTMLInputElement
     expect(currentInput.value).toBe('5')

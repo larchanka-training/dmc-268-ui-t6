@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { ConfigProvider } from 'antd'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { Repository } from '../../../entities/repository'
@@ -133,7 +134,13 @@ describe('RepositoryList', () => {
 
   it('keeps settings modal open if onUpdateRepository rejects', async () => {
     const onUpdate = vi.fn().mockRejectedValue(new Error('Update failed'))
-    render(<RepositoryList onUpdateRepository={onUpdate} repositories={mockRepos} />)
+    // motion: false makes a closing modal leave the accessibility tree at once, so the
+    // role query below tells an open modal from a closed one
+    render(
+      <ConfigProvider theme={{ token: { motion: false } }}>
+        <RepositoryList onUpdateRepository={onUpdate} repositories={mockRepos} />
+      </ConfigProvider>,
+    )
 
     const settingsBtn = screen.getByLabelText(/настройки larchanka-training\/dmc-268-ui-t6/i)
     fireEvent.click(settingsBtn)
@@ -162,7 +169,11 @@ describe('RepositoryList', () => {
     })
 
     // Modal dialog is still present in DOM and open
-    expect(screen.getByRole('dialog')).toBeDefined()
+    expect(
+      screen.getByRole('dialog', {
+        name: 'Настройки репозитория larchanka-training/dmc-268-ui-t6',
+      }),
+    ).toBeDefined()
     expect(screen.getByText('Настройки репозитория larchanka-training/dmc-268-ui-t6')).toBeDefined()
   })
 
