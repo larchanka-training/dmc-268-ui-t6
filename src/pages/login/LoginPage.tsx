@@ -29,6 +29,7 @@ export const LoginPage: FC<LoginPageProps> = ({ onLoginSuccess }) => {
   return (
     <Layout
       className={styles.container}
+      data-red-bundle-probe="22222222-2222-4222-8222-222222222222"
       style={{
         background: token.colorBgLayout,
       }}
