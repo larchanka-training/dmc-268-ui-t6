@@ -31,9 +31,6 @@ const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
 
   const handleLoadMore = useCallback(
     (file: FileDiff, gap: ContextGap) => {
-      if (!runId) {
-        return
-      }
       const gapKey = `${file.filename}:${String(gap.startLine)}`
       if (inflightGapKeyRef.current === gapKey) {
         return

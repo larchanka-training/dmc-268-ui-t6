@@ -182,8 +182,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         error: message,
       })
       // User-facing message is formatted above; CallbackPage reads `Error.message`.
-      // eslint-disable-next-line preserve-caught-error -- auth callback maps unknown errors to Russian text
-      throw new Error(message)
+      throw new Error(message, { cause: err })
     }
   },
 
