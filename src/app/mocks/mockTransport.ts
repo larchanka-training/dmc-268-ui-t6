@@ -2,7 +2,11 @@ import { z } from 'zod'
 
 import { RawFileDiffSchema } from '../../entities/diff'
 import { makeDuoActions } from '../../entities/run/lib/duoActions.fixture'
-import { RepositorySchema, UpdateRepositorySchema } from '../../entities/repository'
+import {
+  RepositorySchema,
+  UpdateRepositorySchema,
+  type Repository,
+} from '../../entities/repository'
 import { setMockAuthAdapter, useAuthStore } from '../../features/auth'
 import {
   ApiError,
@@ -24,6 +28,9 @@ import { buildMockRunDetail, mockRawDiffForRun } from './mockRunReview'
 export const MOCK_TOKEN = 'mock_jwt_token_skvertl_dmc'
 export const MOCK_OAUTH_CODE = 'mock_code_123'
 
+// Working copy of the fixture: PATCH edits stay here, `mockRepositories` is never written.
+let repositories: Repository[] = structuredClone(mockRepositories)
+
 function findRunSession(id: string) {
   return mockRunsListPage.items.find((run) => run.id === id)
 }
@@ -33,7 +40,7 @@ function handleMockTransport(
   options: Parameters<MockTransportHandler>[1],
 ): unknown {
   if (endpoint.path === '/repos' && endpoint.method === 'GET') {
-    return mockRepositories.map((r) => ({ ...r }))
+    return repositories.map((r) => ({ ...r }))
   }
 
   if (endpoint.path === '/runs' && endpoint.method === 'GET') {
@@ -48,7 +55,7 @@ function handleMockTransport(
 
   if (endpoint.path.startsWith('/repos/') && endpoint.method === 'GET') {
     const id = endpoint.path.replace('/repos/', '')
-    const repo = mockRepositories.find((r) => r.id === id)
+    const repo = repositories.find((r) => r.id === id)
     if (!repo) {
       throw new ApiError(404, 'Not Found', { message: 'Repository not found' })
     }
@@ -57,18 +64,18 @@ function handleMockTransport(
 
   if (endpoint.path.startsWith('/repos/') && endpoint.method === 'PATCH') {
     const id = endpoint.path.replace('/repos/', '')
-    const index = mockRepositories.findIndex((r) => r.id === id)
+    const index = repositories.findIndex((r) => r.id === id)
     if (index === -1) {
       throw new ApiError(404, 'Not Found', { message: 'Repository not found' })
     }
     if (options.body && typeof options.body === 'object') {
       const patch = UpdateRepositorySchema.parse(options.body)
-      mockRepositories[index] = RepositorySchema.parse({
-        ...mockRepositories[index],
+      repositories[index] = RepositorySchema.parse({
+        ...repositories[index],
         ...patch,
       })
     }
-    return { ...mockRepositories[index] }
+    return { ...repositories[index] }
   }
 
   const runDetailMatch = /^\/runs\/([^/]+)$/.exec(endpoint.path)
@@ -234,6 +241,8 @@ function handleMockTransport(
 
 export function initMockTransport(): void {
   if (!USE_MOCKS) return
+
+  repositories = structuredClone(mockRepositories)
 
   setMockAuthAdapter({
     getMockOAuthCode: () => MOCK_OAUTH_CODE,
