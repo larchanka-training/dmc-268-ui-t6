@@ -252,6 +252,8 @@ src/shared/config/env.test.ts
 src/shared/config/env.ts
 src/shared/fixtures/highlight.patch.ts
 src/shared/fixtures/sample.patch.ts
+src/shared/lib/safeHttpUrl.test.ts
+src/shared/lib/safeHttpUrl.ts
 src/test/setup.ts
 src/vite-env.d.ts
 src/widgets/app-layout/index.ts
@@ -289,8 +291,6 @@ src/widgets/repository-list/ui/RepositoryList.test.tsx
 src/widgets/repository-list/ui/RepositoryList.tsx
 src/widgets/run-inspector/index.ts
 src/widgets/run-inspector/lib/format.ts
-src/widgets/run-inspector/lib/safeHttpUrl.test.ts
-src/widgets/run-inspector/lib/safeHttpUrl.ts
 src/widgets/run-inspector/model/store.ts
 src/widgets/run-inspector/ui/ActionTree.tsx
 src/widgets/run-inspector/ui/RunControls.test.tsx

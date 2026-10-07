@@ -113,6 +113,35 @@ describe('RepositoryList', () => {
     expect(screen.queryByText('larchanka-training/dmc-268-api-t6')).toBeNull()
   })
 
+  it('links the repository name to its http(s) url', () => {
+    render(<RepositoryList repositories={mockRepos} />)
+
+    const link = screen.getByRole('link', { name: 'larchanka-training/dmc-268-ui-t6' })
+    expect(link.getAttribute('href')).toBe('https://github.com/larchanka-training/dmc-268-ui-t6')
+    expect(link.getAttribute('target')).toBe('_blank')
+    expect(link.getAttribute('rel')).toBe('noopener noreferrer')
+  })
+
+  it('renders the name as plain text without href when the url is not http(s)', () => {
+    const unsafeRepo: Repository = {
+      id: 'c3d4e5f6-a7b8-9012-cdef-123456789012',
+      fullName: 'evil/repo',
+      url: 'javascript:alert(1)',
+      defaultBranch: 'main',
+      enabled: true,
+      defaultEngine: 'fast',
+      waitForCi: 'auto',
+      maxComments: 10,
+      reviewEvent: 'COMMENT',
+    }
+    const { container } = render(<RepositoryList repositories={[unsafeRepo]} />)
+
+    // React rewrites a javascript: href instead of dropping it, so match on the scheme.
+    expect(container.querySelector('a[href*="javascript:"]')).toBeNull()
+    expect(screen.queryByRole('link', { name: 'evil/repo' })).toBeNull()
+    expect(screen.getByText('evil/repo').closest('a')).toBeNull()
+  })
+
   it('renders installation link with correct href when GITHUB_APP_SLUG is configured', () => {
     mockSlug = 'test-bot'
     render(<RepositoryList repositories={[]} />)
