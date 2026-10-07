@@ -35,23 +35,22 @@ import type {
   UpdateRepositoryInput,
   WaitForCi,
 } from '../../../entities/repository'
-import { useAuthStore } from '../../../features/auth'
-import { GITHUB_APP_SLUG } from '../../../shared/config/env'
+import { GITHUB_APP_SLUG, GITHUB_CLIENT_ID, isMockMode } from '../../../shared/config/env'
 import { safeHttpUrl } from '../../../shared/lib/safeHttpUrl'
 import styles from './RepositoryList.module.css'
 
 const { Text, Link } = Typography
 
-export const SYNC_ACCESS_TOOLTIP =
+const SYNC_ACCESS_TOOLTIP =
   'Повторная авторизация через GitHub обновит список ваших установок GitHub App. Откроется GitHub, затем вы вернётесь на эту страницу'
 
-export const REFRESH_TOOLTIP = 'После добавления репозиториев в установку нажмите «Обновить»'
+const REFRESH_TOOLTIP = 'После добавления репозиториев в установку нажмите «Обновить доступ»'
 
-export const APP_INSTALL_TOOLTIP =
+const APP_INSTALL_TOOLTIP =
   'После установки GitHub App на новый аккаунт нажмите «Обновить доступ»: откроется GitHub, затем вы вернётесь сюда. Репозиторий может появиться с задержкой до нескольких минут'
 
-export const EMPTY_REPOSITORIES_DESCRIPTION =
-  'Репозитории ещё не подключены. После установки GitHub App на новый аккаунт нажмите «Обновить доступ»: откроется GitHub, затем вы вернётесь сюда. Репозиторий может появиться с задержкой до нескольких минут. Если репозитории добавлены в уже подключённую установку — нажмите «Обновить».'
+const EMPTY_REPOSITORIES_DESCRIPTION =
+  'Репозитории ещё не подключены. После установки GitHub App на новый аккаунт или добавления репозиториев в уже подключённую установку нажмите «Обновить доступ»: откроется GitHub, затем вы вернётесь сюда. Репозиторий может появиться с задержкой до нескольких минут.'
 
 export interface RepositoryListProps {
   repositories: Repository[]
@@ -60,7 +59,7 @@ export interface RepositoryListProps {
   onToggleEnabled?: (id: string, enabled: boolean) => Promise<void> | void
   onUpdateRepository?: (id: string, patch: UpdateRepositoryInput) => Promise<void> | void
   onRefresh?: () => void
-  onSyncAccess?: () => void
+  onSyncAccess: () => void
 }
 
 export const RepositoryList: FC<RepositoryListProps> = ({
@@ -73,8 +72,6 @@ export const RepositoryList: FC<RepositoryListProps> = ({
   onSyncAccess,
 }) => {
   const { token } = theme.useToken()
-  const loginWithGitHub = useAuthStore((state) => state.loginWithGitHub)
-  const handleSyncAccess = onSyncAccess ?? loginWithGitHub
   const [search, setSearch] = useState('')
   const [filterActive, setFilterActive] = useState<'all' | 'active'>('all')
   const [editingRepo, setEditingRepo] = useState<Repository | null>(null)
@@ -82,6 +79,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
   const [form] = Form.useForm<UpdateRepositoryInput>()
 
   const isAppConfigured = Boolean(GITHUB_APP_SLUG)
+  const isSyncConfigured = Boolean(GITHUB_CLIENT_ID || isMockMode())
   const appInstallUrl = isAppConfigured
     ? `https://github.com/apps/${GITHUB_APP_SLUG}/installations/new`
     : undefined
@@ -287,8 +285,18 @@ export const RepositoryList: FC<RepositoryListProps> = ({
               Обновить
             </Button>
           </Tooltip>
-          <Tooltip title={SYNC_ACCESS_TOOLTIP}>
-            <Button onClick={handleSyncAccess}>Обновить доступ</Button>
+          <Tooltip
+            title={
+              isSyncConfigured
+                ? SYNC_ACCESS_TOOLTIP
+                : 'Обновление доступа недоступно: не задан VITE_GITHUB_CLIENT_ID'
+            }
+          >
+            <span>
+              <Button disabled={!isSyncConfigured} onClick={onSyncAccess}>
+                Обновить доступ
+              </Button>
+            </span>
           </Tooltip>
           {!isAppConfigured ? (
             <Tooltip title="Инсталляция недоступна: не задан VITE_GITHUB_APP_SLUG">
@@ -345,9 +353,6 @@ export const RepositoryList: FC<RepositoryListProps> = ({
             ) : (
               <Tooltip title={APP_INSTALL_TOOLTIP}>{emptyConnectButton}</Tooltip>
             )}
-            <Tooltip title={SYNC_ACCESS_TOOLTIP}>
-              <Button onClick={handleSyncAccess}>Обновить доступ</Button>
-            </Tooltip>
           </Space>
         </Empty>
       ) : (
