@@ -29,8 +29,9 @@
 
 What enforces the gates today:
 
-- CI (every PR and every push to `main`): all five gates — the `UI quality` job in
-  `.github/workflows/ci-cd.yml`, a required status check on `main` (`docs/CICD.md` §8).
+- CI (every PR and every push to `main`): all five gates, then `pnpm verify:prod-bundle` after
+  the build — the `UI quality` job in `.github/workflows/ci-cd.yml`, a required status check on
+  `main` (`docs/CICD.md` §8).
   The Docker image build in the same workflow runs `pnpm build` once more via
   `Dockerfile`.
 - pre-commit (`.husky/pre-commit`): `lint-staged` on staged files — `eslint --fix`,

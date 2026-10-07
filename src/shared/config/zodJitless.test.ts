@@ -23,8 +23,9 @@ describe('zodJitless', () => {
 
   // The `vendor-zod` group of vite.config.ts: without it Rolldown puts this module in the entry chunk
   // and `shared/config/env.ts` (the first `z.object`) in a shared chunk the entry imports and runs
-  // first, so the schema is built before `jitless` is set.
-  it('shares a build chunk with zod, so the setting runs before any schema is built', () => {
+  // first, so the schema is built before `jitless` is set. This test reads the text of the group
+  // only; the build output order is checked by `scripts/verify-prod-bundle.sh` (CI, after Build).
+  it('keeps the vite.config.ts vendor-zod group text on zodJitless.ts and zod, off env.ts', () => {
     const config = readFileSync(new URL('../../../vite.config.ts', import.meta.url), 'utf8')
     const group = /name: 'vendor-zod',\s*test: \/(.+)\/,/.exec(config)?.[1]
     expect(group).toBeDefined()
