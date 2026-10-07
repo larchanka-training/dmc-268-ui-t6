@@ -677,4 +677,64 @@ describe('RunDetailPage', () => {
     })
     expect(screen.queryByText('Не удалось дочитать контекст файла')).toBeNull()
   })
+
+  it('keeps syntax highlighting on after expanded context passes the total line budget', async () => {
+    const addedLinesPatch = (filename: string, start: number, addedLines: number) => ({
+      filename,
+      patch:
+        [
+          `diff --git a/${filename} b/${filename}`,
+          'index 1111111..2222222 100644',
+          `--- a/${filename}`,
+          `+++ b/${filename}`,
+          `@@ -${String(start)},1 +${String(start)},${String(addedLines + 1)} @@`,
+          ' context',
+          ...Array.from({ length: addedLines }, (_, index) => `+const line${String(index)} = 1`),
+        ].join('\n') + '\n',
+    })
+    // 352 + 352 side lines fit the 1000-line total; 200 context lines on both sides add 400 more
+    withMockTransportOverlay((endpoint) => {
+      if (endpoint.path === `/runs/${DEMO_RUN_ID}/diff` && endpoint.method === 'GET') {
+        return z
+          .array(RawFileDiffSchema)
+          .parse([addedLinesPatch('src/a.ts', 201, 350), addedLinesPatch('src/b.ts', 1, 350)])
+      }
+      if (endpoint.path.includes('/files?') && endpoint.method === 'GET') {
+        const params = new URLSearchParams(endpoint.path.split('?')[1] ?? '')
+        const offset = Number(params.get('offset') ?? '0')
+        const limit = Number(params.get('limit') ?? '0')
+        return {
+          path: 'src/a.ts',
+          startLine: offset + 1,
+          lines: Array.from(
+            { length: limit },
+            (_, index) => `const ctx${String(offset + index)} = 1`,
+          ),
+          totalLines: 551,
+          nextOffset: null,
+        }
+      }
+      return undefined
+    })
+
+    const { container } = renderRunDetail(DEMO_RUN_ID)
+    await waitFor(() => {
+      expect(screen.getByText('Показать ещё 200 строк')).toBeTruthy()
+    })
+    const viewers = container.querySelectorAll('.diff-theme')
+    expect(viewers).toHaveLength(2)
+    for (const viewer of viewers) {
+      expect(viewer.querySelector('span.token')).not.toBeNull()
+    }
+
+    fireEvent.click(screen.getByText('Показать ещё 200 строк'))
+    await waitFor(() => {
+      expect(screen.queryByText(/Показать ещё/)).toBeNull()
+    })
+
+    expect(container.querySelectorAll('.diff-theme')).toHaveLength(2)
+    for (const viewer of container.querySelectorAll('.diff-theme')) {
+      expect(viewer.querySelector('span.token')).not.toBeNull()
+    }
+  })
 })

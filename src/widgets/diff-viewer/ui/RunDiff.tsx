@@ -1,8 +1,8 @@
 import type { JSX } from 'react'
 import { Alert, List } from 'antd'
 
-import { toHunks, type FileDiff } from '../../../entities/diff'
-import { countDiffSideLines } from '../lib/tokensForHunks'
+import type { FileDiff } from '../../../entities/diff'
+import { highlightBudgetLines } from '../lib/tokensForHunks'
 import type { FindingView, ReviewComment } from '../../../entities/review'
 import type { ContextGap } from '../model/types'
 import { InlineComment } from './InlineComment'
@@ -11,6 +11,8 @@ import { DiffViewer } from './DiffViewer'
 interface RunDiffProps {
   summaryOnly: boolean
   files: FileDiff[]
+  /** Files as fetched, before context expansion; the total highlight budget counts these. Defaults to `files`. */
+  budgetFiles?: FileDiff[]
   findings: FindingView[]
   comments?: ReviewComment[]
   fileTotalLines?: Record<string, number>
@@ -29,15 +31,18 @@ function findingsOutsideVisibleDiff(files: FileDiff[], findings: FindingView[]):
 }
 
 export function RunDiff(props: RunDiffProps): JSX.Element {
-  const { summaryOnly, files, findings, comments = [], fileTotalLines, onLoadMore } = props
+  const {
+    summaryOnly,
+    files,
+    budgetFiles,
+    findings,
+    comments = [],
+    fileTotalLines,
+    onLoadMore,
+  } = props
 
   const outsideFindings = findingsOutsideVisibleDiff(files, findings)
-  const diffTotalLines = files.reduce((sum, file) => {
-    if (!file.hasPatch || file.chunks.length === 0) {
-      return sum
-    }
-    return sum + countDiffSideLines(toHunks(file))
-  }, 0)
+  const diffTotalLines = highlightBudgetLines(budgetFiles ?? files)
 
   if (summaryOnly) {
     return (

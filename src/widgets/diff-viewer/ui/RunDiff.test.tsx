@@ -3,9 +3,14 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { theme } from 'antd'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { diffApi, fromPatch } from '../../../entities/diff'
+import { diffApi, expandContext, fromPatch, toHunks } from '../../../entities/diff'
 import { RunSessionSchema } from '../../../entities/run'
 import { SAMPLE_PATCH_A, SAMPLE_PATCHES } from '../../../shared/fixtures/sample.patch'
+import {
+  countDiffSideLines,
+  MAX_LINES_FOR_SYNC_HIGHLIGHT,
+  MAX_SYNC_HIGHLIGHT_TOTAL_LINES,
+} from '../lib/tokensForHunks'
 import { useDiffViewerStore } from '../model/store'
 import { RunDiff } from './RunDiff'
 
@@ -123,6 +128,64 @@ describe('RunDiff', () => {
     const { container } = render(<RunDiff findings={[]} files={files} summaryOnly={false} />)
 
     expect(container.querySelector('span.token')).toBeNull()
+  })
+
+  it('keeps highlighting on when only a file without a grammar pushes the raw sum over the budget', () => {
+    const [grammarFile, plainFile] = diffApi.diff.response
+      .parse([addedLinesPatch('src/a.ts', 400), addedLinesPatch('docs/big.txt', 700)])
+      .map(fromPatch)
+    if (grammarFile === undefined || plainFile === undefined) {
+      throw new Error('expected two files')
+    }
+    const grammarLines = countDiffSideLines(toHunks(grammarFile))
+    expect(grammarLines).toBeLessThanOrEqual(MAX_SYNC_HIGHLIGHT_TOTAL_LINES)
+    expect(grammarLines + countDiffSideLines(toHunks(plainFile))).toBeGreaterThan(
+      MAX_SYNC_HIGHLIGHT_TOTAL_LINES,
+    )
+
+    const { container } = render(
+      <RunDiff findings={[]} files={[grammarFile, plainFile]} summaryOnly={false} />,
+    )
+
+    expect(container.querySelector('span.token')).toBeTruthy()
+  })
+
+  it('does not turn highlighting off when expanded context pushes the sum over the budget', () => {
+    const [fileA, fileB] = diffApi.diff.response
+      .parse([addedLinesPatch('src/a.ts', 400), addedLinesPatch('src/b.ts', 400)])
+      .map(fromPatch)
+    if (fileA === undefined || fileB === undefined) {
+      throw new Error('expected two files')
+    }
+    const expandedA = expandContext(fileA, {
+      path: 'src/a.ts',
+      startLine: 402,
+      lines: Array.from({ length: 150 }, (_, index) => `const ctx${String(index)} = 1`),
+      totalLines: 551,
+      nextOffset: null,
+    })
+    const expandedSum = countDiffSideLines(toHunks(expandedA)) + countDiffSideLines(toHunks(fileB))
+    // the per-file cap stays out of play, so only the total budget can switch tokens off here
+    expect(countDiffSideLines(toHunks(expandedA))).toBeLessThanOrEqual(MAX_LINES_FOR_SYNC_HIGHLIGHT)
+    expect(expandedSum).toBeGreaterThan(MAX_SYNC_HIGHLIGHT_TOTAL_LINES)
+    expect(
+      countDiffSideLines(toHunks(fileA)) + countDiffSideLines(toHunks(fileB)),
+    ).toBeLessThanOrEqual(MAX_SYNC_HIGHLIGHT_TOTAL_LINES)
+
+    const { container } = render(
+      <RunDiff
+        budgetFiles={[fileA, fileB]}
+        files={[expandedA, fileB]}
+        findings={[]}
+        summaryOnly={false}
+      />,
+    )
+
+    const viewers = container.querySelectorAll('.diff-theme')
+    expect(viewers).toHaveLength(2)
+    for (const viewer of viewers) {
+      expect(viewer.querySelector('span.token')).not.toBeNull()
+    }
   })
 
   it('shows findings outside diff for a file with patch null', () => {
