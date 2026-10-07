@@ -250,6 +250,8 @@ src/shared/config/buildFlags.ts
 src/shared/config/demoRun.ts
 src/shared/config/env.test.ts
 src/shared/config/env.ts
+src/shared/config/zodJitless.test.ts
+src/shared/config/zodJitless.ts
 src/shared/fixtures/highlight.patch.ts
 src/shared/fixtures/sample.patch.ts
 src/shared/lib/safeHttpUrl.test.ts
@@ -837,11 +839,35 @@ issue прямо выносит подключение логирования з
 **Роутер.** Установлен **react-router 8** (^8.4.0, peer react ≥ 19.2.7 — выполняется), настроен в `src/app/routes.tsx`. Лэйауты (`AppLayoutRoute`, `ProtectedLayout`, `PageFallback`, `RouteErrorFallback`) и обёртки страниц (`RoutedRepositoriesPage` и др.) вынесены в `src/app/layouts/`, чтобы файл роутера оставался чистой конфигурацией маршрутов без отключения правил Fast Refresh (`react-refresh/only-export-components`).
 
 **Сборка и чанки.** `vite.config.ts`: `build.rolldownOptions.output.codeSplitting`
-(`vendor-react`, `vendor-query`, `includeDependenciesRecursively: false`);
+(`vendor-react`, `vendor-query`, `vendor-zod`, `includeDependenciesRecursively: false`);
 antd раскладывается по ленивым страницам, как на `main`. `chunkSizeWarningLimit: 500`.
 Первая загрузка (script + modulepreload JS): ~961 кБ / ~310 кБ gzip vs `main` ~944 кБ / ~298 кБ gzip
 (+~4 % gzip за живой SSE в корне, решение техлида).
 Prod без демо: `pnpm build && pnpm verify:prod-bundle` (Refs #65, AC 3.3 / 3.5).
+
+**CSP (`docker/nginx.conf`) и zod JIT (Refs #74, AC 2.6).** К заголовку добавлено `object-src 'none'`,
+`img-src` сужен с `https:` до `https://avatars.githubusercontent.com` (решение техлида): единственная
+удалённая картинка — аватар GitHub (`UserMenu`, `avatar_url` из OAuth-профиля). Остальное в заголовке
+не менялось. zod 4.6.5 при создании первой `z.object` (на загрузке модуля, не на первом `parse`) пробует
+`new Function('')`; под `script-src 'self'` это одно `securitypolicyviolation` (`blockedURI=eval`) на
+загрузку документа. `src/shared/config/zodJitless.ts` (`z.config({ jitless: true })`) — первый импорт
+`src/main.tsx` — отключает зонд. Одного первого импорта в бандле мало: Rolldown клал модуль в entry-чанк,
+а `shared/config/env.ts` (первая `z.object`) — в общий чанк, который entry импортирует и исполняет
+раньше, так что схема строилась до `jitless` (в Chrome по-прежнему одно нарушение `eval`). Поэтому
+группа `vendor-zod` в `vite.config.ts` держит zod и `zodJitless.ts` в одном чанке (бандл −363 Б к
+сборке без группы); `zodJitless.test.ts` проверяет, что её `test` ловит оба файла и не ловит `env.ts`.
+Альтернатива, не принятая: `output.strictExecutionOrder: true` (+92 КБ, +5,6 %). Проба в Chrome 155 на prod
+`dist` с настоящим заголовком из `nginx-unprivileged` (`docker run`): новый заголовок + новая сборка —
+0 нарушений при загрузке `/`, аватар GitHub грузится без нарушений, `<img>` с другого https-хоста даёт
+`img-src`, `<object>` (`data:` и same-origin) — `object-src`; старый заголовок + сборка без `jitless` —
+одно нарушение `script-src` (`eval`), `img`/same-origin `object` не блокируются (`data:`-`object` режет и
+старый заголовок через `default-src`). Скрипт и результаты: `docs/reports/74/evidence/p2/csp-probe.{mjs,json}`.
+
+**`sideEffects` убран (Refs #74, AC 2.20).** Ключ `"sideEffects": ["**/*.css"]` из `package.json`
+удалён: выигрыша нет (`dist/assets` на тех же исходниках: с ключом 1 639 166 Б в 36 файлах, без ключа
+1 638 001 Б в 33 файлах, −1 165 Б, −0,07 %; на исходниках до `zodJitless` −1 170 Б), а ключ молча
+выкидывает импорты не-CSS модулей ради побочного эффекта — вызов `z.config` из `zodJitless.ts` пропадал
+из бандла. Цифры: `docs/reports/74/evidence/p2/sideeffects-size.out`.
 
 ---
 
@@ -860,10 +886,15 @@ Prod без демо: `pnpm build && pnpm verify:prod-bundle` (Refs #65, AC 3.3 
   `CallbackPage.test.tsx`, `RepositoriesPage.test.tsx`, `RepositoryList.test.tsx`,
   `RunsPage.test.tsx`, `UserMenu.test.tsx`, `ThemeToggle.test.tsx`;
 - тесты сторов и утилит: `auth/model/store.test.ts`, `theme/model/store.test.ts` (включая `getInitialTheme`),
-  `client.test.ts`, `formatError.test.ts`.
+  `client.test.ts`, `formatError.test.ts`, `zodJitless.test.ts` (`jitless` включён, первый импорт
+  `main.tsx`, группа `vendor-zod` в `vite.config.ts`).
 
 Гейты (`AGENTS.md`): `pnpm lint`, `pnpm check-types`, `pnpm format:check`, `pnpm test` (`vitest run`),
 `pnpm build`. Итого 239 тестов в 43 файлах (`pnpm test`, 2026-10-03).
+
+CI (`.github/workflows/ci-cd.yml`, job `UI quality`) гоняет те же гейты по порядку, последний шаг после
+`Build` — `Verify prod bundle` (`pnpm verify:prod-bundle`, `scripts/verify-prod-bundle.sh`): падает без
+`dist`, на демо-тексте/токене и на префиксах фикстур `11111111-…`, `22222222-…`, `33333333-…`.
 
 Vitest настроен без `globals`, поэтому RTL не чистит DOM сама — в jsdom-тестах (`DiffViewer.test.tsx`,
 `RunDiff.test.tsx`, `RunInspector.test.tsx`) `afterEach(cleanup)` вызывается явно.
