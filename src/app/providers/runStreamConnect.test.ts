@@ -220,6 +220,54 @@ describe('runStreamUntilAborted', () => {
     await done
   })
 
+  it('resets a grown reconnect delay when read() throws after a chunk was received', async () => {
+    vi.useFakeTimers()
+    const readError = new TypeError('network read failed')
+    let chunkSent = false
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 503, statusText: 'Unavailable' }))
+      .mockResolvedValueOnce(
+        new Response(
+          // error() in start() would drop the queued chunk; pull() errors only after it was read.
+          new ReadableStream({
+            pull(controller) {
+              if (chunkSent) {
+                controller.error(readError)
+                return
+              }
+              chunkSent = true
+              controller.enqueue(new TextEncoder().encode('event: ping\ndata: x\n\n'))
+            },
+          }),
+          { status: 200, headers: { 'content-type': 'text/event-stream' } },
+        ),
+      )
+      .mockResolvedValue(new Response(null, { status: 503, statusText: 'Unavailable' }))
+    globalThis.fetch = fetchMock
+
+    const controller = new AbortController()
+    const done = runStreamUntilAborted(controller.signal, 'token_a')
+
+    await Promise.resolve()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    // The first 503 waits the base delay and leaves the next wait at twice the base.
+    await vi.advanceTimersByTimeAsync(STREAM_RECONNECT_DELAY_MS - 1)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+
+    // The stream delivered a chunk before read() threw, so the wait is the base delay again.
+    await vi.advanceTimersByTimeAsync(STREAM_RECONNECT_DELAY_MS - 1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+
+    controller.abort()
+    await done
+  })
+
   it('caps 401 retries per attempt then backs off before the next fetch', async () => {
     vi.useFakeTimers()
     let tokenIndex = 0
