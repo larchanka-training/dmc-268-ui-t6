@@ -72,7 +72,7 @@ export const RoutedLoginPage: FC = () => {
   return (
     <LoginPage
       onLoginSuccess={() => {
-        void navigate(consumeAuthReturnTo('/repositories'), { replace: true })
+        void navigate('/repositories', { replace: true })
       }}
     />
   )
