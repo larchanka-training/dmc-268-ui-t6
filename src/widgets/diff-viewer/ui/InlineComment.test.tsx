@@ -35,7 +35,39 @@ describe('InlineComment', () => {
     fireEvent.click(screen.getByText('XSS probe'))
     expect(document.querySelector('img')).toBeNull()
     expect(screen.getByText('<img src=x onerror=alert(1)>')).toBeTruthy()
-    expect(screen.getByText('<script>alert(1)</script>')).toBeTruthy()
+    const suggestion = screen.getByTestId('diff-suggestion')
+    expect(suggestion.querySelector('script')).toBeNull()
+    expect(suggestion.querySelector('.diff-code-insert')?.textContent).toBe(
+      '<script>alert(1)</script>',
+    )
+  })
+
+  it('highlights the suggestion by the filename of the file diff', () => {
+    render(
+      <InlineComment
+        file={FILE}
+        finding={{ ...finding, suggestion: 'const safe = "yes" // fixed' }}
+      />,
+    )
+    fireEvent.click(screen.getByText('XSS probe'))
+    const suggestion = screen.getByTestId('diff-suggestion')
+    expect(suggestion.querySelector('.diff-code-insert span.token.keyword')).not.toBeNull()
+    expect(suggestion.querySelector('.diff-code-insert span.token.string')).not.toBeNull()
+  })
+
+  it('falls back to finding.file for the suggestion language when no file diff is given', () => {
+    render(
+      <InlineComment
+        finding={{
+          ...finding,
+          file: 'app/totals.py',
+          suggestion: 'def total(items):\n    return 1',
+        }}
+      />,
+    )
+    fireEvent.click(screen.getByText('XSS probe'))
+    const suggestion = screen.getByTestId('diff-suggestion')
+    expect(suggestion.querySelector('.diff-code-insert span.token.keyword')).not.toBeNull()
   })
 
   it('shows D3 Critical badge for high severity', () => {

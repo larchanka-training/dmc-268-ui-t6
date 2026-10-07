@@ -114,7 +114,7 @@ describe('RunDetailPage', () => {
     await waitFor(() => {
       expect(screen.getByTestId('diff-suggestion')).toBeTruthy()
     })
-    expect(screen.getByText('const SAFE = 2')).toBeTruthy()
+    expect(screen.getByTestId('diff-suggestion').textContent).toContain('const SAFE = 2')
   })
 
   it('shows Warning and Info severity badges on inline findings', async () => {

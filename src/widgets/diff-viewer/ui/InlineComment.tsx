@@ -48,7 +48,11 @@ export function InlineComment(props: InlineCommentProps): JSX.Element {
             {finding.body}
           </Typography.Paragraph>
           {finding.suggestion !== null ? (
-            <DiffSuggestion addedText={finding.suggestion} removedLines={removedLines} />
+            <DiffSuggestion
+              addedText={finding.suggestion}
+              filename={file?.filename ?? finding.file}
+              removedLines={removedLines}
+            />
           ) : null}
         </div>
       ) : null}

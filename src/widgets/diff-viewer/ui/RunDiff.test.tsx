@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { theme } from 'antd'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { diffApi, fromPatch } from '../../../entities/diff'
 import { RunSessionSchema } from '../../../entities/run'
 import { SAMPLE_PATCH_A, SAMPLE_PATCHES } from '../../../shared/fixtures/sample.patch'
+import { diffThemeVars } from '../lib/diffTheme'
 import { useDiffViewerStore } from '../model/store'
 import { RunDiff } from './RunDiff'
 
@@ -160,6 +162,46 @@ describe('RunDiff', () => {
 
     expect(screen.getByTestId('findings-outside-diff')).toBeTruthy()
     expect(screen.getByText('Finding on patchless file')).toBeTruthy()
+  })
+
+  it('themes and highlights a suggestion rendered outside any DiffViewer (summary-only run)', () => {
+    const files = diffApi.diff.response.parse(SUMMARY_ONLY_DIFF_WIRE).map(fromPatch)
+
+    render(
+      <RunDiff
+        findings={[
+          {
+            id: '33333333-3333-4333-8333-000000000012',
+            file: 'src/big-one.ts',
+            oldLine: null,
+            newLine: 3,
+            endLine: null,
+            side: 'RIGHT',
+            severity: 'medium',
+            category: 'correctness',
+            title: 'Suggestion on a summary-only run',
+            body: 'No inline anchor',
+            suggestion: 'const limit = "10" // text',
+            confidence: 0.5,
+            ruleName: null,
+          },
+        ]}
+        files={files}
+        summaryOnly
+      />,
+    )
+    fireEvent.click(screen.getByText('Suggestion on a summary-only run'))
+
+    const outside = screen.getByTestId('findings-outside-diff')
+    const suggestion = outside.querySelector<HTMLElement>('[data-testid="diff-suggestion"]')
+    expect(suggestion).not.toBeNull()
+    expect(suggestion?.classList.contains('diff-theme')).toBe(true)
+    expect(suggestion?.style.getPropertyValue('--diff-code-insert-background-color')).toBe(
+      diffThemeVars(theme.getDesignToken({ algorithm: theme.defaultAlgorithm }))[
+        '--diff-code-insert-background-color'
+      ],
+    )
+    expect(suggestion?.querySelector('.diff-code-insert span.token.keyword')).not.toBeNull()
   })
 
   it('shows findings outside diff when the file is missing from the diff list', () => {
