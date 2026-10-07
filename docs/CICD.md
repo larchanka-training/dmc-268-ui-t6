@@ -35,7 +35,7 @@ flowchart TD
 
 | Job                           | Когда                              | Permissions                                                                                            | Что делает                                                                                                                                                                                     |
 | ----------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `UI quality`                  | PR и `main`                        | `contents: read`                                                                                       | гейты качества: `pnpm lint`, `pnpm check-types`, `pnpm format:check`, `pnpm test`, `pnpm build`; required check в правилах `main` (§8)                                                         |
+| `UI quality`                  | PR и `main`                        | `contents: read`                                                                                       | гейты качества: `pnpm lint`, `pnpm check-types`, `pnpm format:check`, `pnpm test`, `pnpm build`, `pnpm verify:prod-bundle`; required check в правилах `main` (§8)                              |
 | `Docker image build`          | PR и `main`                        | `contents: read`                                                                                       | один build, artifact для scan/push                                                                                                                                                             |
 | `Docker image security scan`  | после сборки                       | `contents: read`                                                                                       | Trivy того же artifact                                                                                                                                                                         |
 | `Push Docker image`           | только `main`                      | `contents: read`, `packages: write`, `actions: read`                                                   | push `:sha`, resolve digest (тот же artifact, что прошёл Trivy)                                                                                                                                |
@@ -45,7 +45,7 @@ flowchart TD
 
 Корневые permissions: `contents: read`, остальное — только у job, которому нужно. Все jobs работают на `ubuntu-latest`.
 
-`UI quality` ставит Node.js 24 (как build-стадия `Dockerfile`) и pnpm версии из `packageManager`, затем выполняет `pnpm install --frozen-lockfile` и пять гейтов по порядку; первый упавший шаг делает job красным. Job стоит в `needs` у `Push Docker image`: с красными гейтами образ не пушится и staging не выкатывается. На PR job отменяется вместе со всем run при новом push в ветку (`cancel-in-progress` в `concurrency` workflow). Лимит job — 15 минут (`timeout-minutes`): зависший прогон не держит обязательную проверку и `Push Docker image` до стандартных шести часов.
+`UI quality` ставит Node.js 24 (как build-стадия `Dockerfile`) и pnpm версии из `packageManager`, затем выполняет `pnpm install --frozen-lockfile` и шесть гейтов по порядку (последний, `pnpm verify:prod-bundle`, идёт после `pnpm build` и проверяет `dist/assets`: нет mock/demo-кода, а вызов zod `jitless` исполняется раньше первой схемы); первый упавший шаг делает job красным. Job стоит в `needs` у `Push Docker image`: с красными гейтами образ не пушится и staging не выкатывается. На PR job отменяется вместе со всем run при новом push в ветку (`cancel-in-progress` в `concurrency` workflow). Лимит job — 15 минут (`timeout-minutes`): зависший прогон не держит обязательную проверку и `Push Docker image` до стандартных шести часов.
 
 Шаги `Deploy staging`: **Resolve staging target** → копирование `deploy/` в `APP_DIR` (`appleboy/scp-action`) → **Prepare host** → (курсовой VPS) ожидание TLS → **Deploy image** (`deploy.sh`) → **Health check** → при ошибке **Rollback on failed deploy or health check** (`ROLLBACK_MODE=auto`) → job красный.
 
@@ -221,16 +221,16 @@ Jobs `deploy-staging`, `promote-staging` (CI/CD) и workflow Rollback ссыла
 
 Ruleset `Protect Default Branch` меняет только администратор репозитория. Правило `required_status_checks` не даёт смёржить PR, пока не зелёные обе проверки:
 
-| Required check       | Job в `ci-cd.yml` | Что не пропускает в `main`                                                                           |
-| -------------------- | ----------------- | ---------------------------------------------------------------------------------------------------- |
-| `UI quality`         | `ui-quality`      | ошибку eslint или stylelint, ошибку типов, неотформатированный файл, падающий тест, сломанную сборку |
-| `Docker image build` | `docker-build`    | образ, который не собирается                                                                         |
+| Required check       | Job в `ci-cd.yml` | Что не пропускает в `main`                                                                                                                                            |
+| -------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `UI quality`         | `ui-quality`      | ошибку eslint или stylelint, ошибку типов, неотформатированный файл, падающий тест, сломанную сборку, бандл с mock/demo-кодом или с нарушенным порядком zod `jitless` |
+| `Docker image build` | `docker-build`    | образ, который не собирается                                                                                                                                          |
 
 - Ruleset сверяет check по имени: оно должно буквально совпадать с `name:` у job. Переименовали job без правки ruleset — проверка с прежним именем не приходит, и все PR блокируются. Имя job и ruleset меняются вместе.
 - Check добавляется в ruleset с источником GitHub Actions, как `Docker image build`: без источника требование закроет любой commit status с тем же именем.
 - Включён `strict_required_status_checks_policy`: ветка PR должна быть актуальна относительно `main`, иначе merge недоступен даже с зелёными проверками.
 - `[skip ci]` в сообщении head-коммита PR пропускает workflow целиком: обязательные проверки остаются в ожидании, и merge заблокирован до следующего коммита без этой метки.
-- Те же гейты локально: `pnpm lint && pnpm check-types && pnpm format:check && pnpm test && pnpm build`.
+- Те же гейты локально: `pnpm lint && pnpm check-types && pnpm format:check && pnpm test && pnpm build && pnpm verify:prod-bundle`.
 
 ---
 

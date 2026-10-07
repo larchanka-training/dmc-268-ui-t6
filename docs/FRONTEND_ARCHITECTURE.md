@@ -900,7 +900,9 @@ Prod без демо: `pnpm build && pnpm verify:prod-bundle` (Refs #65, AC 3.3 
 
 CI (`.github/workflows/ci-cd.yml`, job `UI quality`) гоняет те же гейты по порядку, последний шаг после
 `Build` — `Verify prod bundle` (`pnpm verify:prod-bundle`, `scripts/verify-prod-bundle.sh`): падает без
-`dist`, на демо-тексте/токене и на префиксах фикстур `11111111-…`, `22222222-…`, `33333333-…`.
+`dist`, на демо-тексте/токене и на префиксах фикстур `11111111-…`, `22222222-…`, `33333333-…`, а также
+когда чанк с `env.ts` не импортирует единственный чанк с вызовом zod `jitless` (и это не один файл с
+вызовом впереди): порядок «`jitless` раньше первой схемы» зависит от раскладки чанков, а не от исходников.
 
 Vitest настроен без `globals`, поэтому RTL не чистит DOM сама — в jsdom-тестах (`DiffViewer.test.tsx`,
 `RunDiff.test.tsx`, `RunInspector.test.tsx`) `afterEach(cleanup)` вызывается явно.
