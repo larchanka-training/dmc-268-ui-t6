@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { ReactElement } from 'react'
 
@@ -94,6 +94,67 @@ describe('RunInspector', () => {
       useRunInspectorStore.getState().selectAction(0)
     })
     expect(screen.getByText(/"filesChanged": 35/)).toBeTruthy()
+  })
+
+  describe('response panel', () => {
+    function responsePanel(): HTMLElement {
+      const item = screen.getByText('response').closest('.ant-collapse-item')
+      if (!(item instanceof HTMLElement)) {
+        throw new Error('response panel not found')
+      }
+      return item
+    }
+
+    // Settle the effects and microtasks a selection triggers, so a stray request would already be recorded.
+    async function selectAndSettle(index: number): Promise<void> {
+      await act(async () => {
+        useRunInspectorStore.getState().selectAction(index)
+        await Promise.resolve()
+      })
+    }
+
+    function trackResponseRequests(body: unknown): string[] {
+      const requested: string[] = []
+      setMockTransport((endpoint) => {
+        const match = /^\/runs\/([^/]+)\/actions\/(\d+)\/response$/.exec(endpoint.path)
+        if (match && endpoint.method === 'GET') {
+          requested.push(endpoint.path)
+          return body
+        }
+        return undefined
+      })
+      return requested
+    }
+
+    it('does not request the response when the action carries it inline', async () => {
+      const requested = trackResponseRequests({ content: 'loaded blob response' })
+      renderWithQuery(<RunInspector run={RUN} actions={ACTIONS} now={NOW} />)
+      await selectAndSettle(0)
+      expect(screen.getByText(/"filesChanged": 35/)).toBeTruthy()
+      expect(requested).toEqual([])
+    })
+
+    it('does not request the response when the action has neither response nor ref', async () => {
+      const requested = trackResponseRequests({ content: 'loaded blob response' })
+      const actions = ACTIONS.map((action) =>
+        action.index === 0 ? { ...action, response: null, responseRef: null } : action,
+      )
+      renderWithQuery(<RunInspector run={RUN} actions={actions} now={NOW} />)
+      await selectAndSettle(0)
+      expect(within(responsePanel()).getByText('—')).toBeTruthy()
+      expect(requested).toEqual([])
+    })
+
+    it('shows a dash, not "null", when the fetched response is 200 null', async () => {
+      const requested = trackResponseRequests(null)
+      renderWithQuery(<RunInspector run={RUN} actions={ACTIONS} now={NOW} />)
+      await selectAndSettle(24)
+      await waitFor(() => {
+        expect(requested).toEqual([`/runs/${RUN.id}/actions/24/response`])
+        expect(within(responsePanel()).getByText('—')).toBeTruthy()
+      })
+      expect(within(responsePanel()).queryByText('null')).toBeNull()
+    })
   })
 
   it('flags a stale running run', () => {

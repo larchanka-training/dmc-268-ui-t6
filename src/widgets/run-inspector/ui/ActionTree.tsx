@@ -58,10 +58,15 @@ export function ActionTree(props: ActionTreeProps): JSX.Element {
   const setExpandedKeys = useRunInspectorStore((s) => s.setExpandedKeys)
   const selectedActionIndex = useRunInspectorStore((s) => s.selectedActionIndex)
   const selectAction = useRunInspectorStore((s) => s.selectAction)
-  const responseQuery = useRunActionResponse(runId, selectedActionIndex)
+  const selectedAction = actions.find((action) => action.index === selectedActionIndex)
+  // The blob is fetched only when the action points at one instead of carrying the response inline.
+  const needsResponseFetch =
+    selectedAction?.response === null && selectedAction.responseRef !== null
+  const responseQuery = useRunActionResponse(runId, needsResponseFetch ? selectedActionIndex : null)
 
   const selectedKeys = selectedActionIndex !== null ? [`action-${String(selectedActionIndex)}`] : []
-  const selectedAction = actions.find((action) => action.index === selectedActionIndex)
+
+  const noResponse = <Typography.Text type="secondary">—</Typography.Text>
 
   function responseBody(): ReactNode {
     if (selectedAction === undefined) {
@@ -71,13 +76,16 @@ export function ActionTree(props: ActionTreeProps): JSX.Element {
       return <pre>{JSON.stringify(selectedAction.response, null, 2)}</pre>
     }
     if (selectedAction.responseRef === null) {
-      return <Typography.Text type="secondary">—</Typography.Text>
+      return noResponse
     }
     if (responseQuery.isLoading) {
       return <Spin size="small" />
     }
     if (responseQuery.isError) {
       return <Typography.Text type="danger">Не удалось загрузить ответ</Typography.Text>
+    }
+    if (responseQuery.data === null || responseQuery.data === undefined) {
+      return noResponse
     }
     return <pre>{JSON.stringify(responseQuery.data, null, 2)}</pre>
   }
