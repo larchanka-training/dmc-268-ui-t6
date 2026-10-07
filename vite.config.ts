@@ -49,10 +49,13 @@ export default defineConfig(({ mode }) => {
     test: {
       include: ['src/**/*.test.{ts,tsx}'],
       setupFiles: ['./src/test/setup.ts'],
-      // Выше `asyncUtilTimeout` из `src/test/setup.ts` и явных `timeout` в `waitFor`, с запасом на
-      // несколько ожиданий подряд: иначе под нагрузкой тест падает с «Test timed out» раньше,
-      // чем срабатывает само ожидание.
-      testTimeout: 20_000,
+      // Half of the cores outside CI: several runs at once (a second terminal, the IDE, a docker
+      // build next to the suite) then do not oversubscribe the CPU, which is what made waits
+      // time out. CI runs one suite on a dedicated runner and keeps every core.
+      maxWorkers: env.CI ? undefined : '50%',
+      // Four full waits of `asyncUtilTimeout` (src/test/setup.ts): a test with several
+      // sequential waits is not cut before a wait itself gives up.
+      testTimeout: 60_000,
     },
   }
 })
