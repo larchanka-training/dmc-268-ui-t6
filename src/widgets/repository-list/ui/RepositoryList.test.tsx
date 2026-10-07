@@ -5,19 +5,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { Repository } from '../../../entities/repository'
 import { useAuthStore } from '../../../features/auth'
-import {
-  APP_INSTALL_TOOLTIP,
-  EMPTY_REPOSITORIES_DESCRIPTION,
-  REFRESH_TOOLTIP,
-  RepositoryList,
-  SYNC_ACCESS_TOOLTIP,
-} from './RepositoryList'
+import { RepositoryList } from './RepositoryList'
 
 let mockSlug = ''
+let mockClientId = 'test-client'
 vi.mock('../../../shared/config/env', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../shared/config/env')>()
   return {
     ...actual,
+    get GITHUB_CLIENT_ID() {
+      return mockClientId
+    },
     get GITHUB_APP_SLUG() {
       return mockSlug
     },
@@ -29,6 +27,7 @@ const originalLoginWithGitHub = useAuthStore.getState().loginWithGitHub
 afterEach(() => {
   cleanup()
   mockSlug = ''
+  mockClientId = 'test-client'
   useAuthStore.setState({ loginWithGitHub: originalLoginWithGitHub })
 })
 
@@ -61,7 +60,13 @@ describe('RepositoryList', () => {
   it('renders repository items with branch tags, CI badges, and status switches', () => {
     const handleToggle = vi.fn()
 
-    render(<RepositoryList onToggleEnabled={handleToggle} repositories={mockRepos} />)
+    render(
+      <RepositoryList
+        onSyncAccess={vi.fn()}
+        onToggleEnabled={handleToggle}
+        repositories={mockRepos}
+      />,
+    )
 
     expect(screen.getByText('larchanka-training/dmc-268-ui-t6')).toBeDefined()
     expect(screen.getByText('larchanka-training/dmc-268-api-t6')).toBeDefined()
@@ -81,7 +86,13 @@ describe('RepositoryList', () => {
 
   it('disables only the switches matching updatingRepoIds', () => {
     const updatingRepoIds = new Set(['a1b2c3d4-e5f6-7890-abcd-ef1234567890'])
-    render(<RepositoryList repositories={mockRepos} updatingRepoIds={updatingRepoIds} />)
+    render(
+      <RepositoryList
+        onSyncAccess={vi.fn()}
+        repositories={mockRepos}
+        updatingRepoIds={updatingRepoIds}
+      />,
+    )
 
     const switch1 = screen.getByRole('switch', {
       name: 'Ревью для larchanka-training/dmc-268-ui-t6',
@@ -95,7 +106,7 @@ describe('RepositoryList', () => {
   })
 
   it('renders settings button with unique per-row aria-label', () => {
-    render(<RepositoryList repositories={mockRepos} />)
+    render(<RepositoryList onSyncAccess={vi.fn()} repositories={mockRepos} />)
     expect(
       screen.getByRole('button', { name: 'Настройки larchanka-training/dmc-268-ui-t6' }),
     ).toBeDefined()
@@ -105,7 +116,7 @@ describe('RepositoryList', () => {
   })
 
   it('filters repositories by search input matching full and short name', () => {
-    render(<RepositoryList repositories={mockRepos} />)
+    render(<RepositoryList onSyncAccess={vi.fn()} repositories={mockRepos} />)
 
     const searchInput = screen.getByPlaceholderText('Поиск по названию...')
     fireEvent.change(searchInput, { target: { value: 'ui-t6' } })
@@ -115,7 +126,7 @@ describe('RepositoryList', () => {
   })
 
   it('links the repository name to its http(s) url', () => {
-    render(<RepositoryList repositories={mockRepos} />)
+    render(<RepositoryList onSyncAccess={vi.fn()} repositories={mockRepos} />)
 
     const link = screen.getByRole('link', { name: 'larchanka-training/dmc-268-ui-t6' })
     expect(link.getAttribute('href')).toBe('https://github.com/larchanka-training/dmc-268-ui-t6')
@@ -135,7 +146,7 @@ describe('RepositoryList', () => {
       maxComments: 10,
       reviewEvent: 'COMMENT',
     }
-    const { container } = render(<RepositoryList repositories={[unsafeRepo]} />)
+    const { container } = render(<RepositoryList onSyncAccess={vi.fn()} repositories={[unsafeRepo]} />)
 
     // React rewrites a javascript: href instead of dropping it, so match on the scheme.
     expect(container.querySelector('a[href*="javascript:"]')).toBeNull()
@@ -145,7 +156,7 @@ describe('RepositoryList', () => {
 
   it('renders installation link with correct href when GITHUB_APP_SLUG is configured', () => {
     mockSlug = 'test-bot'
-    render(<RepositoryList repositories={[]} />)
+    render(<RepositoryList onSyncAccess={vi.fn()} repositories={[]} />)
     expect(screen.getByText(/Репозитории ещё не подключены/i)).toBeDefined()
     const link = screen.getByRole('link', { name: /установить github app/i })
     expect(link.getAttribute('href')).toBe('https://github.com/apps/test-bot/installations/new')
@@ -153,7 +164,8 @@ describe('RepositoryList', () => {
 
   it('renders disabled button with no href when GITHUB_APP_SLUG is not configured', () => {
     mockSlug = ''
-    render(<RepositoryList repositories={[]} />)
+    mockClientId = 'test-client'
+    render(<RepositoryList onSyncAccess={vi.fn()} repositories={[]} />)
     expect(screen.getByText(/Репозитории ещё не подключены/i)).toBeDefined()
     const button = screen.getByRole('button', { name: /установить github app/i })
     expect(button.hasAttribute('disabled')).toBe(true)
@@ -167,8 +179,9 @@ describe('RepositoryList', () => {
     // role query below tells an open modal from a closed one
     render(
       <ConfigProvider theme={{ token: { motion: false } }}>
-        <RepositoryList onUpdateRepository={onUpdate} repositories={mockRepos} />
+        <RepositoryList onSyncAccess={vi.fn()} onUpdateRepository={onUpdate} repositories={mockRepos} />
       </ConfigProvider>,
+
     )
 
     const settingsBtn = screen.getByLabelText(/настройки larchanka-training\/dmc-268-ui-t6/i)
@@ -208,7 +221,13 @@ describe('RepositoryList', () => {
 
   it('offers only DiffEngine and never sends the engine in the settings patch', async () => {
     const onUpdate = vi.fn().mockResolvedValue(undefined)
-    render(<RepositoryList onUpdateRepository={onUpdate} repositories={mockRepos} />)
+    render(
+      <RepositoryList
+        onSyncAccess={vi.fn()}
+        onUpdateRepository={onUpdate}
+        repositories={mockRepos}
+      />,
+    )
 
     fireEvent.click(screen.getByLabelText(/настройки larchanka-training\/dmc-268-ui-t6/i))
     await waitFor(() => {
@@ -253,8 +272,8 @@ describe('RepositoryList', () => {
     render(<RepositoryList onSyncAccess={handleSyncAccess} repositories={[]} />)
 
     const syncButtons = screen.getAllByRole('button', { name: /обновить доступ/i })
-    expect(syncButtons.length).toBe(2)
-    const targetBtn = syncButtons[1]
+    expect(syncButtons.length).toBe(1)
+    const targetBtn = syncButtons[0]
     expect(targetBtn).toBeDefined()
     if (!targetBtn) {
       throw new Error('Button not found')
@@ -264,58 +283,76 @@ describe('RepositoryList', () => {
     expect(handleSyncAccess).toHaveBeenCalledOnce()
   })
 
-  it('calls loginWithGitHub from auth store when onSyncAccess is not provided in header', () => {
-    const spy = vi.fn()
-    useAuthStore.setState({ loginWithGitHub: spy })
-    render(<RepositoryList repositories={mockRepos} />)
-
-    const syncBtn = screen.getByRole('button', { name: /обновить доступ/i })
-    fireEvent.click(syncBtn)
-
-    expect(spy).toHaveBeenCalledOnce()
+  it('uses the explicit callback without invoking the auth store', () => {
+    const loginWithGitHub = vi.fn()
+    const onSyncAccess = vi.fn()
+    useAuthStore.setState({ loginWithGitHub })
+    render(<RepositoryList onSyncAccess={onSyncAccess} repositories={[]} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Обновить доступ' }))
+    expect(onSyncAccess).toHaveBeenCalledOnce()
+    expect(loginWithGitHub).not.toHaveBeenCalled()
   })
 
-  it('calls loginWithGitHub from auth store when onSyncAccess is not provided in empty state', () => {
-    const spy = vi.fn()
-    useAuthStore.setState({ loginWithGitHub: spy })
-    render(<RepositoryList repositories={[]} />)
+  it.each([{ repositories: [] }, { repositories: mockRepos }])(
+    'disables sync access and explains missing client ID for $repositories.length repositories',
+    async ({ repositories }) => {
+      mockClientId = ''
+      const onSyncAccess = vi.fn()
+      render(<RepositoryList onSyncAccess={onSyncAccess} repositories={repositories} />)
 
-    const syncButtons = screen.getAllByRole('button', { name: /обновить доступ/i })
-    expect(syncButtons.length).toBe(2)
-    const targetBtn = syncButtons[1]
-    expect(targetBtn).toBeDefined()
-    if (!targetBtn) {
-      throw new Error('Button not found')
-    }
-    fireEvent.click(targetBtn)
-
-    expect(spy).toHaveBeenCalledOnce()
-  })
+      const button = screen.getByRole('button', { name: 'Обновить доступ' })
+      expect(button.hasAttribute('disabled')).toBe(true)
+      fireEvent.click(button)
+      expect(onSyncAccess).not.toHaveBeenCalled()
+      const tooltipTrigger = button.parentElement
+      if (!tooltipTrigger) throw new Error('Missing tooltip trigger')
+      fireEvent.mouseEnter(tooltipTrigger)
+      expect(
+        await screen.findByText('Обновление доступа недоступно: не задан VITE_GITHUB_CLIENT_ID'),
+      ).toBeDefined()
+    },
+  )
 
   it('renders empty state description explaining both installation scenarios', () => {
-    render(<RepositoryList repositories={[]} />)
-    expect(screen.getByText(EMPTY_REPOSITORIES_DESCRIPTION)).toBeDefined()
+    render(<RepositoryList onSyncAccess={vi.fn()} repositories={[]} />)
+    expect(
+      screen.getByText(
+        'Репозитории ещё не подключены. После установки GitHub App на новый аккаунт или добавления репозиториев в уже подключённую установку нажмите «Обновить доступ»: откроется GitHub, затем вы вернётесь сюда. Репозиторий может появиться с задержкой до нескольких минут.',
+      ),
+    ).toBeDefined()
   })
 
   it('displays tooltip on hover over "Обновить доступ"', async () => {
-    render(<RepositoryList repositories={mockRepos} />)
+    render(<RepositoryList onSyncAccess={vi.fn()} repositories={mockRepos} />)
     const syncBtn = screen.getByRole('button', { name: /обновить доступ/i })
     fireEvent.mouseEnter(syncBtn)
-    expect(await screen.findByText(SYNC_ACCESS_TOOLTIP)).toBeDefined()
+    expect(
+      await screen.findByText(
+        'Повторная авторизация через GitHub обновит список ваших установок GitHub App. Откроется GitHub, затем вы вернётесь на эту страницу',
+      ),
+    ).toBeDefined()
   })
 
   it('displays tooltip on hover over "Обновить"', async () => {
-    render(<RepositoryList repositories={mockRepos} />)
+    render(<RepositoryList onSyncAccess={vi.fn()} repositories={mockRepos} />)
     const refreshBtn = screen.getByRole('button', { name: /обновить$/i })
     fireEvent.mouseEnter(refreshBtn)
-    expect(await screen.findByText(REFRESH_TOOLTIP)).toBeDefined()
+    expect(
+      await screen.findByText(
+        'После добавления репозиториев в установку нажмите «Обновить доступ»',
+      ),
+    ).toBeDefined()
   })
 
   it('displays install tooltip on hover over connect button when app is configured', async () => {
     mockSlug = 'my-github-app'
-    render(<RepositoryList repositories={mockRepos} />)
+    render(<RepositoryList onSyncAccess={vi.fn()} repositories={mockRepos} />)
     const connectBtn = screen.getByRole('link', { name: /подключить репозиторий/i })
     fireEvent.mouseEnter(connectBtn)
-    expect(await screen.findByText(APP_INSTALL_TOOLTIP)).toBeDefined()
+    expect(
+      await screen.findByText(
+        'После установки GitHub App на новый аккаунт нажмите «Обновить доступ»: откроется GitHub, затем вы вернётесь сюда. Репозиторий может появиться с задержкой до нескольких минут',
+      ),
+    ).toBeDefined()
   })
 })

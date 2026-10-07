@@ -9,11 +9,18 @@ import {
   type UpdateRepositoryInput,
   type UpdateRepositoryVariables,
 } from '../../entities/repository'
+import { saveAuthReturnTo, useAuthStore } from '../../features/auth'
 import { RepositoryList } from '../../widgets/repository-list'
 import { formatErrorMessage } from './lib/formatError'
 
 export const RepositoriesPage: FC = () => {
   const { message } = App.useApp()
+  const loginWithGitHub = useAuthStore((state) => state.loginWithGitHub)
+
+  const handleSyncAccess = () => {
+    saveAuthReturnTo('/repositories')
+    loginWithGitHub()
+  }
 
   const { data: repositories = [], isLoading, isError, error, refetch } = useRepositories()
 
@@ -69,6 +76,7 @@ export const RepositoriesPage: FC = () => {
         <RepositoryList
           loading={isLoading}
           onRefresh={() => void refetch()}
+          onSyncAccess={handleSyncAccess}
           onToggleEnabled={handleToggleEnabled}
           onUpdateRepository={handleUpdateRepository}
           repositories={repositories}

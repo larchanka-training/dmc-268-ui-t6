@@ -4,7 +4,14 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { App, ConfigProvider } from 'antd'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { peekAuthReturnTo, saveAuthReturnTo, useAuthStore } from '../../features/auth'
+
 import { RepositoriesPage } from './RepositoriesPage'
+
+vi.mock('../../shared/config/env', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../shared/config/env')>()),
+  GITHUB_CLIENT_ID: 'test-client',
+}))
 
 function renderWithClient(ui: React.ReactElement) {
   const queryClient = new QueryClient({
@@ -23,6 +30,7 @@ function renderWithClient(ui: React.ReactElement) {
 
 describe('RepositoriesPage', () => {
   const originalFetch = globalThis.fetch
+  const originalAuth = useAuthStore.getState()
 
   beforeEach(() => {
     vi.restoreAllMocks()
@@ -31,6 +39,31 @@ describe('RepositoriesPage', () => {
   afterEach(() => {
     cleanup()
     globalThis.fetch = originalFetch
+    useAuthStore.setState(originalAuth, true)
+    sessionStorage.clear()
+  })
+
+  it('starts GitHub authorization with repositories as the return route without logout', async () => {
+    const loginWithGitHub = vi.fn()
+    const logout = vi.fn()
+    useAuthStore.setState({ loginWithGitHub, logout, isAuthenticated: true })
+    saveAuthReturnTo('/runs/stale-route')
+    globalThis.fetch = vi
+      .fn()
+      .mockImplementation(() =>
+        Promise.resolve(
+          new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } }),
+        ),
+      )
+
+    renderWithClient(<RepositoriesPage />)
+    await screen.findByText(/Репозитории ещё не подключены/)
+    fireEvent.click(screen.getByRole('button', { name: 'Обновить доступ' }))
+
+    expect(loginWithGitHub).toHaveBeenCalledOnce()
+    expect(peekAuthReturnTo()).toBe('/repositories')
+    expect(logout).not.toHaveBeenCalled()
+    expect(useAuthStore.getState().isAuthenticated).toBe(true)
   })
 
   it('renders repository list within layout on successful load', async () => {
