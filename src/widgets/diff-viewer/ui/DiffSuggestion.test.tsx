@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, render } from '@testing-library/react'
 import { ConfigProvider, theme } from 'antd'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { diffThemeVars } from '../lib/diffTheme'
 import { DiffSuggestion } from './DiffSuggestion'
@@ -68,6 +68,28 @@ describe('DiffSuggestion', () => {
     expect(container.querySelectorAll('.diff-code')).toHaveLength(3)
     expect(lineText(container, '.diff-code-insert')).toEqual(['const a = "b" // c', 'let d = 1'])
     expect(container.querySelector('span.token')).toBeNull()
+  })
+
+  it('renders a single blank removed line as its own deleted row', () => {
+    const { container } = render(
+      <DiffSuggestion addedText="const a = 1" filename="src/limits.ts" removedLines={['']} />,
+    )
+
+    expect(container.querySelectorAll('.diff-code-delete')).toHaveLength(1)
+    expect(lineText(container, '.diff-code-insert')).toEqual(['const a = 1'])
+  })
+
+  it('skips highlighting above the 1000-line budget but still renders every line', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const added = Array.from({ length: 1001 }, (_, index) => `const value${String(index)} = "text"`)
+    const { container } = render(
+      <DiffSuggestion addedText={added.join('\n')} filename="src/limits.ts" removedLines={[]} />,
+    )
+
+    expect(container.querySelectorAll('.diff-code-insert')).toHaveLength(1001)
+    expect(container.querySelector('span.token')).toBeNull()
+    expect(consoleError).not.toHaveBeenCalled()
+    consoleError.mockRestore()
   })
 
   it('renders nothing when both sides are empty', () => {

@@ -1,15 +1,16 @@
+import { refractor } from 'refractor'
 import { describe, expect, it } from 'vitest'
 
-import { commentKey, extractNewSideLines, fromPatch, toHunks } from '../../entities/diff'
-import type { RawFileDiff } from '../../entities/diff'
+import {
+  commentKey,
+  extractNewSideLines,
+  fromPatch,
+  languageFromFilename,
+  toHunks,
+} from '../../entities/diff'
+import type { FileDiff, RawFileDiff } from '../../entities/diff'
 import { RunDetailSchema } from '../../entities/run'
 import { SAMPLE_PATCHES } from '../../shared/fixtures/sample.patch'
-import { refractorForDiffView } from '../../widgets/diff-viewer/lib/refractorForDiffView'
-import {
-  countDiffSideLines,
-  MAX_SYNC_HIGHLIGHT_TOTAL_LINES,
-  tokensForHunks,
-} from '../../widgets/diff-viewer/lib/tokensForHunks'
 
 import {
   REVIEW_ATTENTION_RUN_ID,
@@ -80,23 +81,29 @@ function classesIn(node: unknown, found: Set<string>): void {
   }
 }
 
-/** Token classes the real refractor emits for one file of the demo diff. */
+/** Old plus new side lines of a diff, as the sync highlight budget counts them. */
+function sideLines(file: FileDiff): number {
+  return toHunks(file).reduce((sum, hunk) => sum + hunk.oldLines + hunk.newLines, 0)
+}
+
+/** Token classes the real refractor emits for one file of the demo diff (each side as one source). */
 function tokenClassesOf(filename: string): Set<string> {
-  const files = demoDiff().map(fromPatch)
-  const file = files.find((candidate) => candidate.filename === filename)
-  if (file === undefined) {
-    throw new Error(`demo diff has no ${filename}`)
+  const file = demoDiff()
+    .map(fromPatch)
+    .find((candidate) => candidate.filename === filename)
+  const language = languageFromFilename(filename)
+  if (file === undefined || language === null) {
+    throw new Error(`demo diff has no highlightable ${filename}`)
   }
-  const diffTotalLines = files.reduce((sum, f) => sum + countDiffSideLines(toHunks(f)), 0)
-  const tokens = tokensForHunks(filename, toHunks(file), { diffTotalLines })
-  if (tokens === undefined) {
-    throw new Error(`${filename} was not tokenized`)
-  }
+  const lines = file.chunks.flatMap((chunk) => chunk.lines)
   const found = new Set<string>()
-  for (const line of [...tokens.old, ...tokens.new]) {
-    for (const node of line) {
-      classesIn(node, found)
-    }
+  const sides = [
+    lines.filter((line) => line.type !== 'added'),
+    lines.filter((line) => line.type !== 'removed'),
+  ]
+  for (const side of sides) {
+    const source = side.map((line) => line.content).join('\n')
+    classesIn(refractor.highlight(source, language), found)
   }
   return found
 }
@@ -155,8 +162,9 @@ describe('mockRawDiffForRun demo highlight fixtures', () => {
   it('stays well inside the sync highlight budget', () => {
     const total = demoDiff()
       .map(fromPatch)
-      .reduce((sum, file) => sum + countDiffSideLines(toHunks(file)), 0)
-    expect(total).toBeLessThan(MAX_SYNC_HIGHLIGHT_TOTAL_LINES / 4)
+      .reduce((sum, file) => sum + sideLines(file), 0)
+    // The widget's sync highlight budget is 1000 lines (Refs #65); stay under a quarter of it.
+    expect(total).toBeLessThan(250)
   })
 })
 
@@ -189,9 +197,12 @@ describe('demo run suggestion finding', () => {
     if (finding?.suggestion == null) {
       throw new Error('suggestion finding missing')
     }
-    const language = finding.file.endsWith('.py') ? 'python' : 'typescript'
+    const language = languageFromFilename(finding.file)
+    if (language === null) {
+      throw new Error(`no language for ${finding.file}`)
+    }
     const found = new Set<string>()
-    classesIn({ children: refractorForDiffView.highlight(finding.suggestion, language) }, found)
+    classesIn(refractor.highlight(finding.suggestion, language), found)
     expect(found).toContain('keyword')
     expect(found).toContain('string')
   })

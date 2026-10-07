@@ -137,6 +137,15 @@ describe.each(ALGORITHMS)('diffThemeVars (%s algorithm)', (_name, algorithm) => 
     expect(contrastRatio(fg, bg)).toBeGreaterThanOrEqual(4.5)
   })
 
+  it('maps the line roles to literal antd tokens (insert is success, delete is error)', () => {
+    expect(vars['--diff-code-insert-background-color']).toBe(token.colorSuccessBg)
+    expect(vars['--diff-code-delete-background-color']).toBe(token.colorErrorBg)
+    expect(vars['--diff-gutter-insert-background-color']).toBe(token.colorSuccessBgHover)
+    expect(vars['--diff-gutter-delete-background-color']).toBe(token.colorErrorBgFilledHover)
+    expect(vars['--diff-text-color']).toBe(token.colorText)
+    expect(vars['--diff-omit-gutter-line-color']).toBe(token.colorError)
+  })
+
   it('paints the line backgrounds distinctly from the container', () => {
     for (const name of [
       '--diff-code-insert-background-color',
@@ -242,7 +251,7 @@ describe('diff-theme.css', () => {
 
   it('only has `.diff-theme .token.<class> { color: var(--diff-token-*) }` rules', () => {
     for (const { selectors, declarations } of rules) {
-      classesOf(selectors)
+      expect(() => classesOf(selectors)).not.toThrow()
       expect(declarations.replace(/\s+/g, ' ').trim()).toMatch(
         /^color: var\(--diff-token-[a-z-]+\);$/,
       )
@@ -254,6 +263,18 @@ describe('diff-theme.css', () => {
     for (const cls of TOKEN_CLASSES_REQUIRED) {
       expect(styled, cls).toContain(cls)
     }
+  })
+
+  it.each([
+    ['keyword', '--diff-token-keyword'],
+    ['string', '--diff-token-string'],
+    ['comment', '--diff-token-comment'],
+    ['number', '--diff-token-number'],
+    ['function', '--diff-token-function'],
+  ])('colors .token.%s from %s', (cls, variable) => {
+    const rule = rules.find(({ selectors }) => classesOf(selectors).includes(cls))
+    expect(rule, cls).toBeDefined()
+    expect(rule?.declarations.replace(/\s+/g, ' ').trim()).toBe(`color: var(${variable});`)
   })
 
   it('styles each class in exactly one rule (rule order must not decide the colour)', () => {
@@ -271,4 +292,14 @@ describe('diff-theme.css', () => {
     expect(referenced.filter((name) => !emitted.includes(name))).toEqual([])
     expect(emitted.filter((name) => !referenced.includes(name))).toEqual([])
   })
+})
+
+describe('diff-theme.css wiring', () => {
+  it.each(['DiffViewer.tsx', 'DiffSuggestion.tsx'])(
+    'ui/%s imports ./diff-theme.css (jsdom loads no CSS, so only the source shows it)',
+    (component) => {
+      const source = readFileSync(new URL(`../ui/${component}`, import.meta.url), 'utf8')
+      expect(source).toMatch(/^import '\.\/diff-theme\.css'$/m)
+    },
+  )
 })

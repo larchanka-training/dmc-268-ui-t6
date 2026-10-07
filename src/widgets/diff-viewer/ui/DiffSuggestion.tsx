@@ -1,4 +1,5 @@
 import type { JSX } from 'react'
+import { useMemo } from 'react'
 import { Diff } from 'react-diff-view'
 import 'react-diff-view/style/index.css'
 import './diff-theme.css'
@@ -48,15 +49,22 @@ function suggestionFile(filename: string, removedLines: string[], addedLines: st
 export function DiffSuggestion(props: DiffSuggestionProps): JSX.Element | null {
   const { filename, removedLines, addedText } = props
   const diffTheme = useDiffThemeStyle()
-  const addedLines = addedText.length > 0 ? addedText.split('\n') : []
-  if (removedLines.length === 0 && addedLines.length === 0) {
+  // `removedLines` is a fresh array on every render: key on its content, not its identity. The
+  // count keeps `['']` (one blank line) apart from `[]`, which share the empty key.
+  const removedKey = removedLines.join('\n')
+  const removedCount = removedLines.length
+  const diff = useMemo(() => {
+    const removed = removedCount > 0 ? removedKey.split('\n') : []
+    const added = addedText.length > 0 ? addedText.split('\n') : []
+    if (removed.length === 0 && added.length === 0) {
+      return null
+    }
+    const hunks = toHunks(suggestionFile(filename, removed, added))
+    return { hunks, tokens: tokensForHunks(filename, hunks) }
+  }, [filename, removedKey, removedCount, addedText])
+  if (diff === null) {
     return null
   }
-
-  const hunks = toHunks(suggestionFile(filename, removedLines, addedLines))
-  const tokens = tokensForHunks(filename, hunks, {
-    diffTotalLines: removedLines.length + addedLines.length,
-  })
 
   return (
     <div
@@ -64,7 +72,13 @@ export function DiffSuggestion(props: DiffSuggestionProps): JSX.Element | null {
       data-testid="diff-suggestion"
       style={diffTheme.style}
     >
-      <Diff diffType="modify" gutterType="none" hunks={hunks} tokens={tokens} viewType="unified" />
+      <Diff
+        diffType="modify"
+        gutterType="none"
+        hunks={diff.hunks}
+        tokens={diff.tokens}
+        viewType="unified"
+      />
     </div>
   )
 }

@@ -1,11 +1,9 @@
 // @vitest-environment jsdom
-import { act, cleanup, render } from '@testing-library/react'
+import { cleanup, render } from '@testing-library/react'
 import { ConfigProvider, theme } from 'antd'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { UiProvider } from '../../../app/providers/UiProvider'
 import { fromPatch } from '../../../entities/diff'
-import { THEME_STORAGE_KEY, useThemeStore } from '../../../features/theme'
 import { SAMPLE_PATCH_A } from '../../../shared/fixtures/sample.patch'
 import { diffThemeVars } from '../lib/diffTheme'
 import { useDiffViewerStore } from '../model/store'
@@ -34,8 +32,6 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
-  localStorage.removeItem(THEME_STORAGE_KEY)
-  useThemeStore.setState({ mode: 'light' })
 })
 
 describe('DiffViewer theme', () => {
@@ -74,48 +70,5 @@ describe('DiffViewer theme', () => {
     expect(darkRoot.style.getPropertyValue(INSERT_BG)).not.toBe(lightInsert)
     expect(darkRoot.style.getPropertyValue(DELETE_BG)).not.toBe(lightDelete)
     expect(darkRoot.style.getPropertyValue(TEXT)).not.toBe(lightText)
-  })
-
-  it('renders the dark values from the first render when the store starts dark', () => {
-    useThemeStore.setState({ mode: 'dark' })
-    const { container } = render(
-      <UiProvider>
-        <DiffViewer file={FILE} />
-      </UiProvider>,
-    )
-    expect(themeRoot(container).style.getPropertyValue(INSERT_BG)).toBe(
-      expectedVars(theme.darkAlgorithm)[INSERT_BG],
-    )
-  })
-
-  it('follows toggleTheme() through the real UiProvider without remounting', () => {
-    useThemeStore.setState({ mode: 'light' })
-    const { container } = render(
-      <UiProvider>
-        <DiffViewer file={FILE} />
-      </UiProvider>,
-    )
-    const rootBefore = themeRoot(container)
-    const tableBefore = rootBefore.querySelector('table.diff')
-    const lightInsert = rootBefore.style.getPropertyValue(INSERT_BG)
-    expect(lightInsert).toBe(expectedVars(theme.defaultAlgorithm)[INSERT_BG])
-
-    act(() => {
-      useThemeStore.getState().toggleTheme()
-    })
-
-    const rootAfter = themeRoot(container)
-    expect(rootAfter).toBe(rootBefore)
-    expect(rootAfter.querySelector('table.diff')).toBe(tableBefore)
-    expect(rootAfter.style.getPropertyValue(INSERT_BG)).toBe(
-      expectedVars(theme.darkAlgorithm)[INSERT_BG],
-    )
-    expect(rootAfter.style.getPropertyValue(INSERT_BG)).not.toBe(lightInsert)
-
-    act(() => {
-      useThemeStore.getState().toggleTheme()
-    })
-    expect(themeRoot(container)).toBe(rootBefore)
-    expect(rootBefore.style.getPropertyValue(INSERT_BG)).toBe(lightInsert)
   })
 })

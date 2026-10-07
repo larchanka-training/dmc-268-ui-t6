@@ -136,6 +136,7 @@ src/app/mocks/mockTransport.test.ts
 src/app/mocks/mockTransport.ts
 src/app/providers/QueryProvider.tsx
 src/app/providers/RunStreamBridge.tsx
+src/app/providers/UiProvider.diffTheme.test.tsx
 src/app/providers/UiProvider.test.tsx
 src/app/providers/UiProvider.tsx
 src/app/providers/index.ts
@@ -717,10 +718,12 @@ refractor, а не компонент — CSS Modules их всё равно п�
 `DiffSuggestion` рисуется через тот же `<Diff>`, не собственной таблицей: из `removedLines` и
 `addedText` собирается синтетический `FileDiff` с одним чанком (удалённые строки, затем
 добавленные, обе стороны нумеруются с 1; заголовок — `formatHunkHeader`) → `toHunks` →
-`tokensForHunks(filename, hunks, { diffTotalLines })` → `<Diff diffType="modify" viewType="unified"
-gutterType="none">`. Классы строк и токенов, переменные и `diff-theme.css` — те же, что у основного
-диффа. `filename` приходит из `InlineComment` (`file?.filename ?? finding.file`); бюджет Ф-18
-действует и здесь, неизвестное расширение — `tokens` не строится, без ошибки. Текст идёт через
+`tokensForHunks(filename, hunks)` → `<Diff diffType="modify" viewType="unified" gutterType="none">`;
+всё это в `useMemo` по `filename`, содержимому `removedLines` и `addedText` (массив
+`removedLines` на каждом рендере новый). Классы строк и токенов, переменные и `diff-theme.css` — те
+же, что у основного диффа. `filename` приходит из `InlineComment` (`file?.filename ?? finding.file`);
+бюджет Ф-18 действует и здесь — на файл, внутри `tokensForHunks` (> 1000 строк — без токенов, но
+строки рисуются), неизвестное расширение — `tokens` не строится, без ошибки. Текст идёт через
 React, без `innerHTML`.
 
 Новых зависимостей нет и темы Prism нет: цвета берутся из токенов antd, а CDN и внешние стили
@@ -729,13 +732,18 @@ React, без `innerHTML`.
 Что закреплено тестами: `lib/diffTheme.test.ts` — контраст (WCAG, альфа-цвета сперва кладутся на
 фон контейнера) в обеих темах: текст на каждой поверхности диффа (контейнер, строки, гаттеры,
 `-edit`, выделение) ≥ 4,5:1, цвет каждого слота на фоне контейнера и строк добавления / удаления
-≥ 3:1, ни один слот не равен цвету текста; согласованность `diff-theme.css` с `diffThemeVars`
-(нет цветовых литералов, у каждого класса ровно одно правило, на каждую переменную палитры есть
-ссылка и наоборот). `ui/DiffViewer.theme.test.tsx` — значения переменных на `.diff-theme`
-различаются под светлым и тёмным `ConfigProvider` и меняются после `toggleTheme()` (через настоящий
-`UiProvider`) без перемонтирования; `ui/DiffSuggestion.test.tsx` — тот же корень `.diff-theme` вне
-`DiffViewer` и подсветка `.ts` / `.py` правки. jsdom CSS не загружает, поэтому проверяются inline-значения и классы, а не вычисленные стили (отсюда и
-отдельный тест файла CSS с диска).
+≥ 3:1, ни один слот не равен цвету текста; литеральные роли токенов (добавление — `colorSuccessBg*`,
+удаление — `colorErrorBg*`, текст — `colorText`, линия пропуска — `colorError`); согласованность
+`diff-theme.css` с `diffThemeVars` (нет цветовых литералов, у каждого класса ровно одно правило, на
+каждую переменную палитры есть ссылка и наоборот, пары `.token.keyword` / `string` / `comment` /
+`number` / `function` → одноимённый слот) и подключение: `DiffViewer.tsx` и `DiffSuggestion.tsx`
+содержат `import './diff-theme.css'`. `ui/DiffViewer.theme.test.tsx` — значения переменных на
+`.diff-theme` различаются под светлым и тёмным `ConfigProvider`; первый кадр в тёмной теме и смена
+после `toggleTheme()` без перемонтирования (настоящий `UiProvider`) — в
+`app/providers/UiProvider.diffTheme.test.tsx`; `ui/DiffSuggestion.test.tsx` — тот же корень
+`.diff-theme` вне `DiffViewer`, подсветка `.ts` / `.py` правки и отсутствие токенов выше бюджета в
+1000 строк. jsdom CSS не загружает, поэтому проверяются inline-значения и классы, а не вычисленные
+стили (отсюда и отдельный тест файла CSS с диска).
 
 ---
 
