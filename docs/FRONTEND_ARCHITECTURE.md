@@ -591,6 +591,10 @@ Summary-only прогон рисует `RunDiff`: при `summaryOnly: true` —
 `entities/run`. Страница `RunDetailPage` (`/runs/:runId`) передаёт `run.summaryOnly` и
 `findings` из `RunDetail` в `RunDiff` (TanStack Query, ключи §2).
 
+Общий бюджет Ф-18 (`highlightBudgetLines`) считает только файлы с грамматикой и только строки
+патча как он пришёл (`budgetFiles`, до дозагрузки контекста), а лимит на файл в `tokensForHunks`
+по-прежнему видит развёрнутые хунки.
+
 Ключ привязки комментария — `commentKey` (`src/entities/diff/lib/commentKey.ts`), реализует
 правило N/I/D:
 

@@ -143,9 +143,8 @@ describe('highlightBudgetLines', () => {
     const noGrammar = addedLinesFile('docs/big.txt', 50)
     expect(countDiffSideLines(toHunks(noGrammar))).toBeGreaterThan(0)
 
-    expect(highlightBudgetLines([tsFile, noGrammar, pyFile])).toBe(
-      countDiffSideLines(toHunks(tsFile)) + countDiffSideLines(toHunks(pyFile)),
-    )
+    // Hand-derived from the hunk headers: a.ts `-1,1 +1,11` is 1 + 11 = 12, run.py `-1,1 +1,6` is 1 + 6 = 7.
+    expect(highlightBudgetLines([tsFile, noGrammar, pyFile])).toBe(19)
     expect(highlightBudgetLines([noGrammar])).toBe(0)
   })
 })
