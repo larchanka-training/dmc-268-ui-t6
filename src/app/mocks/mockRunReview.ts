@@ -2,6 +2,7 @@ import type { RawFileDiff } from '../../entities/diff'
 import type { FindingView } from '../../entities/review'
 import type { RunDetail, RunSession, Verdict } from '../../entities/run'
 import { DEMO_RUN_ID } from '../../shared/config/demoRun'
+import { HIGHLIGHT_PATCHES } from '../../shared/fixtures/highlight.patch'
 
 export const REVIEW_DEMO_RUN_ID = DEMO_RUN_ID
 export const REVIEW_SUMMARY_ONLY_RUN_ID = '11111111-1111-4111-8111-000000000008'
@@ -175,6 +176,27 @@ export const mockReviewFindings: FindingView[] = [
     confidence: 0.99,
     ruleName: null,
   },
+  {
+    id: '33333333-3333-4333-8333-000000000008',
+    file: 'src/utils/retry.ts',
+    oldLine: null,
+    newLine: 8,
+    endLine: 9,
+    side: 'RIGHT',
+    severity: 'medium',
+    category: 'performance',
+    title: 'Retry without backoff',
+    body: 'Failed attempts are retried immediately, which hammers a struggling dependency. Wait a growing delay between attempts.',
+    suggestion: [
+      'lastError = error',
+      '// back off before the next attempt',
+      'const delayMs = 2 ** attempt * 100',
+      "console.warn('task failed, retrying in', delayMs, 'ms')",
+      'await new Promise((resolve) => setTimeout(resolve, delayMs))',
+    ].join('\n'),
+    confidence: 0.85,
+    ruleName: 'retry-backoff',
+  },
 ]
 
 export function buildMockRunDetail(session: RunSession): RunDetail {
@@ -202,7 +224,7 @@ export function buildMockRunDetail(session: RunSession): RunDetail {
       severityCounts: {
         critical: 1,
         high: 2,
-        medium: 2,
+        medium: 3,
         low: 1,
         info: 1,
       },
@@ -243,7 +265,11 @@ export function mockRawDiffForRun(
     return summaryDiff
   }
   if (runId === REVIEW_DEMO_RUN_ID) {
-    return [...defaultDiff, { filename: 'package.json', patch: null }]
+    return [
+      ...defaultDiff,
+      ...HIGHLIGHT_PATCHES.map(({ filename, patch }) => ({ filename, patch })),
+      { filename: 'package.json', patch: null },
+    ]
   }
   return defaultDiff
 }
