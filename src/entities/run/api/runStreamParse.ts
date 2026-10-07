@@ -44,8 +44,12 @@ export function parseSseBuffer(buffer: string): ParsedSseBuffer {
       } else if (line.startsWith('event:')) {
         eventName = line.slice('event:'.length).trim()
       } else if (line.startsWith('id:')) {
-        id = line.slice('id:'.length).trim()
-        lastEventId = id
+        const value = line.slice('id:'.length).trim()
+        // SSE spec: an id field that contains NUL is ignored.
+        if (!value.includes('\0')) {
+          id = value
+          lastEventId = value
+        }
       } else if (line.startsWith('data:')) {
         dataLines.push(line.slice('data:'.length).trim())
       }

@@ -345,7 +345,14 @@ SSE-мост (Ф-14, **реализовано**; Refs ui#65): `RunStreamBridge` 
 `['runs', runId, 'diff']` и `['runs', runId, 'comments']` (дифф и комментарии подтягиваются вместе с прогоном).
 `EventSource` не используется (нет Bearer). `401` — refresh с лимитом повторов
 (`MAX_STREAM_401_RETRIES`), затем переподключение с backoff (`STREAM_RECONNECT_DELAY_MS`); refresh
-не удался — подписка прекращается (fail closed, §11). Контракт run session для api#20:
+не удался — подписка прекращается (fail closed, §11). Keep-alive (`: keepalive` раз в 15 с,
+`STREAM_KEEPALIVE_INTERVAL_MS`) ничего не инвалидирует. При переподключении клиент шлёт
+`Last-Event-ID` (последний `id:`, непрозрачная строка; пока `id` не было — без заголовка), а после
+второго и каждого следующего успешного подключения заново инвалидирует те же четыре ключа для
+каждого прогона с запросами в кэше (не префикс `['runs']` и не список). Watchdog: после первого
+keep-alive тишина дольше двух интервалов (30 с) обрывает соединение и ведёт к обычному
+переподключению; api без keep-alive watchdog не включает. В mock-режиме поток не открывается
+(`useRunStreamSubscription` выходит сразу). Контракт run session для api#20:
 [комментарий в api#20](https://github.com/larchanka-training/dmc-268-api-t6/issues/20#issuecomment-6016069919).
 
 `QueryProvider` также регистрирует `setOnLogout` → `queryClient.clear()`. `UiProvider` — antd
@@ -925,7 +932,7 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
 - **`PORT` в `vite.config.ts`** — нужен `@types/node` в `tsconfig.node.json` (роль 4); не сделано.
   С TS 6.0 `types` по умолчанию `[]`, поэтому пакет придётся назвать в `types` явно.
 - **SSE-мост** (§2, Ф-14) — реализован: `RunStreamBridge`, `runStreamConnect.ts`, лимит `401`,
-  reconnect; см. §2 и [`docs/plans/65-api20-comment.md`](plans/65-api20-comment.md).
+  reconnect, `Last-Event-ID`, keep-alive watchdog; см. §2 и [`docs/plans/65-api20-comment.md`](plans/65-api20-comment.md).
 - **`pages/review/ReviewPage.tsx`** — файл сохранён, но маршрут `/review` монтирует redirect
   (mock → demo run, prod → `/runs`); полноценная страница не в прод-маршрутизации (Refs ui#65).
 - **Fetch-клиент и авторизация** (Ф-15) — контракт авторизации и сессии ([решение техлида api#20 D4][tl-2026-09-27-api20] и `/api/auth/*` в [`openapi.yaml`][openapi], реализован в PR #55 и #63):

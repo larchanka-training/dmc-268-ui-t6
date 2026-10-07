@@ -10,52 +10,96 @@ export const MAX_STREAM_401_RETRIES = 2
 export const STREAM_RECONNECT_DELAY_MS = 3000
 export const MAX_STREAM_RECONNECT_DELAY_MS = 30_000
 
-function isAbortError(error: unknown): boolean {
-  return error instanceof Error && error.name === 'AbortError'
-}
+/** The server sends a `: keepalive` comment after this much idle time (SSE contract, api PR). */
+export const STREAM_KEEPALIVE_INTERVAL_MS = 15_000
 
 function isAborted(signal: AbortSignal): boolean {
   return signal.aborted
 }
 
-export async function connectRunStream(
+/** Silence for two keep-alive intervals means the connection is dead, not just idle. */
+const STREAM_WATCHDOG_TIMEOUT_MS = 2 * STREAM_KEEPALIVE_INTERVAL_MS
+
+/**
+ * What outlives one connection inside a single `runStreamUntilAborted` call: reconnects resume
+ * from it. Starts empty, so a server without `id:` or keep-alive never gets a header or a watchdog.
+ */
+export interface StreamSession {
+  /** Last `id:` received, an opaque string; empty before any. Sent back as `Last-Event-ID`. */
+  lastEventId: string
+  /** A comment frame (the keep-alive) arrived on some connection: the watchdog is armed from then on. */
+  sawKeepAlive: boolean
+  /** Connections so far that got a 200 with a body. */
+  connections: number
+}
+
+function createStreamSession(): StreamSession {
+  return { lastEventId: '', sawKeepAlive: false, connections: 0 }
+}
+
+/**
+ * `fetch` throws on a header value outside HTTP field-value bytes (NUL, other control characters,
+ * code points above 0xFF); such an id would break every reconnect, so it is never kept.
+ */
+const SENDABLE_EVENT_ID = /^[\t\x20-\x7e\x80-\xff]*$/
+
+/** The queries one `run.updated` event invalidates for a run; also used after a reconnect. */
+function invalidateRunQueries(runId: string): void {
+  void queryClient.invalidateQueries({ queryKey: runQueryKeys.detail(runId) })
+  void queryClient.invalidateQueries({ queryKey: runQueryKeys.actions(runId) })
+  void queryClient.invalidateQueries({ queryKey: runQueryKeys.diff(runId) })
+  void queryClient.invalidateQueries({ queryKey: runQueryKeys.comments(runId) })
+}
+
+/**
+ * Ids of the runs that have queries in the cache, from keys shaped `['runs', <id>, ...]`. The list
+ * key and the disabled-query placeholders (`['runs', 'detail', null]`, ...) are not run ids.
+ */
+function cachedRunIds(): Set<string> {
+  const [root, listSegment] = runQueryKeys.list()
+  const ids = new Set<string>()
+  for (const { queryKey } of queryClient.getQueryCache().getAll()) {
+    const [first, second] = queryKey
+    if (
+      first === root &&
+      typeof second === 'string' &&
+      second !== listSegment &&
+      !queryKey.includes(null)
+    ) {
+      ids.add(second)
+    }
+  }
+  return ids
+}
+
+/**
+ * Read one open stream until it ends, errors or goes silent. `connection` aborts this stream
+ * alone (the watchdog); `signal` is the outer shutdown switch.
+ */
+async function readStream(
+  body: ReadableStream<Uint8Array>,
   signal: AbortSignal,
-  token: string,
-  authRetries = 0,
+  connection: AbortController,
+  session: StreamSession,
 ): Promise<boolean> {
-  const url = resolveUrl(API_BASE_URL, endpoints.stream())
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'text/event-stream',
-    },
-    credentials: 'include',
-    signal,
-  })
-
-  if (response.status === 401) {
-    if (authRetries >= MAX_STREAM_401_RETRIES) {
-      return false
-    }
-    const newToken = await refreshAccessToken()
-    if (newToken && newToken !== token) {
-      return connectRunStream(signal, newToken, authRetries + 1)
-    }
-    return false
-  }
-
-  if (!response.ok || !response.body) {
-    return false
-  }
-
-  const reader = response.body.getReader()
+  const reader = body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
   let readChunk = false
+  let watchdog: ReturnType<typeof setTimeout> | undefined
+
+  const armWatchdog = (): void => {
+    clearTimeout(watchdog)
+    watchdog = setTimeout(() => {
+      connection.abort()
+    }, STREAM_WATCHDOG_TIMEOUT_MS)
+  }
 
   try {
-    while (!signal.aborted) {
+    if (session.sawKeepAlive) {
+      armWatchdog()
+    }
+    while (!connection.signal.aborted) {
       const { done, value } = await reader.read()
       if (done) {
         break
@@ -64,6 +108,16 @@ export async function connectRunStream(
       buffer += decoder.decode(value, { stream: true })
       const parsed = parseSseBuffer(buffer)
       buffer = parsed.rest
+      if (parsed.comments > 0) {
+        session.sawKeepAlive = true
+      }
+      if (parsed.lastEventId !== undefined && SENDABLE_EVENT_ID.test(parsed.lastEventId)) {
+        session.lastEventId = parsed.lastEventId
+      }
+      // Every chunk is a sign of life, not only a parsed event.
+      if (session.sawKeepAlive) {
+        armWatchdog()
+      }
       for (const frame of parsed.events) {
         if (frame.event !== 'run.updated') {
           continue
@@ -72,22 +126,88 @@ export async function connectRunStream(
         if (payload === null) {
           continue
         }
-        void queryClient.invalidateQueries({ queryKey: runQueryKeys.detail(payload.runId) })
-        void queryClient.invalidateQueries({ queryKey: runQueryKeys.actions(payload.runId) })
-        void queryClient.invalidateQueries({ queryKey: runQueryKeys.diff(payload.runId) })
-        void queryClient.invalidateQueries({ queryKey: runQueryKeys.comments(payload.runId) })
+        invalidateRunQueries(payload.runId)
       }
     }
   } catch (error: unknown) {
-    if (isAborted(signal) || isAbortError(error)) {
+    // An AbortError alone does not mean shutdown: the watchdog aborts the connection too.
+    if (isAborted(signal)) {
       throw error
     }
     if (readChunk) {
       return true
     }
+    // The outer signal is not aborted, so an aborted connection is the watchdog's: a silent
+    // stream that never delivered data, to reconnect with backoff and without an error log.
+    if (connection.signal.aborted) {
+      return false
+    }
     throw error
+  } finally {
+    clearTimeout(watchdog)
   }
   return readChunk
+}
+
+export async function connectRunStream(
+  signal: AbortSignal,
+  token: string,
+  authRetries = 0,
+  session: StreamSession = createStreamSession(),
+): Promise<boolean> {
+  // The watchdog aborts this connection through its own controller; the outer signal only
+  // forwards its abort, so a watchdog abort never reads as a shutdown.
+  const connection = new AbortController()
+  const forwardAbort = (): void => {
+    connection.abort()
+  }
+  if (signal.aborted) {
+    connection.abort()
+  } else {
+    signal.addEventListener('abort', forwardAbort, { once: true })
+  }
+
+  try {
+    const url = resolveUrl(API_BASE_URL, endpoints.stream())
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'text/event-stream',
+        ...(session.lastEventId === '' ? {} : { 'Last-Event-ID': session.lastEventId }),
+      },
+      credentials: 'include',
+      signal: connection.signal,
+    })
+
+    if (response.status === 401) {
+      if (authRetries >= MAX_STREAM_401_RETRIES) {
+        return false
+      }
+      const newToken = await refreshAccessToken()
+      if (newToken && newToken !== token) {
+        return await connectRunStream(signal, newToken, authRetries + 1, session)
+      }
+      return false
+    }
+
+    if (!response.ok || !response.body) {
+      return false
+    }
+
+    session.connections += 1
+    if (session.connections > 1) {
+      // Events sent while the stream was down are lost unless the server replays them; refetch
+      // what the cache holds. Duplicates are harmless: an event only invalidates queries.
+      for (const runId of cachedRunIds()) {
+        invalidateRunQueries(runId)
+      }
+    }
+
+    return await readStream(response.body, signal, connection, session)
+  } finally {
+    signal.removeEventListener('abort', forwardAbort)
+  }
 }
 
 export function sleep(ms: number, signal: AbortSignal): Promise<void> {
@@ -113,12 +233,13 @@ export async function runStreamUntilAborted(
 ): Promise<void> {
   let token = initialToken
   let reconnectDelay = STREAM_RECONNECT_DELAY_MS
+  const session = createStreamSession()
   while (!isAborted(signal)) {
     let gotChunk = false
     try {
-      gotChunk = await connectRunStream(signal, token)
+      gotChunk = await connectRunStream(signal, token, 0, session)
     } catch (error: unknown) {
-      if (isAborted(signal) || isAbortError(error)) {
+      if (isAborted(signal)) {
         return
       }
       console.error('run stream connection failed', error)

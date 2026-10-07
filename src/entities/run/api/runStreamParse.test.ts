@@ -85,6 +85,16 @@ describe('runStreamParse', () => {
     expect(lastEventId).toBe('9')
   })
 
+  it('ignores an id field that contains NUL and keeps the previous id', () => {
+    const { events, lastEventId } = parseSseBuffer(
+      `id: 7\nevent: run.updated\n${DATA}\n\nid: 8\u0000\nevent: run.updated\n${DATA}\n\n`,
+    )
+    expect(events).toHaveLength(2)
+    expect(events[0]?.id).toBe('7')
+    expect(events[1]).not.toHaveProperty('id')
+    expect(lastEventId).toBe('7')
+  })
+
   it('counts a keep-alive comment frame and yields no event for it', () => {
     const { events, rest, comments } = parseSseBuffer(': keepalive\n\n')
     expect(events).toStrictEqual([])
