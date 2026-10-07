@@ -1,14 +1,20 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import {
   AUTH_RETURN_TO_KEY,
+  clearAuthReturnTo,
   consumeAuthReturnTo,
   isSafeAuthReturnPath,
+  peekAuthReturnTo,
   saveAuthReturnTo,
 } from './returnTo'
 
 describe('auth returnTo', () => {
+  afterEach(() => {
+    sessionStorage.clear()
+  })
+
   it('stores and consumes a protected route', () => {
     saveAuthReturnTo('/runs', '?page=2')
     expect(consumeAuthReturnTo()).toBe('/runs?page=2')
@@ -44,5 +50,26 @@ describe('auth returnTo', () => {
     expect(consumeAuthReturnTo('/repositories')).toBe('/repositories')
     sessionStorage.setItem(AUTH_RETURN_TO_KEY, '//evil.com/phish')
     expect(consumeAuthReturnTo('/repositories')).toBe('/repositories')
+  })
+
+  it('peeks at the saved route without removing it', () => {
+    saveAuthReturnTo('/runs', '?page=2')
+    expect(peekAuthReturnTo()).toBe('/runs?page=2')
+    expect(peekAuthReturnTo()).toBe('/runs?page=2')
+    expect(sessionStorage.getItem(AUTH_RETURN_TO_KEY)).toBe('/runs?page=2')
+  })
+
+  it('peeks the fallback for a missing or unsafe value and leaves the key alone', () => {
+    expect(peekAuthReturnTo('/repositories')).toBe('/repositories')
+    sessionStorage.setItem(AUTH_RETURN_TO_KEY, '//evil.com/phish')
+    expect(peekAuthReturnTo('/repositories')).toBe('/repositories')
+    expect(sessionStorage.getItem(AUTH_RETURN_TO_KEY)).toBe('//evil.com/phish')
+  })
+
+  it('clears the saved route', () => {
+    saveAuthReturnTo('/runs')
+    clearAuthReturnTo()
+    expect(sessionStorage.getItem(AUTH_RETURN_TO_KEY)).toBeNull()
+    expect(peekAuthReturnTo('/repositories')).toBe('/repositories')
   })
 })

@@ -1,7 +1,12 @@
-import { lazy, type FC } from 'react'
+import { lazy, useEffect, type FC } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 
-import { useAuthStore, consumeAuthReturnTo } from '../../features/auth'
+import {
+  useAuthStore,
+  clearAuthReturnTo,
+  consumeAuthReturnTo,
+  peekAuthReturnTo,
+} from '../../features/auth'
 import { PageFallback } from './RouteLayouts'
 
 const LoginPage = lazy(() =>
@@ -46,19 +51,28 @@ export const RoutedLoginPage: FC = () => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   const isInitialized = useAuthStore((state) => state.isInitialized)
   const isLoading = useAuthStore((state) => state.isLoading)
+  const isRedirecting = isInitialized && !isLoading && isAuthenticated
+
+  // The target is only peeked while rendering (React StrictMode renders and runs effects twice);
+  // the key is removed after the redirect has been issued.
+  useEffect(() => {
+    if (isRedirecting) {
+      clearAuthReturnTo()
+    }
+  }, [isRedirecting])
 
   if (!isInitialized || isLoading) {
     return <PageFallback />
   }
 
   if (isAuthenticated) {
-    return <Navigate replace to={consumeAuthReturnTo('/repositories')} />
+    return <Navigate replace to={peekAuthReturnTo('/repositories')} />
   }
 
   return (
     <LoginPage
       onLoginSuccess={() => {
-        void navigate('/repositories', { replace: true })
+        void navigate(consumeAuthReturnTo('/repositories'), { replace: true })
       }}
     />
   )

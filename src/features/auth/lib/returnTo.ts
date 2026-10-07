@@ -36,13 +36,13 @@ export function saveAuthReturnTo(pathname: string, search = ''): void {
   }
 }
 
-export function consumeAuthReturnTo(fallback = '/repositories'): string {
+/** Reads the saved route without removing it: safe to call while rendering. */
+export function peekAuthReturnTo(fallback = '/repositories'): string {
   if (typeof window === 'undefined') {
     return fallback
   }
   try {
     const value = sessionStorage.getItem(AUTH_RETURN_TO_KEY)
-    sessionStorage.removeItem(AUTH_RETURN_TO_KEY)
     if (value === null) {
       return fallback
     }
@@ -56,4 +56,22 @@ export function consumeAuthReturnTo(fallback = '/repositories'): string {
     // ignore
   }
   return fallback
+}
+
+export function clearAuthReturnTo(): void {
+  if (typeof window === 'undefined') {
+    return
+  }
+  try {
+    sessionStorage.removeItem(AUTH_RETURN_TO_KEY)
+  } catch {
+    // ignore
+  }
+}
+
+/** Reads and removes the saved route. Event handlers and callbacks only, never render. */
+export function consumeAuthReturnTo(fallback = '/repositories'): string {
+  const target = peekAuthReturnTo(fallback)
+  clearAuthReturnTo()
+  return target
 }
