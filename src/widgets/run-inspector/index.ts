@@ -1,3 +1,4 @@
+export { RunControls } from './ui/RunControls'
 export { ActionTree } from './ui/ActionTree'
 export { RunHeader } from './ui/RunHeader'
 export { RunInspector } from './ui/RunInspector'

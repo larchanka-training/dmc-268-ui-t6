@@ -10,6 +10,42 @@ import { DiffViewer } from './DiffViewer'
 
 const FILE = fromPatch(SAMPLE_PATCH_A)
 
+const TS_HIGHLIGHT_FILE = fromPatch({
+  filename: 'src/app.ts',
+  patch: [
+    'diff --git a/src/app.ts b/src/app.ts',
+    'index 1111111..2222222 100644',
+    '--- a/src/app.ts',
+    '+++ b/src/app.ts',
+    '@@ -1,1 +1,2 @@',
+    '-const old = 1',
+    '+const value = 1',
+    '+export function run() {}',
+  ].join('\n'),
+})
+
+const PY_FILE = fromPatch({
+  filename: 'lib/run.py',
+  patch: [
+    'diff --git a/lib/run.py b/lib/run.py',
+    'index 1111111..2222222 100644',
+    '--- a/lib/run.py',
+    '+++ b/lib/run.py',
+    '@@ -1,2 +1,3 @@',
+    ' def main():',
+    '-    pass',
+    '+    return 1',
+    '+    x = 2',
+  ].join('\n'),
+})
+
+function expectSyntaxTokens(container: HTMLElement): void {
+  const codeCells = container.querySelectorAll('.diff-code')
+  expect(codeCells.length).toBeGreaterThan(0)
+  const tokens = container.querySelectorAll('.diff-code span.token')
+  expect(tokens.length).toBeGreaterThan(0)
+}
+
 function makeComment(overrides: Partial<ReviewComment> & { id: string }): ReviewComment {
   return {
     file: FILE.filename,
@@ -44,6 +80,32 @@ afterEach(() => {
 })
 
 describe('DiffViewer', () => {
+  it('highlights TypeScript in unified view (span.token in .diff-code)', () => {
+    const { container } = render(<DiffViewer comments={[]} file={TS_HIGHLIGHT_FILE} />)
+    expectSyntaxTokens(container)
+  })
+
+  it('highlights Python in unified view', () => {
+    const { container } = render(<DiffViewer comments={[]} file={PY_FILE} />)
+    expectSyntaxTokens(container)
+  })
+
+  it('highlights TypeScript in split view', () => {
+    const { container } = render(<DiffViewer comments={[]} file={TS_HIGHLIGHT_FILE} />)
+    act(() => {
+      useDiffViewerStore.getState().setViewType('split')
+    })
+    expectSyntaxTokens(container)
+  })
+
+  it('highlights Python in split view', () => {
+    const { container } = render(<DiffViewer comments={[]} file={PY_FILE} />)
+    act(() => {
+      useDiffViewerStore.getState().setViewType('split')
+    })
+    expectSyntaxTokens(container)
+  })
+
   it('renders the unified diff with a widget for the resolvable comment', () => {
     const { container } = render(<DiffViewer comments={COMMENTS} file={FILE} />)
     expect(container.querySelectorAll('.diff-line')).toHaveLength(10)
@@ -115,6 +177,36 @@ describe('DiffViewer', () => {
     const wrapper = row?.querySelector('.diff-widget-content > div')
     expect(wrapper?.children.length).toBe(3)
     expect(row?.querySelectorAll('.inline-comment')).toHaveLength(3)
+  })
+
+  it('deduplicates findings and comments that share the same id', () => {
+    const sharedId = '11111111-1111-4111-8111-111111111199'
+    render(
+      <DiffViewer
+        comments={[makeComment({ id: sharedId, newLine: 2, title: 'From comments' })]}
+        file={FILE}
+        findings={[
+          {
+            id: sharedId,
+            file: FILE.filename,
+            oldLine: null,
+            newLine: 2,
+            endLine: null,
+            side: 'RIGHT',
+            severity: 'medium',
+            category: 'readability',
+            title: 'From findings',
+            body: 'Prefer the finding payload',
+            suggestion: 'const x = 1',
+            confidence: 0.9,
+            ruleName: null,
+          },
+        ]}
+      />,
+    )
+    expect(screen.getByText('From findings')).toBeTruthy()
+    expect(screen.queryByText('From comments')).toBeNull()
+    expect(screen.getAllByTestId('inline-comment')).toHaveLength(1)
   })
 
   it('shows findings outside the loaded diff in a dedicated block', () => {

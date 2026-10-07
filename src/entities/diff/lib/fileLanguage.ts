@@ -2,7 +2,7 @@ const EXT_TO_LANG: Record<string, string> = {
   ts: 'typescript',
   tsx: 'tsx',
   js: 'javascript',
-  jsx: 'jsx',
+  jsx: 'tsx',
   md: 'markdown',
   json: 'json',
   css: 'css',

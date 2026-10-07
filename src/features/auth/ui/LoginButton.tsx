@@ -2,7 +2,8 @@ import { GithubOutlined, UserOutlined } from '@ant-design/icons'
 import { Button, Flex, Tooltip } from 'antd'
 import type { FC } from 'react'
 
-import { GITHUB_CLIENT_ID } from '../../../shared/config/env'
+import { GITHUB_CLIENT_ID, isMockMode } from '../../../shared/config/env'
+import { VITE_MOCKS_BUILD, mocksEnabledAtRuntime } from '../../../shared/config/buildFlags'
 import { useAuthStore } from '../model/store'
 
 export interface LoginButtonProps {
@@ -10,15 +11,17 @@ export interface LoginButtonProps {
   size?: 'small' | 'middle' | 'large'
 }
 
+const showDemoLogin = mocksEnabledAtRuntime(isMockMode)
+
 export const LoginButton: FC<LoginButtonProps> = ({
-  showMockButton = import.meta.env.VITE_USE_MOCKS === 'true',
+  showMockButton = showDemoLogin,
   size = 'middle',
 }) => {
   const loginWithGitHub = useAuthStore((state) => state.loginWithGitHub)
   const loginAsMockUser = useAuthStore((state) => state.loginAsMockUser)
   const isLoading = useAuthStore((state) => state.isLoading)
 
-  const isConfigured = Boolean(GITHUB_CLIENT_ID || import.meta.env.VITE_USE_MOCKS === 'true')
+  const isConfigured = Boolean(GITHUB_CLIENT_ID || isMockMode())
 
   const githubBtn = (
     <Button
@@ -44,7 +47,7 @@ export const LoginButton: FC<LoginButtonProps> = ({
         githubBtn
       )}
 
-      {showMockButton ? (
+      {VITE_MOCKS_BUILD && showDemoLogin && showMockButton ? (
         <Button
           aria-label="Войти как демо-пользователь"
           icon={<UserOutlined />}

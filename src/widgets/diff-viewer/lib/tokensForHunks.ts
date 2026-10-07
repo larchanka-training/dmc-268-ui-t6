@@ -1,33 +1,47 @@
 import { tokenize } from 'react-diff-view'
 import type { HunkData, HunkTokens } from 'react-diff-view'
-import { refractor } from 'refractor'
-import javascript from 'refractor/javascript'
-import json from 'refractor/json'
-import markdown from 'refractor/markdown'
-import tsx from 'refractor/tsx'
-import typescript from 'refractor/typescript'
 
-import { languageFromFilename } from '../../../entities/diff/lib/fileLanguage'
+import { languageFromFilename } from '../../../entities/diff'
+import { refractorForDiffView } from './refractorForDiffView'
 
-refractor.register(typescript)
-refractor.register(tsx)
-refractor.register(javascript)
-refractor.register(markdown)
-refractor.register(json)
+/**
+ * Sync highlight budget (Refs #65, AC 1.5): per-file and total across the diff view.
+ * Chosen ~1000 lines (~0.4s tokenize in Vitest/Node); API `summary_only` still applies above 3000.
+ */
+export const MAX_LINES_FOR_SYNC_HIGHLIGHT = 1000
+export const MAX_SYNC_HIGHLIGHT_TOTAL_LINES = 1000
 
-export function tokensForHunks(filename: string, hunks: HunkData[]): HunkTokens | undefined {
+export function countDiffSideLines(hunks: HunkData[]): number {
+  return hunks.reduce((sum, hunk) => sum + hunk.oldLines + hunk.newLines, 0)
+}
+
+export function tokensForHunks(
+  filename: string,
+  hunks: HunkData[],
+  options?: { diffTotalLines?: number },
+): HunkTokens | undefined {
   const language = languageFromFilename(filename)
   if (language === null || hunks.length === 0) {
+    return undefined
+  }
+
+  const totalBudget = options?.diffTotalLines
+  if (totalBudget !== undefined && totalBudget > MAX_SYNC_HIGHLIGHT_TOTAL_LINES) {
+    return undefined
+  }
+
+  if (countDiffSideLines(hunks) > MAX_LINES_FOR_SYNC_HIGHLIGHT) {
     return undefined
   }
 
   try {
     return tokenize(hunks, {
       highlight: true,
-      refractor,
+      refractor: refractorForDiffView,
       language,
     })
-  } catch {
+  } catch (error: unknown) {
+    console.error('tokensForHunks: tokenize failed', { filename, language, error })
     return undefined
   }
 }

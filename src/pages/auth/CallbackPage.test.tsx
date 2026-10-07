@@ -1,72 +1,126 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import React from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { useAuthStore } from '../../features/auth'
+vi.mock('../../shared/config/env', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../shared/config/env')>()
+  return {
+    ...actual,
+    USE_MOCKS: true,
+    isMockMode: () => true,
+  }
+})
+
+import { initMockTransport, withMockTransportOverlay } from '../../app/mocks/mockTransport'
+import { STATE_STORAGE_KEY, useAuthStore } from '../../features/auth'
+import { ApiError } from '../../shared/api/client'
 import { CallbackPage } from './CallbackPage'
 
-describe('CallbackPage', () => {
-  beforeEach(() => {
-    useAuthStore.setState({
-      isLoading: false,
-      error: null,
-      isAuthenticated: false,
-    })
-  })
+afterEach(() => {
+  cleanup()
+  sessionStorage.clear()
+  window.history.replaceState(null, '', '/')
+})
 
-  afterEach(() => {
-    cleanup()
-    vi.restoreAllMocks()
-  })
-
-  it('displays error if code query param is absent', async () => {
-    window.history.pushState({}, '', '/auth/callback')
+describe('CallbackPage OAuth errors', () => {
+  it('shows a fixed Russian message instead of error_description', async () => {
+    window.history.pushState({}, '', '/auth/callback?error=access_denied&error_description=Evil')
 
     render(<CallbackPage />)
+
     await waitFor(() => {
-      expect(screen.getByText('Ошибка авторизации')).toBeDefined()
+      expect(screen.getByText('Доступ отклонён пользователем на стороне GitHub')).toBeTruthy()
+    })
+    expect(screen.queryByText('Evil')).toBeNull()
+  })
+
+  it('clears OAuth state from sessionStorage when GitHub returns ?error=', async () => {
+    sessionStorage.setItem(STATE_STORAGE_KEY, 'saved_state')
+    window.history.pushState({}, '', '/auth/callback?error=access_denied')
+
+    render(<CallbackPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Доступ отклонён пользователем на стороне GitHub')).toBeTruthy()
+    })
+    expect(sessionStorage.getItem(STATE_STORAGE_KEY)).toBeNull()
+  })
+
+  it('shows Russian text when the callback API returns an English detail string', async () => {
+    initMockTransport()
+    withMockTransportOverlay((endpoint) => {
+      if (endpoint.path === '/auth/github/callback' && endpoint.method === 'POST') {
+        throw new ApiError(400, 'Bad Request', { detail: 'invalid GitHub authorization code' })
+      }
+      return undefined
+    })
+    sessionStorage.setItem(STATE_STORAGE_KEY, 'csrf_test_state')
+    window.history.pushState(
+      {},
+      '',
+      '/auth/callback?code=github_exchange_code&state=csrf_test_state',
+    )
+
+    render(<CallbackPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Недействительный код авторизации GitHub')).toBeTruthy()
     })
   })
 
-  it('renders CallbackPage inside StrictMode and exchanges code exactly once', async () => {
-    window.history.pushState({}, '', '/auth/callback?code=test_code_strict&state=xyz')
-
-    const handleCallbackSpy = vi.fn().mockResolvedValue(undefined)
-    useAuthStore.setState({
-      handleCallback: handleCallbackSpy,
+  it('shows a Russian schema message when the callback API returns 200 without accessToken', async () => {
+    initMockTransport()
+    withMockTransportOverlay((endpoint) => {
+      if (endpoint.path === '/auth/github/callback' && endpoint.method === 'POST') {
+        return {}
+      }
+      return undefined
     })
+    sessionStorage.setItem(STATE_STORAGE_KEY, 'csrf_test_state')
+    window.history.pushState(
+      {},
+      '',
+      '/auth/callback?code=github_exchange_code&state=csrf_test_state',
+    )
 
-    const onSuccess = vi.fn()
+    render(<CallbackPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Ответ сервера не прошёл проверку схемы')).toBeTruthy()
+    })
+  })
+
+  it('renders inside StrictMode and exchanges the OAuth code exactly once', async () => {
+    initMockTransport()
+    const handleCallback = vi.fn(() => Promise.resolve())
+    useAuthStore.setState({ handleCallback })
+    sessionStorage.setItem(STATE_STORAGE_KEY, 'csrf_test_state')
+    window.history.pushState(
+      {},
+      '',
+      '/auth/callback?code=github_exchange_code&state=csrf_test_state',
+    )
 
     render(
       <React.StrictMode>
-        <CallbackPage onSuccess={onSuccess} />
+        <CallbackPage />
       </React.StrictMode>,
     )
 
     await waitFor(() => {
-      expect(handleCallbackSpy).toHaveBeenCalledTimes(1)
-      expect(handleCallbackSpy).toHaveBeenCalledWith('test_code_strict', 'xyz')
-      expect(onSuccess).toHaveBeenCalledTimes(1)
+      expect(handleCallback).toHaveBeenCalledTimes(1)
     })
+    expect(handleCallback).toHaveBeenCalledWith('github_exchange_code', 'csrf_test_state')
   })
 
-  it('displays user-friendly error and clears state when GitHub returns error=access_denied', async () => {
-    sessionStorage.setItem('dmc_auth_oauth_state', 'active_state')
-    window.history.pushState({}, '', '/auth/callback?error=access_denied')
+  it('shows a Russian message when code is missing', async () => {
+    window.history.pushState({}, '', '/auth/callback')
 
-    const onBackToLogin = vi.fn()
-    render(<CallbackPage onBackToLogin={onBackToLogin} />)
+    render(<CallbackPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('Ошибка авторизации')).toBeDefined()
-      expect(screen.getByText('Доступ отклонён пользователем на стороне GitHub')).toBeDefined()
-      expect(sessionStorage.getItem('dmc_auth_oauth_state')).toBeNull()
+      expect(screen.getByText('Отсутствует код авторизации (параметр code не найден)')).toBeTruthy()
     })
-
-    const backButton = screen.getByRole('button', { name: /вернуться к экрану входа/i })
-    backButton.click()
-    expect(onBackToLogin).toHaveBeenCalledTimes(1)
   })
 })

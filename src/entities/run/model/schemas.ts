@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+// File import, not the review barrel: api `tests/generate_ui_zod_contracts.mjs`
+// loads this module in Node ESM, which does not resolve directory imports.
 import { FindingViewSchema } from '../../review/model/schemas'
 
 export const RunStatusSchema = z.enum([

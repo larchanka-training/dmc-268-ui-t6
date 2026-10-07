@@ -8,6 +8,8 @@ import {
 import { Button, Layout, Menu, theme } from 'antd'
 import { useState, type FC } from 'react'
 
+import { mocksEnabledAtRuntime } from '../../../shared/config/buildFlags'
+import { isMockMode } from '../../../shared/config/env'
 import styles from './AppLayout.module.css'
 
 const { Sider } = Layout
@@ -32,11 +34,15 @@ export const AppSidebar: FC<AppSidebarProps> = ({ currentPath = '/repositories',
       icon: <AuditOutlined />,
       label: 'Прогоны',
     },
-    {
-      key: '/review',
-      icon: <CodeOutlined />,
-      label: 'Ревью',
-    },
+    ...(mocksEnabledAtRuntime(isMockMode)
+      ? [
+          {
+            key: '/review',
+            icon: <CodeOutlined />,
+            label: 'Ревью',
+          },
+        ]
+      : []),
   ]
 
   const selectedKey =

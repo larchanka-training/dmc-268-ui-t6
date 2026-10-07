@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { DiffLineSchema, FileDiffSchema, FileSliceSchema, RawFileDiffSchema } from './schemas'
+import {
+  DiffLineSchema,
+  FileDiffSchema,
+  FileSliceQuerySchema,
+  FileSliceSchema,
+  RawFileDiffSchema,
+} from './schemas'
 
 describe('DiffLineSchema', () => {
   it('accepts a context line with both oldLine and newLine set', () => {
@@ -95,5 +101,19 @@ describe('FileSliceSchema', () => {
       nextOffset: null,
     }
     expect(FileSliceSchema.safeParse(fileSlice).success).toBe(false)
+  })
+})
+
+describe('FileSliceQuerySchema', () => {
+  it('rejects a limit above 500', () => {
+    expect(
+      FileSliceQuerySchema.safeParse({ path: 'src/a.ts', offset: 0, limit: 501 }).success,
+    ).toBe(false)
+  })
+
+  it('accepts a limit of 500', () => {
+    expect(
+      FileSliceQuerySchema.safeParse({ path: 'src/a.ts', offset: 0, limit: 500 }).success,
+    ).toBe(true)
   })
 })

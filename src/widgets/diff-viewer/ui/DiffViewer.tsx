@@ -1,4 +1,5 @@
 import type { JSX, ReactElement, ReactNode } from 'react'
+import { useMemo } from 'react'
 import { Alert, Segmented, Typography } from 'antd'
 import { Decoration, Diff, Hunk } from 'react-diff-view'
 import type { HunkData } from 'react-diff-view'
@@ -7,7 +8,7 @@ import 'react-diff-view/style/index.css'
 import type { FileDiff } from '../../../entities/diff'
 import { commentKey, toHunks } from '../../../entities/diff'
 import type { FindingView, ReviewComment } from '../../../entities/review'
-import { reviewCommentToFinding } from '../../../entities/review/lib/reviewCommentToFinding'
+import { reviewCommentToFinding } from '../../../entities/review'
 import { tokensForHunks } from '../lib/tokensForHunks'
 import type { DiffViewType } from '../model/store'
 import { useDiffViewerStore } from '../model/store'
@@ -20,6 +21,7 @@ interface DiffViewerProps {
   findings?: FindingView[]
   comments?: ReviewComment[]
   totalLines?: number
+  diffTotalLines?: number
   onLoadMore?: (gap: ContextGap) => void
 }
 
@@ -72,13 +74,25 @@ function mergeFindings(findings: FindingView[], comments: ReviewComment[]): Find
   if (comments.length === 0) {
     return findings
   }
-  return [...findings, ...comments.map(reviewCommentToFinding)]
+  const seen = new Set(findings.map((finding) => finding.id))
+  const fromComments = comments
+    .map(reviewCommentToFinding)
+    .filter((finding) => !seen.has(finding.id))
+  return [...findings, ...fromComments]
 }
 
 export function DiffViewer(props: DiffViewerProps): JSX.Element {
-  const { file, findings = [], comments = [], totalLines, onLoadMore } = props
+  const { file, findings = [], comments = [], totalLines, diffTotalLines, onLoadMore } = props
   const viewType = useDiffViewerStore((s) => s.viewType)
   const setViewType = useDiffViewerStore((s) => s.setViewType)
+  const hunks = useMemo(
+    () => (file.hasPatch && file.chunks.length > 0 ? toHunks(file) : []),
+    [file],
+  )
+  const tokens = useMemo(
+    () => tokensForHunks(file.filename, hunks, { diffTotalLines }),
+    [diffTotalLines, file.filename, hunks],
+  )
 
   if (!file.hasPatch) {
     return (
@@ -98,7 +112,6 @@ export function DiffViewer(props: DiffViewerProps): JSX.Element {
     )
   }
 
-  const hunks = toHunks(file)
   const fileFindings = mergeFindings(findings, comments).filter((f) => f.file === file.filename)
 
   const outOfDiff: FindingView[] = []
@@ -138,8 +151,6 @@ export function DiffViewer(props: DiffViewerProps): JSX.Element {
         </div>
       )
   }
-
-  const tokens = tokensForHunks(file.filename, hunks)
 
   const renderHunks = (hunksArg: HunkData[]): ReactElement[] => {
     if (!onLoadMore) {

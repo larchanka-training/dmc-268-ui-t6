@@ -3,8 +3,7 @@ import type { ColumnsType } from 'antd/es/table'
 import type { FC } from 'react'
 import { useNavigate } from 'react-router'
 
-import { statusColor, type RunSession, type RunStatus } from '../../entities/run'
-import { useRunList } from '../../entities/run/api'
+import { statusColor, useRunList, type RunSession, type RunStatus } from '../../entities/run'
 
 const { Title, Text } = Typography
 

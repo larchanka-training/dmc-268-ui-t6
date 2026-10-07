@@ -14,6 +14,13 @@ describe('endpoints', () => {
     expect(endpoints.runs.cancel('x').method).toBe('POST')
   })
 
+  it('builds the rerun endpoint with POST', () => {
+    expect(endpoints.runs.rerun('x')).toEqual({
+      method: 'POST',
+      path: '/runs/x/rerun',
+    })
+  })
+
   it('builds auth endpoints correctly', () => {
     expect(endpoints.auth.githubCallback()).toEqual({
       method: 'POST',

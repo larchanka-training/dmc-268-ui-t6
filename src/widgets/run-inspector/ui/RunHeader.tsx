@@ -4,6 +4,7 @@ import { Descriptions, Space, Tag, Typography } from 'antd'
 import type { RunSession, SeverityCounts, Verdict } from '../../../entities/run'
 import { isStaleRunning, statusColor } from '../../../entities/run'
 import { formatDateTime, formatDuration, runDuration } from '../lib/format'
+import { safeHttpUrl } from '../lib/safeHttpUrl'
 
 interface RunHeaderProps {
   run: RunSession
@@ -49,16 +50,19 @@ export function RunHeader(props: RunHeaderProps): JSX.Element {
   const duration = runDuration(run, now)
   const pr = run.pullRequest
   const refs = formatRefs(pr.headRef, pr.baseRef)
+  const prHref = safeHttpUrl(pr.url)
 
   const items = [
     { key: 'repo', label: 'Репозиторий', children: pr.repo },
     {
       key: 'pullRequest',
       label: 'PR',
-      children: (
-        <a href={pr.url} rel="noreferrer" target="_blank">
+      children: prHref ? (
+        <a href={prHref} rel="noreferrer" target="_blank">
           {`#${String(pr.number)} ${pr.title}`}
         </a>
+      ) : (
+        `#${String(pr.number)} ${pr.title}`
       ),
     },
     { key: 'headSha', label: 'Commit', children: shortSha(pr.headSha) },

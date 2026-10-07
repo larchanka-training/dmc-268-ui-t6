@@ -94,6 +94,78 @@ describe('App root integration and protected routes', () => {
     expect(useAuthStore.getState().isAuthenticated).toBe(false)
   })
 
+  it('calls GET /api/auth/me exactly once when the cabinet loads after refresh', async () => {
+    window.history.pushState({}, '', '/repositories')
+    const mockUser = {
+      id: 114473628,
+      login: 'skvertl',
+      name: 'Denis',
+      avatarUrl: null,
+    }
+    const mockRepo = {
+      id: 'a1b2c3d4-e5f6-4890-abcd-ef1234567890',
+      fullName: 'larchanka-training/dmc-268-ui-t6',
+      url: 'https://github.com/larchanka-training/dmc-268-ui-t6',
+      defaultBranch: 'main',
+      enabled: true,
+      defaultEngine: 'fast',
+      waitForCi: 'auto',
+      maxComments: 10,
+      reviewEvent: 'COMMENT',
+    }
+    let meCalls = 0
+
+    globalThis.fetch = vi.fn().mockImplementation((url: RequestInfo | URL) => {
+      const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url
+      if (urlStr.includes('/auth/refresh')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              accessToken: 'valid_jwt',
+              tokenType: 'Bearer',
+              expiresIn: 900,
+              user: mockUser,
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          ),
+        )
+      }
+      if (urlStr.includes('/auth/me')) {
+        meCalls += 1
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              ...mockUser,
+              workspaces: [
+                { id: '123e4567-e89b-12d3-a456-426614174000', name: 'ws', installationId: 1 },
+              ],
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          ),
+        )
+      }
+      if (urlStr.includes('/repos')) {
+        return Promise.resolve(
+          new Response(JSON.stringify([mockRepo]), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        )
+      }
+      return Promise.resolve(new Response('{}', { status: 200 }))
+    })
+
+    render(<App />)
+
+    await waitFor(
+      () => {
+        expect(screen.getByText('Подключенные репозитории')).toBeDefined()
+      },
+      { timeout: 5000 },
+    )
+    expect(meCalls).toBe(1)
+  })
+
   it('renders repositories when authenticated and navigates to /login after logout', async () => {
     window.history.pushState({}, '', '/repositories')
     const mockUser = {

@@ -1,18 +1,43 @@
 import type { JSX } from 'react'
 import { Alert, List } from 'antd'
 
-import type { FileDiff } from '../../../entities/diff'
-import type { FindingView } from '../../../entities/review'
+import { toHunks, type FileDiff } from '../../../entities/diff'
+import { countDiffSideLines } from '../lib/tokensForHunks'
+import type { FindingView, ReviewComment } from '../../../entities/review'
+import type { ContextGap } from '../model/types'
+import { InlineComment } from './InlineComment'
 import { DiffViewer } from './DiffViewer'
 
 interface RunDiffProps {
   summaryOnly: boolean
   files: FileDiff[]
   findings: FindingView[]
+  comments?: ReviewComment[]
+  fileTotalLines?: Record<string, number>
+  onLoadMore?: (file: FileDiff, gap: ContextGap) => void
+}
+
+function findingsOutsideVisibleDiff(files: FileDiff[], findings: FindingView[]): FindingView[] {
+  const byFilename = new Map(files.map((file) => [file.filename, file]))
+  return findings.filter((finding) => {
+    const file = byFilename.get(finding.file)
+    if (file === undefined) {
+      return true
+    }
+    return !file.hasPatch || file.chunks.length === 0
+  })
 }
 
 export function RunDiff(props: RunDiffProps): JSX.Element {
-  const { summaryOnly, files, findings } = props
+  const { summaryOnly, files, findings, comments = [], fileTotalLines, onLoadMore } = props
+
+  const outsideFindings = findingsOutsideVisibleDiff(files, findings)
+  const diffTotalLines = files.reduce((sum, file) => {
+    if (!file.hasPatch || file.chunks.length === 0) {
+      return sum
+    }
+    return sum + countDiffSideLines(toHunks(file))
+  }, 0)
 
   if (summaryOnly) {
     return (
@@ -26,6 +51,25 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
           dataSource={files.map((f) => f.filename)}
           renderItem={(filename) => <List.Item>{filename}</List.Item>}
         />
+        {outsideFindings.length > 0 ? (
+          <Alert
+            data-testid="findings-outside-diff"
+            description={
+              <div>
+                {outsideFindings.map((finding) => (
+                  <InlineComment
+                    file={{ filename: finding.file, chunks: [], hasPatch: false }}
+                    finding={finding}
+                    key={finding.id}
+                  />
+                ))}
+              </div>
+            }
+            style={{ marginTop: 12 }}
+            title="Замечания вне диффа"
+            type="warning"
+          />
+        ) : null}
       </div>
     )
   }
@@ -34,9 +78,41 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
     <div>
       {files.map((file) => (
         <div key={file.filename}>
-          <DiffViewer file={file} findings={findings} />
+          <DiffViewer
+            comments={comments}
+            diffTotalLines={diffTotalLines}
+            file={file}
+            findings={findings}
+            onLoadMore={
+              onLoadMore
+                ? (gap) => {
+                    onLoadMore(file, gap)
+                  }
+                : undefined
+            }
+            totalLines={fileTotalLines?.[file.filename]}
+          />
         </div>
       ))}
+      {outsideFindings.length > 0 ? (
+        <Alert
+          data-testid="findings-outside-diff"
+          description={
+            <div>
+              {outsideFindings.map((finding) => (
+                <InlineComment
+                  file={{ filename: finding.file, chunks: [], hasPatch: false }}
+                  finding={finding}
+                  key={finding.id}
+                />
+              ))}
+            </div>
+          }
+          style={{ marginTop: 12 }}
+          title="Замечания вне диффа"
+          type="warning"
+        />
+      ) : null}
     </div>
   )
 }

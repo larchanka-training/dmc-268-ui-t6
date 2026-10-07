@@ -2,11 +2,14 @@ import 'antd/dist/reset.css'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
+import { isMockMode } from './shared/config/env'
 
 async function bootstrap() {
-  if (import.meta.env.VITE_USE_MOCKS === 'true') {
-    const { initMockTransport } = await import('./app/mocks/mockTransport')
-    initMockTransport()
+  if (__VITE_MOCKS_BUILD__ || import.meta.env.DEV) {
+    if (__VITE_MOCKS_BUILD__ || isMockMode()) {
+      const { initMockTransport } = await import('./app/mocks/mockTransport')
+      initMockTransport()
+    }
   }
 
   const rootElement = document.getElementById('root')

@@ -1,7 +1,7 @@
 import { lazy, type FC } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 
-import { useAuthStore } from '../../features/auth'
+import { useAuthStore, consumeAuthReturnTo } from '../../features/auth'
 import { PageFallback } from './RouteLayouts'
 
 const LoginPage = lazy(() =>
@@ -21,6 +21,9 @@ const RunsPage = lazy(() =>
 const RunDetailPage = lazy(() =>
   import('../../pages/runs/RunDetailPage').then((m) => ({ default: m.RunDetailPage })),
 )
+const ReviewRedirect = lazy(() =>
+  import('../../pages/review/ReviewRedirect').then((m) => ({ default: m.ReviewRedirect })),
+)
 
 export const RoutedRepositoriesPage: FC = () => {
   return <RepositoriesPage />
@@ -34,6 +37,10 @@ export const RoutedRunDetailPage: FC = () => {
   return <RunDetailPage />
 }
 
+export const RoutedReviewRedirectPage: FC = () => {
+  return <ReviewRedirect />
+}
+
 export const RoutedLoginPage: FC = () => {
   const navigate = useNavigate()
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
@@ -45,7 +52,7 @@ export const RoutedLoginPage: FC = () => {
   }
 
   if (isAuthenticated) {
-    return <Navigate replace to="/repositories" />
+    return <Navigate replace to={consumeAuthReturnTo('/repositories')} />
   }
 
   return (
@@ -69,7 +76,7 @@ export const RoutedCallbackPage: FC = () => {
         void navigate('/login', { replace: true })
       }}
       onSuccess={() => {
-        void navigate('/repositories', { replace: true })
+        void navigate(consumeAuthReturnTo('/repositories'), { replace: true })
       }}
     />
   )

@@ -90,4 +90,21 @@ describe('RunHeader PR metadata', () => {
     expect(screen.queryByText(/→/)).toBeNull()
     expect(screen.queryByText('Blocking')).toBeNull()
   })
+
+  it('does not render a link for unsafe PR URLs', () => {
+    render(
+      <RunHeader
+        now={new Date('2026-09-18T12:00:00.000Z')}
+        run={{
+          ...baseRun,
+          pullRequest: {
+            ...baseRun.pullRequest,
+            url: 'javascript:alert(1)',
+          },
+        }}
+      />,
+    )
+    expect(screen.queryByRole('link')).toBeNull()
+    expect(screen.getByText(/#34/)).toBeTruthy()
+  })
 })

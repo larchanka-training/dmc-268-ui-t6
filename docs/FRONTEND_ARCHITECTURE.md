@@ -43,6 +43,8 @@ antd, TanStack Query и jsdom — патчи от 2026-09-24.
 | Ф-15 | Авторизация — GitHub App user authorization; access-токен только в памяти, refresh — httpOnly-cookie; fail closed                                               | [решение техлида][tl-2026-09-27-api20], api#20 D4; токен в памяти — дефолт плана api#20; fail closed, общий refresh, старт refresh → `/me` — правила клиента (§11).                                         |
 | Ф-16 | Вердикт (`blocking`/`attention`/`clean`) и `severityCounts` считает сервер; Critical/Warning/Info — группировка в UI                                            | [решение техлида][tl-2026-09-27-api20], api#20 D3: UI вердикт сам не выводит, API отдаёт пять уровней severity (§4).                                                                                        |
 | Ф-17 | Репозиторий подключается установкой GitHub App; настройки — `PATCH /api/repos/{id}`                                                                             | [решение техлида][tl-2026-09-27-api20], api#20 D10: `POST /api/repos` нет; поля настроек — дефолт, утверждённый с планом api#20 (§11).                                                                      |
+| Ф-18 | Синхронная подсветка диффа — бюджет ~1000 строк на файл и на весь дифф; выше — без `tokenize` (worker — follow-up)                                              | AC ui#65 ч. 1; API `summary_only` >3000 строк; замеры в `docs/plans/65-plan.md` (Refs ui#65).                                                                                                               |
+| Ф-19 | Список PR репозитория (`GET /repos/{id}/pulls`) в UI **не** входит в scope #65; навигация — со страницы репозиториев / внешняя ссылка на GitHub                 | Открытый вопрос плана закрыт: follow-up issue при появлении API в продукте (Refs ui#65).                                                                                                                    |
 
 Ф-11 уточнено 2026-09-24 (#49): TypeScript поднят 5.9.3 → 6.0.3. Потолок — именно 6.0.x, а не
 «6.x»: у TypeScript 7.0 нет JS API компилятора, поэтому peer typescript-eslint остаётся
@@ -93,7 +95,13 @@ flowchart TD
 Правила:
 
 - импорты — только вниз по стрелке; наверх и «вбок» — нельзя;
-- срезы одного слоя друг друга не импортируют (кроме `shared`, у него срезов нет);
+- срезы одного слоя друг друга не импортируют (кроме `shared`, у него срезов нет).
+  Исключение: `entities/run` импортирует `FindingViewSchema` из `entities/review`
+  (разбор `findings[]` в `RunDetail`). `entities/run/api` берёт схему из публичного
+  индекса; `entities/run/model/schemas.ts` импортирует файл
+  `entities/review/model/schemas.ts` напрямую — генератор снимка Zod в api
+  (`tests/generate_ui_zod_contracts.mjs`) грузит схемы в Node ESM, а Node не
+  резолвит импорт каталога. ESLint `no-restricted-imports` это допускает;
 - `shared` никогда не импортирует `entities` (граница из плана, D18: `shared/api/endpoints.ts` —
   только пути/методы, domain-agnostic; привязка «эндпоинт → Zod-схема» — в `entities/*/api`);
 - файл компонента экспортирует только компоненты — следствие `react-refresh` (тулинг PR #26):
@@ -124,12 +132,17 @@ src/app/mocks/mockRunReview.test.ts
 src/app/mocks/mockRunReview.ts
 src/app/mocks/mockRunsList.fixture.test.ts
 src/app/mocks/mockRunsList.fixture.ts
+src/app/mocks/mockTransport.test.ts
 src/app/mocks/mockTransport.ts
 src/app/providers/QueryProvider.tsx
+src/app/providers/RunStreamBridge.tsx
 src/app/providers/UiProvider.test.tsx
 src/app/providers/UiProvider.tsx
 src/app/providers/index.ts
 src/app/providers/queryClient.ts
+src/app/providers/runStreamConnect.test.ts
+src/app/providers/runStreamConnect.ts
+src/app/providers/useRunStream.ts
 src/app/routes.tsx
 src/entities/diff/api/index.test.ts
 src/entities/diff/api/index.ts
@@ -138,6 +151,7 @@ src/entities/diff/lib/commentKey.test.ts
 src/entities/diff/lib/commentKey.ts
 src/entities/diff/lib/expandContext.test.ts
 src/entities/diff/lib/expandContext.ts
+src/entities/diff/lib/extractNewSideLines.test.ts
 src/entities/diff/lib/extractNewSideLines.ts
 src/entities/diff/lib/fileLanguage.ts
 src/entities/diff/lib/fromPatch.test.ts
@@ -151,6 +165,7 @@ src/entities/repository/api/index.ts
 src/entities/repository/index.ts
 src/entities/repository/model/schemas.test.ts
 src/entities/repository/model/schemas.ts
+src/entities/review/api/index.test.ts
 src/entities/review/api/index.ts
 src/entities/review/index.ts
 src/entities/review/lib/findingAnchor.ts
@@ -158,10 +173,13 @@ src/entities/review/lib/reviewCommentToFinding.ts
 src/entities/review/lib/severityBadge.ts
 src/entities/review/model/schemas.test.ts
 src/entities/review/model/schemas.ts
+src/entities/run/api/fetchRunActions.test.ts
 src/entities/run/api/fetchRunDetail.test.ts
 src/entities/run/api/fetchRunList.test.ts
 src/entities/run/api/index.test.ts
 src/entities/run/api/index.ts
+src/entities/run/api/runStreamParse.test.ts
+src/entities/run/api/runStreamParse.ts
 src/entities/run/index.ts
 src/entities/run/lib/duoActions.fixture.ts
 src/entities/run/lib/groupActions.test.ts
@@ -177,6 +195,10 @@ src/entities/user/model/schemas.test.ts
 src/entities/user/model/schemas.ts
 src/features/.gitkeep
 src/features/auth/index.ts
+src/features/auth/lib/authCallbackErrors.test.ts
+src/features/auth/lib/authCallbackErrors.ts
+src/features/auth/lib/returnTo.test.ts
+src/features/auth/lib/returnTo.ts
 src/features/auth/model/store.test.ts
 src/features/auth/model/store.ts
 src/features/auth/ui/LoginButton.test.tsx
@@ -193,6 +215,8 @@ src/main.tsx
 src/pages/auth/CallbackPage.module.css
 src/pages/auth/CallbackPage.test.tsx
 src/pages/auth/CallbackPage.tsx
+src/pages/auth/oauthErrors.test.ts
+src/pages/auth/oauthErrors.ts
 src/pages/login/LoginPage.module.css
 src/pages/login/LoginPage.test.tsx
 src/pages/login/LoginPage.tsx
@@ -203,16 +227,24 @@ src/pages/repositories/lib/formatError.ts
 src/pages/review/.gitkeep
 src/pages/review/ReviewPage.module.css
 src/pages/review/ReviewPage.tsx
+src/pages/review/ReviewRedirect.test.tsx
+src/pages/review/ReviewRedirect.tsx
 src/pages/runs/.gitkeep
+src/pages/runs/RunDetailPage.test.tsx
 src/pages/runs/RunDetailPage.tsx
 src/pages/runs/RunsPage.module.css
 src/pages/runs/RunsPage.test.tsx
 src/pages/runs/RunsPage.tsx
+src/pages/runs/lib/runLoadErrors.test.ts
+src/pages/runs/lib/runLoadErrors.ts
+src/shared/api/apiErrorMessage.test.ts
+src/shared/api/apiErrorMessage.ts
 src/shared/api/client.test.ts
 src/shared/api/client.ts
 src/shared/api/endpoints.test.ts
 src/shared/api/endpoints.ts
 src/shared/api/schemas.ts
+src/shared/config/buildFlags.ts
 src/shared/config/demoRun.ts
 src/shared/config/env.test.ts
 src/shared/config/env.ts
@@ -224,8 +256,13 @@ src/widgets/app-layout/ui/AppHeader.tsx
 src/widgets/app-layout/ui/AppLayout.module.css
 src/widgets/app-layout/ui/AppLayout.test.tsx
 src/widgets/app-layout/ui/AppLayout.tsx
+src/widgets/app-layout/ui/AppSidebar.test.tsx
 src/widgets/app-layout/ui/AppSidebar.tsx
 src/widgets/diff-viewer/index.ts
+src/widgets/diff-viewer/lib/contextChunkSize.test.ts
+src/widgets/diff-viewer/lib/contextChunkSize.ts
+src/widgets/diff-viewer/lib/refractorForDiffView.test.ts
+src/widgets/diff-viewer/lib/refractorForDiffView.ts
 src/widgets/diff-viewer/lib/tokensForHunks.test.ts
 src/widgets/diff-viewer/lib/tokensForHunks.ts
 src/widgets/diff-viewer/model/store.ts
@@ -244,8 +281,12 @@ src/widgets/repository-list/ui/RepositoryList.test.tsx
 src/widgets/repository-list/ui/RepositoryList.tsx
 src/widgets/run-inspector/index.ts
 src/widgets/run-inspector/lib/format.ts
+src/widgets/run-inspector/lib/safeHttpUrl.test.ts
+src/widgets/run-inspector/lib/safeHttpUrl.ts
 src/widgets/run-inspector/model/store.ts
 src/widgets/run-inspector/ui/ActionTree.tsx
+src/widgets/run-inspector/ui/RunControls.test.tsx
+src/widgets/run-inspector/ui/RunControls.tsx
 src/widgets/run-inspector/ui/RunHeader.test.tsx
 src/widgets/run-inspector/ui/RunHeader.tsx
 src/widgets/run-inspector/ui/RunInspector.test.tsx
@@ -267,38 +308,40 @@ src/widgets/run-inspector/ui/RunInspector.tsx
 
 ## 2. Состояние
 
-| Данное                                | Где живёт                                                  | Инвалидация                                   |
-| ------------------------------------- | ---------------------------------------------------------- | --------------------------------------------- |
-| Список прогонов                       | TanStack Query, ключ `['runs', query]`                     | по времени (`staleTime: 30s`) + `run.updated` |
-| Прогон (детали)                       | TanStack Query, ключ `['runs', id]`                        | `run.updated` для этого `runId`               |
-| Действия прогона                      | TanStack Query, ключ `['runs', id, 'actions']`             | вместе с прогоном                             |
-| Дифф прогона                          | TanStack Query, ключ `['runs', id, 'diff']`                | не меняется после публикации                  |
-| Комментарии ревью                     | TanStack Query, ключ `['runs', id, 'comments']`            | вместе с прогоном                             |
-| Дочитанные срезы файла                | TanStack Query, ключ `['runs', id, 'files', path, offset]` | не инвалидируется (append-only)               |
-| `viewType` (unified/split)            | Zustand, `widgets/diff-viewer/model/store.ts`              | — (UI-состояние, не сервер)                   |
-| `selectedFile` (diff-viewer)          | Zustand, `widgets/diff-viewer/model/store.ts`              | —                                             |
-| `expandedKeys`, `selectedActionIndex` | Zustand, `widgets/run-inspector/model/store.ts`            | —                                             |
-| Черновики комментариев                | —                                                          | future (не реализовано в этом спринте)        |
+| Данное                                | Где живёт                                                                                                                  | Инвалидация                                        |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| Список прогонов                       | TanStack Query, ключ `['runs', 'list']` (дефолтный query)                                                                  | по времени (`staleTime: 30s`) + `run.updated`      |
+| Прогон (детали)                       | TanStack Query, ключ `['runs', id]`                                                                                        | `run.updated` для этого `runId`                    |
+| Действия прогона                      | TanStack Query, ключ `['runs', id, 'actions']`                                                                             | вместе с прогоном                                  |
+| Дифф прогона                          | TanStack Query, ключ `['runs', id, 'diff']`                                                                                | `run.updated` / SSE (Refs ui#65)                   |
+| Комментарии ревью                     | TanStack Query, ключ `['runs', id, 'comments']`                                                                            | вместе с прогоном                                  |
+| Дочитанные срезы файла                | `useState` на `RunDetailPage` (слияние в `FileDiff`); ключ Query `diffQueryKeys.fileSlice` зарезервирован, не используется | не инвалидируется (append-only, живёт с страницей) |
+| `viewType` (unified/split)            | Zustand, `widgets/diff-viewer/model/store.ts`                                                                              | — (UI-состояние, не сервер)                        |
+| `selectedFile` (diff-viewer)          | Zustand, `widgets/diff-viewer/model/store.ts`                                                                              | —                                                  |
+| `expandedKeys`, `selectedActionIndex` | Zustand, `widgets/run-inspector/model/store.ts`                                                                            | —                                                  |
+| Черновики комментариев                | —                                                                                                                          | future (не реализовано в этом спринте)             |
 
 TanStack Query — не замена Zustand, а дополнение: серверный кэш и клиентский UI-стейт разнесены
 по разным сторонам (issue AC явно требует эту формулировку). Стор Zustand живёт в виджете, а не в
 `shared` — UI-состояние принадлежит домену виджета, `shared` о нём не знает (план, D17).
 
-SSE-мост (follow-up, **не реализовано**; Ф-14): `app/providers` открывает
-`fetch(API_BASE_URL + '/stream')` с заголовком `Authorization: Bearer <accessToken>` и читает кадры
-`event:`/`data:` из `response.body`; на событие `run.updated` вызывает
-`queryClient.invalidateQueries({ queryKey: ['runs', runId] })`. `EventSource` не подходит: он не
-умеет отправлять заголовки, а `/api/stream`, как и остальные `/api/*`, требует Bearer
-([api#20, D4][tl-2026-09-27-api20]). Ответ `401` при подключении или переподключении — общий
-refresh (§11), затем повтор подключения с новым токеном; refresh не удался — выход
-(fail closed). Сейчас в `src/app/providers/`
-есть только `QueryProvider` (создаёт `QueryClient`, см. `src/app/providers/queryClient.ts`) и
-`UiProvider` (antd `ConfigProvider` с русской локалью) — оба без сети.
+SSE-мост (Ф-14, **реализовано**; Refs ui#65): `RunStreamBridge` внутри `QueryProvider` вызывает
+`useRunStreamSubscription` → `runStreamConnect.ts`: `fetch(API_BASE_URL + '/stream')` с
+`Authorization: Bearer <accessToken>`, разбор кадров `event:`/`data:` (`runStreamParse.ts`); на
+`run.updated` — `invalidateQueries` для `['runs', runId]`, `['runs', runId, 'actions']`,
+`['runs', runId, 'diff']` и `['runs', runId, 'comments']` (дифф и комментарии подтягиваются вместе с прогоном).
+`EventSource` не используется (нет Bearer). `401` — refresh с лимитом повторов
+(`MAX_STREAM_401_RETRIES`), затем переподключение с backoff (`STREAM_RECONNECT_DELAY_MS`); refresh
+не удался — подписка прекращается (fail closed, §11). Контракт run session для api#20:
+[комментарий в api#20](https://github.com/larchanka-training/dmc-268-api-t6/issues/20#issuecomment-6016069919).
+
+`QueryProvider` также регистрирует `setOnLogout` → `queryClient.clear()`. `UiProvider` — antd
+`ConfigProvider` (русская локаль), без сети.
 
 ```mermaid
 sequenceDiagram
   participant SSE as fetch(/api/stream)
-  participant Bridge as app/providers (follow-up)
+  participant Bridge as RunStreamBridge
   participant QC as QueryClient
   participant UI as widgets
 
@@ -409,6 +452,8 @@ Summary-only прогон (дифф больше 3 000 строк, Р-15 в [SD 
 Run detail (Ф-16; [PIPELINE_SPEC §11][ps-11], схема `RunDetail` в [`openapi.yaml`][openapi]): Zod —
 `RunDetailSchema` в `entities/run`: все пять полей сверх `RunSession` обязательные, `summary`, `verdict` и
 `budget` — nullable, `findings` и `severityCounts` — нет; ответ без них — ошибка разбора.
+Элементы `findings[]` валидируются через `FindingViewSchema` из `entities/review` (`entities/run/api/index.ts`) —
+единственное осознанное пересечение слайсов run→review на границе парсинга API.
 Карточки строятся по `findings` (`FindingView`, якорь `endLine ?? newLine`, §6).
 `RunSession` и сверх них `findings` (`FindingView` — поля `ReviewComment` без `createdAt`, плюс
 `side`, `suggestion`, `confidence`), `summary { problem, doneWell, effort } | null`,
@@ -566,7 +611,7 @@ Summary-only прогон рисует `RunDiff`: при `summaryOnly: true` —
 
 Однострочная находка приходит с `endLine = null`; диапазон строк —
 `[newLine ?? oldLine, endLine ?? newLine ?? oldLine]`. `commentKey` ищет строку по `newLine` /
-`oldLine`, поэтому комментарий к диапазону встаёт на его первую строку.
+`oldLine` (для диапазона — якорь `endLine ?? newLine`, см. `commentKey.ts`).
 
 «Дочитать контекст» — зазор вычисляется в `DiffViewer.tsx` (`gapBeforeHunk`/`gapAfterLastHunk`):
 для каждой пары соседних хунков зазор — это `{ startLine: prev.newStart + prev.newLines, count:
@@ -664,7 +709,12 @@ issue прямо выносит подключение логирования з
 
 **Роутер.** Установлен **react-router 8** (^8.4.0, peer react ≥ 19.2.7 — выполняется), настроен в `src/app/routes.tsx`. Лэйауты (`AppLayoutRoute`, `ProtectedLayout`, `PageFallback`, `RouteErrorFallback`) и обёртки страниц (`RoutedRepositoriesPage` и др.) вынесены в `src/app/layouts/`, чтобы файл роутера оставался чистой конфигурацией маршрутов без отключения правил Fast Refresh (`react-refresh/only-export-components`).
 
-**Сборка и чанки.** Rolldown автоматически распределяет компоненты antd между ленивыми страницами, изолируя компоненты страниц (таблицы, деревья) в отдельные чанки. Лимит размера чанка в `vite.config.ts` поднят до 700 кБ (`chunkSizeWarningLimit: 700`) под наибольший несжатый чанк antd (`typography` / core-runtime, ~607 кБ), устраняя ложные предупреждения сборщика.
+**Сборка и чанки.** `vite.config.ts`: `build.rolldownOptions.output.codeSplitting`
+(`vendor-react`, `vendor-query`, `includeDependenciesRecursively: false`);
+antd раскладывается по ленивым страницам, как на `main`. `chunkSizeWarningLimit: 500`.
+Первая загрузка (script + modulepreload JS): ~961 кБ / ~310 кБ gzip vs `main` ~944 кБ / ~298 кБ gzip
+(+~4 % gzip за живой SSE в корне, решение техлида).
+Prod без демо: `pnpm build && pnpm verify:prod-bundle` (Refs #65, AC 3.3 / 3.5).
 
 ---
 
@@ -707,9 +757,10 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
 - **`steiger`** — FSD-линтер, форматирует нарушения правил §1 автоматически; не подключён.
 - **`PORT` в `vite.config.ts`** — нужен `@types/node` в `tsconfig.node.json` (роль 4); не сделано.
   С TS 6.0 `types` по умолчанию `[]`, поэтому пакет придётся назвать в `types` явно.
-- **SSE-мост** (§2, Ф-14) — `fetch`-стрим с Bearer (не `EventSource`: он не отправляет
-  заголовки), повтор после `401` → refresh → переподключение и `invalidateQueries` не реализованы,
-  только спроектированы.
+- **SSE-мост** (§2, Ф-14) — реализован: `RunStreamBridge`, `runStreamConnect.ts`, лимит `401`,
+  reconnect; см. §2 и [`docs/plans/65-api20-comment.md`](plans/65-api20-comment.md).
+- **`pages/review/ReviewPage.tsx`** — файл сохранён, но маршрут `/review` монтирует redirect
+  (mock → demo run, prod → `/runs`); полноценная страница не в прод-маршрутизации (Refs ui#65).
 - **Fetch-клиент и авторизация** (Ф-15) — контракт авторизации и сессии ([решение техлида api#20 D4][tl-2026-09-27-api20] и `/api/auth/*` в [`openapi.yaml`][openapi], реализован в PR #55 и #63):
   - вход — GitHub App user authorization без OAuth scopes; `state` SPA генерирует сама, хранит в
     `sessionStorage` и сверяет на `/auth/callback`;

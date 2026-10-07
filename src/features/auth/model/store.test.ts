@@ -176,7 +176,7 @@ describe('useAuthStore', () => {
     expect(onLogout).toHaveBeenCalled()
   })
 
-  it('logout calls POST /api/auth/logout even when in-memory token is null to clear server cookie', async () => {
+  it('logout skips POST /api/auth/logout when session was never authenticated', async () => {
     setAccessToken(null)
     useAuthStore.setState({
       isAuthenticated: false,
@@ -187,6 +187,20 @@ describe('useAuthStore', () => {
         status: 204,
       }),
     )
+    globalThis.fetch = mockFetch
+
+    await useAuthStore.getState().logout()
+
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('logout POSTs /api/auth/logout when authenticated even if the in-memory token was cleared', async () => {
+    setAccessToken(null)
+    useAuthStore.setState({
+      isAuthenticated: true,
+    })
+
+    const mockFetch = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
     globalThis.fetch = mockFetch
 
     await useAuthStore.getState().logout()
@@ -306,7 +320,6 @@ describe('useAuthStore', () => {
         )
       }
       if (urlStr.includes('/auth/me')) {
-        // Missing required 'workspaces' array per MeSchema
         return Promise.resolve(
           new Response(
             JSON.stringify({
@@ -331,6 +344,21 @@ describe('useAuthStore', () => {
     const state = useAuthStore.getState()
     expect(state.isAuthenticated).toBe(false)
     expect(getAccessToken()).toBeNull()
+  })
+
+  it('initAuth does not POST logout when refresh fails on anonymous visit', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response('No cookie', {
+        status: 401,
+        statusText: 'Unauthorized',
+      }),
+    )
+    globalThis.fetch = mockFetch
+
+    await useAuthStore.getState().initAuth()
+
+    const logoutCalls = mockFetch.mock.calls.filter(([url]) => String(url).includes('/auth/logout'))
+    expect(logoutCalls).toHaveLength(0)
   })
 
   it('initAuth in mock mode with mock token restores session without network fetch', async () => {

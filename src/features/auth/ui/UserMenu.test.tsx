@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import * as userApi from '../../../entities/user'
+import { useAuthStore } from '../model/store'
 import { UserMenu } from './UserMenu'
 
 const MOCK_USER = {
@@ -20,6 +21,7 @@ describe('UserMenu', () => {
     queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
+    useAuthStore.setState({ isAuthenticated: true, isInitialized: true, isLoading: false })
     vi.restoreAllMocks()
   })
 
@@ -62,5 +64,22 @@ describe('UserMenu', () => {
       </QueryClientProvider>,
     )
     expect(screen.getAllByText('skvertl').length).toBeGreaterThan(0)
+  })
+
+  it('opens the menu from the keyboard', async () => {
+    vi.spyOn(userApi, 'useMe').mockReturnValue({
+      data: { ...MOCK_USER, workspaces: [] },
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof userApi.useMe>)
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <UserMenu />
+      </QueryClientProvider>,
+    )
+    const trigger = screen.getByLabelText('Меню пользователя')
+    fireEvent.keyDown(trigger, { key: 'Enter' })
+    expect(await screen.findByText('Выйти')).toBeDefined()
   })
 })

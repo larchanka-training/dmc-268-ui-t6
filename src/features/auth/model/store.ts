@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-import { AuthSessionSchema, fetchMe } from '../../../entities/user'
+import { AuthSessionSchema, fetchMe, type Me } from '../../../entities/user'
 import {
   apiClient,
   getAccessToken,
@@ -8,8 +8,9 @@ import {
   setAccessToken,
   setOnUnauthorized,
 } from '../../../shared/api/client'
+import { formatAuthCallbackFailure } from '../lib/authCallbackErrors'
 import { endpoints } from '../../../shared/api/endpoints'
-import { GITHUB_CLIENT_ID, USE_MOCKS } from '../../../shared/config/env'
+import { GITHUB_CLIENT_ID, isMockMode } from '../../../shared/config/env'
 
 export const STATE_STORAGE_KEY = 'dmc_auth_oauth_state'
 export const MOCK_TOKEN = 'mock_jwt_token_skvertl_dmc'
@@ -25,9 +26,14 @@ export function generateRandomState(): string {
 }
 
 let onLogoutCallback: (() => void) | null = null
+let onAuthMeHydrated: ((me: Me) => void) | null = null
 
 export function setOnLogout(callback: () => void): void {
   onLogoutCallback = callback
+}
+
+export function setOnAuthMeHydrated(callback: (me: Me) => void): void {
+  onAuthMeHydrated = callback
 }
 
 export interface MockAuthAdapter {
@@ -46,7 +52,7 @@ function isMockOAuthCode(code: string): boolean {
   if (mockAuthAdapter?.getMockOAuthCode?.() === code) {
     return true
   }
-  return USE_MOCKS && code.startsWith('mock_')
+  return isMockMode() && code.startsWith('mock_')
 }
 
 export interface AuthState {
@@ -64,6 +70,17 @@ export interface AuthState {
 }
 
 let isLoggingOut = false
+
+export function resetAuthSession(): void {
+  setAccessToken(null)
+  onLogoutCallback?.()
+  useAuthStore.setState({
+    isAuthenticated: false,
+    isInitialized: true,
+    isLoading: false,
+    error: null,
+  })
+}
 
 export const useAuthStore = create<AuthState>((set) => ({
   isLoading: false,
@@ -157,14 +174,16 @@ export const useAuthStore = create<AuthState>((set) => ({
       })
     } catch (err) {
       setAccessToken(null)
-      const message = err instanceof Error ? err.message : 'Ошибка аутентификации'
+      const message = formatAuthCallbackFailure(err)
       set({
         isAuthenticated: false,
         isInitialized: true,
         isLoading: false,
         error: message,
       })
-      throw err
+      // User-facing message is formatted above; CallbackPage reads `Error.message`.
+      // eslint-disable-next-line preserve-caught-error -- auth callback maps unknown errors to Russian text
+      throw new Error(message)
     }
   },
 
@@ -176,8 +195,11 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: async () => {
     if (isLoggingOut) return
     isLoggingOut = true
+    const hadSession = getAccessToken() !== null || useAuthStore.getState().isAuthenticated
     try {
-      await apiClient(endpoints.auth.logout())
+      if (hadSession) {
+        await apiClient(endpoints.auth.logout())
+      }
     } catch {
       // Ignore network errors on logout
     } finally {
@@ -230,7 +252,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         return
       }
 
-      await fetchMe(newToken)
+      const me = await fetchMe(newToken)
+      onAuthMeHydrated?.(me)
 
       set({
         isAuthenticated: true,
@@ -250,5 +273,5 @@ export const useAuthStore = create<AuthState>((set) => ({
 }))
 
 setOnUnauthorized(() => {
-  void useAuthStore.getState().logout()
+  resetAuthSession()
 })

@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import type { ReactElement } from 'react'
 
 import type { RunSession } from '../../../entities/run'
-import { makeDuoActions } from '../../../entities/run'
+import { makeDuoActions } from '../../../entities/run/lib/duoActions.fixture'
+import { setMockTransport } from '../../../shared/api/client'
 import { useRunInspectorStore } from '../model/store'
 import { RunInspector } from './RunInspector'
 
@@ -33,15 +36,28 @@ const NOW = new Date('2026-09-18T12:00:00.000Z')
 
 beforeEach(() => {
   useRunInspectorStore.setState({ expandedKeys: [], selectedActionIndex: null })
+  setMockTransport((endpoint) => {
+    const match = /^\/runs\/([^/]+)\/actions\/(\d+)\/response$/.exec(endpoint.path)
+    if (match && endpoint.method === 'GET') {
+      return { content: 'loaded blob response' }
+    }
+    return undefined
+  })
 })
+
+function renderWithQuery(ui: ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
+}
 
 afterEach(() => {
   cleanup()
+  setMockTransport(null)
 })
 
 describe('RunInspector', () => {
   it('renders the run header fields and the PR link', () => {
-    render(<RunInspector run={RUN} actions={ACTIONS} now={NOW} />)
+    renderWithQuery(<RunInspector run={RUN} actions={ACTIONS} now={NOW} />)
     expect(screen.getByText('deep')).toBeTruthy()
     expect(screen.getByText('claude-sonnet-5')).toBeTruthy()
     expect(screen.getByText('succeeded')).toBeTruthy()
@@ -51,7 +67,7 @@ describe('RunInspector', () => {
   })
 
   it('collapses groups so nested actions are not visible', () => {
-    render(<RunInspector run={RUN} actions={ACTIONS} now={NOW} />)
+    renderWithQuery(<RunInspector run={RUN} actions={ACTIONS} now={NOW} />)
     expect(screen.getByText('get_tree ×19')).toBeTruthy()
     expect(screen.getByText('get_blob ×11')).toBeTruthy()
     expect(screen.getByText(/#33 post_review/)).toBeTruthy()
@@ -59,19 +75,21 @@ describe('RunInspector', () => {
   })
 
   it('expands a group to reveal its actions', () => {
-    render(<RunInspector run={RUN} actions={ACTIONS} now={NOW} />)
+    renderWithQuery(<RunInspector run={RUN} actions={ACTIONS} now={NOW} />)
     act(() => {
       useRunInspectorStore.getState().setExpandedKeys(['group-2'])
     })
     expect(screen.getByText(/#5 get_tree/)).toBeTruthy()
   })
 
-  it('shows request/response panels for the selected action', () => {
-    render(<RunInspector run={RUN} actions={ACTIONS} now={NOW} />)
+  it('loads action response on demand when responseRef is set', async () => {
+    renderWithQuery(<RunInspector run={RUN} actions={ACTIONS} now={NOW} />)
     act(() => {
       useRunInspectorStore.getState().selectAction(24)
     })
-    expect(screen.getByText(`тело вынесено: blob://runs/${RUN.id}/actions/24`)).toBeTruthy()
+    await waitFor(() => {
+      expect(screen.getByText(/loaded blob response/)).toBeTruthy()
+    })
     act(() => {
       useRunInspectorStore.getState().selectAction(0)
     })
@@ -85,7 +103,7 @@ describe('RunInspector', () => {
       finishedAt: null,
       startedAt: '2026-09-18T11:20:00.000Z',
     }
-    render(<RunInspector run={staleRun} actions={ACTIONS} now={NOW} />)
+    renderWithQuery(<RunInspector run={staleRun} actions={ACTIONS} now={NOW} />)
     expect(screen.getByText('нет ответа > 10 мин')).toBeTruthy()
     expect(screen.getByText('40 мин 0 с')).toBeTruthy()
   })
