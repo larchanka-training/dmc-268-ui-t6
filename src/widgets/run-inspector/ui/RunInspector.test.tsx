@@ -134,6 +134,18 @@ describe('RunInspector', () => {
       expect(requested).toEqual([])
     })
 
+    it('does not request the response when the action carries it inline and a ref too', async () => {
+      const requested = trackResponseRequests({ content: 'loaded blob response' })
+      const actions = ACTIONS.map((action) =>
+        action.index === 0 ? { ...action, responseRef: `blob://runs/${RUN.id}/actions/0` } : action,
+      )
+      renderWithQuery(<RunInspector run={RUN} actions={actions} now={NOW} />)
+      await selectAndSettle(0)
+      expect(screen.getByText(/"filesChanged": 35/)).toBeTruthy()
+      expect(screen.queryByText(/loaded blob response/)).toBeNull()
+      expect(requested).toEqual([])
+    })
+
     it('does not request the response when the action has neither response nor ref', async () => {
       const requested = trackResponseRequests({ content: 'loaded blob response' })
       const actions = ACTIONS.map((action) =>

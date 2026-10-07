@@ -118,6 +118,7 @@ describe('fetchRunDetail', () => {
           ruleName: null,
         },
         { id: 'not-a-uuid', file: '', severity: 'nope' },
+        { id: 'also-not-a-uuid', file: '', severity: 'nope' },
       ],
       summary: null,
       verdict: null,
@@ -129,11 +130,11 @@ describe('fetchRunDetail', () => {
     expect(run.findings).toHaveLength(1)
     expect(run.findings[0]?.title).toBe('Valid')
     // The drop is explicit: counted next to the detail and logged once with the run id.
-    expect(run.droppedFindings).toBe(1)
+    expect(run.droppedFindings).toBe(2)
     expect(warn).toHaveBeenCalledTimes(1)
     expect(warn).toHaveBeenCalledWith('fetchRunDetail: dropped invalid findings', {
       runId: '11111111-1111-4111-8111-000000000002',
-      dropped: 1,
+      dropped: 2,
     })
   })
 })
