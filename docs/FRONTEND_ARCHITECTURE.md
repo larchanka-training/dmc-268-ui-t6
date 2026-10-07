@@ -867,13 +867,13 @@ Prod без демо: `pnpm build && pnpm verify:prod-bundle` (Refs #65, AC 3.3 
 0 нарушений при загрузке `/`, аватар GitHub грузится без нарушений, `<img>` с другого https-хоста даёт
 `img-src`, `<object>` (`data:` и same-origin) — `object-src`; старый заголовок + сборка без `jitless` —
 одно нарушение `script-src` (`eval`), `img`/same-origin `object` не блокируются (`data:`-`object` режет и
-старый заголовок через `default-src`). Скрипт и результаты: `docs/reports/74/evidence/p2/csp-probe.{mjs,json}`.
+старый заголовок через `default-src`). Замеры приложены к PR #81 (Refs #74).
 
 **`sideEffects` убран (Refs #74, AC 2.20).** Ключ `"sideEffects": ["**/*.css"]` из `package.json`
 удалён: выигрыша нет (`dist/assets` на тех же исходниках: с ключом 1 639 166 Б в 36 файлах, без ключа
 1 638 001 Б в 33 файлах, −1 165 Б, −0,07 %; на исходниках до `zodJitless` −1 170 Б), а ключ молча
 выкидывает импорты не-CSS модулей ради побочного эффекта — вызов `z.config` из `zodJitless.ts` пропадал
-из бандла. Цифры: `docs/reports/74/evidence/p2/sideeffects-size.out`.
+из бандла.
 
 ---
 
