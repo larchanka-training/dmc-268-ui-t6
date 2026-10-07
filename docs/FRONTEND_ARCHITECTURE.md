@@ -248,6 +248,7 @@ src/shared/config/buildFlags.ts
 src/shared/config/demoRun.ts
 src/shared/config/env.test.ts
 src/shared/config/env.ts
+src/shared/fixtures/highlight.patch.ts
 src/shared/fixtures/sample.patch.ts
 src/test/setup.ts
 src/vite-env.d.ts
@@ -261,20 +262,25 @@ src/widgets/app-layout/ui/AppSidebar.tsx
 src/widgets/diff-viewer/index.ts
 src/widgets/diff-viewer/lib/contextChunkSize.test.ts
 src/widgets/diff-viewer/lib/contextChunkSize.ts
+src/widgets/diff-viewer/lib/diffTheme.test.ts
+src/widgets/diff-viewer/lib/diffTheme.ts
 src/widgets/diff-viewer/lib/refractorForDiffView.test.ts
 src/widgets/diff-viewer/lib/refractorForDiffView.ts
 src/widgets/diff-viewer/lib/tokensForHunks.test.ts
 src/widgets/diff-viewer/lib/tokensForHunks.ts
 src/widgets/diff-viewer/model/store.ts
 src/widgets/diff-viewer/model/types.ts
+src/widgets/diff-viewer/ui/DiffSuggestion.test.tsx
 src/widgets/diff-viewer/ui/DiffSuggestion.tsx
 src/widgets/diff-viewer/ui/DiffViewer.test.tsx
+src/widgets/diff-viewer/ui/DiffViewer.theme.test.tsx
 src/widgets/diff-viewer/ui/DiffViewer.tsx
 src/widgets/diff-viewer/ui/InlineComment.test.tsx
 src/widgets/diff-viewer/ui/InlineComment.tsx
 src/widgets/diff-viewer/ui/LoadMoreContext.tsx
 src/widgets/diff-viewer/ui/RunDiff.test.tsx
 src/widgets/diff-viewer/ui/RunDiff.tsx
+src/widgets/diff-viewer/ui/diff-theme.css
 src/widgets/repository-list/index.ts
 src/widgets/repository-list/ui/RepositoryList.module.css
 src/widgets/repository-list/ui/RepositoryList.test.tsx
@@ -390,6 +396,8 @@ sequenceDiagram
   переопределяются только через `:global(.ant-…)`. `stylelint.config.js` несёт override для
   `**/*.module.css`: camelCase, `ant-*` только внутри `:global(...)` (голый `.ant-btn` — ошибка
   линта), `:local`, `composes`; обычные `.css` остаются под kebab-case `stylelint-config-standard`.
+- Цвета диффа и токенов подсветки — тоже токены antd; источник, переменные и причина обычного
+  `.css` — §6 «Цвета диффа и подсветки».
 
 Рассмотренные варианты:
 
@@ -541,12 +549,13 @@ off; }` для SSE, либо в документе фиксируется cross-
 
 Компоненты (`src/widgets/diff-viewer/`):
 
-| Компонент         | Файл                     | Props                                                                                                          |
-| ----------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| `DiffViewer`      | `ui/DiffViewer.tsx`      | `file: FileDiff`, `comments: ReviewComment[]`, `totalLines?: number`, `onLoadMore?: (gap: ContextGap) => void` |
-| `InlineComment`   | `ui/InlineComment.tsx`   | комментарий, привязанный к строке диффа (виджет `react-diff-view`)                                             |
-| `LoadMoreContext` | `ui/LoadMoreContext.tsx` | кнопка дочитывания контекста в зазоре между хунками                                                            |
-| `RunDiff`         | `ui/RunDiff.tsx`         | `summaryOnly: boolean`, `files: FileDiff[]`, `comments: ReviewComment[]` — дифф прогона целиком                |
+| Компонент         | Файл                     | Props                                                                                                              |
+| ----------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `DiffViewer`      | `ui/DiffViewer.tsx`      | `file: FileDiff`, `comments: ReviewComment[]`, `totalLines?: number`, `onLoadMore?: (gap: ContextGap) => void`     |
+| `InlineComment`   | `ui/InlineComment.tsx`   | комментарий, привязанный к строке диффа (виджет `react-diff-view`)                                                 |
+| `DiffSuggestion`  | `ui/DiffSuggestion.tsx`  | `filename: string`, `removedLines: string[]`, `addedText: string` — правка из `suggestion` находки, через `<Diff>` |
+| `LoadMoreContext` | `ui/LoadMoreContext.tsx` | кнопка дочитывания контекста в зазоре между хунками                                                                |
+| `RunDiff`         | `ui/RunDiff.tsx`         | `summaryOnly: boolean`, `files: FileDiff[]`, `comments: ReviewComment[]` — дифф прогона целиком                    |
 
 Поток данных:
 
@@ -621,6 +630,112 @@ next.newStart - startLine }`; хвостовой зазор после посл�
 Почему обязателен заголовок `diff --git` — proof-run (a): `gitdiff-parser@0.3.1` открывает новый
 файл только по строке `diff --git a/<path> b/<path>`; без неё хунки не привязываются к имени
 файла (см. §5, пункт 4).
+
+### Цвета диффа и подсветки
+
+Источник — токены antd активной темы (Ф-13, Refs ui#74); литералов цвета нет ни в TS, ни в CSS.
+
+Зачем перекрытие: `react-diff-view/style/index.css` объявляет все `--diff-*` на `:root` со
+значениями **только для светлой темы**, а `--diff-text-color: initial` отдаёт тексту цвет `body`
+(`ThemeBodySync` в `UiProvider`). В тёмной теме это светлый текст на `#eaffee` (≈ 1,04:1).
+Классов `.token.*` библиотека не стилизует вовсе — без своих правил подсветка невидима в обеих темах.
+
+Цепочка:
+
+```mermaid
+flowchart LR
+  A["theme.useToken()"] --> B["diffThemeVars(token)"]
+  B -->|inline style| C[".diff-theme (корень DiffViewer / DiffSuggestion)"]
+  C --> D["--diff-* перекрывают :root библиотеки"]
+  C --> E["--diff-token-* → diff-theme.css → правила .token.*"]
+```
+
+- `diffThemeVars(token: GlobalToken)` (`lib/diffTheme.ts`) — чистая функция: карта CSS-переменных
+  (все цветовые `--diff-*` библиотеки + палитра `--diff-token-*`).
+- `useDiffThemeStyle()` (там же) читает `theme.useToken()` **во время рендера** (без `useEffect`) и
+  возвращает `{ className: 'diff-theme', style }`, `style` мемоизирован по `token`. Применяется на
+  корне `DiffViewer` (обёртка `<div>`) и на корне `DiffSuggestion`: находки «вне диффа» (`RunDiff`)
+  рисуют `InlineComment` в `Alert` вне любого `DiffViewer`. Вложенное повторение безвредно.
+- Инлайновые переменные на корне побеждают `:root` библиотеки по наследованию. Каждый
+  `*-text-color` задан явно: библиотека разрешает `var(--diff-text-color)` на `:root`, поэтому
+  перекрытие одного `--diff-text-color` до них не дошло бы. `--diff-font-family` не трогаем.
+
+Токен antd → переменная → что красит:
+
+| Токен antd                | Переменная                                                                          | Красит                                                                                |
+| ------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `colorBgContainer`        | `--diff-background-color`                                                           | фон `.diff`                                                                           |
+| `colorText`               | `--diff-text-color` и все `--diff-*-text-color`                                     | текст `.diff`, строк, гаттеров, выделения                                             |
+| `colorSuccessBg`          | `--diff-code-insert-background-color`                                               | добавленная строка (`.diff-code-insert`)                                              |
+| `colorErrorBg`            | `--diff-code-delete-background-color`                                               | удалённая строка (`.diff-code-delete`)                                                |
+| `colorSuccessBgHover`     | `--diff-gutter-insert-background-color`, `--diff-code-insert-edit-background-color` | гаттер добавленной строки; изменённый фрагмент внутри неё (`.diff-code-edit`)         |
+| `colorErrorBgFilledHover` | `--diff-gutter-delete-background-color`                                             | гаттер удалённой строки                                                               |
+| `colorErrorBgActive`      | `--diff-code-delete-edit-background-color`                                          | изменённый фрагмент внутри удалённой строки                                           |
+| `colorWarningBg`          | `--diff-code-selected-background-color`                                             | `.diff-code-selected` (приложение `selectedChanges` не передаёт — задано для полноты) |
+| `colorWarningBgHover`     | `--diff-gutter-selected-background-color`                                           | `.diff-gutter-selected` (так же)                                                      |
+| `colorPrimaryBgHover`     | `--diff-selection-background-color`                                                 | выделение мышью (`.diff::selection`)                                                  |
+| `colorError`              | `--diff-omit-gutter-line-color`                                                     | линия пропуска (`.diff-gutter-omit:before`)                                           |
+
+Палитра подсветки — восемь слотов, классы refractor сгруппированы по слотам; каждый класс стоит
+ровно в одном правиле `diff-theme.css`, порядок правил цвет не решает:
+
+| Слот `--diff-token-*` | Токен antd          | Классы `.token.*`                                                                |
+| --------------------- | ------------------- | -------------------------------------------------------------------------------- |
+| `keyword`             | `magenta7`          | `keyword`, `operator`, `important`, `rule`                                       |
+| `string`              | `orange7`           | `string`, `template-string`, `triple-quoted-string`, `char`, `url`, `attr-value` |
+| `number`              | `blue7`             | `number`, `boolean`, `constant`                                                  |
+| `function`            | `cyan7`             | `function`, `class-name`, `builtin`                                              |
+| `tag`                 | `volcano7`          | `tag`, `selector`                                                                |
+| `attribute`           | `geekblue7`         | `attr-name`, `property`, `key`                                                   |
+| `special`             | `purple7`           | `decorator`, `annotation`, `regex`                                               |
+| `comment`             | `colorTextTertiary` | `comment`                                                                        |
+
+Индекс 7 пресет-палитры — единственный шаг, читаемый на обоих фонах: тёмный и насыщенный под
+`defaultAlgorithm`, под `darkAlgorithm` antd пересчитывает палитры светлее. Остальные классы
+(`punctuation`, `null`, `interpolation`, `atrule`, `title`, …) остаются цветом текста;
+`punctuation` не стилизуется намеренно: Prism алиасит его на декораторы и интерполяцию, а те
+должны сохранить свой цвет.
+
+Тема переключается без перезагрузки: `ThemeToggle` → `toggleTheme()` → `useThemeStore.mode` →
+`UiProvider` отдаёт `ConfigProvider` другой `algorithm` → `theme.useToken()` в `DiffViewer` /
+`DiffSuggestion` возвращает новый токен → `diffThemeVars` → новый inline `style` в том же коммите,
+без `useEffect` и вспышки старых цветов. `data-theme` и `@media (prefers-color-scheme)` не нужны.
+С пустым `localStorage` и тёмной ОС тема тёмная уже в первом рендере: `getInitialTheme()`
+(`features/theme/model/store.ts`) выполняется при создании стора — до рендера — и читает
+`dmc_theme_mode`, затем `matchMedia('(prefers-color-scheme: dark)')`; `UiProvider` с первого кадра
+даёт `darkAlgorithm`, `useToken()` — тёмные токены.
+
+`ui/diff-theme.css` — **обычный** kebab-case `.css`, не `*.module.css`: override стилелинта для
+`**/*.module.css` (Ф-13) разрешает только camelCase и `ant-*`, поэтому `.diff-theme` и
+`.token.class-name` / `.token.attr-name` / `.token.template-string` падают на
+`selector-class-pattern` даже внутри `:global(...)` (проверено). Классы `token.*` ставит
+refractor, а не компонент — CSS Modules их всё равно пришлось бы выносить в `:global`. Файл — первый
+авторский обычный `.css` проекта; в нём только правила
+`.diff-theme .token.<класс> { color: var(--diff-token-<слот>) }` и ни одного цветового литерала.
+Импортируется из `DiffViewer.tsx` и `DiffSuggestion.tsx` — каждый самодостаточен при code-split.
+
+`DiffSuggestion` рисуется через тот же `<Diff>`, не собственной таблицей: из `removedLines` и
+`addedText` собирается синтетический `FileDiff` с одним чанком (удалённые строки, затем
+добавленные, обе стороны нумеруются с 1; заголовок — `formatHunkHeader`) → `toHunks` →
+`tokensForHunks(filename, hunks, { diffTotalLines })` → `<Diff diffType="modify" viewType="unified"
+gutterType="none">`. Классы строк и токенов, переменные и `diff-theme.css` — те же, что у основного
+диффа. `filename` приходит из `InlineComment` (`file?.filename ?? finding.file`); бюджет Ф-18
+действует и здесь, неизвестное расширение — `tokens` не строится, без ошибки. Текст идёт через
+React, без `innerHTML`.
+
+Новых зависимостей нет и темы Prism нет: цвета берутся из токенов antd, а CDN и внешние стили
+режет CSP (`default-src 'self'`, `docker/nginx.conf`).
+
+Что закреплено тестами: `lib/diffTheme.test.ts` — контраст (WCAG, альфа-цвета сперва кладутся на
+фон контейнера) в обеих темах: текст на каждой поверхности диффа (контейнер, строки, гаттеры,
+`-edit`, выделение) ≥ 4,5:1, цвет каждого слота на фоне контейнера и строк добавления / удаления
+≥ 3:1, ни один слот не равен цвету текста; согласованность `diff-theme.css` с `diffThemeVars`
+(нет цветовых литералов, у каждого класса ровно одно правило, на каждую переменную палитры есть
+ссылка и наоборот). `ui/DiffViewer.theme.test.tsx` — значения переменных на `.diff-theme`
+различаются под светлым и тёмным `ConfigProvider` и меняются после `toggleTheme()` (через настоящий
+`UiProvider`) без перемонтирования; `ui/DiffSuggestion.test.tsx` — тот же корень `.diff-theme` вне
+`DiffViewer` и подсветка `.ts` / `.py` правки. jsdom CSS не загружает, поэтому проверяются inline-значения и классы, а не вычисленные стили (отсюда и
+отдельный тест файла CSS с диска).
 
 ---
 
