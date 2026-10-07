@@ -71,5 +71,20 @@ describe('initMockTransport', () => {
       const reset = await apiClient<Repository>(endpoints.repos.detail(repo.id))
       expect(reset.maxComments).toBe(repo.maxComments)
     })
+
+    it('hands out copies of the rows from the list', async () => {
+      const first = await apiClient<Repository[]>(endpoints.repos.list())
+      const row = first.find((item) => item.id === repo.id)
+      if (!row) {
+        throw new Error('mock repository is missing from the list')
+      }
+      row.maxComments = patched
+
+      const one = await apiClient<Repository>(endpoints.repos.detail(repo.id))
+      expect(one.maxComments).toBe(repo.maxComments)
+
+      const second = await apiClient<Repository[]>(endpoints.repos.list())
+      expect(second.find((item) => item.id === repo.id)?.maxComments).toBe(repo.maxComments)
+    })
   })
 })
