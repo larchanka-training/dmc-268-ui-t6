@@ -15,6 +15,8 @@ interface RenderOptions {
   filters?: FindingFilters
   shown?: number
   total?: number
+  empty?: boolean
+  navigationKey?: number
 }
 
 function renderBar(options: RenderOptions = {}) {
@@ -24,8 +26,10 @@ function renderBar(options: RenderOptions = {}) {
   function bar(next: RenderOptions) {
     return (
       <FindingFiltersBar
+        empty={next.empty}
         fileOptions={FILE_OPTIONS}
         filters={next.filters ?? EMPTY_FINDING_FILTERS}
+        navigationKey={next.navigationKey}
         onChange={onChange}
         onQueryChange={onQueryChange}
         onReset={onReset}
@@ -120,7 +124,7 @@ describe('FindingFiltersBar', () => {
     clickOption('README.md (1)')
 
     expect(onChange).toHaveBeenCalledTimes(1)
-    expect(onChange).toHaveBeenCalledWith({ files: ['README.md'], severities: [], query: '' })
+    expect(onChange).toHaveBeenCalledWith({ files: ['README.md'], query: '' })
     expect(onChange.mock.calls[0]).toHaveLength(1)
   })
 
@@ -129,11 +133,7 @@ describe('FindingFiltersBar', () => {
     openSelect('Файлы')
     clickOption('README.md (1)')
 
-    expect(onChange).toHaveBeenCalledWith({
-      files: ['src/a.ts', 'README.md'],
-      severities: [],
-      query: '',
-    })
+    expect(onChange).toHaveBeenCalledWith({ files: ['src/a.ts', 'README.md'], query: '' })
   })
 
   it('pushes a severity selection', () => {
@@ -142,7 +142,7 @@ describe('FindingFiltersBar', () => {
     clickOption('Warning')
 
     expect(onChange).toHaveBeenCalledTimes(1)
-    expect(onChange).toHaveBeenCalledWith({ files: [], severities: ['warning'], query: '' })
+    expect(onChange).toHaveBeenCalledWith({ severities: ['warning'], query: '' })
     expect(onChange.mock.calls[0]).toHaveLength(1)
   })
 
@@ -153,11 +153,7 @@ describe('FindingFiltersBar', () => {
     openSelect('Критичность')
     clickOption('Critical')
 
-    expect(onChange).toHaveBeenCalledWith({
-      files: [],
-      severities: ['critical', 'info'],
-      query: '',
-    })
+    expect(onChange).toHaveBeenCalledWith({ severities: ['critical', 'info'], query: '' })
   })
 
   it('shows the selected files as tags by file name, including one the run does not have', () => {
@@ -285,7 +281,7 @@ describe('FindingFiltersBar search text', () => {
     clickOption('Warning')
 
     expect(onChange).toHaveBeenCalledTimes(1)
-    expect(onChange).toHaveBeenCalledWith({ files: [], severities: ['warning'], query: 'abc' })
+    expect(onChange).toHaveBeenCalledWith({ severities: ['warning'], query: 'abc' })
     expect(onChange.mock.calls[0]).toHaveLength(1)
     expect(searchInput().value).toBe('abc')
     await pause(400)
@@ -298,7 +294,7 @@ describe('FindingFiltersBar search text', () => {
     openSelect('Файлы')
     clickOption('README.md (1)')
 
-    expect(onChange).toHaveBeenCalledWith({ files: ['README.md'], severities: [], query: 'abc' })
+    expect(onChange).toHaveBeenCalledWith({ files: ['README.md'], query: 'abc' })
   })
 
   it('reset empties the text and cancels the pending write', async () => {
@@ -414,5 +410,83 @@ describe('FindingFiltersBar search text', () => {
     const status = screen.getByRole('status')
     expect(status.textContent).toBe('Показано 3 из 8 замечаний')
     expect(status.classList.contains('ant-typography-secondary')).toBe(false)
+  })
+
+  it('the reset button of the empty message also empties the typed text and cancels the pending write', async () => {
+    const { onQueryChange, onReset } = renderBar({
+      empty: true,
+      filters: { ...EMPTY_FINDING_FILTERS, severities: ['critical'] },
+    })
+    type('abc')
+    fireEvent.click(
+      within(screen.getByTestId('findings-filter-empty')).getByRole('button', {
+        name: 'Сбросить фильтры',
+      }),
+    )
+
+    expect(onReset).toHaveBeenCalledTimes(1)
+    expect(searchInput().value).toBe('')
+    await pause(400)
+    expect(onQueryChange).not.toHaveBeenCalled()
+  })
+
+  it('shows the empty message only when asked to', () => {
+    const { rerender } = renderBar()
+    expect(screen.queryByTestId('findings-filter-empty')).toBeNull()
+
+    rerender({ empty: true })
+    expect(screen.getByTestId('findings-filter-empty')).toBeTruthy()
+  })
+
+  it('writes once, after the last key, when the gaps are short but the typing is long', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      const { onQueryChange } = renderBar()
+      type('a')
+      vi.advanceTimersByTime(150)
+      type('ab')
+      vi.advanceTimersByTime(150)
+      type('abc')
+      vi.advanceTimersByTime(150)
+      type('abcd')
+      // 450 ms since the first key: a throttle would have written by now
+      vi.advanceTimersByTime(249)
+      expect(onQueryChange).not.toHaveBeenCalled()
+
+      vi.advanceTimersByTime(1)
+      expect(onQueryChange).toHaveBeenCalledTimes(1)
+      expect(onQueryChange).toHaveBeenCalledWith('abcd')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('an outside navigation drops the pending write and shows the URL query, even if it did not change', async () => {
+    const { onQueryChange, rerender } = renderBar({
+      filters: { ...EMPTY_FINDING_FILTERS, query: 'old' },
+      navigationKey: 0,
+    })
+    type('old more')
+
+    rerender({ filters: { ...EMPTY_FINDING_FILTERS, query: 'old' }, navigationKey: 1 })
+
+    expect(searchInput().value).toBe('old')
+    await pause(400)
+    expect(onQueryChange).not.toHaveBeenCalled()
+  })
+
+  it('keeps the typed text while the navigation key stays the same', async () => {
+    const { onQueryChange, rerender } = renderBar({
+      filters: { ...EMPTY_FINDING_FILTERS, query: 'old' },
+      navigationKey: 3,
+    })
+    type('old more')
+
+    rerender({ filters: { ...EMPTY_FINDING_FILTERS, query: 'old' }, navigationKey: 3 })
+
+    expect(searchInput().value).toBe('old more')
+    await waitFor(() => {
+      expect(onQueryChange).toHaveBeenCalledWith('old more')
+    })
   })
 })

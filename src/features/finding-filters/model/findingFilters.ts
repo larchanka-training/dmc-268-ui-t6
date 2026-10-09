@@ -13,6 +13,9 @@ export interface FindingFilters {
   query: string
 }
 
+/** What a control changes: the fields it owns, the rest of the filters stays as the URL has it. */
+export type FindingFiltersChange = Partial<FindingFilters>
+
 export const EMPTY_FINDING_FILTERS: FindingFilters = { files: [], severities: [], query: '' }
 
 const FILE_PARAM = 'file'
