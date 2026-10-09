@@ -23,7 +23,7 @@ const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
   const now = new Date()
   const runQuery = useRunDetail(runId)
   const diffQuery = useRunDiff(runId)
-  const actionsQuery = useRunActions(runId)
+  const actionsQuery = useRunActions(runId, runQuery.data?.status)
   const commentsQuery = useRunComments(runId)
   const [expandedFiles, setExpandedFiles] = useState<Map<string, FileDiff>>(() => new Map())
   const [loadError, setLoadError] = useState<string | null>(null)
