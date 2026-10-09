@@ -14,11 +14,13 @@ import { DiffSuggestion } from './DiffSuggestion'
 interface InlineCommentProps {
   finding: FindingView
   file?: FileDiff
+  /** Initial state only; changing it later does not re-expand (the caller remounts via `key`). */
+  defaultExpanded?: boolean
 }
 
 export function InlineComment(props: InlineCommentProps): JSX.Element {
-  const { finding, file } = props
-  const [expanded, setExpanded] = useState(false)
+  const { finding, file, defaultExpanded = false } = props
+  const [expanded, setExpanded] = useState(defaultExpanded)
   const badge = severityBadgeGroup(finding.severity)
   const range = findingLineRangeLabel(finding)
 

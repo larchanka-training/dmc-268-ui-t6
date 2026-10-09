@@ -9,8 +9,9 @@ import './diff-theme.css'
 import type { FileDiff } from '../../../entities/diff'
 import { commentKey, toHunks } from '../../../entities/diff'
 import type { FindingView, ReviewComment } from '../../../entities/review'
-import { reviewCommentToFinding } from '../../../entities/review'
 import { useDiffThemeStyle } from '../lib/diffTheme'
+import { findingCardKey } from '../lib/findingCardKey'
+import { mergeFindings } from '../lib/mergeFindings'
 import { tokensForHunks } from '../lib/tokensForHunks'
 import type { DiffViewType } from '../model/store'
 import { useDiffViewerStore } from '../model/store'
@@ -24,6 +25,8 @@ interface DiffViewerProps {
   comments?: ReviewComment[]
   totalLines?: number
   diffTotalLines?: number
+  /** A search is active: every card starts expanded (and remounts when the search starts or stops). */
+  searchActive?: boolean
   onLoadMore?: (gap: ContextGap) => void
 }
 
@@ -72,19 +75,16 @@ function decorationForGap(gap: ContextGap, onLoadMore: (gap: ContextGap) => void
   )
 }
 
-function mergeFindings(findings: FindingView[], comments: ReviewComment[]): FindingView[] {
-  if (comments.length === 0) {
-    return findings
-  }
-  const seen = new Set(findings.map((finding) => finding.id))
-  const fromComments = comments
-    .map(reviewCommentToFinding)
-    .filter((finding) => !seen.has(finding.id))
-  return [...findings, ...fromComments]
-}
-
 export function DiffViewer(props: DiffViewerProps): JSX.Element {
-  const { file, findings = [], comments = [], totalLines, diffTotalLines, onLoadMore } = props
+  const {
+    file,
+    findings = [],
+    comments = [],
+    totalLines,
+    diffTotalLines,
+    searchActive = false,
+    onLoadMore,
+  } = props
   const diffTheme = useDiffThemeStyle()
   const viewType = useDiffViewerStore((s) => s.viewType)
   const setViewType = useDiffViewerStore((s) => s.setViewType)
@@ -145,11 +145,21 @@ export function DiffViewer(props: DiffViewerProps): JSX.Element {
     }
     widgets[key] =
       list.length === 1 ? (
-        <InlineComment file={file} finding={first} />
+        <InlineComment
+          defaultExpanded={searchActive}
+          file={file}
+          finding={first}
+          key={findingCardKey(first.id, searchActive)}
+        />
       ) : (
         <div>
           {list.map((finding) => (
-            <InlineComment file={file} finding={finding} key={finding.id} />
+            <InlineComment
+              defaultExpanded={searchActive}
+              file={file}
+              finding={finding}
+              key={findingCardKey(finding.id, searchActive)}
+            />
           ))}
         </div>
       )
@@ -190,7 +200,12 @@ export function DiffViewer(props: DiffViewerProps): JSX.Element {
           description={
             <div>
               {outOfDiff.map((finding) => (
-                <InlineComment file={file} finding={finding} key={finding.id} />
+                <InlineComment
+                  defaultExpanded={searchActive}
+                  file={file}
+                  finding={finding}
+                  key={findingCardKey(finding.id, searchActive)}
+                />
               ))}
             </div>
           }
