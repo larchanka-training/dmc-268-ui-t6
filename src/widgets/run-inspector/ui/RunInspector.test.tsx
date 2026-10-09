@@ -66,6 +66,76 @@ describe('RunInspector', () => {
     expect(link.closest('a')?.getAttribute('href')).toBe(RUN.pullRequest.url)
   })
 
+  it('renders the progress bar under the header, before the extra controls and the action tree', () => {
+    renderWithQuery(
+      <RunInspector
+        actions={ACTIONS}
+        headerExtra={<div data-testid="header-extra" />}
+        now={NOW}
+        run={RUN}
+      />,
+    )
+    const header = screen.getByText('#34 feat: inspector')
+    const bar = screen.getByTestId('run-progress')
+    const extra = screen.getByTestId('header-extra')
+    const tree = screen.getByText('get_tree ×19')
+    const follows = (a: Node, b: Node): boolean =>
+      Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(follows(header, bar)).toBe(true)
+    expect(follows(bar, extra)).toBe(true)
+    expect(follows(extra, tree)).toBe(true)
+    expect(
+      Array.from(bar.querySelectorAll('[data-stage-state]')).map((node) =>
+        node.getAttribute('data-stage-state'),
+      ),
+    ).toEqual(['finish', 'finish', 'finish'])
+  })
+
+  it('shows the longer of the run count and the polled log in the header', () => {
+    const header = (): string | null =>
+      screen
+        .getByText('Действий')
+        .closest('.ant-descriptions-item')
+        ?.querySelector('.ant-descriptions-item-content')?.textContent ?? null
+
+    // 34 actions in the log, the run detail still says 5.
+    const { unmount } = renderWithQuery(
+      <RunInspector actions={ACTIONS} now={NOW} run={{ ...RUN, actionCount: 5 }} />,
+    )
+    expect(header()).toBe('34')
+    unmount()
+
+    // The run detail is ahead of a log that has not caught up.
+    renderWithQuery(
+      <RunInspector actions={ACTIONS.slice(0, 3)} now={NOW} run={{ ...RUN, actionCount: 20 }} />,
+    )
+    expect(header()).toBe('20')
+  })
+
+  it('hands the log to the progress bar and says when it is unavailable', () => {
+    renderWithQuery(
+      <RunInspector
+        actions={[]}
+        actionsUnavailable
+        now={NOW}
+        run={{ ...RUN, status: 'running', finishedAt: null }}
+      />,
+    )
+    expect(screen.queryByTestId('run-progress')).toBeNull()
+  })
+
+  it('renders no progress bar for a skipped run', () => {
+    renderWithQuery(
+      <RunInspector
+        actions={[]}
+        now={NOW}
+        run={{ ...RUN, status: 'skipped', errorCode: 'draft_pr' }}
+      />,
+    )
+    expect(screen.getByText('skipped')).toBeTruthy()
+    expect(screen.queryByTestId('run-progress')).toBeNull()
+  })
+
   it('collapses groups so nested actions are not visible', () => {
     renderWithQuery(<RunInspector run={RUN} actions={ACTIONS} now={NOW} />)
     expect(screen.getByText('get_tree ×19')).toBeTruthy()

@@ -1,4 +1,5 @@
 export * from './model/schemas'
 export * from './lib/groupActions'
+export * from './lib/runProgress'
 export * from './lib/status'
 export * from './api'

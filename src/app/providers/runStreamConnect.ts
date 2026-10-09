@@ -1,4 +1,5 @@
 import { parseRunUpdatedEvent, parseSseBuffer, runQueryKeys } from '../../entities/run'
+import type { RunUpdatedEvent } from '../../entities/run'
 import { getAccessToken, refreshAccessToken } from '../../shared/api/client'
 import { API_BASE_URL } from '../../shared/config/env'
 import { endpoints, resolveUrl } from '../../shared/api/endpoints'
@@ -55,6 +56,15 @@ function invalidateRunQueries(runId: string): void {
   void queryClient.invalidateQueries({ queryKey: runQueryKeys.actions(runId) })
   void queryClient.invalidateQueries({ queryKey: runQueryKeys.diff(runId) })
   void queryClient.invalidateQueries({ queryKey: runQueryKeys.comments(runId) })
+}
+
+/**
+ * Applies one `run.updated` event: the queries of that run, plus the runs list, whose status
+ * column shows the new status. The resync after a reconnect does not touch the list.
+ */
+export function applyRunUpdated(event: RunUpdatedEvent): void {
+  invalidateRunQueries(event.runId)
+  void queryClient.invalidateQueries({ queryKey: runQueryKeys.list() })
 }
 
 /**
@@ -132,7 +142,7 @@ async function readStream(
         if (payload === null) {
           continue
         }
-        invalidateRunQueries(payload.runId)
+        applyRunUpdated(payload)
       }
     }
   } catch (error: unknown) {

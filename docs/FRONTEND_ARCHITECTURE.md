@@ -131,10 +131,13 @@ src/app/mocks/app-state.test.ts
 src/app/mocks/app-state.ts
 src/app/mocks/mockRunReview.test.ts
 src/app/mocks/mockRunReview.ts
+src/app/mocks/mockRunTimeline.test.ts
+src/app/mocks/mockRunTimeline.ts
 src/app/mocks/mockRunsList.fixture.test.ts
 src/app/mocks/mockRunsList.fixture.ts
 src/app/mocks/mockTransport.test.ts
 src/app/mocks/mockTransport.ts
+src/app/mocks/mockTransport.walkingRun.test.ts
 src/app/providers/QueryProvider.tsx
 src/app/providers/RunStreamBridge.tsx
 src/app/providers/UiProvider.diffTheme.test.tsx
@@ -188,6 +191,8 @@ src/entities/run/index.ts
 src/entities/run/lib/duoActions.fixture.ts
 src/entities/run/lib/groupActions.test.ts
 src/entities/run/lib/groupActions.ts
+src/entities/run/lib/runProgress.test.ts
+src/entities/run/lib/runProgress.ts
 src/entities/run/lib/status.test.ts
 src/entities/run/lib/status.ts
 src/entities/run/model/runDetailSchema.test.ts
@@ -217,6 +222,7 @@ src/features/theme/model/store.ts
 src/features/theme/ui/ThemeToggle.test.tsx
 src/features/theme/ui/ThemeToggle.tsx
 src/main.tsx
+src/main.wiring.test.ts
 src/pages/auth/CallbackPage.module.css
 src/pages/auth/CallbackPage.test.tsx
 src/pages/auth/CallbackPage.tsx
@@ -235,6 +241,7 @@ src/pages/review/ReviewPage.tsx
 src/pages/review/ReviewRedirect.test.tsx
 src/pages/review/ReviewRedirect.tsx
 src/pages/runs/.gitkeep
+src/pages/runs/RunDetailPage.progress.test.tsx
 src/pages/runs/RunDetailPage.test.tsx
 src/pages/runs/RunDetailPage.tsx
 src/pages/runs/RunsPage.module.css
@@ -304,6 +311,8 @@ src/widgets/run-inspector/ui/RunHeader.test.tsx
 src/widgets/run-inspector/ui/RunHeader.tsx
 src/widgets/run-inspector/ui/RunInspector.test.tsx
 src/widgets/run-inspector/ui/RunInspector.tsx
+src/widgets/run-inspector/ui/RunProgressBar.test.tsx
+src/widgets/run-inspector/ui/RunProgressBar.tsx
 ```
 
 **Ф-1.** FSD вместо Clean Architecture. Лектор курса называет FSD «фронтенд-реализацией чистой
@@ -325,9 +334,10 @@ src/widgets/run-inspector/ui/RunInspector.tsx
 | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
 | Список прогонов                       | TanStack Query, ключ `['runs', 'list']` (дефолтный query)                                                                  | по времени (`staleTime: 30s`) + `run.updated`      |
 | Прогон (детали)                       | TanStack Query, ключ `['runs', id]`                                                                                        | `run.updated` для этого `runId`                    |
-| Действия прогона                      | TanStack Query, ключ `['runs', id, 'actions']`                                                                             | вместе с прогоном                                  |
+| Действия прогона                      | TanStack Query, ключ `['runs', id, 'actions']`                                                                             | `run.updated` + опрос 3 с, пока прогон активен     |
 | Дифф прогона                          | TanStack Query, ключ `['runs', id, 'diff']`                                                                                | `run.updated` / SSE (Refs ui#65)                   |
 | Комментарии ревью                     | TanStack Query, ключ `['runs', id, 'comments']`                                                                            | вместе с прогоном                                  |
+| Событие шага пайплайна                | нет: события шага в api пока нет (api#97); ход прогона виден по опросу `/actions`                                          | —                                                  |
 | Дочитанные срезы файла                | `useState` на `RunDetailPage` (слияние в `FileDiff`); ключ Query `diffQueryKeys.fileSlice` зарезервирован, не используется | не инвалидируется (append-only, живёт с страницей) |
 | `viewType` (unified/split)            | Zustand, `widgets/diff-viewer/model/store.ts`                                                                              | — (UI-состояние, не сервер)                        |
 | `selectedFile` (diff-viewer)          | Zustand, `widgets/diff-viewer/model/store.ts`                                                                              | —                                                  |
@@ -341,8 +351,10 @@ TanStack Query — не замена Zustand, а дополнение: серв�
 SSE-мост (Ф-14, **реализовано**; Refs ui#65): `RunStreamBridge` внутри `QueryProvider` вызывает
 `useRunStreamSubscription` → `runStreamConnect.ts`: `fetch(API_BASE_URL + '/stream')` с
 `Authorization: Bearer <accessToken>`, разбор кадров `event:`/`data:` (`runStreamParse.ts`); на
-`run.updated` — `invalidateQueries` для `['runs', runId]`, `['runs', runId, 'actions']`,
-`['runs', runId, 'diff']` и `['runs', runId, 'comments']` (дифф и комментарии подтягиваются вместе с прогоном).
+`run.updated` — `applyRunUpdated(event)` (`runStreamConnect.ts`): `invalidateQueries` для `['runs', runId]`,
+`['runs', runId, 'actions']`, `['runs', runId, 'diff']` и `['runs', runId, 'comments']` (дифф и комментарии
+подтягиваются вместе с прогоном) и для списка `['runs', 'list']` (колонка «Статус» на `/runs` обновляется без
+перезагрузки; Refs ui#84). Кадры с другим `event:` (в том числе будущее событие шага) отбрасываются без инвалидации.
 `EventSource` не используется (нет Bearer). `401` — refresh с лимитом повторов
 (`MAX_STREAM_401_RETRIES`), затем переподключение с backoff (`STREAM_RECONNECT_DELAY_MS`); refresh
 не удался — подписка прекращается (fail closed, §11). Keep-alive (`: keepalive` раз в 15 с,
@@ -351,11 +363,32 @@ SSE-мост (Ф-14, **реализовано**; Refs ui#65): `RunStreamBridge` 
 каждого успешного подключения, кроме самой первой попытки подписки (неудачная попытка тоже
 считается: страница уже загрузила данные, а поток был недоступен; refresh-повтор после `401` — та
 же попытка), заново инвалидирует те же четыре ключа для каждого прогона с запросами в кэше (не
-префикс `['runs']` и не список). Watchdog: после первого
+префикс `['runs']`; список не трогает — он обновится со следующим `run.updated` или при открытии страницы после `staleTime`). Watchdog: после первого
 keep-alive тишина дольше двух интервалов (30 с) обрывает соединение и ведёт к обычному
 переподключению; api без keep-alive watchdog не включает. В mock-режиме поток не открывается
-(`useRunStreamSubscription` выходит сразу). Контракт run session для api#20:
+(`useRunStreamSubscription` выходит сразу); `run.updated` там имитирует `startMockRunEvents` (§8), который
+зовёт тот же `applyRunUpdated`. Контракт run session для api#20:
 [комментарий в api#20](https://github.com/larchanka-training/dmc-268-api-t6/issues/20#issuecomment-6016069919).
+
+Опрос действий (Refs ui#84): `useRunActions(runId, status)` ставит `refetchInterval: RUN_ACTIONS_POLL_MS`
+(3000 мс, `entities/run/api/index.ts` — единственное место) только пока `isActive(status)`
+(`queued`/`running`/`publishing`); статус `RunDetailPage` берёт из `useRunDetail`. Пока деталь не загружена
+и на терминальном статусе (`succeeded`/`failed`/`cancelled`/`skipped`) опроса нет: журнал
+терминального прогона больше не меняется. Что важно знать:
+
+- Ключ деталей `['runs', id]` — префикс ключей `actions`, `diff` и `comments`. Любая инвалидация деталей
+  (`run.updated`, `cancel`, `rerun`) заодно перезапрашивает `/actions`: смена статуса даёт один запрос
+  сверх опроса. Четыре явных `invalidateQueries` в `applyRunUpdated` остаются — они фиксируют контракт
+  и не зависят от формы ключей. Тесты опроса (`RunDetailPage.progress.test.tsx`) считают этот запрос.
+- В фоновой вкладке опрос стоит. `refetchIntervalInBackground` нигде не задан (ни в `useRunActions`,
+  ни в `queryClient.ts`), а в TanStack Query 5.103 тик интервала пропускается, когда
+  `focusManager.isFocused()` ложно, то есть при `document.visibilityState === 'hidden'` (проверено по
+  исходникам `query-core`). Окно без фокуса, но с видимой вкладкой, опрашивается. `refetchOnWindowFocus: false`, поэтому
+  при возврате на вкладку журнал догоняет ближайший тик (до 3 с) или очередное `run.updated`; SSE-поток
+  видимость вкладки не читает.
+- Терминальный статус приходит событием `run.updated` → деталь → `status` → `refetchInterval: false`;
+  последний журнал забирает та же инвалидация `actions`. Событие шага пайплайна появится с api#97; до
+  его контракта прогресс обеспечивает опрос.
 
 `QueryProvider` также регистрирует `setOnLogout` → `queryClient.clear()`. `UiProvider` — antd
 `ConfigProvider` (русская локаль), без сети.
@@ -368,9 +401,10 @@ sequenceDiagram
   participant UI as widgets
 
   SSE->>Bridge: run.updated { runId, status }
-  Bridge->>QC: invalidateQueries(['runs', runId])
-  QC->>QC: refetch ['runs', runId]
-  QC-->>UI: новые данные прогона
+  Bridge->>QC: applyRunUpdated - invalidateQueries(['runs', runId], actions, diff, comments)
+  Bridge->>QC: invalidateQueries(['runs', 'list'])
+  QC->>QC: refetch активных запросов
+  QC-->>UI: новые данные прогона и списка
 ```
 
 ---
@@ -801,6 +835,126 @@ React, без `innerHTML`.
 (флаг отмены до подтверждения бэкендом) и `attempt: number` (номер попытки при retry) на
 `RunSession`.
 
+### Прогресс-бар (Refs ui#84)
+
+Над журналом действий — три этапа: «Сбор контекста» (`context`), «Анализ LLM» (`analysis`),
+«Публикация» (`publishing`). Модель — чистая функция `runProgress(run, actions)`
+(`src/entities/run/lib/runProgress.ts`, экспорт через `entities/run`): `Pick<RunSession, 'status' |
+'errorCode'>` и `RunAction[]` → `RunProgress | null`; для `skipped` — `null`, бара нет. Этап —
+`{ key, label, state, errorCode }`, `state` — `wait`, `process`, `finish`, `error` или `stopped`;
+`errorCode` (из `run.errorCode`) есть только у этапа `error`/`stopped`. Отрисовка — `RunProgressBar`
+(`src/widgets/run-inspector/ui/RunProgressBar.tsx`, antd `Steps`, `size="small"`): `RunInspector` ставит
+его сразу под `RunHeader`, перед `headerExtra`; `Tag` статуса и строка «Ошибка» в шапке остаются.
+
+Карта «инструмент → этап» (поле `tool` журнала `/actions`; `RunActionSchema.tool` остаётся `z.string()`):
+
+| Этап         | `tool`                                                                   |
+| ------------ | ------------------------------------------------------------------------ |
+| `context`    | `vcs.fetch_diff`, `context.build`, `llm.repo_conventions`                |
+| `analysis`   | `llm.call`, `llm.review_output`, `review.postprocess`, `engine.fallback` |
+| `publishing` | `github.publish_review`                                                  |
+
+Любой другой `tool` игнорируется целиком: не двигает бар и не делит попытки.
+
+Состояния по статусу `RunSession`:
+
+| Статус                                       | «Сбор контекста»     | «Анализ LLM»         | «Публикация»         |
+| -------------------------------------------- | -------------------- | -------------------- | -------------------- |
+| `queued` (журнал не смотрим)                 | `wait`               | `wait`               | `wait`               |
+| `running`, контекст не готов                 | `process`            | `wait`               | `wait`               |
+| `running`, контекст готов                    | `finish`             | `process`            | `wait`               |
+| `publishing`                                 | `finish`             | `finish`             | `process`            |
+| `succeeded` (журнал не смотрим)              | `finish`             | `finish`             | `finish`             |
+| `failed` / `cancelled`                       | см. «Остановка» ниже | см. «Остановка» ниже | см. «Остановка» ниже |
+| `skipped` (бара нет, `runProgress` → `null`) | —                    | —                    | —                    |
+
+Остановка (`failed`, `cancelled`): этап остановки — `publishing`, если в текущей попытке есть
+`llm.review_output`, `review.postprocess` или `github.publish_review`; иначе `analysis`, если контекст
+готов; иначе `context`. Этапы до него — `finish`, после — `wait`, сам этап — `error` (`failed`) или
+`stopped` (`cancelled`). Контекст готов, если в текущей попытке есть `context.build`, чей `response` не
+объект с ключом `error` (так api пишет упавший шаг, `run_trace`); больше ничто контекст готовым не
+делает — в том числе `llm.call` за conventions до `context.build`.
+
+Текущая попытка. В `RunAction` нет номера попытки, а `RunSession.startedAt` ставится только при первом
+захвате и границей попытки быть не может. Поэтому журнал читается по `index`, только известные `tool`, и
+новая попытка начинается с действия, которое либо относится к более раннему этапу, чем предыдущее
+известное действие (регресс этапа), либо является вторым `llm.repo_conventions` в текущем отрезке; берётся
+последний отрезок. Второе правило — по коду api: шаг conventions выполняется при каждом захвате
+(`process_run.py`, `prepare()`, в том числе когда снимок диффа уже есть), а `conventions_unit_of_work.py`
+пишет ровно одну строку `llm.repo_conventions` на вызов, то есть по одной на попытку. Без него ретрай,
+у которого прежняя попытка остановилась сразу после успешного `context.build` (например, потеряна
+аренда), не давал регресса этапа, и старый `context.build` держал «контекст готов» для новой попытки:
+`failed` или `cancelled` показывали `analysis` вместо `context`. Ретрай (T9/T12) идёт
+`running → queued → running`, действия прежних попыток остаются в списке.
+
+Вид. `error` — antd-статус `error` с `errorCode` в описании. `stopped` — не красный: статус `wait`, иконка
+`StopOutlined` цвета токена `colorWarning`, описание «Остановлено» (с `: <errorCode>`, если код есть).
+Состояние этапа в DOM — `data-stage-state` и `data-testid="run-progress-<key>"` на заголовке этапа;
+обёртка бара — `data-testid="run-progress"`. Цветовых литералов нет (Ф-13, §3).
+
+Активный шаг. antd помечает активным шаг `current`, поэтому без правки у `queued` первый этап выглядел бы
+идущим, а у `succeeded` последний отличался бы от остальных готовых. Активен только этап в работе
+(`process`), с ошибкой (`error`) или остановленный (`stopped`); когда все этапы `wait` (`queued`) или все
+`finish` (`succeeded`), активного шага нет — `current` указывает за последний этап (`.ant-steps-item-active`
+не появляется).
+
+Цвет текста. Описание этапа `error` (`errorCode`) и заголовок вместе с описанием этапа `stopped` берут токен
+`colorText`, а не красный `error` antd (#ff4d4f на белом — 3,27) и не серый `wait` (3,35): контраст ниже
+нормы. Состояние по-прежнему отмечают иконка (крестик, `StopOutlined`) и класс статуса. Заголовки остальных
+этапов — `wait`, `finish` и заголовок `error` — остаются на цвете antd по умолчанию (вторичный текст — общий
+приём приложения); тест держит это как есть.
+
+Журнал недоступен. Бар не гадает по пустому списку: если запрос `/actions` упал и данных нет,
+`RunDetailPage` передаёт `actionsUnavailable`, и бар не рисуется для статусов, которые читают журнал, —
+`running`, `failed`, `cancelled` (их называет `runProgressReadsLog`, рядом с `runProgress`). `queued`,
+`publishing` и `succeeded` журнал не читают, для них бар остаётся. Данные последнего удачного запроса при сбое очередного опроса
+журналом считаются: бар остаётся. Спиннер вместо инспектора показывается только при первой загрузке
+журнала (`isLoading` и `errorUpdateCount === 0`): запрос, который ни разу не удался, снова `pending` на
+каждом опросе (TanStack сбрасывает `status` и `error`, пока данных нет), и иначе карточка мигала бы между
+спиннером и инспектором, а `RunControls` перемонтировался. По той же причине `actionsUnavailable` считается
+как `errorUpdateCount > 0` без данных, а не по `isError`: во время опроса `isError` ложен, и бар
+показал бы догадку по пустому списку.
+
+Число действий в шапке. «Действий» в `RunHeader` — `Math.max(run.actionCount, длина журнала)`: число из
+деталей отстаёт от опрашиваемого журнала (деталь обновляется по `run.updated`, журнал — раз в 3 с).
+`RunInspector` передаёт длину журнала в `RunHeader` необязательным пропом `loggedActions`; без него шапка
+работает по `run.actionCount`.
+
+Ограничения:
+
+- **Граница попытки видна по журналу, а не по номеру.** После повторного захвата, пока новая попытка не
+  записала строку, которая режет отрезок (строку более раннего этапа или свой `llm.repo_conventions`),
+  бар показывает этап прежней попытки (`queued` между попытками — все `wait`). Порядок записи в попытке:
+  `vcs.fetch_diff` (на ретрае его нет — снимок есть), при промахе кэша `llm.call` за conventions, затем
+  `llm.repo_conventions`, затем `context.build`. Поэтому при промахе кэша первая строка новой попытки —
+  `llm.call` за conventions (тоже `analysis`): если последняя строка прежней попытки этапа `analysis`
+  (включая `llm.review_output` и `review.postprocess`), регресса нет и бар остаётся на прежнем этапе до
+  `llm.repo_conventions` новой попытки. При попадании в кэш первой строкой идёт сам `llm.repo_conventions`
+  и режет отрезок сразу. Если прежняя попытка кончилась строкой этапа `publishing`
+  (`github.publish_review`), разрыв закрывает любая первая строка новой; если строкой этапа `context`, кроме
+  успешного `context.build`, — разрыва нет, бар и так на `context`; успешный `context.build` разобран в
+  следующем пункте.
+- **Ретрай после успешного `context.build` при промахе кэша conventions.** Прежняя попытка кончилась
+  успешным `context.build` (аренда потеряна сразу после него), а на ретрае кэш conventions не сработал
+  (изменился его ключ, например `agents.md` или версия промпта; если ключ тот же, кэш уже записан первой
+  попыткой, и первой строкой идёт `llm.repo_conventions`, который режет отрезок сразу). Тогда первая строка
+  новой попытки — `llm.call` за conventions (`analysis`), регресса нет, и старый `context.build` держит
+  «контекст готов»: пока идёт `running`, бар показывает `analysis` до `llm.repo_conventions` новой попытки.
+  Если эта попытка упала или была отменена внутри `llm.call` за conventions, `llm.repo_conventions` не
+  появится, и итоговый бар покажет `analysis` вместо `context` (`finish`/`error`/`wait` или
+  `finish`/`stopped`/`wait`). По строкам журнала это неотличимо от настоящей ошибки анализа
+  (`vcs.fetch_diff`, `llm.repo_conventions`, `context.build`, `llm.call` с `response.error`), поэтому
+  исправить это в UI нельзя: нужен маркер попытки на каждом действии в api.
+- По той же карте при промахе кэша внутри одной попытки порядок `vcs.fetch_diff` → `llm.call` →
+  `llm.repo_conventions` — регресс `analysis → context`: отрезок режется на `llm.repo_conventions`.
+  Безвредно: отброшенные строки не отмечают ни «контекст готов», ни выход на публикацию.
+- `llm.review_output` и `review.postprocess` api фиксирует в той же транзакции, что и переход в
+  `publishing`, поэтому при `running` их в журнале нет.
+- Склеенные события (`running → succeeded` без `publishing`, пропущенный `queued`) — норма: бар строится по
+  текущему статусу, не по истории событий.
+- Прогон, застрявший в `publishing` (например, без GitHub App), — не ошибка UI: бар честно показывает
+  публикацию «в работе».
+
 ---
 
 ## 8. Мок
@@ -833,6 +987,42 @@ React, без `innerHTML`.
   "errorCode": null
 }
 ```
+
+### Идущий и упавший прогоны (Refs ui#84)
+
+Файл `src/app/mocks/mockRunTimeline.ts`. Оба прогона в `mockRunSessions` не входят (там по-прежнему 7), а
+добавлены в `mockRunsListPage.items` (`mockRunsList.fixture.ts`); тесты `app-state.test.ts` с 7 сессиями и
+34 действиями не затронуты.
+
+Старые мок-прогоны (`mockRunSessions`) отдают журнал `makeDuoActions` с прежними именами инструментов
+(`get_pull_request`, `get_tree`, …), которых нет в карте этапов (§7): бар по ним строится только по
+статусу, и, например, `cancelled`-прогон «останавливается» на «Сборе контекста». Это артефакт мока, не
+поведение модели; идущий и упавший прогоны ниже используют имена конвейера.
+
+- **Идущий прогон** `11111111-1111-4111-8111-000000000011` (PR #41): чистая `walkingRunAt(elapsedMs, originMs?)`
+  → `{ session, actions }`. Шкала: `queued` до 2 с; `running` с 2 с, по новому действию каждые 1,5 с —
+  `vcs.fetch_diff`, `llm.call`, `llm.repo_conventions`, `context.build`, `llm.call`, `llm.call`; `publishing`
+  с 11 с (в этот момент появляются сразу `llm.review_output` и `review.postprocess`); `github.publish_review`
+  в 12,5 с; `succeeded` с 14 с. `finishedAt` задан только у терминального, `actionCount = actions.length`,
+  `attempt: 1`. Метки времени отсчитываются от реального старта, поэтому «зависшим» (§7) прогон не выглядит.
+- **Часы** стартуют на первом запросе деталей или `/actions` этого прогона (`startWalkingRun`; повторный
+  старт игнорируется). Запрос списка, диффа или комментариев часы не запускает: в списке прогон остаётся
+  `queued`, пока его не откроют. Список отдаёт текущий статус прогона. `initMockTransport()` часы сбрасывает
+  (`resetWalkingRun`) и таймеров не запускает.
+- **Дифф** — демо-дифф с самого начала (снимок существует после `vcs.fetch_diff`). **Находки** пусты до
+  `succeeded`, затем — 8 демо-находок и вердикт `blocking`. **Комментарии ревью** — `[]` до `succeeded`,
+  затем 3 демо-комментария: до публикации инлайн-комментариев быть не должно.
+- **Упавший прогон** `11111111-1111-4111-8111-000000000012` (PR #42), статичный: `failed`,
+  `errorCode: 'llm_timeout'`, действия `vcs.fetch_diff`, `llm.repo_conventions`, `context.build` и `llm.call`
+  с `response.error`; бар — `finish` / `error` / `wait`. Комментариев нет.
+- **`startMockRunEvents()`** (`mockTransport.ts`) стоит вместо SSE-потока, который на моках не открывается:
+  интервал 500 мс (`MOCK_RUN_EVENTS_INTERVAL_MS`) и на каждую смену статуса идущего прогона вызов
+  `applyRunUpdated({ runId, status })` из `runStreamConnect.ts`. Первое событие — начальный `queued`, затем
+  по разу `running`, `publishing`, `succeeded`. Возвращает функцию остановки. Вызывается из `main.tsx`
+  сразу после `initMockTransport()` внутри того же условия и того же динамического `import()`, поэтому в
+  прод-бандл не попадает; из `useRunStream` его вызывать нельзя — там это протащило бы мок-код в прод.
+  `verify:prod-bundle` ловит префиксы фикстурных id и чанк `mockTransport-*.js`; в `dist/assets` нет ни
+  `000000000011`, ни `startMockRunEvents`.
 
 Валидация — тестом: `src/app/mocks/app-state.test.ts` прогоняет весь мок через Zod-схемы
 (`RunSessionSchema`, `FileDiffSchema`, `ReviewCommentSchema`, `RunActionSchema`) и проверяет, что
@@ -935,6 +1125,12 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
   С TS 6.0 `types` по умолчанию `[]`, поэтому пакет придётся назвать в `types` явно.
 - **SSE-мост** (§2, Ф-14) — реализован: `RunStreamBridge`, `runStreamConnect.ts`, лимит `401`,
   reconnect, `Last-Event-ID`, keep-alive watchdog; см. §2 и [`docs/plans/65-api20-comment.md`](plans/65-api20-comment.md).
+- **Прогресс-бар шагов и живой список прогонов (ui#84)** — реализовано (§2, §7, §8): три этапа по статусу и
+  журналу `/actions`, опрос `/actions` раз в 3 с, пока прогон активен, `run.updated` обновляет и список.
+  Остаётся: событие шага пайплайна — его в api пока нет (api#97), до контракта ход виден по опросу;
+  граница попытки определяется по журналу — регресс этапа или второй `llm.repo_conventions` (§7,
+  «Ограничения»); список после переподключения SSE обновляется только со следующим `run.updated` или по
+  `staleTime`.
 - **`pages/review/ReviewPage.tsx`** — файл сохранён, но маршрут `/review` монтирует redirect
   (mock → demo run, prod → `/runs`); полноценная страница не в прод-маршрутизации (Refs ui#65).
 - **Fetch-клиент и авторизация** (Ф-15) — контракт авторизации и сессии ([решение техлида api#20 D4][tl-2026-09-27-api20] и `/api/auth/*` в [`openapi.yaml`][openapi], реализован в PR #55 и #63):

@@ -133,3 +133,36 @@ describe('RunHeader PR metadata', () => {
     expect(screen.getByText(/#34/)).toBeTruthy()
   })
 })
+
+// The count in the run detail lags the polled log (the detail is refetched on `run.updated`, the log
+// every 3 s): the header shows the larger of the two numbers, and works without the log length.
+describe('RunHeader action count', () => {
+  const NOW = new Date('2026-09-18T12:00:00.000Z')
+
+  function actionCountCell(): string | null {
+    const item = screen.getByText('Действий').closest('.ant-descriptions-item')
+    return item?.querySelector('.ant-descriptions-item-content')?.textContent ?? null
+  }
+
+  it('shows the count of the run when no log length is given', () => {
+    render(<RunHeader now={NOW} run={baseRun} />)
+    expect(actionCountCell()).toBe('10')
+  })
+
+  it('shows the longer log when it is ahead of the count of the run', () => {
+    render(<RunHeader loggedActions={14} now={NOW} run={baseRun} />)
+    expect(actionCountCell()).toBe('14')
+  })
+
+  it('shows the count of the run when it is ahead of the log', () => {
+    render(<RunHeader loggedActions={3} now={NOW} run={baseRun} />)
+    expect(actionCountCell()).toBe('10')
+  })
+
+  it('shows the same number when both agree, and 0 for an empty run', () => {
+    const { rerender } = render(<RunHeader loggedActions={10} now={NOW} run={baseRun} />)
+    expect(actionCountCell()).toBe('10')
+    rerender(<RunHeader loggedActions={0} now={NOW} run={{ ...baseRun, actionCount: 0 }} />)
+    expect(actionCountCell()).toBe('0')
+  })
+})

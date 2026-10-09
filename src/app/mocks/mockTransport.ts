@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { RawFileDiffSchema } from '../../entities/diff'
+import type { RunStatus } from '../../entities/run'
 import { makeDuoActions } from '../../entities/run/lib/duoActions.fixture'
 import {
   RepositorySchema,
@@ -15,6 +16,7 @@ import {
   type MockTransportHandler,
 } from '../../shared/api/client'
 import { USE_MOCKS } from '../../shared/config/env'
+import { applyRunUpdated } from '../providers/runStreamConnect'
 import { SAMPLE_FILE_A_LINES, SAMPLE_PATCHES } from '../../shared/fixtures/sample.patch'
 import {
   mockCurrentUser,
@@ -23,7 +25,16 @@ import {
   mockSummaryOnlyDiff,
 } from './app-state'
 import { mockRunsListPage } from './mockRunsList.fixture'
-import { buildMockRunDetail, mockRawDiffForRun } from './mockRunReview'
+import { buildMockRunDetail, mockRawDiffForRun, REVIEW_DEMO_RUN_ID } from './mockRunReview'
+import {
+  buildWalkingRunDetail,
+  currentWalkingRun,
+  FAILED_RUN_ID,
+  makeFailedRunActions,
+  resetWalkingRun,
+  startWalkingRun,
+  WALKING_RUN_ID,
+} from './mockRunTimeline'
 
 export const MOCK_TOKEN = 'mock_jwt_token_skvertl_dmc'
 export const MOCK_OAUTH_CODE = 'mock_code_123'
@@ -32,6 +43,9 @@ export const MOCK_OAUTH_CODE = 'mock_code_123'
 let repositories: Repository[] = structuredClone(mockRepositories)
 
 function findRunSession(id: string) {
+  if (id === WALKING_RUN_ID) {
+    return currentWalkingRun().session
+  }
   return mockRunsListPage.items.find((run) => run.id === id)
 }
 
@@ -45,10 +59,10 @@ function handleMockTransport(
 
   if (endpoint.path === '/runs' && endpoint.method === 'GET') {
     return {
-      items: mockRunsListPage.items.map((run) => ({
-        ...run,
-        pullRequest: { ...run.pullRequest },
-      })),
+      items: mockRunsListPage.items.map((item) => {
+        const run = item.id === WALKING_RUN_ID ? currentWalkingRun().session : item
+        return { ...run, pullRequest: { ...run.pullRequest } }
+      }),
       nextCursor: mockRunsListPage.nextCursor,
     }
   }
@@ -84,11 +98,14 @@ function handleMockTransport(
     if (!runId) {
       throw new ApiError(404, 'Not Found', { message: 'Run not found' })
     }
+    if (runId === WALKING_RUN_ID) {
+      startWalkingRun()
+    }
     const session = findRunSession(runId)
     if (!session) {
       throw new ApiError(404, 'Not Found', { message: 'Run not found' })
     }
-    return buildMockRunDetail(session)
+    return runId === WALKING_RUN_ID ? buildWalkingRunDetail(session) : buildMockRunDetail(session)
   }
 
   const runDiffMatch = /^\/runs\/([^/]+)\/diff$/.exec(endpoint.path)
@@ -102,7 +119,7 @@ function handleMockTransport(
       throw new ApiError(404, 'Not Found', { message: 'Run not found' })
     }
     const raw = mockRawDiffForRun(
-      runId,
+      runId === WALKING_RUN_ID ? REVIEW_DEMO_RUN_ID : runId,
       SAMPLE_PATCHES.map(({ filename, patch }) => ({ filename, patch })),
       mockSummaryOnlyDiff,
     )
@@ -147,10 +164,14 @@ function handleMockTransport(
   const runActionsMatch = /^\/runs\/([^/]+)\/actions$/.exec(endpoint.path)
   if (runActionsMatch && endpoint.method === 'GET') {
     const runId = runActionsMatch[1]
+    if (runId === WALKING_RUN_ID) {
+      startWalkingRun()
+      return currentWalkingRun().actions
+    }
     if (!runId || !findRunSession(runId)) {
       throw new ApiError(404, 'Not Found', { message: 'Run not found' })
     }
-    return makeDuoActions(runId)
+    return runId === FAILED_RUN_ID ? makeFailedRunActions() : makeDuoActions(runId)
   }
 
   const actionResponseMatch = /^\/runs\/([^/]+)\/actions\/(\d+)\/response$/.exec(endpoint.path)
@@ -173,7 +194,13 @@ function handleMockTransport(
     if (!runId || !findRunSession(runId)) {
       throw new ApiError(404, 'Not Found', { message: 'Run not found' })
     }
-    return mockReviewComments.map((comment) => ({ ...comment }))
+    // No review is published before the walking run succeeds, and the failed run never gets one.
+    const published =
+      runId === FAILED_RUN_ID ||
+      (runId === WALKING_RUN_ID && currentWalkingRun().session.status !== 'succeeded')
+        ? []
+        : mockReviewComments
+    return published.map((comment) => ({ ...comment }))
   }
 
   const runFilesMatch = /^\/runs\/([^/]+)\/files\?(.+)$/.exec(endpoint.path)
@@ -243,6 +270,7 @@ export function initMockTransport(): void {
   if (!USE_MOCKS) return
 
   repositories = structuredClone(mockRepositories)
+  resetWalkingRun()
 
   setMockAuthAdapter({
     getMockOAuthCode: () => MOCK_OAUTH_CODE,
@@ -271,4 +299,29 @@ export function withMockTransportOverlay(overlay: MockTransportHandler): void {
     }
     return handleMockTransport(endpoint, options)
   })
+}
+
+/** How often `startMockRunEvents` looks at the walking run's status. */
+export const MOCK_RUN_EVENTS_INTERVAL_MS = 500
+
+/**
+ * Stands in for the SSE stream, which is not opened on mocks: whenever the walking run's status
+ * changes, applies the `run.updated` event the api would have sent. Returns a function that stops it.
+ * `main.tsx` starts it next to `initMockTransport`; `initMockTransport` itself starts no timer.
+ */
+export function startMockRunEvents(): () => void {
+  if (!USE_MOCKS) {
+    return () => undefined
+  }
+  let lastStatus: RunStatus | undefined
+  const timer = setInterval(() => {
+    const { session } = currentWalkingRun()
+    if (session.status !== lastStatus) {
+      lastStatus = session.status
+      applyRunUpdated({ runId: session.id, status: session.status })
+    }
+  }, MOCK_RUN_EVENTS_INTERVAL_MS)
+  return () => {
+    clearInterval(timer)
+  }
 }
