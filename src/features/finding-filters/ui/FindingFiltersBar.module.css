@@ -1,0 +1,14 @@
+.bar {
+  margin-bottom: 12px;
+}
+
+.select {
+  flex: 1 1 220px;
+  max-width: 360px;
+  min-width: 180px;
+}
+
+.search {
+  flex: 1 1 220px;
+  max-width: 320px;
+}
