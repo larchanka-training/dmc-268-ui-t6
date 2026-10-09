@@ -5,6 +5,7 @@ import type { RunAction, RunSession, SeverityCounts, Verdict } from '../../../en
 import { ActionTree } from './ActionTree'
 import { RunHeader } from './RunHeader'
 import styles from './RunInspector.module.css'
+import { RunProgressBar } from './RunProgressBar'
 
 interface RunInspectorProps {
   run: RunSession
@@ -45,6 +46,7 @@ export function RunInspector(props: RunInspectorProps): JSX.Element {
           verdict={verdict}
         />
       </Card>
+      <RunProgressBar actions={actions} run={run} />
       {headerExtra}
       <div className={styles.columns}>
         <section aria-label="Сессия ревью" className={styles.trace}>
