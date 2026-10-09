@@ -34,6 +34,7 @@ let currentErrorCode: string | null = null
 let actionsRequests = 0
 let detailFails = false
 let actionsFail = false
+let actionsHang = false
 
 function installTransport(): void {
   const session = mockRunsListPage.items.find((run) => run.id === DEMO_RUN_ID)
@@ -45,6 +46,10 @@ function installTransport(): void {
       actionsRequests += 1
       if (actionsFail) {
         throw new ApiError(500, 'Internal Server Error', { message: 'actions are down' })
+      }
+      if (actionsHang) {
+        // A request that stays in flight: the page is mid-poll.
+        return new Promise(() => undefined)
       }
       return undefined
     }
@@ -97,6 +102,7 @@ beforeEach(() => {
   currentErrorCode = null
   detailFails = false
   actionsFail = false
+  actionsHang = false
   initMockTransport()
   setAccessToken('mock_jwt_token_skvertl_dmc')
   useAuthStore.setState({
@@ -323,6 +329,62 @@ describe('RunDetailPage progress bar without the action log', () => {
     await settle()
     expect(client.getQueryState(runQueryKeys.actions(DEMO_RUN_ID))?.status).toBe('error')
     expect(stageStates()).toEqual(['process', 'wait', 'wait'])
+  })
+
+  it('shows the bar once the next poll brings the log', async () => {
+    actionsFail = true
+    renderRunDetail()
+    await settle()
+    expect(screen.queryByTestId('run-progress')).toBeNull()
+    expect(actionsRequests).toBe(1)
+
+    actionsFail = false
+    await advance(3000)
+    // A timer created inside the poll's tick is due 1 ms later on the fake clock, and TanStack
+    // tells React through `setTimeout(0)`: without this step the bar only shows after the next poll.
+    await advance(1)
+    expect(actionsRequests).toBe(2)
+    expect(stageStates()).toEqual(['process', 'wait', 'wait'])
+  })
+
+  // A query that has only ever failed is `pending` again while a poll is in flight, so the card
+  // must not swap the inspector for a spinner on that account: only the first load of the log does.
+  it('keeps the inspector and the cancel button mounted while a poll of a failing log is in flight', async () => {
+    actionsFail = true
+    renderRunDetail()
+    await settle()
+    expect(screen.getByText('Отменить')).toBeTruthy()
+
+    actionsFail = false
+    actionsHang = true
+    await advance(3000)
+    await advance(1)
+    expect(actionsRequests).toBe(2)
+    expect(screen.getByText('Отменить')).toBeTruthy()
+    expect(screen.getByText('Сессия ревью')).toBeTruthy()
+  })
+
+  it('keeps the bar hidden while a poll of a failing log is in flight, not guessing from an empty log', async () => {
+    actionsFail = true
+    renderRunDetail()
+    await settle()
+    expect(screen.queryByTestId('run-progress')).toBeNull()
+
+    actionsFail = false
+    actionsHang = true
+    await advance(3000)
+    await advance(1)
+    expect(actionsRequests).toBe(2)
+    expect(screen.queryByTestId('run-progress')).toBeNull()
+  })
+
+  it('shows the spinner on the first load of the log, before any failure', async () => {
+    actionsHang = true
+    renderRunDetail()
+    await settle()
+    expect(actionsRequests).toBe(1)
+    expect(screen.queryByText('Отменить')).toBeNull()
+    expect(screen.queryByTestId('run-progress')).toBeNull()
   })
 
   it('shows the bar once a refetch brings the log', async () => {

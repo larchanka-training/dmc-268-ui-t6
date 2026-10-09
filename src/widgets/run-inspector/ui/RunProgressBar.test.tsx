@@ -334,12 +334,6 @@ describe('RunProgressBar', () => {
   it('tints the stop icon with the warning token, not the error one', () => {
     renderBar('cancelled', [], null)
     const icon = within(stageItem('context')).getByRole('img', { name: 'stop' })
-    // Let the DOM normalise each token to the form it stores a colour in.
-    const normalised = (color: string): string => {
-      const probe = document.createElement('span')
-      probe.style.color = color
-      return probe.style.color
-    }
     const { colorWarning, colorError } = theme.getDesignToken()
     expect(icon.style.color).toBe(normalised(colorWarning))
     expect(icon.style.color).not.toBe(normalised(colorError))

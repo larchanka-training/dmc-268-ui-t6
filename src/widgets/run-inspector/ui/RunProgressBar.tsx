@@ -3,8 +3,8 @@ import { Steps, theme } from 'antd'
 import type { StepsProps } from 'antd'
 import type { JSX } from 'react'
 
-import type { RunAction, RunProgressStage, RunSession, RunStatus } from '../../../entities/run'
-import { runProgress } from '../../../entities/run'
+import type { RunAction, RunProgressStage, RunSession } from '../../../entities/run'
+import { runProgress, runProgressReadsLog } from '../../../entities/run'
 
 interface RunProgressBarProps {
   run: Pick<RunSession, 'status' | 'errorCode'>
@@ -13,16 +13,13 @@ interface RunProgressBarProps {
   actionsUnavailable?: boolean
 }
 
-// Statuses whose stage comes from the log. The others (queued, publishing, succeeded) ignore it.
-const LOG_READING_STATUSES: readonly RunStatus[] = ['running', 'failed', 'cancelled']
-
 type StepItem = NonNullable<StepsProps['items']>[number]
 
 export function RunProgressBar(props: RunProgressBarProps): JSX.Element | null {
   const { run, actions, actionsUnavailable = false } = props
   const { token } = theme.useToken()
   const progress = runProgress(run, actions)
-  if (progress === null || (actionsUnavailable && LOG_READING_STATUSES.includes(run.status))) {
+  if (progress === null || (actionsUnavailable && runProgressReadsLog(run.status))) {
     return null
   }
 

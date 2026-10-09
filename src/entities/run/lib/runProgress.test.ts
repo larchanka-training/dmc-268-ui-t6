@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { RunAction, RunStatus } from '../model/schemas'
-import { runProgress } from './runProgress'
+import { runProgress, runProgressReadsLog } from './runProgress'
 
 const RUN_ID = '11111111-1111-4111-8111-000000000000'
 
@@ -481,5 +481,40 @@ describe('runProgress purity', () => {
     const before = reversed.map((a) => a.index)
     runProgress({ status: 'running', errorCode: null }, reversed)
     expect(reversed.map((a) => a.index)).toEqual(before)
+  })
+})
+
+describe('runProgressReadsLog', () => {
+  it.each<[RunStatus, boolean]>([
+    ['queued', false],
+    ['running', true],
+    ['publishing', false],
+    ['succeeded', false],
+    ['failed', true],
+    ['cancelled', true],
+    ['skipped', false],
+  ])('%s: %s', (status, expected) => {
+    expect(runProgressReadsLog(status)).toBe(expected)
+  })
+
+  // The helper and the model must not drift apart: a status reads the log exactly when some log
+  // changes what `runProgress` returns for it.
+  it.each<RunStatus>([
+    'queued',
+    'running',
+    'publishing',
+    'succeeded',
+    'failed',
+    'cancelled',
+    'skipped',
+  ])('agrees with runProgress for %s', (status) => {
+    const logs: RunAction[][] = [
+      [],
+      build('vcs.fetch_diff', 'llm.repo_conventions', 'context.build'),
+      build('vcs.fetch_diff', 'llm.repo_conventions', 'context.build', ['llm.call', FAILURE]),
+      HAPPY_PATH,
+    ]
+    const outputs = logs.map((log) => JSON.stringify(runProgress({ status, errorCode: 'x' }, log)))
+    expect(new Set(outputs).size > 1).toBe(runProgressReadsLog(status))
   })
 })

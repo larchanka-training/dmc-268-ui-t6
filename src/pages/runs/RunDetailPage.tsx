@@ -117,12 +117,12 @@ const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
       </Card>
 
       <Card title="Сессия ревью">
-        {actionsQuery.isLoading ? (
+        {actionsQuery.isLoading && actionsQuery.errorUpdateCount === 0 ? (
           <Spin />
         ) : (
           <RunInspector
             actions={actions}
-            actionsUnavailable={actionsQuery.isError && !actionsQuery.data}
+            actionsUnavailable={actionsQuery.errorUpdateCount > 0 && !actionsQuery.data}
             headerExtra={
               <div style={{ marginBottom: 12 }}>
                 <RunControls run={run} />
