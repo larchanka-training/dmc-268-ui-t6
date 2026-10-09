@@ -1,0 +1,219 @@
+.hero {
+  position: relative;
+  padding-top: calc(var(--header-h) + 136px);
+  padding-bottom: 96px;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* Фон в духе Raycast: размытые диагональные лучи, зерно и затухание к фону страницы. */
+.backdrop {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1100px;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.14;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.fade {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 34% 30% at 50% 36%, rgb(9 13 24 / 45%), transparent 75%),
+    linear-gradient(
+      180deg,
+      rgb(9 13 24 / 30%) 0%,
+      transparent 25%,
+      rgb(9 13 24 / 85%) 62%,
+      var(--bg) 82%
+    );
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.content > * {
+  opacity: 0;
+  animation: rise 1s var(--ease-out) forwards;
+}
+
+.content > :nth-child(1) {
+  animation-delay: 0.1s;
+}
+
+.content > :nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.content > :nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+    filter: blur(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+.title {
+  font-size: clamp(2.5rem, 1.5rem + 4.6vw, 4.75rem);
+  font-weight: 600;
+  line-height: 1.02;
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+  background: linear-gradient(180deg, #fff 30%, #cbd5e1 100%);
+  background-clip: text;
+  color: transparent;
+
+  /* Градиент клипуется по box'у строки: без запаса снизу срезаются выносные элементы (g, p). */
+  padding-bottom: 0.12em;
+  margin-bottom: -0.12em;
+  filter: drop-shadow(0 4px 28px rgb(9 13 24 / 55%));
+}
+
+.subtitle {
+  max-width: 30rem;
+  margin-top: 20px;
+  color: #cbd5e1;
+  text-shadow: 0 1px 16px rgb(9 13 24 / 80%);
+  font-size: clamp(0.9375rem, 0.9rem + 0.2vw, 1.0625rem);
+  line-height: 1.55;
+  text-wrap: balance;
+}
+
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin-top: 36px;
+  padding: 0 18px;
+  border: 1px solid rgb(255 255 255 / 16%);
+  border-radius: 999px;
+  background: rgb(9 13 24 / 45%);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 8%) inset;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.cta svg {
+  color: var(--glow);
+  transition: transform 0.25s var(--ease-out);
+}
+
+.cta:hover {
+  border-color: rgb(96 165 250 / 45%);
+  background: rgb(15 21 38 / 70%);
+}
+
+.cta:hover svg {
+  transform: translateX(3px);
+}
+
+.cta:active {
+  transform: scale(0.98);
+}
+
+.demoWrap {
+  position: relative;
+  margin-top: 88px;
+  perspective: 1600px;
+}
+
+.demoGlow {
+  position: absolute;
+  inset: 8% 12% -4%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgb(37 99 235 / 45%), transparent 65%);
+  filter: blur(60px);
+  opacity: 0;
+  animation: glow-in 2s var(--ease-out) 0.6s forwards;
+}
+
+@keyframes glow-in {
+  to {
+    opacity: 1;
+  }
+}
+
+.demo {
+  position: relative;
+  max-width: 920px;
+  margin-inline: auto;
+  opacity: 0;
+  transform: rotateX(14deg) translateY(40px) scale(0.97);
+  transform-origin: center top;
+  animation: demo-in 1.4s var(--ease-out) 0.55s forwards;
+}
+
+@keyframes demo-in {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (width <= 640px) {
+  .hero {
+    padding-top: calc(var(--header-h) + 84px);
+    padding-bottom: 64px;
+  }
+
+  /* Затемнение под текстом стоит там, где на телефоне заголовок, а не на 36% высоты фона. */
+  .fade {
+    background:
+      radial-gradient(ellipse 70% 18% at 50% 22%, rgb(9 13 24 / 60%), transparent 75%),
+      linear-gradient(
+        180deg,
+        rgb(9 13 24 / 35%) 0%,
+        transparent 20%,
+        rgb(9 13 24 / 85%) 50%,
+        var(--bg) 70%
+      );
+  }
+
+  .demoWrap {
+    margin-top: 56px;
+  }
+
+  .demo {
+    transform: translateY(24px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .demoGlow,
+  .demo,
+  .content > * {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+}

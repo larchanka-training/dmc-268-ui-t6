@@ -1,0 +1,27 @@
+.heading {
+  max-width: 40rem;
+}
+
+.eyebrow {
+  color: var(--glow);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin-top: 14px;
+  font-size: clamp(1.875rem, 1.4rem + 2vw, 2.75rem);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.lead {
+  margin-top: 16px;
+  color: var(--text-2);
+  font-size: 17px;
+  text-wrap: pretty;
+}
