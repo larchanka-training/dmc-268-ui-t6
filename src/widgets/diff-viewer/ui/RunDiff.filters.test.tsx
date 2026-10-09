@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import type { ComponentProps, JSX } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -276,7 +276,7 @@ describe('RunDiff filters: wiring', () => {
     expect(runLevel).toHaveLength(1)
   })
 
-  it('passes the typing and reset events of the bar up', () => {
+  it('passes the typing and reset events of the bar up', async () => {
     const onFiltersChange = vi.fn()
     const onFiltersReset = vi.fn()
     render(
@@ -290,10 +290,12 @@ describe('RunDiff filters: wiring', () => {
     fireEvent.change(screen.getByPlaceholderText('Поиск по замечаниям'), {
       target: { value: 'x' },
     })
-    expect(onFiltersChange).toHaveBeenCalledWith(
-      { files: [], severities: ['info'], query: 'x' },
-      { replace: true },
-    )
+    await waitFor(() => {
+      expect(onFiltersChange).toHaveBeenCalledWith(
+        { files: [], severities: ['info'], query: 'x' },
+        { replace: true },
+      )
+    })
 
     const bar = screen.getByTestId('finding-filters-bar')
     fireEvent.click(within(bar).getByRole('button', { name: 'Сбросить фильтры' }))
@@ -795,5 +797,55 @@ describe('RunDiff filters: summary-only run', () => {
     expect(fileNameShown('src/big-one.ts')).toBe(false)
     expect(fileNameShown('src/big-two.ts')).toBe(false)
     expect(screen.queryAllByTestId('findings-outside-diff')).toHaveLength(0)
+  })
+})
+
+describe('RunDiff filters: search text and pending comments', () => {
+  it('typing goes to onFiltersQueryChange when it is given, not to onFiltersChange', async () => {
+    const onFiltersChange = vi.fn()
+    const onFiltersQueryChange = vi.fn()
+    render(
+      runDiff({
+        filters: filtersOf({ severities: ['info'] }),
+        onFiltersChange,
+        onFiltersQueryChange,
+      }),
+    )
+
+    fireEvent.change(screen.getByPlaceholderText('Поиск по замечаниям'), {
+      target: { value: 'x' },
+    })
+
+    await waitFor(() => {
+      expect(onFiltersQueryChange).toHaveBeenCalledWith('x')
+    })
+    expect(onFiltersQueryChange).toHaveBeenCalledTimes(1)
+    expect(onFiltersChange).not.toHaveBeenCalled()
+  })
+
+  it('does not show the empty message while /comments is pending, and shows it once it settles', () => {
+    const { rerender } = render(
+      runDiff({ filters: filtersOf({ query: 'zzzz' }), commentsPending: true }),
+    )
+
+    expect(screen.queryByTestId('findings-filter-empty')).toBeNull()
+    // the counter and the rest of the page work as usual
+    expect(screen.getByText(counter(0, TOTAL))).toBeTruthy()
+
+    rerender(runDiff({ filters: filtersOf({ query: 'zzzz' }), commentsPending: false }))
+    expect(screen.getByTestId('findings-filter-empty')).toBeTruthy()
+  })
+
+  it('does not show the empty message for a file filter either while /comments is pending', () => {
+    render(
+      runDiff({
+        findings: [],
+        comments: [],
+        filters: filtersOf({ severities: ['info'] }),
+        commentsPending: true,
+      }),
+    )
+
+    expect(screen.queryByTestId('findings-filter-empty')).toBeNull()
   })
 })

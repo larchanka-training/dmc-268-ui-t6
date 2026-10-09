@@ -222,7 +222,9 @@ src/features/auth/ui/UserMenu.tsx
 src/features/finding-filters/index.ts
 src/features/finding-filters/model/findingFilters.test.ts
 src/features/finding-filters/model/findingFilters.ts
+src/features/finding-filters/model/useFindingFiltersParams.test.tsx
 src/features/finding-filters/model/useFindingFiltersParams.ts
+src/features/finding-filters/model/useQueryText.ts
 src/features/finding-filters/ui/FindingFiltersBar.module.css
 src/features/finding-filters/ui/FindingFiltersBar.test.tsx
 src/features/finding-filters/ui/FindingFiltersBar.tsx
@@ -251,6 +253,7 @@ src/pages/review/ReviewRedirect.test.tsx
 src/pages/review/ReviewRedirect.tsx
 src/pages/runs/.gitkeep
 src/pages/runs/RunDetailPage.filters.test.tsx
+src/pages/runs/RunDetailPage.search.test.tsx
 src/pages/runs/RunDetailPage.test.tsx
 src/pages/runs/RunDetailPage.tsx
 src/pages/runs/RunsPage.module.css
@@ -371,15 +374,30 @@ src/widgets/run-inspector/ui/RunInspector.tsx
   применяется, но и не вычищается из адреса: URL переписывает только действие пользователя. Первое
   же изменение пересобирает `file` / `severity` / `q` из разобранных значений (мусор уходит),
   остальные параметры сохраняются (`writeFindingFilters`).
-- Выбор в селектах и сброс — `push` (новая запись истории, «назад» возвращает прежние фильтры);
-  ввод в поиск — `replace`, набор текста не засоряет историю.
+- Выбор в селектах и сброс — `push` (новая запись истории, «назад» возвращает прежние фильтры).
+- Поиск — отдельный случай: текст живёт в локальном состоянии поля (`useQueryText`), а в URL `q`
+  пишется с паузой 250 мс после последнего символа и с `replace` — набор текста не засоряет историю.
+  Привязывать поле прямо к `location.search` нельзя: react-router 8.4 фиксирует состояние роутера
+  внутри `React.startTransition`, и пока переход не закоммичен, React возвращает в controlled-поле
+  старое значение — быстрые символы пропадают, каретка прыгает в конец (замечено в браузере и
+  ревью; `flushSync` не взяли: на большом диффе рендер страницы стал бы задержкой нажатия клавиши).
+  Отложенная запись трогает только `q` (`setQuery`), остальные параметры сохраняются. Выбор в
+  селекторе при ещё не записанном тексте несёт этот текст в свою же навигацию, а таймер отменяется;
+  сброс очищает поле и отменяет запись; уход со страницы тоже отменяет таймер.
+  Поле подтягивает `q` из URL только тогда, когда он стал значением, которого поле не писало
+  («назад» / «вперёд», сброс, ссылка); когда URL догоняет то, что уже набрано, поле не трогается,
+  иначе пауза вернула бы потерю символов. Длина текста ограничена полем (`maxLength` = 200, как и
+  обрезка при чтении).
 - Другой прогон начинает с чистых фильтров: содержимое `RunDetailPage` ключуется `runId`, а
   `/runs/<другой>` приходит без query. Отфильтрованный URL переживает вход: `ProtectedLayout`
   сохраняет `pathname + search` в `returnTo`, редирект на `/login` и возврат из OAuth приводят на тот
   же адрес (`app/layouts/ProtectedLayout.returnTo.test.tsx`).
 - react-router 8.4: `setSearchParams((prev) => …, { replace })` отдаёт апдейтеру копию параметров
-  последнего рендера и, в отличие от `setState`, не ставит вызовы в очередь — два вызова в одном
-  такте строятся на одном `prev`. Хук делает один вызов на событие, поэтому очередь не нужна.
+  последнего _отрисованного_ URL и, в отличие от `setState`, не ставит вызовы в очередь — два вызова
+  в одном такте строятся на одном `prev`, а пока переход не закоммичен, `prev` устарел. Поэтому
+  `useFindingFiltersParams` не опирается на `prev`: он строит следующий URL поверх того, что сам
+  записал последним (`ref`, синхронизируется с `location.search` после коммита), и отложенная запись
+  `q` не откатывает выбор в селекторе, который ещё не дошёл до экрана.
 
 TanStack Query — не замена Zustand, а дополнение: серверный кэш и клиентский UI-стейт разнесены
 по разным сторонам (issue AC явно требует эту формулировку). Стор Zustand живёт в виджете, а не в
@@ -613,13 +631,13 @@ off; }` для SSE, либо в документе фиксируется cross-
 
 Компоненты (`src/widgets/diff-viewer/`):
 
-| Компонент         | Файл                     | Props                                                                                                                                                                                                                                                        |
-| ----------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `DiffViewer`      | `ui/DiffViewer.tsx`      | `file: FileDiff`, `findings?: FindingView[]`, `comments?: ReviewComment[]`, `totalLines?: number`, `diffTotalLines?: number`, `searchActive?: boolean`, `onLoadMore?: (gap: ContextGap) => void`                                                             |
-| `InlineComment`   | `ui/InlineComment.tsx`   | `finding: FindingView`, `file?: FileDiff`, `defaultExpanded?: boolean` — находка или комментарий, привязанный к строке диффа (виджет `react-diff-view`); свёрнут, пока не раскрыт или не задан `defaultExpanded`                                             |
-| `DiffSuggestion`  | `ui/DiffSuggestion.tsx`  | `filename: string`, `removedLines: string[]`, `addedText: string` — правка из `suggestion` находки, через `<Diff>`                                                                                                                                           |
-| `LoadMoreContext` | `ui/LoadMoreContext.tsx` | кнопка дочитывания контекста в зазоре между хунками                                                                                                                                                                                                          |
-| `RunDiff`         | `ui/RunDiff.tsx`         | `summaryOnly: boolean`, `files: FileDiff[]`, `findings: FindingView[]`, `comments?: ReviewComment[]`, `budgetFiles?: FileDiff[]`, `fileTotalLines?`, `onLoadMore?`, `filters?: FindingFilters`, `onFiltersChange?`, `onFiltersReset?` — дифф прогона целиком |
+| Компонент         | Файл                     | Props                                                                                                                                                                                                                                                                                                              |
+| ----------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `DiffViewer`      | `ui/DiffViewer.tsx`      | `file: FileDiff`, `findings?: FindingView[]`, `comments?: ReviewComment[]`, `totalLines?: number`, `diffTotalLines?: number`, `searchActive?: boolean`, `onLoadMore?: (gap: ContextGap) => void`                                                                                                                   |
+| `InlineComment`   | `ui/InlineComment.tsx`   | `finding: FindingView`, `file?: FileDiff`, `defaultExpanded?: boolean` — находка или комментарий, привязанный к строке диффа (виджет `react-diff-view`); свёрнут, пока не раскрыт или не задан `defaultExpanded`                                                                                                   |
+| `DiffSuggestion`  | `ui/DiffSuggestion.tsx`  | `filename: string`, `removedLines: string[]`, `addedText: string` — правка из `suggestion` находки, через `<Diff>`                                                                                                                                                                                                 |
+| `LoadMoreContext` | `ui/LoadMoreContext.tsx` | кнопка дочитывания контекста в зазоре между хунками                                                                                                                                                                                                                                                                |
+| `RunDiff`         | `ui/RunDiff.tsx`         | `summaryOnly: boolean`, `files: FileDiff[]`, `findings: FindingView[]`, `comments?: ReviewComment[]`, `budgetFiles?: FileDiff[]`, `fileTotalLines?`, `onLoadMore?`, `filters?: FindingFilters`, `onFiltersChange?`, `onFiltersQueryChange?`, `onFiltersReset?`, `commentsPending?: boolean` — дифф прогона целиком |
 
 Поток данных:
 
@@ -705,21 +723,30 @@ next.newStart - startLine }`; хвостовой зазор после посл�
 Над диффом `RunDiff` рисует панель `FindingFiltersBar` (`features/finding-filters/ui/`). Панель и
 фильтрация включаются только вместе с `onFiltersChange`: без него проп `filters` игнорируется, а
 прогон рисуется как раньше. Состояние — в URL (§2 «Состояние в URL»); `RunDetailPage` берёт его
-хуком `useFindingFiltersParams` и передаёт `filters` / `onFiltersChange` / `onFiltersReset`
-(без `onFiltersReset` сброс — `onFiltersChange(EMPTY_FINDING_FILTERS)`).
+хуком `useFindingFiltersParams` и передаёт `filters` / `onFiltersChange` / `onFiltersQueryChange` /
+`onFiltersReset` (без `onFiltersReset` сброс — `onFiltersChange(EMPTY_FINDING_FILTERS)`; без
+`onFiltersQueryChange` текст поиска уходит в `onFiltersChange({ ...filters, query }, { replace: true })`)
+и `commentsPending` — `/comments` ещё не ответил.
 
 Панель (`FindingFiltersBar`, props: `filters`, `fileOptions: { file; count }[]`, `shown`, `total`,
-`onChange(next, { replace? })`, `onReset`):
+`empty?`, `onChange(next, { replace? })`, `onQueryChange(query)`, `onReset`):
 
 - «Файлы» — `Select mode="multiple"`, вариант `файл (N)`, в теге — только путь. N — число
   показываемых замечаний файла, не зависит от остальных фильтров. Файлы прогона — файлы `/diff` ∪
-  `finding.file`, поэтому файл, которого в диффе нет, тоже можно выбрать;
+  `finding.file`, поэтому файл, которого в диффе нет, тоже можно выбрать. `file=` файла, которого в
+  прогоне нет, остаётся тегом в селекте, хотя ничего не фильтрует: санитайзинг только при чтении (§2);
 - «Критичность» — `Select mode="multiple"` по группам D3 (Critical = critical + high,
   Warning = medium + low, Info), подписи — `SEVERITY_BADGE_LABEL`, порядок — `SEVERITY_BADGE_GROUPS`;
 - «Поиск по замечаниям» — подстрока в `title`, `body` или `ruleName` без учёта регистра (кириллица
-  тоже), пробелы по краям не считаются. Ввод идёт с `replace`, выбор в селектах — `push`;
-- счётчик «Показано N из M замечаний» и «Сбросить фильтры»: кнопка выключена, пока ничего не задано;
-  поиск из одних пробелов считается заданным — иначе его нельзя было бы очистить.
+  тоже), пробелы по краям не считаются. Текст — локальное состояние поля, в URL `q` пишется с паузой
+  250 мс и `replace` через `onQueryChange` (§2 «Состояние в URL»); не больше 200 символов
+  (`maxLength`, `QUERY_MAX_LENGTH`). Выбор в селектах — `push` и несёт набранный текст с собой;
+- счётчик «Показано N из M замечаний» — обычным текстом (не `secondary`: контраст 3,32:1 на светлой
+  теме не проходит) и с `role="status"` (вежливая live-region: скринридер озвучивает число после
+  паузы). Счётчик следует за URL, поэтому меняется после паузы, а не на каждый символ;
+- «Сбросить фильтры»: кнопка выключена, пока ничего не задано — ни в URL, ни в поле; поиск из одних
+  пробелов считается заданным, иначе его нельзя было бы очистить. Сброс очищает и поле, и отложенную
+  запись.
 
 Семантика (`matchesFindingFilters`): И между тремя фильтрами, ИЛИ внутри `file` и внутри `severity`.
 Фильтр файлов — `effectiveFileFilter(file, файлы прогона)`; если пересечение пусто (в прогоне нет
@@ -744,8 +771,11 @@ next.newStart - startLine }`; хвостовой зазор после посл�
   карточки — `${id}:q` при поиске и `${id}:` без него, поэтому включение и выключение поиска
   перемонтирует карточки, а ввод следующих символов — нет (ручное сворачивание сохраняется);
 - ничего не подходит, а фильтр действует (эффективный фильтр файлов не пуст или задан содержательный
-  фильтр) — сообщение «Нет замечаний, подходящих под фильтры» с кнопкой сброса. Одинокий `file=`
-  неизвестного файла и прогон без замечаний при пустых фильтрах сообщения не вызывают;
+  фильтр) — сообщение «Нет замечаний, подходящих под фильтры» с кнопкой сброса; рисует его сама
+  панель (`empty`), чтобы кнопка в сообщении очищала и поле поиска. Одинокий `file=` неизвестного
+  файла и прогон без замечаний при пустых фильтрах сообщения не вызывают. Пока `/comments` не
+  ответил, сообщения нет: набор ещё неполон, и запрос, который подходит только комментарию, не
+  должен мигать «ничего нет» (счётчик при этом может поменяться, когда комментарии придут);
 - бюджет подсветки Ф-18 считается по всем файлам, как пришли (`budgetFiles ?? files`), а не по
   видимым: фильтр не включает и не выключает подсветку.
 
@@ -753,7 +783,10 @@ next.newStart - startLine }`; хвостовой зазор после посл�
 предикаты, пары и тройка фильтров, кириллица), `ui/FindingFiltersBar.test.tsx`,
 `widgets/diff-viewer/ui/RunDiff.filters.test.tsx` (каждый фильтр, сочетания, блоки «вне диффа»,
 summary-only, бюджет подсветки), `pages/runs/RunDetailPage.filters.test.tsx` (URL: загрузка,
-мусор, `push` / `replace`, другой прогон, сброс).
+мусор, `push` / `replace`, другой прогон, сброс, ожидание `/comments`),
+`pages/runs/RunDetailPage.search.test.tsx` (поле поиска на `RouterProvider` из `react-router/dom` —
+роутер приложения: два нативных `input` подряд без `act`, каретка при вставке в середину, «назад»,
+сброс, выбор при ещё не записанном тексте) и `model/useFindingFiltersParams.test.tsx`.
 
 ### Цвета диффа и подсветки
 
@@ -1071,8 +1104,11 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
   диффом, состояние в URL (§2, §6). Остаются как были и в эту задачу не входят: комментарии к файлам
   без диффа или отсутствующим в `/diff` по-прежнему не рисуются; `selectedFile` в
   `useDiffViewerStore` по-прежнему не используется; `pages/review/ReviewPage` не подключена к
-  маршрутам. Ввод в поиск перерисовывает все `DiffViewer` (мемоизации нет); замеров на больших
-  диффах не делали.
+  маршрутам. Во время набора страница не перерисовывается: рисуется только поле, а страница — раз
+  за паузу, когда `q` записан в URL (все `DiffViewer` без мемоизации); замеров на больших диффах не
+  делали.
+- **antd `List` на summary-only прогоне** пишет в консоль предупреждение об устаревании. Так было
+  с #42, к фильтрам это не относится; follow-up — заменить `List` в `RunDiff` (отдельной задачей).
 - **`POST /api/runs/{id}/rerun`** — есть в [`openapi.yaml`][openapi] (реализация — api#34): `202` →
   новый `RunSession` в `queued` для того же PR и `headSha`; `409`, если у PR уже есть активный
   прогон. В `src/shared/api/endpoints.ts` его нет (`endpoints.runs` содержит только `cancel`) —

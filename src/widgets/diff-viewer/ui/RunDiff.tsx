@@ -1,5 +1,5 @@
 import type { JSX } from 'react'
-import { Alert, Button, Empty, List } from 'antd'
+import { Alert, List } from 'antd'
 
 import type { FileDiff } from '../../../entities/diff'
 import { findingCardKey } from '../lib/findingCardKey'
@@ -32,6 +32,10 @@ interface RunDiffProps {
   onFiltersChange?: (next: FindingFilters, options?: { replace?: boolean }) => void
   /** Defaults to `onFiltersChange(EMPTY_FINDING_FILTERS)`. */
   onFiltersReset?: () => void
+  /** The debounced search text; defaults to `onFiltersChange({ ...filters, query }, { replace: true })`. */
+  onFiltersQueryChange?: (query: string) => void
+  /** `/comments` has not answered yet: the set is still incomplete, so "nothing matches" is not shown. */
+  commentsPending?: boolean
 }
 
 function findingsOutsideVisibleDiff(files: FileDiff[], findings: FindingView[]): FindingView[] {
@@ -90,6 +94,8 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
     filters = EMPTY_FINDING_FILTERS,
     onFiltersChange,
     onFiltersReset,
+    onFiltersQueryChange,
+    commentsPending = false,
   } = props
 
   const activeFilters = onFiltersChange === undefined ? EMPTY_FINDING_FILTERS : filters
@@ -118,6 +124,11 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
   const controls = onFiltersChange
     ? {
         onChange: onFiltersChange,
+        onQueryChange:
+          onFiltersQueryChange ??
+          ((query: string) => {
+            onFiltersChange({ ...filters, query }, { replace: true })
+          }),
         onReset:
           onFiltersReset ??
           (() => {
@@ -127,28 +138,19 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
     : undefined
   const filtersBar = controls ? (
     <FindingFiltersBar
+      empty={filtering && shownFindings.length === 0 && !commentsPending}
       fileOptions={runFiles.map((file) => ({
         file,
         count: displayed.filter((finding) => finding.file === file).length,
       }))}
       filters={filters}
       onChange={controls.onChange}
+      onQueryChange={controls.onQueryChange}
       onReset={controls.onReset}
       shown={shownFindings.length}
       total={displayed.length}
     />
   ) : null
-  const emptyMessage =
-    controls && filtering && shownFindings.length === 0 ? (
-      <div data-testid="findings-filter-empty">
-        <Empty
-          description="Нет замечаний, подходящих под фильтры"
-          image={Empty.PRESENTED_IMAGE_SIMPLE}
-        >
-          <Button onClick={controls.onReset}>Сбросить фильтры</Button>
-        </Empty>
-      </div>
-    ) : null
 
   if (summaryOnly) {
     return (
@@ -159,7 +161,6 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
           title="Дифф слишком большой"
           type="info"
         />
-        {emptyMessage}
         {visibleFiles.length > 0 || !filtering ? (
           <List
             dataSource={visibleFiles.map((f) => f.filename)}
@@ -182,7 +183,6 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
   return (
     <div>
       {filtersBar}
-      {emptyMessage}
       {visibleFiles.map((file) => (
         <div key={file.filename}>
           <DiffViewer

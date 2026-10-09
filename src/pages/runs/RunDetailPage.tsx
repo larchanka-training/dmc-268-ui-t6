@@ -26,7 +26,7 @@ const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
   const diffQuery = useRunDiff(runId)
   const actionsQuery = useRunActions(runId)
   const commentsQuery = useRunComments(runId)
-  const { filters, setFilters, resetFilters } = useFindingFiltersParams()
+  const { filters, setFilters, setQuery, resetFilters } = useFindingFiltersParams()
   const [expandedFiles, setExpandedFiles] = useState<Map<string, FileDiff>>(() => new Map())
   const [loadError, setLoadError] = useState<string | null>(null)
   const inflightGapKeyRef = useRef<string | null>(null)
@@ -155,10 +155,12 @@ const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
         <RunDiff
           budgetFiles={diffFiles}
           comments={comments}
+          commentsPending={commentsQuery.isPending}
           files={displayFiles}
           filters={filters}
           findings={Array.isArray(run.findings) ? run.findings : []}
           onFiltersChange={setFilters}
+          onFiltersQueryChange={setQuery}
           onFiltersReset={resetFilters}
           onLoadMore={run.summaryOnly ? undefined : handleLoadMore}
           summaryOnly={run.summaryOnly}
