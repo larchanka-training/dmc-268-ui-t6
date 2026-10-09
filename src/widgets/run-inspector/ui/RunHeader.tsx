@@ -13,6 +13,11 @@ interface RunHeaderProps {
   severityCounts?: SeverityCounts
   /** Findings the client dropped (failed the format check) but `severityCounts` still counts. */
   droppedFindings?: number
+  /**
+   * Length of the action log on screen. The run detail's `actionCount` lags the polled log, so the
+   * header shows the larger of the two.
+   */
+  loggedActions?: number
 }
 
 const VERDICT_LABEL: Record<Verdict, string> = {
@@ -48,7 +53,7 @@ function formatRefs(
 }
 
 export function RunHeader(props: RunHeaderProps): JSX.Element {
-  const { run, now, verdict = null, severityCounts, droppedFindings = 0 } = props
+  const { run, now, verdict = null, severityCounts, droppedFindings = 0, loggedActions = 0 } = props
   const duration = runDuration(run, now)
   const pr = run.pullRequest
   const refs = formatRefs(pr.headRef, pr.baseRef)
@@ -118,7 +123,11 @@ export function RunHeader(props: RunHeaderProps): JSX.Element {
       children: duration !== null ? formatDuration(duration) : '—',
     },
     { key: 'attempt', label: 'Попытка', children: String(run.attempt) },
-    { key: 'actionCount', label: 'Действий', children: String(run.actionCount) },
+    {
+      key: 'actionCount',
+      label: 'Действий',
+      children: String(Math.max(run.actionCount, loggedActions)),
+    },
     { key: 'errorCode', label: 'Ошибка', children: run.errorCode ?? '—' },
   ]
 

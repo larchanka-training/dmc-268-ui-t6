@@ -122,6 +122,7 @@ const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
         ) : (
           <RunInspector
             actions={actions}
+            actionsUnavailable={actionsQuery.isError && !actionsQuery.data}
             headerExtra={
               <div style={{ marginBottom: 12 }}>
                 <RunControls run={run} />

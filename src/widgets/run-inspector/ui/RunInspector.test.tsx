@@ -91,6 +91,39 @@ describe('RunInspector', () => {
     ).toEqual(['finish', 'finish', 'finish'])
   })
 
+  it('shows the longer of the run count and the polled log in the header', () => {
+    const header = (): string | null =>
+      screen
+        .getByText('Действий')
+        .closest('.ant-descriptions-item')
+        ?.querySelector('.ant-descriptions-item-content')?.textContent ?? null
+
+    // 34 actions in the log, the run detail still says 5.
+    const { unmount } = renderWithQuery(
+      <RunInspector actions={ACTIONS} now={NOW} run={{ ...RUN, actionCount: 5 }} />,
+    )
+    expect(header()).toBe('34')
+    unmount()
+
+    // The run detail is ahead of a log that has not caught up.
+    renderWithQuery(
+      <RunInspector actions={ACTIONS.slice(0, 3)} now={NOW} run={{ ...RUN, actionCount: 20 }} />,
+    )
+    expect(header()).toBe('20')
+  })
+
+  it('hands the log to the progress bar and says when it is unavailable', () => {
+    renderWithQuery(
+      <RunInspector
+        actions={[]}
+        actionsUnavailable
+        now={NOW}
+        run={{ ...RUN, status: 'running', finishedAt: null }}
+      />,
+    )
+    expect(screen.queryByTestId('run-progress')).toBeNull()
+  })
+
   it('renders no progress bar for a skipped run', () => {
     renderWithQuery(
       <RunInspector

@@ -52,8 +52,11 @@ function isFailedStep(action: RunAction): boolean {
 }
 
 // The actions of the latest attempt, known tools only. The API gives no attempt marker per
-// action, so a new attempt is detected as a stage regression: a retry goes back to context
-// after the previous attempt got further.
+// action, so a new attempt is detected two ways: a stage regression (a retry goes back to context
+// after the previous attempt got further), and a second `llm.repo_conventions`, which the api writes
+// exactly once per attempt (process_run.py `prepare()` runs the step on every claim, also when the
+// diff snapshot exists; conventions_unit_of_work.py writes one row per call), so the second one
+// opens a new attempt even when no stage went backwards.
 function currentAttempt(actions: readonly RunAction[]): RunAction[] {
   const ordered = [...actions].sort((a, b) => a.index - b.index)
   let segment: RunAction[] = []
@@ -63,7 +66,10 @@ function currentAttempt(actions: readonly RunAction[]): RunAction[] {
     if (stage === undefined) {
       continue
     }
-    if (stage < previousStage) {
+    const repeatsConventions =
+      action.tool === 'llm.repo_conventions' &&
+      segment.some((earlier) => earlier.tool === 'llm.repo_conventions')
+    if (stage < previousStage || repeatsConventions) {
       segment = []
     }
     segment.push(action)
