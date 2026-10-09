@@ -32,7 +32,7 @@ antd, TanStack Query и jsdom — патчи от 2026-09-24.
 | Ф-4  | `RunAction.response \| null` + `responseRef`                                                                                                                    | тела инструментов > 64 КБ выносятся отдельным запросом.                                                                                                                                                     |
 | Ф-5  | Внешний ключ `runId`, тип `RunSession`                                                                                                                          | одно имя во всём контракте: `RunSession` — API-представление `Run` ([SD §12][sd-12]).                                                                                                                       |
 | Ф-6  | Привязка комментария — пара `oldLine \| null` / `newLine \| null`; канон якоря — `path/start_line/line` (+ `side`), уточнено 2026-09-28                         | бэкенд мапит канон в провод по формулам [PIPELINE_SPEC §10][ps-10] (api#20, D6); ключ виджета выводится из пары (§6).                                                                                       |
-| Ф-7  | TanStack Query — серверный кэш; Zustand — UI-состояние, стор живёт в виджете                                                                                    | `shared` не знает о домене; SSE → invalidateQueries (§2).                                                                                                                                                   |
+| Ф-7  | TanStack Query — серверный кэш; Zustand — UI-состояние, стор живёт в виджете; вид, которым делятся ссылкой (фильтры замечаний), — URL search params             | `shared` не знает о домене; SSE → invalidateQueries (§2); у фильтров один источник — URL, копии в сторе нет (§2, §6).                                                                                       |
 | Ф-8  | Дифф по проводу — сырой unified diff на файл; парсинг клиентом за адаптером                                                                                     | замена diff-библиотеки = замена одного адаптера (§6).                                                                                                                                                       |
 | Ф-9  | Новый эндпоинт `GET /api/runs/{id}/files?path&offset&limit`                                                                                                     | дочитывание контекста порциями; путь внесён в [SD §12][sd-12] (§5, п. 7).                                                                                                                                   |
 | Ф-10 | JSON на проводе — camelCase                                                                                                                                     | Zod-схемы фронта — источник истины — [SD §12][sd-12]; иначе трансформер на каждом ответе.                                                                                                                   |
@@ -77,6 +77,12 @@ typescript-eslint получает JS API 6.0. Тильда — по той же
 остаётся, но источник истины для путей и форм HTTP теперь [`contracts/openapi.yaml`][openapi] в
 api; Zod-схемы — проверка того же контракта на клиенте (§4, §5).
 
+Ф-7 уточнено 2026-10-09 (ui#84): к двум хранилищам добавился третий источник состояния — URL.
+Фильтры замечаний над диффом (`file`, `severity`, `q`) живут в `location.search`: ссылка с
+фильтрами открывает тот же вид (перезагрузка, новая вкладка, «назад»), а дублировать их в
+Zustand или `useState` нельзя — получится два источника правды. Правила — §2 «Состояние в URL»,
+семантика — §6 «Фильтры замечаний».
+
 ---
 
 ## 1. Слои
@@ -109,13 +115,13 @@ flowchart TD
 
 Область [SD §2][sd-2] → срез FSD:
 
-| Область [SD §2][sd-2]                            | Срез                                                                                           |
-| ------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| Карточка прогона с диффом и инлайн-комментариями | `entities/diff`, `entities/review`, `widgets/diff-viewer`, `pages/runs/RunDetailPage`          |
-| Инспектор трейса (`RunSession → RunAction`)      | `entities/run`, `widgets/run-inspector`, `pages/runs`                                          |
-| Аутентификация и App Shell                       | `entities/user`, `features/auth`, `features/theme`, `widgets/app-layout`, `pages/{login,auth}` |
-| Репозитории                                      | `entities/repository`, `widgets/repository-list`, `pages/repositories`                         |
-| Правила и метрики                                | не заведено — вне спринта (non-goal)                                                           |
+| Область [SD §2][sd-2]                            | Срез                                                                                                    |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| Карточка прогона с диффом и инлайн-комментариями | `entities/{diff,review}`, `features/finding-filters`, `widgets/diff-viewer`, `pages/runs/RunDetailPage` |
+| Инспектор трейса (`RunSession → RunAction`)      | `entities/run`, `widgets/run-inspector`, `pages/runs`                                                   |
+| Аутентификация и App Shell                       | `entities/user`, `features/auth`, `features/theme`, `widgets/app-layout`, `pages/{login,auth}`          |
+| Репозитории                                      | `entities/repository`, `widgets/repository-list`, `pages/repositories`                                  |
+| Правила и метрики                                | не заведено — вне спринта (non-goal)                                                                    |
 
 Дерево `src/` (`find src -type f | sort`):
 
@@ -123,6 +129,7 @@ flowchart TD
 src/App.returnTo.test.tsx
 src/App.test.tsx
 src/App.tsx
+src/app/layouts/ProtectedLayout.returnTo.test.tsx
 src/app/layouts/RouteLayouts.module.css
 src/app/layouts/RouteLayouts.tsx
 src/app/layouts/RoutePages.tsx
@@ -173,6 +180,7 @@ src/entities/review/api/index.ts
 src/entities/review/index.ts
 src/entities/review/lib/findingAnchor.ts
 src/entities/review/lib/reviewCommentToFinding.ts
+src/entities/review/lib/severityBadge.test.ts
 src/entities/review/lib/severityBadge.ts
 src/entities/review/model/schemas.contract.test.ts
 src/entities/review/model/schemas.test.ts
@@ -211,6 +219,13 @@ src/features/auth/ui/LoginButton.tsx
 src/features/auth/ui/UserMenu.module.css
 src/features/auth/ui/UserMenu.test.tsx
 src/features/auth/ui/UserMenu.tsx
+src/features/finding-filters/index.ts
+src/features/finding-filters/model/findingFilters.test.ts
+src/features/finding-filters/model/findingFilters.ts
+src/features/finding-filters/model/useFindingFiltersParams.ts
+src/features/finding-filters/ui/FindingFiltersBar.module.css
+src/features/finding-filters/ui/FindingFiltersBar.test.tsx
+src/features/finding-filters/ui/FindingFiltersBar.tsx
 src/features/theme/index.ts
 src/features/theme/model/store.test.ts
 src/features/theme/model/store.ts
@@ -235,6 +250,7 @@ src/pages/review/ReviewPage.tsx
 src/pages/review/ReviewRedirect.test.tsx
 src/pages/review/ReviewRedirect.tsx
 src/pages/runs/.gitkeep
+src/pages/runs/RunDetailPage.filters.test.tsx
 src/pages/runs/RunDetailPage.test.tsx
 src/pages/runs/RunDetailPage.tsx
 src/pages/runs/RunsPage.module.css
@@ -273,6 +289,9 @@ src/widgets/diff-viewer/lib/contextChunkSize.test.ts
 src/widgets/diff-viewer/lib/contextChunkSize.ts
 src/widgets/diff-viewer/lib/diffTheme.test.ts
 src/widgets/diff-viewer/lib/diffTheme.ts
+src/widgets/diff-viewer/lib/findingCardKey.ts
+src/widgets/diff-viewer/lib/mergeFindings.test.ts
+src/widgets/diff-viewer/lib/mergeFindings.ts
 src/widgets/diff-viewer/lib/refractorForDiffView.test.ts
 src/widgets/diff-viewer/lib/refractorForDiffView.ts
 src/widgets/diff-viewer/lib/tokensForHunks.test.ts
@@ -287,6 +306,7 @@ src/widgets/diff-viewer/ui/DiffViewer.tsx
 src/widgets/diff-viewer/ui/InlineComment.test.tsx
 src/widgets/diff-viewer/ui/InlineComment.tsx
 src/widgets/diff-viewer/ui/LoadMoreContext.tsx
+src/widgets/diff-viewer/ui/RunDiff.filters.test.tsx
 src/widgets/diff-viewer/ui/RunDiff.test.tsx
 src/widgets/diff-viewer/ui/RunDiff.tsx
 src/widgets/diff-viewer/ui/diff-theme.css
@@ -332,7 +352,34 @@ src/widgets/run-inspector/ui/RunInspector.tsx
 | `viewType` (unified/split)            | Zustand, `widgets/diff-viewer/model/store.ts`                                                                              | — (UI-состояние, не сервер)                        |
 | `selectedFile` (diff-viewer)          | Zustand, `widgets/diff-viewer/model/store.ts`                                                                              | —                                                  |
 | `expandedKeys`, `selectedActionIndex` | Zustand, `widgets/run-inspector/model/store.ts`                                                                            | —                                                  |
+| Фильтры замечаний                     | URL search params `file`, `severity` (повторяются), `q`; хук `useFindingFiltersParams` (`features/finding-filters`)        | — (источник — URL; другой прогон начинает чисто)   |
 | Черновики комментариев                | —                                                                                                                          | future (не реализовано в этом спринте)             |
+
+**Состояние в URL.** Вид, которым делятся ссылкой, живёт в `location.search`, а не в сторе. Сейчас
+это фильтры замечаний страницы прогона (§6): `file` (повторяется), `severity` (повторяется;
+`critical` / `warning` / `info` — группы D3) и `q` (один). Правила:
+
+- Zod на входе. `parseFindingFilters(params)` (`features/finding-filters/model/findingFilters.ts`)
+  проверяет каждое значение отдельно и молча отбрасывает негодное: `file` — непустая строка до 1024
+  символов, `severity` — одна из трёх групп, `q` — первое значение, обрезается до 200 символов;
+  повторы убираются, `severity` идёт в каноническом порядке групп. Парсер не бросает, поэтому
+  произвольный URL (в том числе с битым `%`-кодированием) не роняет рендер.
+- Санитайзинг только при чтении, обратно в URL не пишется. `file=` с файлом, которого нет в прогоне
+  (или `/diff` ещё грузится), остаётся в строке адреса: при чтении его отсекает
+  `effectiveFileFilter` (пересечение с файлами прогона; пустое пересечение — фильтра нет). Иначе
+  ссылка с `file=` теряла бы файл, пока грузится `/diff`. Мусор (`severity=bogus`, пустой `file=`) не
+  применяется, но и не вычищается из адреса: URL переписывает только действие пользователя. Первое
+  же изменение пересобирает `file` / `severity` / `q` из разобранных значений (мусор уходит),
+  остальные параметры сохраняются (`writeFindingFilters`).
+- Выбор в селектах и сброс — `push` (новая запись истории, «назад» возвращает прежние фильтры);
+  ввод в поиск — `replace`, набор текста не засоряет историю.
+- Другой прогон начинает с чистых фильтров: содержимое `RunDetailPage` ключуется `runId`, а
+  `/runs/<другой>` приходит без query. Отфильтрованный URL переживает вход: `ProtectedLayout`
+  сохраняет `pathname + search` в `returnTo`, редирект на `/login` и возврат из OAuth приводят на тот
+  же адрес (`app/layouts/ProtectedLayout.returnTo.test.tsx`).
+- react-router 8.4: `setSearchParams((prev) => …, { replace })` отдаёт апдейтеру копию параметров
+  последнего рендера и, в отличие от `setState`, не ставит вызовы в очередь — два вызова в одном
+  такте строятся на одном `prev`. Хук делает один вызов на событие, поэтому очередь не нужна.
 
 TanStack Query — не замена Zustand, а дополнение: серверный кэш и клиентский UI-стейт разнесены
 по разным сторонам (issue AC явно требует эту формулировку). Стор Zustand живёт в виджете, а не в
@@ -398,7 +445,8 @@ sequenceDiagram
 | Нейтральность к CSS-парадигме | antd тянет свою систему токенов/`css-in-js`; сосуществование с Tailwind потребует настройки           |
 
 Подтверждено техлидом 2026-09-24 ([комментарий в #46][tl-2026-09-24-46]). Цена отката при
-пересмотре — 7 файлов с импортом `antd`: `app/providers/UiProvider.tsx`,
+пересмотре — 8 файлов с импортом `antd`: `app/providers/UiProvider.tsx`,
+`features/finding-filters/ui/FindingFiltersBar.tsx`,
 `widgets/diff-viewer/ui/{DiffViewer,InlineComment,LoadMoreContext,RunDiff}.tsx`,
 `widgets/run-inspector/ui/{RunHeader,ActionTree}.tsx`; плюс стабы `matchMedia`/`ResizeObserver` в
 `src/test/setup.ts` и цвета `Tag` в `entities/run/lib/status.ts`.
@@ -565,13 +613,13 @@ off; }` для SSE, либо в документе фиксируется cross-
 
 Компоненты (`src/widgets/diff-viewer/`):
 
-| Компонент         | Файл                     | Props                                                                                                              |
-| ----------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| `DiffViewer`      | `ui/DiffViewer.tsx`      | `file: FileDiff`, `comments: ReviewComment[]`, `totalLines?: number`, `onLoadMore?: (gap: ContextGap) => void`     |
-| `InlineComment`   | `ui/InlineComment.tsx`   | комментарий, привязанный к строке диффа (виджет `react-diff-view`)                                                 |
-| `DiffSuggestion`  | `ui/DiffSuggestion.tsx`  | `filename: string`, `removedLines: string[]`, `addedText: string` — правка из `suggestion` находки, через `<Diff>` |
-| `LoadMoreContext` | `ui/LoadMoreContext.tsx` | кнопка дочитывания контекста в зазоре между хунками                                                                |
-| `RunDiff`         | `ui/RunDiff.tsx`         | `summaryOnly: boolean`, `files: FileDiff[]`, `comments: ReviewComment[]` — дифф прогона целиком                    |
+| Компонент         | Файл                     | Props                                                                                                                                                                                                                                                        |
+| ----------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `DiffViewer`      | `ui/DiffViewer.tsx`      | `file: FileDiff`, `findings?: FindingView[]`, `comments?: ReviewComment[]`, `totalLines?: number`, `diffTotalLines?: number`, `searchActive?: boolean`, `onLoadMore?: (gap: ContextGap) => void`                                                             |
+| `InlineComment`   | `ui/InlineComment.tsx`   | `finding: FindingView`, `file?: FileDiff`, `defaultExpanded?: boolean` — находка или комментарий, привязанный к строке диффа (виджет `react-diff-view`); свёрнут, пока не раскрыт или не задан `defaultExpanded`                                             |
+| `DiffSuggestion`  | `ui/DiffSuggestion.tsx`  | `filename: string`, `removedLines: string[]`, `addedText: string` — правка из `suggestion` находки, через `<Diff>`                                                                                                                                           |
+| `LoadMoreContext` | `ui/LoadMoreContext.tsx` | кнопка дочитывания контекста в зазоре между хунками                                                                                                                                                                                                          |
+| `RunDiff`         | `ui/RunDiff.tsx`         | `summaryOnly: boolean`, `files: FileDiff[]`, `findings: FindingView[]`, `comments?: ReviewComment[]`, `budgetFiles?: FileDiff[]`, `fileTotalLines?`, `onLoadMore?`, `filters?: FindingFilters`, `onFiltersChange?`, `onFiltersReset?` — дифф прогона целиком |
 
 Поток данных:
 
@@ -598,8 +646,9 @@ flowchart LR
 
 Summary-only прогон рисует `RunDiff`: при `summaryOnly: true` — `Alert` «Дифф слишком большой»
 (больше 3 000 строк, построчного ревью нет) и список имён файлов, без `DiffViewer` и хунков; при
-`false` — `DiffViewer` на каждый файл (имя файла он выводит и комментарии по
-`comment.file` фильтрует сам). `RunDiff` получает флаг, а не весь `RunSession`, — виджет не зависит от
+`false` — `DiffViewer` на каждый файл (имя файла он выводит, находки по `finding.file` отбирает сам;
+комментарии ревью `RunDiff` заранее сливает с находками через `mergeFindings`, `lib/mergeFindings.ts`).
+`RunDiff` получает флаг, а не весь `RunSession`, — виджет не зависит от
 `entities/run`. Страница `RunDetailPage` (`/runs/:runId`) передаёт `run.summaryOnly` и
 `findings` из `RunDetail` в `RunDiff` (TanStack Query, ключи §2).
 
@@ -650,6 +699,61 @@ next.newStart - startLine }`; хвостовой зазор после посл�
 Почему обязателен заголовок `diff --git` — proof-run (a): `gitdiff-parser@0.3.1` открывает новый
 файл только по строке `diff --git a/<path> b/<path>`; без неё хунки не привязываются к имени
 файла (см. §5, пункт 4).
+
+### Фильтры замечаний
+
+Над диффом `RunDiff` рисует панель `FindingFiltersBar` (`features/finding-filters/ui/`). Панель и
+фильтрация включаются только вместе с `onFiltersChange`: без него проп `filters` игнорируется, а
+прогон рисуется как раньше. Состояние — в URL (§2 «Состояние в URL»); `RunDetailPage` берёт его
+хуком `useFindingFiltersParams` и передаёт `filters` / `onFiltersChange` / `onFiltersReset`
+(без `onFiltersReset` сброс — `onFiltersChange(EMPTY_FINDING_FILTERS)`).
+
+Панель (`FindingFiltersBar`, props: `filters`, `fileOptions: { file; count }[]`, `shown`, `total`,
+`onChange(next, { replace? })`, `onReset`):
+
+- «Файлы» — `Select mode="multiple"`, вариант `файл (N)`, в теге — только путь. N — число
+  показываемых замечаний файла, не зависит от остальных фильтров. Файлы прогона — файлы `/diff` ∪
+  `finding.file`, поэтому файл, которого в диффе нет, тоже можно выбрать;
+- «Критичность» — `Select mode="multiple"` по группам D3 (Critical = critical + high,
+  Warning = medium + low, Info), подписи — `SEVERITY_BADGE_LABEL`, порядок — `SEVERITY_BADGE_GROUPS`;
+- «Поиск по замечаниям» — подстрока в `title`, `body` или `ruleName` без учёта регистра (кириллица
+  тоже), пробелы по краям не считаются. Ввод идёт с `replace`, выбор в селектах — `push`;
+- счётчик «Показано N из M замечаний» и «Сбросить фильтры»: кнопка выключена, пока ничего не задано;
+  поиск из одних пробелов считается заданным — иначе его нельзя было бы очистить.
+
+Семантика (`matchesFindingFilters`): И между тремя фильтрами, ИЛИ внутри `file` и внутри `severity`.
+Фильтр файлов — `effectiveFileFilter(file, файлы прогона)`; если пересечение пусто (в прогоне нет
+ни одного из выбранных файлов), он не действует, а `file=` остаётся в URL (§2).
+
+Множество M — то, что показывается без фильтров, ровно то, что рисовалось и раньше:
+
+- обычный прогон: `run.findings` ∪ комментарии ревью (`/comments`) файлов, у которых есть патч и
+  чанки, слитые по `id` (`mergeFindings`; находка из `findings` важнее комментария с тем же `id`).
+  Комментарии к файлам без диффа или отсутствующим в `/diff` по-прежнему не рисуются и в M не входят;
+- summary-only прогон: только `run.findings` — эта ветка комментариев не рисует.
+
+Что рисуется под фильтром:
+
+- выбран файл (эффективный фильтр не пуст) — дифф и находки только этих файлов;
+- задан содержательный фильтр (критичность или непустой поиск) — файлы без подходящей находки
+  скрыты: дифф, блок «Замечания вне диффа» и строка в списке summary-only. Если скрыты все
+  строки, списка нет вовсе — второго пустого состояния antd `List` не появляется;
+- блок «Замечания вне диффа» (у файла и общий по прогону) рисуется, только когда в нём есть
+  подходящая находка;
+- поиск задан — все показанные карточки развёрнуты: `InlineComment` получает `defaultExpanded`, ключ
+  карточки — `${id}:q` при поиске и `${id}:` без него, поэтому включение и выключение поиска
+  перемонтирует карточки, а ввод следующих символов — нет (ручное сворачивание сохраняется);
+- ничего не подходит, а фильтр действует (эффективный фильтр файлов не пуст или задан содержательный
+  фильтр) — сообщение «Нет замечаний, подходящих под фильтры» с кнопкой сброса. Одинокий `file=`
+  неизвестного файла и прогон без замечаний при пустых фильтрах сообщения не вызывают;
+- бюджет подсветки Ф-18 считается по всем файлам, как пришли (`budgetFiles ?? files`), а не по
+  видимым: фильтр не включает и не выключает подсветку.
+
+Закреплено тестами: `features/finding-filters/model/findingFilters.test.ts` (разбор, запись,
+предикаты, пары и тройка фильтров, кириллица), `ui/FindingFiltersBar.test.tsx`,
+`widgets/diff-viewer/ui/RunDiff.filters.test.tsx` (каждый фильтр, сочетания, блоки «вне диффа»,
+summary-only, бюджет подсветки), `pages/runs/RunDetailPage.filters.test.tsx` (URL: загрузка,
+мусор, `push` / `replace`, другой прогон, сброс).
 
 ### Цвета диффа и подсветки
 
@@ -963,6 +1067,12 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
   спринте; `src/pages/` содержит экраны для реализованных областей (вход, коллбэк, репозитории, прогоны, ревью).
 - **Summary-only прогоны** (diff > 3000 строк, [SD §12][sd-12]) — схемы, адаптер и `RunDiff` поддерживают
   с #42 (§4, §6); страница `/runs/:runId` (`RunDetailPage`) передаёт `run.summaryOnly` и findings в `RunDiff`.
+- **Фильтры замечаний** (ui#84, часть про фильтры) — реализованы: файлы, критичность D3 и поиск над
+  диффом, состояние в URL (§2, §6). Остаются как были и в эту задачу не входят: комментарии к файлам
+  без диффа или отсутствующим в `/diff` по-прежнему не рисуются; `selectedFile` в
+  `useDiffViewerStore` по-прежнему не используется; `pages/review/ReviewPage` не подключена к
+  маршрутам. Ввод в поиск перерисовывает все `DiffViewer` (мемоизации нет); замеров на больших
+  диффах не делали.
 - **`POST /api/runs/{id}/rerun`** — есть в [`openapi.yaml`][openapi] (реализация — api#34): `202` →
   новый `RunSession` в `queued` для того же PR и `headSha`; `409`, если у PR уже есть активный
   прогон. В `src/shared/api/endpoints.ts` его нет (`endpoints.runs` содержит только `cancel`) —
