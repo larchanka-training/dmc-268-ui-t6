@@ -10,11 +10,14 @@ const QUERY_WRITE_DEBOUNCE_MS = 250
  *
  * The URL query is written `QUERY_WRITE_DEBOUNCE_MS` after the last keystroke through `writeQuery`.
  * The text follows the URL again when the URL query becomes a value this hook did not write (back and
- * forward, a link); the URL catching up with what was typed does not touch it.
+ * forward, a link); the URL catching up with what was typed does not touch it. A change of
+ * `navigationKey` (a navigation the owner of the URL did not make) does the same even when the query
+ * is the same: the pending text and its write belong to a page state that is gone.
  */
 export function useQueryText(
   urlQuery: string,
   writeQuery: (query: string) => void,
+  navigationKey = 0,
 ): {
   text: string
   /** The user edited the text: it shows at once, the write follows after the pause. */
@@ -32,6 +35,7 @@ export function useQueryText(
   const writtenRef = useRef(new Set<string>())
   const timerRef = useRef<number | undefined>(undefined)
   const writeRef = useRef(writeQuery)
+  const navigationKeyRef = useRef(navigationKey)
 
   useEffect(() => {
     writeRef.current = writeQuery
@@ -59,6 +63,19 @@ export function useQueryText(
     writtenRef.current.clear()
     setText(urlQuery)
   }, [urlQuery])
+
+  useEffect(() => {
+    if (navigationKey === navigationKeyRef.current) {
+      return
+    }
+    navigationKeyRef.current = navigationKey
+    window.clearTimeout(timerRef.current)
+    timerRef.current = undefined
+    textRef.current = urlQuery
+    requestedRef.current = urlQuery
+    writtenRef.current.clear()
+    setText(urlQuery)
+  }, [navigationKey, urlQuery])
 
   const request = useCallback((query: string) => {
     if (query !== requestedRef.current) {

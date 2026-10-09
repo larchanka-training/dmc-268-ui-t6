@@ -291,10 +291,7 @@ describe('RunDiff filters: wiring', () => {
       target: { value: 'x' },
     })
     await waitFor(() => {
-      expect(onFiltersChange).toHaveBeenCalledWith(
-        { files: [], severities: ['info'], query: 'x' },
-        { replace: true },
-      )
+      expect(onFiltersChange).toHaveBeenCalledWith({ query: 'x' }, { replace: true })
     })
 
     const bar = screen.getByTestId('finding-filters-bar')

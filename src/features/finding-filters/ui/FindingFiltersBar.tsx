@@ -11,6 +11,7 @@ import {
   hasActiveFindingFilters,
   QUERY_MAX_LENGTH,
   type FindingFilters,
+  type FindingFiltersChange,
 } from '../model/findingFilters'
 import { useQueryText } from '../model/useQueryText'
 import styles from './FindingFiltersBar.module.css'
@@ -29,11 +30,16 @@ export interface FindingFiltersBarProps {
   total: number
   /** The filters are in effect and nothing passes: shows the message with its own reset button. */
   empty?: boolean
-  /** Selects push a history entry; the call carries the typed text, so a pending search write is not lost. */
-  onChange: (next: FindingFilters, options?: { replace?: boolean }) => void
+  /**
+   * Selects push a history entry. A select sends only the field it owns plus the typed text (so a
+   * pending search write is not lost); the owner merges it over the URL.
+   */
+  onChange: (change: FindingFiltersChange, options?: { replace?: boolean }) => void
   /** The search text, debounced; the owner writes only `q` and replaces the history entry. */
   onQueryChange: (query: string) => void
   onReset: () => void
+  /** Changes when the URL was changed by a navigation the owner did not make (back, a link). */
+  navigationKey?: number
 }
 
 const SEVERITY_OPTIONS = SEVERITY_BADGE_GROUPS.map((group) => ({
@@ -51,8 +57,13 @@ export function FindingFiltersBar(props: FindingFiltersBarProps): JSX.Element {
     onChange,
     onQueryChange,
     onReset,
+    navigationKey,
   } = props
-  const { text, type, takePending, clear } = useQueryText(filters.query, onQueryChange)
+  const { text, type, takePending, clear } = useQueryText(
+    filters.query,
+    onQueryChange,
+    navigationKey,
+  )
 
   const fileSelectOptions = fileOptions.map(({ file, count }) => ({
     value: file,
@@ -81,7 +92,7 @@ export function FindingFiltersBar(props: FindingFiltersBarProps): JSX.Element {
           className={styles.select}
           mode="multiple"
           onChange={(files: string[]) => {
-            onChange({ ...filters, files, query: takePending() })
+            onChange({ files, query: takePending() })
           }}
           optionLabelProp="value"
           options={fileSelectOptions}
@@ -95,7 +106,6 @@ export function FindingFiltersBar(props: FindingFiltersBarProps): JSX.Element {
           mode="multiple"
           onChange={(values: SeverityBadgeGroup[]) => {
             onChange({
-              ...filters,
               severities: SEVERITY_BADGE_GROUPS.filter((group) => values.includes(group)),
               query: takePending(),
             })

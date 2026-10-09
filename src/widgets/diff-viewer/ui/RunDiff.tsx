@@ -13,6 +13,7 @@ import {
   hasContentFilter,
   matchesFindingFilters,
   type FindingFilters,
+  type FindingFiltersChange,
 } from '../../../features/finding-filters'
 import type { ContextGap } from '../model/types'
 import { InlineComment } from './InlineComment'
@@ -29,13 +30,15 @@ interface RunDiffProps {
   onLoadMore?: (file: FileDiff, gap: ContextGap) => void
   /** Applied only together with `onFiltersChange`; without it the run renders unfiltered. */
   filters?: FindingFilters
-  onFiltersChange?: (next: FindingFilters, options?: { replace?: boolean }) => void
+  onFiltersChange?: (change: FindingFiltersChange, options?: { replace?: boolean }) => void
   /** Defaults to `onFiltersChange(EMPTY_FINDING_FILTERS)`. */
   onFiltersReset?: () => void
-  /** The debounced search text; defaults to `onFiltersChange({ ...filters, query }, { replace: true })`. */
+  /** The debounced search text; defaults to `onFiltersChange({ query }, { replace: true })`. */
   onFiltersQueryChange?: (query: string) => void
   /** `/comments` has not answered yet: the set is still incomplete, so "nothing matches" is not shown. */
   commentsPending?: boolean
+  /** Changes when the URL was changed by a navigation the page did not make (back, a link). */
+  filtersNavigationKey?: number
 }
 
 function findingsOutsideVisibleDiff(files: FileDiff[], findings: FindingView[]): FindingView[] {
@@ -96,6 +99,7 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
     onFiltersReset,
     onFiltersQueryChange,
     commentsPending = false,
+    filtersNavigationKey,
   } = props
 
   const activeFilters = onFiltersChange === undefined ? EMPTY_FINDING_FILTERS : filters
@@ -127,7 +131,7 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
         onQueryChange:
           onFiltersQueryChange ??
           ((query: string) => {
-            onFiltersChange({ ...filters, query }, { replace: true })
+            onFiltersChange({ query }, { replace: true })
           }),
         onReset:
           onFiltersReset ??
@@ -144,6 +148,7 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
         count: displayed.filter((finding) => finding.file === file).length,
       }))}
       filters={filters}
+      navigationKey={filtersNavigationKey}
       onChange={controls.onChange}
       onQueryChange={controls.onQueryChange}
       onReset={controls.onReset}
