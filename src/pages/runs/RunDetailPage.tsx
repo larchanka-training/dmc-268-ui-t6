@@ -115,8 +115,8 @@ const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
 
       <RunInspector
         actions={actions}
-        actionsLoading={actionsQuery.isLoading}
-        actionsUnavailable={actionsQuery.isError && !actionsQuery.data}
+        actionsLoading={actionsQuery.isLoading && actionsQuery.errorUpdateCount === 0}
+        actionsUnavailable={actionsQuery.errorUpdateCount > 0 && !actionsQuery.data}
         droppedFindings={run.droppedFindings}
         now={now}
         run={run}
