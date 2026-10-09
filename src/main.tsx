@@ -8,8 +8,9 @@ import { isMockMode } from './shared/config/env'
 async function bootstrap() {
   if (__VITE_MOCKS_BUILD__ || import.meta.env.DEV) {
     if (__VITE_MOCKS_BUILD__ || isMockMode()) {
-      const { initMockTransport } = await import('./app/mocks/mockTransport')
+      const { initMockTransport, startMockRunEvents } = await import('./app/mocks/mockTransport')
       initMockTransport()
+      startMockRunEvents()
     }
   }
 
