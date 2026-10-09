@@ -11,7 +11,8 @@ import {
   RunSessionSchema,
   RunUpdatedEventSchema,
 } from '../model/schemas'
-import type { RunAction, RunDetail, RunListPage, RunSession } from '../model/schemas'
+import type { RunAction, RunDetail, RunListPage, RunSession, RunStatus } from '../model/schemas'
+import { isActive } from '../lib/status'
 // Run detail parses `findings[]` with `FindingViewSchema` from `entities/review`
 // (allowed cross-entity import; see FRONTEND_ARCHITECTURE §1 and `.agents/rules/frontend.md`).
 import { FindingViewSchema } from '../../review'
@@ -121,7 +122,10 @@ export async function fetchRunActions(id: string): Promise<RunAction[]> {
   return z.array(RunActionSchema).parse(data)
 }
 
-export function useRunActions(runId: string | undefined) {
+/** How often the action log is refetched while the run is active (queued, running, publishing). */
+export const RUN_ACTIONS_POLL_MS = 3000
+
+export function useRunActions(runId: string | undefined, status?: RunStatus) {
   return useQuery({
     queryKey: runId ? runQueryKeys.actions(runId) : (['runs', 'actions', null] as const),
     queryFn: () => {
@@ -131,6 +135,9 @@ export function useRunActions(runId: string | undefined) {
       return fetchRunActions(runId)
     },
     enabled: Boolean(runId),
+    // Unknown status (detail not loaded yet) does not poll: the first fetch and the stream
+    // invalidation cover it; a terminal run's log never changes again.
+    refetchInterval: status && isActive(status) ? RUN_ACTIONS_POLL_MS : false,
   })
 }
 

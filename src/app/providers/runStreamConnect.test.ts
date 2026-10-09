@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { runQueryKeys } from '../../entities/run'
 import { queryClient } from './queryClient'
 import {
+  applyRunUpdated,
   connectRunStream,
   MAX_STREAM_401_RETRIES,
   runStreamUntilAborted,
@@ -129,6 +130,66 @@ describe('connectRunStream', () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: runQueryKeys.comments(runId) })
   })
 
+  it('invalidates the runs list on run.updated, together with the four run queries', async () => {
+    const runId = '11111111-1111-4111-8111-000000000004'
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue(new Response(sseBody([runUpdated(runId)]), SSE_RESPONSE_INIT))
+
+    const controller = new AbortController()
+    await connectRunStream(controller.signal, 'token_a')
+
+    const keys = invalidateSpy.mock.calls.map(([filters]) => filters?.queryKey)
+    expect(keys).toHaveLength(5)
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        ['runs', 'list'],
+        ['runs', runId],
+        ['runs', runId, 'actions'],
+        ['runs', runId, 'diff'],
+        ['runs', runId, 'comments'],
+      ]),
+    )
+  })
+
+  it.each([
+    [
+      'run.step',
+      'event: run.step\ndata: {"runId":"RUN","status":"running","step":"context.build"}\n\n',
+    ],
+    ['run.progress', 'event: run.progress\ndata: {"runId":"RUN","status":"running"}\n\n'],
+    ['a frame without an event name', 'data: {"runId":"RUN","status":"running"}\n\n'],
+  ])('invalidates nothing for %s even with a valid-looking payload', async (_label, frame) => {
+    const runId = '11111111-1111-4111-8111-000000000004'
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue(new Response(sseBody([frame.replace('RUN', runId)]), SSE_RESPONSE_INIT))
+
+    const controller = new AbortController()
+    await connectRunStream(controller.signal, 'token_a')
+
+    expect(invalidateSpy).not.toHaveBeenCalled()
+  })
+
+  it('invalidates nothing for a run.updated frame whose payload is not a run update', async () => {
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(
+          sseBody(['event: run.updated\ndata: {"runId":"not-a-uuid"}\n\n']),
+          SSE_RESPONSE_INIT,
+        ),
+      )
+
+    const controller = new AbortController()
+    await connectRunStream(controller.signal, 'token_a')
+
+    expect(invalidateSpy).not.toHaveBeenCalled()
+  })
+
   it('stops retrying after MAX_STREAM_401_RETRIES refresh attempts', async () => {
     let tokenIndex = 0
     vi.mocked(refreshAccessToken).mockImplementation(() => {
@@ -147,6 +208,41 @@ describe('connectRunStream', () => {
     await connectRunStream(controller.signal, 'token_a')
 
     expect(fetchMock).toHaveBeenCalledTimes(MAX_STREAM_401_RETRIES + 1)
+  })
+})
+
+describe('applyRunUpdated', () => {
+  const RUN_ID = '11111111-1111-4111-8111-000000000004'
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('invalidates the run detail, actions, diff and comments and the runs list', () => {
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+
+    applyRunUpdated({ runId: RUN_ID, status: 'running' })
+
+    const keys = invalidateSpy.mock.calls.map(([filters]) => filters?.queryKey)
+    expect(keys).toHaveLength(5)
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        ['runs', RUN_ID],
+        ['runs', RUN_ID, 'actions'],
+        ['runs', RUN_ID, 'diff'],
+        ['runs', RUN_ID, 'comments'],
+        ['runs', 'list'],
+      ]),
+    )
+  })
+
+  it('invalidates the same keys whatever the status', () => {
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+
+    applyRunUpdated({ runId: RUN_ID, status: 'succeeded' })
+
+    expect(invalidateSpy).toHaveBeenCalledTimes(5)
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['runs', 'list'] })
   })
 })
 
