@@ -50,6 +50,24 @@ Dev-сервер Vite настроен с прокси `server.proxy` для `/a
    - `VITE_API_BASE_URL` — базовый префикс API (по умолчанию `/api`). При локальной разработке с Vite **не следует** указывать полный URL вида `http://localhost:8000/api`, иначе запросы пойдут мимо `server.proxy`, перестанут передаваться `HttpOnly`/`SameSite` cookies и авторизация сломается. Оставляйте значение по умолчанию (`/api`).
 4. В настройках GitHub App указать Callback URL: `http://localhost:5173/auth/callback` (или `<origin>/auth/callback` для альтернативного порта/стенда).
 
+## Landing
+
+Публичный лендинг продукта — отдельное приложение в `landing/` (пакет pnpm workspace). С основным
+приложением в `src/` общего кода нет. Зависимости ставятся общим `pnpm install` из корня.
+
+```bash
+cd landing
+pnpm dev           # dev-сервер на http://127.0.0.1:5180
+pnpm build         # сборка в landing/dist
+pnpm preview       # просмотр сборки на том же порту
+pnpm check-types   # проверка типов
+pnpm test          # vitest run
+```
+
+Сервер слушает только `127.0.0.1`; на удалённой машине смотреть через SSH-туннель
+(`ssh -L 5180:127.0.0.1:5180 <host>`). Форма waitlist демонстрационная: заявки никуда не
+отправляются.
+
 ## Build
 
 ```bash
@@ -101,4 +119,4 @@ pnpm check-types
 | `.prettierrc.json`      | форматирование                                                         |
 | `stylelint.config.js`   | линтинг CSS                                                            |
 | `lint-staged.config.js` | задачи pre-commit                                                      |
-| `pnpm-workspace.yaml`   | allowlist postinstall-скриптов зависимостей                            |
+| `pnpm-workspace.yaml`   | пакеты workspace (`landing`), allowlist postinstall-скриптов           |

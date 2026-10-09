@@ -1,0 +1,240 @@
+.section {
+  position: relative;
+  padding-block: 120px;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.section::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(ellipse 50% 60% at 75% 50%, rgb(37 99 235 / 12%), transparent 70%);
+  content: '';
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 64px;
+  align-items: center;
+}
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--glow);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.soon {
+  padding: 2px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--text-2);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.title {
+  margin-top: 14px;
+  font-size: clamp(1.875rem, 1.4rem + 2vw, 2.75rem);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.lead {
+  margin-top: 16px;
+  color: var(--text-2);
+  font-size: 17px;
+}
+
+.benefits {
+  display: grid;
+  gap: 12px;
+  margin: 32px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.benefits li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text);
+  font-size: 15px;
+}
+
+.bullet {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--glow);
+  box-shadow: 0 0 10px rgb(96 165 250 / 80%);
+}
+
+.editorWrap {
+  position: relative;
+}
+
+.editorGlow {
+  position: absolute;
+  inset: 10% 5%;
+  z-index: -1;
+  border-radius: 50%;
+  background: rgb(37 99 235 / 30%);
+  filter: blur(70px);
+}
+
+.editor {
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, rgb(20 27 47 / 95%), rgb(12 17 33 / 98%));
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 8%) inset,
+    0 40px 80px -30px rgb(0 0 0 / 70%);
+}
+
+.tabs {
+  display: flex;
+  height: 40px;
+  border-bottom: 1px solid var(--border);
+  background: rgb(9 13 24 / 50%);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  border-right: 1px solid var(--border);
+  background: rgb(20 27 47 / 95%);
+  box-shadow: inset 0 1px 0 var(--glow);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+.tab svg {
+  color: var(--text-3);
+}
+
+.code {
+  margin: 0;
+  padding: 20px 0 24px;
+  font-size: 14px;
+  line-height: 1.85;
+  white-space: pre-wrap;
+}
+
+.line {
+  display: block;
+  padding-right: 16px;
+}
+
+/* Строки «печатаются» по очереди, когда редактор входит во вьюпорт. */
+.editor[data-typing='false'] .line {
+  opacity: 0;
+}
+
+.editor[data-typing='true'] .line {
+  animation: line-in 0.5s var(--ease-out) backwards;
+}
+
+@keyframes line-in {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+    clip-path: inset(0 100% 0 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+    clip-path: inset(0);
+  }
+}
+
+.lineNo {
+  display: inline-block;
+  width: 48px;
+  padding-right: 18px;
+  color: var(--text-3);
+  text-align: right;
+  user-select: none;
+  opacity: 0.6;
+}
+
+.mdMark {
+  color: var(--glow);
+}
+
+.mdHeading {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.mdText {
+  color: #cbd5e1;
+}
+
+.statusBar {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 16px;
+  border-top: 1px solid var(--border);
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+.statusBar span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.branchDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+}
+
+@media (width <= 900px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 48px;
+  }
+}
+
+@media (width <= 640px) {
+  .section {
+    padding-block: 80px;
+  }
+
+  .code {
+    font-size: 12.5px;
+  }
+
+  .lineNo {
+    width: 36px;
+    padding-right: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .editor[data-typing='false'] .line {
+    opacity: 1;
+  }
+}

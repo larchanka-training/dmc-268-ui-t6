@@ -59,6 +59,15 @@ jobs:
       - name: Verify prod bundle
         run: pnpm verify:prod-bundle
 
+      - name: Landing check types
+        run: pnpm --dir landing check-types
+
+      - name: Landing test
+        run: pnpm --dir landing test
+
+      - name: Landing build
+        run: pnpm --dir landing build
+
   docker-build:
     name: Docker image build
     runs-on: ubuntu-latest
