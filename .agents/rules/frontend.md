@@ -74,6 +74,8 @@ never deep-import its internals.
   them, not the other way round.
 - Zustand is for UI state local to a widget only — never server data.
 - TanStack Query is the server cache — do not duplicate server data in Zustand.
+- View state that is shared by link (finding filters) lives in URL search params,
+  parsed with Zod at the boundary — never mirrored in a store.
 - Wire payloads use camelCase.
 
 ## 5. Testing

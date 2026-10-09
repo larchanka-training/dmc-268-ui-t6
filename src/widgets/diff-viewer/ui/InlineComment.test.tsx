@@ -74,4 +74,18 @@ describe('InlineComment', () => {
     render(<InlineComment finding={{ ...finding, severity: 'high' }} />)
     expect(screen.getByText('Critical')).toBeTruthy()
   })
+
+  it('is collapsed by default: the body is not rendered', () => {
+    render(<InlineComment finding={finding} />)
+    expect(screen.queryByText('<img src=x onerror=alert(1)>')).toBeNull()
+  })
+
+  it('defaultExpanded renders the body at once and the header still collapses it', () => {
+    render(<InlineComment defaultExpanded finding={finding} />)
+    expect(screen.getByText('<img src=x onerror=alert(1)>')).toBeTruthy()
+    expect(screen.getByText('security')).toBeTruthy()
+
+    fireEvent.click(screen.getByText('XSS probe'))
+    expect(screen.queryByText('<img src=x onerror=alert(1)>')).toBeNull()
+  })
 })
