@@ -1,6 +1,7 @@
 import type { Severity } from '../model/schemas'
 
-export type SeverityBadgeGroup = 'critical' | 'warning' | 'info'
+export const SEVERITY_BADGE_GROUPS = ['critical', 'warning', 'info'] as const
+export type SeverityBadgeGroup = (typeof SEVERITY_BADGE_GROUPS)[number]
 
 export function severityBadgeGroup(severity: Severity): SeverityBadgeGroup {
   if (severity === 'critical' || severity === 'high') {
