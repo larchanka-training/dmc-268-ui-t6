@@ -87,6 +87,24 @@ async function back(router: Router): Promise<void> {
   })
 }
 
+async function forward(router: Router): Promise<void> {
+  await act(async () => {
+    await router.navigate(1)
+  })
+}
+
+/** The click of a select option as a native event: the navigation starts, React has not committed it yet. */
+function pickSeverityNative(optionText: string): void {
+  fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Критичность' }))
+  const option = [...document.querySelectorAll('.ant-select-item-option')].find(
+    (candidate) => candidate.textContent === optionText,
+  )
+  if (option === undefined) {
+    throw new Error(`option "${optionText}" is not rendered`)
+  }
+  option.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+}
+
 describe('RunDetailPage search box on the app router', () => {
   beforeEach(() => {
     initMockTransport()
@@ -263,7 +281,9 @@ describe('RunDetailPage search box on the app router', () => {
     expect(searchInput().value).toBe('abc')
   })
 
-  it('a severity change keeps the severity when typing resumes before it has landed', async () => {
+  // The uncommitted window itself (a write built before a slow commit lands) needs a slow render;
+  // it is covered by the hook test in useFindingFiltersParams.test.tsx. This one checks the outcome.
+  it('typing right after a severity change ends with both in the URL', async () => {
     const { router } = renderApp(DEMO)
     const input = await ready()
 
@@ -275,6 +295,112 @@ describe('RunDetailPage search box on the app router', () => {
       expect(router.state.location.search).toBe('?severity=critical&q=un')
     })
     expect(searchInput().value).toBe('un')
+  })
+
+  it('typing, then back onto an entry that differs only by a select: its text, nothing written', async () => {
+    const { router } = renderApp(`${DEMO}?q=old`)
+    const input = await ready()
+    pickSeverity('Critical')
+    await waitFor(() => {
+      expect(router.state.location.search).toBe('?severity=critical&q=old')
+    })
+
+    input.setSelectionRange(input.value.length, input.value.length)
+    keystroke(input, ' more')
+    expect(input.value).toBe('old more')
+    await back(router)
+
+    await waitFor(() => {
+      expect(searchInput().value).toBe('old')
+    })
+    await pause(400)
+    expect(router.state.location.search).toBe('?q=old')
+    expect(searchInput().value).toBe('old')
+  })
+
+  it('typing, then forward onto an entry that differs only by a select: its text, nothing written', async () => {
+    const { router } = renderApp(`${DEMO}?q=old`)
+    const input = await ready()
+    pickSeverity('Critical')
+    await waitFor(() => {
+      expect(router.state.location.search).toBe('?severity=critical&q=old')
+    })
+    await back(router)
+    await waitFor(() => {
+      expect(router.state.location.search).toBe('?q=old')
+    })
+
+    input.setSelectionRange(input.value.length, input.value.length)
+    keystroke(input, ' more')
+    expect(input.value).toBe('old more')
+    await forward(router)
+
+    await waitFor(() => {
+      expect(router.state.location.search).toBe('?severity=critical&q=old')
+    })
+    await waitFor(() => {
+      expect(searchInput().value).toBe('old')
+    })
+    await pause(400)
+    expect(router.state.location.search).toBe('?severity=critical&q=old')
+    expect(searchInput().value).toBe('old')
+  })
+
+  it('an outside push with another q replaces the typed text', async () => {
+    const { router } = renderApp(`${DEMO}?q=old`)
+    const input = await ready()
+
+    input.setSelectionRange(input.value.length, input.value.length)
+    keystroke(input, 'x')
+    await act(async () => {
+      await router.navigate(`${DEMO}?q=link`)
+    })
+
+    await waitFor(() => {
+      expect(searchInput().value).toBe('link')
+    })
+    await pause(400)
+    expect(router.state.location.search).toBe('?q=link')
+    expect(searchInput().value).toBe('link')
+  })
+
+  it('an outside push that keeps q but changes another filter drops the typed text and its write', async () => {
+    const { router } = renderApp(DEMO)
+    const input = await ready()
+
+    keystroke(input, 'a')
+    keystroke(input, 'b')
+    keystroke(input, 'c')
+    await act(async () => {
+      await router.navigate(`${DEMO}?severity=info`)
+    })
+
+    await waitFor(() => {
+      expect(searchInput().value).toBe('')
+    })
+    await pause(400)
+    expect(router.state.location.search).toBe('?severity=info')
+    expect(searchInput().value).toBe('')
+  })
+
+  it('a select during a pending write is not taken for an outside navigation', async () => {
+    const { router } = renderApp(DEMO)
+    const input = await ready()
+
+    keystroke(input, 'a')
+    keystroke(input, 'b')
+    keystroke(input, 'c')
+    pickSeverityNative('Warning')
+    // the select's navigation has started and React has not committed it: the user keeps typing
+    keystroke(input, 'd')
+    expect(input.value).toBe('abcd')
+
+    await waitFor(() => {
+      expect(router.state.location.search).toBe('?severity=warning&q=abcd')
+    })
+    await pause(400)
+    expect(router.state.location.search).toBe('?severity=warning&q=abcd')
+    expect(searchInput().value).toBe('abcd')
   })
 
   it('drops a pending write when the user leaves for another run', async () => {
