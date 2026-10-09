@@ -107,6 +107,14 @@ function stageStates(
   }
 }
 
+/**
+ * Whether the stage of a run in `status` is read from the action log. `queued`, `publishing` and
+ * `succeeded` ignore it (and `skipped` has no bar), so those bars do not depend on the log being there.
+ */
+export function runProgressReadsLog(status: RunSession['status']): boolean {
+  return status === 'running' || status === 'failed' || status === 'cancelled'
+}
+
 export function runProgress(
   run: Pick<RunSession, 'status' | 'errorCode'>,
   actions: RunAction[],
