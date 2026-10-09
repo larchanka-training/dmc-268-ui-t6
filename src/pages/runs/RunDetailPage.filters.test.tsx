@@ -15,7 +15,7 @@ vi.mock('../../shared/config/env', async (importOriginal) => {
 })
 
 import { RawFileDiffSchema } from '../../entities/diff'
-import { mockSummaryOnlyDiff } from '../../app/mocks/app-state'
+import { mockReviewComments, mockSummaryOnlyDiff } from '../../app/mocks/app-state'
 import { mockRawDiffForRun, REVIEW_ATTENTION_RUN_ID } from '../../app/mocks/mockRunReview'
 import { initMockTransport, withMockTransportOverlay } from '../../app/mocks/mockTransport'
 import { SAMPLE_PATCHES } from '../../shared/fixtures/sample.patch'
@@ -287,7 +287,8 @@ describe('RunDetailPage filters in the URL', () => {
       expect(router.state.location.search).toBe('?severity=critical&q=unsafe')
     })
     expect(router.state.historyAction).toBe('REPLACE')
-    expect(screen.getByText(counter(1, TOTAL))).toBeTruthy()
+    // the write comes from the debounce timer, outside act: the page follows the router a moment later
+    await screen.findByText(counter(1, TOTAL))
 
     // the select pushed one entry, typing replaced it: back leaves the page without a query
     await back(router)
@@ -350,5 +351,29 @@ describe('RunDetailPage filters in the URL', () => {
       expect(router.state.location.search).toBe('')
     })
     expect(router.state.location.pathname).toBe(DEMO)
+  })
+
+  it('does not flash the empty message for a query that only a comment matches while /comments loads', async () => {
+    const release: { open: () => void } = { open: () => undefined }
+    const gate = new Promise<void>((resolve) => {
+      release.open = resolve
+    })
+    withMockTransportOverlay((endpoint) => {
+      if (endpoint.path === `/runs/${DEMO_RUN_ID}/comments` && endpoint.method === 'GET') {
+        return gate.then(() => mockReviewComments.map((comment) => ({ ...comment })))
+      }
+      return undefined
+    })
+    renderRunDetail(`${DEMO}?q=inconsistency`)
+
+    // /diff is in, /comments is not: 8 findings, none matches, and still no message
+    await findBar()
+    await screen.findByText(counter(0, 8))
+    expect(screen.queryByTestId('findings-filter-empty')).toBeNull()
+
+    release.open()
+    await screen.findByText(counter(1, TOTAL))
+    expect(screen.queryByTestId('findings-filter-empty')).toBeNull()
+    expect(cardTitles()).toEqual(['Docs tone inconsistency'])
   })
 })

@@ -20,7 +20,8 @@ const SEVERITY_PARAM = 'severity'
 const QUERY_PARAM = 'q'
 
 const FILE_MAX_LENGTH = 1024
-const QUERY_MAX_LENGTH = 200
+/** `q` is cut to this length on read; the search box stops at it. */
+export const QUERY_MAX_LENGTH = 200
 
 // URL params are external input: every value is checked on its own and a bad one is dropped.
 const FileParamSchema = z.string().min(1).max(FILE_MAX_LENGTH)
