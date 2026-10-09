@@ -17,7 +17,7 @@ import { mockRunsListPage } from '../../app/mocks/mockRunsList.fixture'
 import { buildMockRunDetail } from '../../app/mocks/mockRunReview'
 import { initMockTransport, withMockTransportOverlay } from '../../app/mocks/mockTransport'
 import { DEMO_RUN_ID } from '../../shared/config/demoRun'
-import { setAccessToken, setMockTransport } from '../../shared/api/client'
+import { ApiError, setAccessToken, setMockTransport } from '../../shared/api/client'
 import { RUN_ACTIONS_POLL_MS, runQueryKeys } from '../../entities/run'
 import type { RunStatus } from '../../entities/run'
 import { useAuthStore } from '../../features/auth'
@@ -32,6 +32,8 @@ const FINISHED_AT = '2026-09-18T12:05:00.000Z'
 let currentStatus: RunStatus = 'running'
 let currentErrorCode: string | null = null
 let actionsRequests = 0
+let detailFails = false
+let actionsFail = false
 
 function installTransport(): void {
   const session = mockRunsListPage.items.find((run) => run.id === DEMO_RUN_ID)
@@ -41,9 +43,15 @@ function installTransport(): void {
   withMockTransportOverlay((endpoint) => {
     if (endpoint.path === `/runs/${DEMO_RUN_ID}/actions` && endpoint.method === 'GET') {
       actionsRequests += 1
+      if (actionsFail) {
+        throw new ApiError(500, 'Internal Server Error', { message: 'actions are down' })
+      }
       return undefined
     }
     if (endpoint.path === `/runs/${DEMO_RUN_ID}` && endpoint.method === 'GET') {
+      if (detailFails) {
+        throw new ApiError(404, 'Not Found', { message: 'Run not found' })
+      }
       const terminal = ['succeeded', 'failed', 'cancelled', 'skipped'].includes(currentStatus)
       return {
         ...buildMockRunDetail(session),
@@ -87,6 +95,8 @@ beforeEach(() => {
   actionsRequests = 0
   currentStatus = 'running'
   currentErrorCode = null
+  detailFails = false
+  actionsFail = false
   initMockTransport()
   setAccessToken('mock_jwt_token_skvertl_dmc')
   useAuthStore.setState({
@@ -156,6 +166,17 @@ describe('RunDetailPage actions polling', () => {
       expect(actionsRequests).toBe(1)
     },
   )
+
+  it('does not poll /actions when the run detail failed to load', async () => {
+    detailFails = true
+    renderRunDetail()
+    await settle()
+    expect(screen.getByTestId('run-detail-run-error')).toBeTruthy()
+    expect(actionsRequests).toBe(1)
+
+    await advance(5 * 3000)
+    expect(actionsRequests).toBe(1)
+  })
 
   it('stops polling /actions once the run turns terminal', async () => {
     const client = renderRunDetail()
@@ -262,5 +283,57 @@ describe('RunDetailPage progress bar', () => {
     void client.invalidateQueries({ queryKey: runQueryKeys.detail(DEMO_RUN_ID) })
     await settle()
     expect(stageStates()).toEqual(['finish', 'finish', 'finish'])
+  })
+})
+
+describe('RunDetailPage progress bar without the action log', () => {
+  it.each<RunStatus>(['running', 'failed', 'cancelled'])(
+    'shows no bar for a %s run whose /actions request failed',
+    async (status) => {
+      currentStatus = status
+      actionsFail = true
+      renderRunDetail()
+      await settle()
+
+      expect(screen.getByTestId('run-detail-page')).toBeTruthy()
+      expect(screen.queryByTestId('run-progress')).toBeNull()
+    },
+  )
+
+  it.each<[RunStatus, string[]]>([
+    ['queued', ['wait', 'wait', 'wait']],
+    ['publishing', ['finish', 'finish', 'process']],
+    ['succeeded', ['finish', 'finish', 'finish']],
+  ])('still shows the bar for a %s run whose /actions request failed', async (status, expected) => {
+    currentStatus = status
+    actionsFail = true
+    renderRunDetail()
+    await settle()
+
+    expect(stageStates()).toEqual(expected)
+  })
+
+  it('keeps the bar on the last log when a later refetch of the log fails', async () => {
+    const client = renderRunDetail()
+    await settle()
+    expect(stageStates()).toEqual(['process', 'wait', 'wait'])
+
+    actionsFail = true
+    void client.invalidateQueries({ queryKey: runQueryKeys.actions(DEMO_RUN_ID) })
+    await settle()
+    expect(client.getQueryState(runQueryKeys.actions(DEMO_RUN_ID))?.status).toBe('error')
+    expect(stageStates()).toEqual(['process', 'wait', 'wait'])
+  })
+
+  it('shows the bar once a refetch brings the log', async () => {
+    actionsFail = true
+    const client = renderRunDetail()
+    await settle()
+    expect(screen.queryByTestId('run-progress')).toBeNull()
+
+    actionsFail = false
+    void client.invalidateQueries({ queryKey: runQueryKeys.actions(DEMO_RUN_ID) })
+    await settle()
+    expect(stageStates()).toEqual(['process', 'wait', 'wait'])
   })
 })

@@ -98,9 +98,8 @@ export function walkingRunAt(
   elapsedMs: number,
   originMs: number = DEFAULT_ORIGIN_MS,
 ): WalkingRunSnapshot {
-  const elapsed = Math.max(0, elapsedMs)
-  const status = walkingStatus(elapsed)
-  const actions: RunAction[] = WALKING_STEPS.filter((step) => step.at <= elapsed).map(
+  const status = walkingStatus(elapsedMs)
+  const actions: RunAction[] = WALKING_STEPS.filter((step) => step.at <= elapsedMs).map(
     (step, index) => ({
       id: `44444444-4444-4444-8444-0000000011${String(index).padStart(2, '0')}`,
       runId: WALKING_RUN_ID,

@@ -10,6 +10,8 @@ import { RunProgressBar } from './RunProgressBar'
 interface RunInspectorProps {
   run: RunSession
   actions: RunAction[]
+  /** The action log failed to load and there is none: the progress bar is left out where it needs it. */
+  actionsUnavailable?: boolean
   now: Date
   verdict?: Verdict | null
   severityCounts?: SeverityCounts | null
@@ -27,6 +29,7 @@ export function RunInspector(props: RunInspectorProps): JSX.Element {
   const {
     run,
     actions,
+    actionsUnavailable = false,
     now,
     verdict = null,
     severityCounts = null,
@@ -40,13 +43,18 @@ export function RunInspector(props: RunInspectorProps): JSX.Element {
       <Card>
         <RunHeader
           droppedFindings={droppedFindings}
+          loggedActions={actions.length}
           now={now}
           run={run}
           severityCounts={severityCounts ?? undefined}
           verdict={verdict}
         />
       </Card>
-      <RunProgressBar actions={actions} run={run} />
+      <RunProgressBar
+        actions={actions}
+        actionsUnavailable={actionsUnavailable || actionsLoading}
+        run={run}
+      />
       {headerExtra}
       <div className={styles.columns}>
         <section aria-label="Сессия ревью" className={styles.trace}>
