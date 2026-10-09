@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 
@@ -30,6 +30,7 @@ import { RunDetailPage } from './RunDetailPage'
 const FINISHED_AT = '2026-09-18T12:05:00.000Z'
 
 let currentStatus: RunStatus = 'running'
+let currentErrorCode: string | null = null
 let actionsRequests = 0
 
 function installTransport(): void {
@@ -48,6 +49,7 @@ function installTransport(): void {
         ...buildMockRunDetail(session),
         status: currentStatus,
         finishedAt: terminal ? FINISHED_AT : null,
+        errorCode: currentErrorCode,
       }
     }
     return undefined
@@ -80,32 +82,33 @@ async function settle(): Promise<void> {
   }
 }
 
+beforeEach(() => {
+  vi.useFakeTimers()
+  actionsRequests = 0
+  currentStatus = 'running'
+  currentErrorCode = null
+  initMockTransport()
+  setAccessToken('mock_jwt_token_skvertl_dmc')
+  useAuthStore.setState({
+    isAuthenticated: true,
+    isLoading: false,
+    isInitialized: true,
+    error: null,
+  })
+  useDiffViewerStore.setState({ viewType: 'unified', selectedFile: null })
+  useRunInspectorStore.setState({ expandedKeys: [], selectedActionIndex: null })
+  installTransport()
+})
+
+afterEach(() => {
+  cleanup()
+  vi.useRealTimers()
+  vi.restoreAllMocks()
+  setAccessToken(null)
+  setMockTransport(null)
+})
+
 describe('RunDetailPage actions polling', () => {
-  beforeEach(() => {
-    vi.useFakeTimers()
-    actionsRequests = 0
-    currentStatus = 'running'
-    initMockTransport()
-    setAccessToken('mock_jwt_token_skvertl_dmc')
-    useAuthStore.setState({
-      isAuthenticated: true,
-      isLoading: false,
-      isInitialized: true,
-      error: null,
-    })
-    useDiffViewerStore.setState({ viewType: 'unified', selectedFile: null })
-    useRunInspectorStore.setState({ expandedKeys: [], selectedActionIndex: null })
-    installTransport()
-  })
-
-  afterEach(() => {
-    cleanup()
-    vi.useRealTimers()
-    vi.restoreAllMocks()
-    setAccessToken(null)
-    setMockTransport(null)
-  })
-
   it('exposes a 3-second poll interval', () => {
     expect(RUN_ACTIONS_POLL_MS).toBe(3000)
   })
@@ -189,5 +192,75 @@ describe('RunDetailPage actions polling', () => {
     expect(actionsRequests).toBe(3)
     await advance(3000)
     expect(actionsRequests).toBe(4)
+  })
+})
+
+function stageStates(): (string | null)[] {
+  const bar = screen.getByTestId('run-progress')
+  return Array.from(bar.querySelectorAll('[data-stage-state]')).map((node) =>
+    node.getAttribute('data-stage-state'),
+  )
+}
+
+describe('RunDetailPage progress bar', () => {
+  it('shows the three stages on a running run, working on context', async () => {
+    renderRunDetail()
+    await settle()
+    expect(screen.getByTestId('run-detail-page')).toBeTruthy()
+
+    const bar = screen.getByTestId('run-progress')
+    expect(within(bar).getByText('Сбор контекста')).toBeTruthy()
+    expect(within(bar).getByText('Анализ LLM')).toBeTruthy()
+    expect(within(bar).getByText('Публикация')).toBeTruthy()
+    // The demo actions carry no known pipeline tool, so nothing has marked context done.
+    expect(stageStates()).toEqual(['process', 'wait', 'wait'])
+    // The status tag stays next to the bar.
+    expect(screen.getByText('running')).toBeTruthy()
+  })
+
+  it('shows no bar on a skipped run', async () => {
+    currentStatus = 'skipped'
+    renderRunDetail()
+    await settle()
+    expect(screen.getByTestId('run-detail-page')).toBeTruthy()
+    expect(screen.getByText('skipped')).toBeTruthy()
+    expect(screen.queryByTestId('run-progress')).toBeNull()
+  })
+
+  it('shows the errorCode on the failed stage of a failed run', async () => {
+    currentStatus = 'failed'
+    currentErrorCode = 'llm_timeout'
+    renderRunDetail()
+    await settle()
+
+    expect(stageStates()).toEqual(['error', 'wait', 'wait'])
+    // The header «Ошибка» row shows the code too; the bar shows it on the stage itself.
+    expect(within(screen.getByTestId('run-progress')).getByText('llm_timeout')).toBeTruthy()
+  })
+
+  it('shows a cancelled run as stopped, not as an error', async () => {
+    currentStatus = 'cancelled'
+    renderRunDetail()
+    await settle()
+
+    expect(stageStates()).toEqual(['stopped', 'wait', 'wait'])
+    expect(within(screen.getByTestId('run-progress')).getByText('Остановлено')).toBeTruthy()
+    expect(document.querySelector('.ant-steps-item-error')).toBeNull()
+  })
+
+  it('moves the bar when the run status changes', async () => {
+    const client = renderRunDetail()
+    await settle()
+    expect(stageStates()).toEqual(['process', 'wait', 'wait'])
+
+    currentStatus = 'publishing'
+    void client.invalidateQueries({ queryKey: runQueryKeys.detail(DEMO_RUN_ID) })
+    await settle()
+    expect(stageStates()).toEqual(['finish', 'finish', 'process'])
+
+    currentStatus = 'succeeded'
+    void client.invalidateQueries({ queryKey: runQueryKeys.detail(DEMO_RUN_ID) })
+    await settle()
+    expect(stageStates()).toEqual(['finish', 'finish', 'finish'])
   })
 })

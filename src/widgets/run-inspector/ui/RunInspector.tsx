@@ -3,6 +3,7 @@ import type { JSX, ReactNode } from 'react'
 import type { RunAction, RunSession, SeverityCounts, Verdict } from '../../../entities/run'
 import { ActionTree } from './ActionTree'
 import { RunHeader } from './RunHeader'
+import { RunProgressBar } from './RunProgressBar'
 
 interface RunInspectorProps {
   run: RunSession
@@ -33,6 +34,7 @@ export function RunInspector(props: RunInspectorProps): JSX.Element {
         severityCounts={severityCounts ?? undefined}
         verdict={verdict}
       />
+      <RunProgressBar actions={actions} run={run} />
       {headerExtra}
       <ActionTree actions={actions} runId={run.id} />
     </section>

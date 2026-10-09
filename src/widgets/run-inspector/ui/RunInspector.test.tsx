@@ -66,6 +66,43 @@ describe('RunInspector', () => {
     expect(link.closest('a')?.getAttribute('href')).toBe(RUN.pullRequest.url)
   })
 
+  it('renders the progress bar under the header, before the extra controls and the action tree', () => {
+    renderWithQuery(
+      <RunInspector
+        actions={ACTIONS}
+        headerExtra={<div data-testid="header-extra" />}
+        now={NOW}
+        run={RUN}
+      />,
+    )
+    const header = screen.getByText('#34 feat: inspector')
+    const bar = screen.getByTestId('run-progress')
+    const extra = screen.getByTestId('header-extra')
+    const tree = screen.getByText('get_tree ×19')
+    const follows = (a: Node, b: Node): boolean =>
+      Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(follows(header, bar)).toBe(true)
+    expect(follows(bar, extra)).toBe(true)
+    expect(follows(extra, tree)).toBe(true)
+    expect(
+      Array.from(bar.querySelectorAll('[data-stage-state]')).map((node) =>
+        node.getAttribute('data-stage-state'),
+      ),
+    ).toEqual(['finish', 'finish', 'finish'])
+  })
+
+  it('renders no progress bar for a skipped run', () => {
+    renderWithQuery(
+      <RunInspector
+        actions={[]}
+        now={NOW}
+        run={{ ...RUN, status: 'skipped', errorCode: 'draft_pr' }}
+      />,
+    )
+    expect(screen.getByText('skipped')).toBeTruthy()
+    expect(screen.queryByTestId('run-progress')).toBeNull()
+  })
+
   it('collapses groups so nested actions are not visible', () => {
     renderWithQuery(<RunInspector run={RUN} actions={ACTIONS} now={NOW} />)
     expect(screen.getByText('get_tree ×19')).toBeTruthy()
