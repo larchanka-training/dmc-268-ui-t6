@@ -239,6 +239,61 @@ describe('runProgress across retries', () => {
   })
 })
 
+// The api runs the conventions step on every claim and writes exactly one `llm.repo_conventions`
+// row per call (process_run.py `prepare()`, conventions_unit_of_work.py), so a second one in the
+// same list is a new attempt even when no stage went backwards.
+describe('runProgress with a repeated llm.repo_conventions', () => {
+  const lostLease = (...rest: Step[]): RunAction[] =>
+    build('vcs.fetch_diff', 'llm.repo_conventions', 'context.build', ...rest)
+
+  it('failed in the new attempt context: error on context, not on analysis', () => {
+    const actions = lostLease('llm.repo_conventions', ['context.build', FAILURE])
+    const progress = runProgress({ status: 'failed', errorCode: 'context_failed' }, actions)
+    expect(progress?.map((stage) => stage.state)).toEqual(['error', 'wait', 'wait'])
+    expect(progress?.map((stage) => stage.errorCode)).toEqual(['context_failed', null, null])
+  })
+
+  it('cancelled right after the new attempt started: stopped on context', () => {
+    const progress = runProgress(
+      { status: 'cancelled', errorCode: 'cancelled_by_user' },
+      lostLease('llm.repo_conventions'),
+    )
+    expect(progress?.map((stage) => stage.state)).toEqual(['stopped', 'wait', 'wait'])
+    expect(progress?.map((stage) => stage.errorCode)).toEqual(['cancelled_by_user', null, null])
+  })
+
+  it('running right after the new attempt started: working on context', () => {
+    expect(states('running', lostLease('llm.repo_conventions'))).toEqual([
+      'process',
+      'wait',
+      'wait',
+    ])
+  })
+
+  it('running once the new attempt built its context: on to analysis', () => {
+    expect(states('running', lostLease('llm.repo_conventions', 'context.build'))).toEqual([
+      'finish',
+      'process',
+      'wait',
+    ])
+  })
+
+  it('failed after the new attempt got to analysis: error on analysis', () => {
+    const actions = lostLease('llm.repo_conventions', 'context.build', ['llm.call', FAILURE])
+    expect(states('failed', actions, 'llm_timeout')).toEqual(['finish', 'error', 'wait'])
+  })
+
+  it('a third attempt cuts again', () => {
+    const actions = lostLease('llm.repo_conventions', 'context.build', 'llm.repo_conventions')
+    expect(states('running', actions)).toEqual(['process', 'wait', 'wait'])
+  })
+
+  it('keeps the cache-miss order of one attempt as one attempt', () => {
+    const actions = build('vcs.fetch_diff', 'llm.call', 'llm.repo_conventions', 'context.build')
+    expect(states('running', actions)).toEqual(['finish', 'process', 'wait'])
+  })
+})
+
 describe('runProgress with summary-only runs', () => {
   const summaryOnly = build('vcs.fetch_diff', 'llm.review_output', 'review.postprocess')
 

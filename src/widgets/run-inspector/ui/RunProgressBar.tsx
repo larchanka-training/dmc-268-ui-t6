@@ -3,41 +3,62 @@ import { Steps, theme } from 'antd'
 import type { StepsProps } from 'antd'
 import type { JSX } from 'react'
 
-import type { RunAction, RunProgressStage, RunSession } from '../../../entities/run'
+import type { RunAction, RunProgressStage, RunSession, RunStatus } from '../../../entities/run'
 import { runProgress } from '../../../entities/run'
 
 interface RunProgressBarProps {
   run: Pick<RunSession, 'status' | 'errorCode'>
   actions: RunAction[]
+  /** The action log failed to load and there is none to show: the bar must not guess from `[]`. */
+  actionsUnavailable?: boolean
 }
+
+// Statuses whose stage comes from the log. The others (queued, publishing, succeeded) ignore it.
+const LOG_READING_STATUSES: readonly RunStatus[] = ['running', 'failed', 'cancelled']
 
 type StepItem = NonNullable<StepsProps['items']>[number]
 
 export function RunProgressBar(props: RunProgressBarProps): JSX.Element | null {
-  const { run, actions } = props
+  const { run, actions, actionsUnavailable = false } = props
   const { token } = theme.useToken()
   const progress = runProgress(run, actions)
-  if (progress === null) {
+  if (progress === null || (actionsUnavailable && LOG_READING_STATUSES.includes(run.status))) {
     return null
   }
 
   function toItem(stage: RunProgressStage): StepItem {
     // The data attribute carries the progress state itself: antd has no `stopped` status.
+    // The text of a failed or stopped stage takes the normal text token: antd's error red
+    // (3.27 on white) and waiting grey (3.35) fail the contrast check, and the icon marks the state.
+    const textStyle = { color: token.colorText }
     const title = (
-      <span data-stage-state={stage.state} data-testid={`run-progress-${stage.key}`}>
+      <span
+        data-stage-state={stage.state}
+        data-testid={`run-progress-${stage.key}`}
+        style={stage.state === 'stopped' ? textStyle : undefined}
+      >
         {stage.label}
       </span>
     )
     switch (stage.state) {
       case 'error':
-        return { title, status: 'error', content: stage.errorCode ?? undefined }
+        return {
+          title,
+          status: 'error',
+          content:
+            stage.errorCode === null ? undefined : <span style={textStyle}>{stage.errorCode}</span>,
+        }
       case 'stopped':
         // Not red: the run was cancelled, nothing broke. A neutral step with a warning stop icon.
         return {
           title,
           status: 'wait',
           icon: <StopOutlined style={{ color: token.colorWarning }} />,
-          content: stage.errorCode === null ? 'Остановлено' : `Остановлено: ${stage.errorCode}`,
+          content: (
+            <span style={textStyle}>
+              {stage.errorCode === null ? 'Остановлено' : `Остановлено: ${stage.errorCode}`}
+            </span>
+          ),
         }
       case 'wait':
       case 'process':
@@ -46,8 +67,11 @@ export function RunProgressBar(props: RunProgressBarProps): JSX.Element | null {
     }
   }
 
-  // The first stage that is not done is the active one; with everything done, the last.
-  const firstOpen = progress.findIndex((stage) => stage.state !== 'finish')
+  // antd marks the step at `current` as active. Only a stage in progress, failed or stopped is one;
+  // with every stage waiting or finished there is none, so `current` points past the last step.
+  const active = progress.findIndex(
+    (stage) => stage.state === 'process' || stage.state === 'error' || stage.state === 'stopped',
+  )
 
   return (
     <div
@@ -57,7 +81,7 @@ export function RunProgressBar(props: RunProgressBarProps): JSX.Element | null {
       style={{ margin: '12px 0' }}
     >
       <Steps
-        current={firstOpen === -1 ? progress.length - 1 : firstOpen}
+        current={active === -1 ? progress.length : active}
         items={progress.map(toItem)}
         size="small"
       />
