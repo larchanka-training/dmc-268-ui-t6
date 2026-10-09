@@ -8,6 +8,7 @@ import { expandContext, fetchRunFileSlice, useRunDiff } from '../../entities/dif
 import type { FileDiff } from '../../entities/diff'
 import { useRunActions, useRunDetail } from '../../entities/run'
 import { useRunComments } from '../../entities/review'
+import { useFindingFiltersParams } from '../../features/finding-filters'
 import { contextChunkLimit, RunDiff, type ContextGap } from '../../widgets/diff-viewer'
 import { RunControls, RunInspector } from '../../widgets/run-inspector'
 import { runDetailLoadMessage, runDiffLoadMessage } from './lib/runLoadErrors'
@@ -25,6 +26,7 @@ const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
   const diffQuery = useRunDiff(runId)
   const actionsQuery = useRunActions(runId)
   const commentsQuery = useRunComments(runId)
+  const { filters, setFilters, resetFilters } = useFindingFiltersParams()
   const [expandedFiles, setExpandedFiles] = useState<Map<string, FileDiff>>(() => new Map())
   const [loadError, setLoadError] = useState<string | null>(null)
   const inflightGapKeyRef = useRef<string | null>(null)
@@ -154,7 +156,10 @@ const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
           budgetFiles={diffFiles}
           comments={comments}
           files={displayFiles}
+          filters={filters}
           findings={Array.isArray(run.findings) ? run.findings : []}
+          onFiltersChange={setFilters}
+          onFiltersReset={resetFilters}
           onLoadMore={run.summaryOnly ? undefined : handleLoadMore}
           summaryOnly={run.summaryOnly}
         />
