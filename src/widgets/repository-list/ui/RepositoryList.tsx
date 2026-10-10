@@ -55,6 +55,7 @@ const EMPTY_REPOSITORIES_DESCRIPTION =
 export interface RepositoryListProps {
   repositories: Repository[]
   loading?: boolean
+  refreshing?: boolean
   updatingRepoIds?: string[] | ReadonlySet<string>
   onToggleEnabled?: (id: string, enabled: boolean) => Promise<void> | void
   onUpdateRepository?: (id: string, patch: UpdateRepositoryInput) => Promise<void> | void
@@ -65,6 +66,7 @@ export interface RepositoryListProps {
 export const RepositoryList: FC<RepositoryListProps> = ({
   repositories,
   loading = false,
+  refreshing = false,
   updatingRepoIds,
   onToggleEnabled,
   onUpdateRepository,
@@ -281,7 +283,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       extra={
         <Space>
           <Tooltip title={REFRESH_TOOLTIP}>
-            <Button icon={<ReloadOutlined />} onClick={onRefresh}>
+            <Button icon={<ReloadOutlined />} loading={refreshing} onClick={onRefresh}>
               Обновить
             </Button>
           </Tooltip>

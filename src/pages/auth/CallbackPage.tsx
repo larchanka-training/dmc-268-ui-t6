@@ -1,7 +1,12 @@
 import { Button, Card, Flex, Layout, Result, Spin, Typography, theme } from 'antd'
 import { useEffect, useRef, useState, type FC } from 'react'
 
-import { STATE_STORAGE_KEY, useAuthStore } from '../../features/auth'
+import {
+  activateAccessRefreshIntent,
+  clearAccessRefreshIntent,
+  STATE_STORAGE_KEY,
+  useAuthStore,
+} from '../../features/auth'
 import { oauthCallbackErrorMessage } from './oauthErrors'
 import styles from './CallbackPage.module.css'
 
@@ -41,6 +46,7 @@ export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError, onBack
       }
 
       if (oauthError) {
+        clearAccessRefreshIntent()
         try {
           sessionStorage.removeItem(STATE_STORAGE_KEY)
         } catch {
@@ -53,6 +59,7 @@ export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError, onBack
       }
 
       if (!code) {
+        clearAccessRefreshIntent()
         try {
           sessionStorage.removeItem(STATE_STORAGE_KEY)
         } catch {
@@ -66,6 +73,7 @@ export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError, onBack
 
       try {
         await handleCallback(code, state)
+        activateAccessRefreshIntent()
         setStatus('success')
         if (onSuccess) {
           onSuccess()
@@ -73,6 +81,7 @@ export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError, onBack
           window.location.href = '/repositories'
         }
       } catch (err) {
+        clearAccessRefreshIntent()
         const msg = err instanceof Error ? err.message : 'Не удалось завершить авторизацию'
         setStatus('error')
         setErrorMessage(msg)
