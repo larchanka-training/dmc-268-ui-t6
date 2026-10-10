@@ -34,6 +34,8 @@ export const mockRunSessions: RunSession[] = [
     finishedAt: null,
     attempt: 1,
     cancelRequested: false,
+    trigger: 'webhook',
+    createdAt: '2026-09-18T11:00:00.000Z',
     summaryOnly: false,
     pullRequest: {
       repo: REPO,
@@ -54,6 +56,8 @@ export const mockRunSessions: RunSession[] = [
     finishedAt: null,
     attempt: 1,
     cancelRequested: false,
+    trigger: 'webhook',
+    createdAt: '2026-09-18T11:00:00.000Z',
     summaryOnly: false,
     pullRequest: {
       repo: REPO,
@@ -74,6 +78,8 @@ export const mockRunSessions: RunSession[] = [
     finishedAt: null,
     attempt: 1,
     cancelRequested: false,
+    trigger: 'webhook',
+    createdAt: '2026-09-18T11:00:00.000Z',
     summaryOnly: false,
     pullRequest: {
       repo: REPO,
@@ -94,6 +100,8 @@ export const mockRunSessions: RunSession[] = [
     finishedAt: '2026-09-18T11:55:12.000Z',
     attempt: 1,
     cancelRequested: false,
+    trigger: 'webhook',
+    createdAt: '2026-09-18T11:00:00.000Z',
     summaryOnly: false,
     pullRequest: {
       repo: REPO,
@@ -117,6 +125,8 @@ export const mockRunSessions: RunSession[] = [
     finishedAt: '2026-09-18T10:45:00.000Z',
     attempt: 3,
     cancelRequested: false,
+    trigger: 'webhook',
+    createdAt: '2026-09-18T11:00:00.000Z',
     summaryOnly: false,
     pullRequest: {
       repo: REPO,
@@ -137,6 +147,8 @@ export const mockRunSessions: RunSession[] = [
     finishedAt: '2026-09-18T09:10:00.000Z',
     attempt: 1,
     cancelRequested: true,
+    trigger: 'webhook',
+    createdAt: '2026-09-18T11:00:00.000Z',
     summaryOnly: false,
     pullRequest: {
       repo: REPO,
@@ -157,6 +169,8 @@ export const mockRunSessions: RunSession[] = [
     finishedAt: '2026-09-18T08:00:00.000Z',
     attempt: 1,
     cancelRequested: false,
+    trigger: 'webhook',
+    createdAt: '2026-09-18T11:00:00.000Z',
     summaryOnly: false,
     pullRequest: {
       repo: REPO,
@@ -179,6 +193,8 @@ export const mockSummaryOnlyRun: RunSession = {
   finishedAt: '2026-09-18T07:20:00.000Z',
   attempt: 1,
   cancelRequested: false,
+  trigger: 'webhook',
+  createdAt: '2026-09-18T11:00:00.000Z',
   summaryOnly: true,
   pullRequest: {
     repo: REPO,

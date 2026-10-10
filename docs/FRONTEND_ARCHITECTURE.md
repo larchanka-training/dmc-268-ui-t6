@@ -442,8 +442,9 @@ strict — `z.object` в Zod 4 по умолчанию отбрасывает н
 ```ts
 // entities/run — RunStatus: 7 значений, RunSession, RunAction, RunListPage
 RunStatusSchema = enum(queued|running|publishing|succeeded|failed|cancelled|skipped)
-RunSession = { id, engine: fast|deep, model, status, startedAt, finishedAt,
-  attempt, cancelRequested, summaryOnly, pullRequest: PullRequestRef, actionCount, errorCode }
+RunSession = { id, engine: fast|deep, model, status, trigger: webhook|manual|rerun|dry_run,
+  createdAt, startedAt, finishedAt, attempt, cancelRequested, summaryOnly,
+  pullRequest: PullRequestRef, actionCount, errorCode }
 RunAction = { id, runId, index, tool, request: unknown, response: unknown|null,
   responseRef, startedAt, durationMs }
 RunListPage = { items: RunSession[], nextCursor }
@@ -465,6 +466,8 @@ ReviewComment = { id, file, oldLine, newLine, endLine, body, ruleName,
   `newLine` не `null`; `removed` ⇒ `newLine = null`, `oldLine` не `null`;
 - `ReviewComment`: хотя бы одна из `oldLine`/`newLine` не `null`;
 - `RunSession`: `finishedAt ≠ null` ⇒ `status` — терминальный (`succeeded|failed|cancelled|skipped`).
+- `RunSession`: `trigger` и `createdAt` обязательны; `createdAt` не бывает `null`, в отличие от
+  `startedAt` (Run в `queued` ещё не начат). Значения и диагностика — api PIPELINE_SPEC §1.1.
 
 Summary-only прогон (дифф больше 3 000 строк, Р-15 в [SD §1][sd-1], контракт — [SD §12][sd-12],
 решение 10 техлида [от 2026-09-24][tl-2026-09-24-10]): снимок диффа хранит только список файлов,

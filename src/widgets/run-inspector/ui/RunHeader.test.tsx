@@ -14,6 +14,8 @@ const baseRun: RunSession = {
   finishedAt: '2026-09-18T11:55:12.000Z',
   attempt: 1,
   cancelRequested: false,
+  trigger: 'webhook',
+  createdAt: '2026-09-18T11:00:00.000Z',
   summaryOnly: false,
   pullRequest: {
     repo: 'larchanka-training/dmc-268-ui-t6',

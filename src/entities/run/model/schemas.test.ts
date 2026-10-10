@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { RunActionSchema, RunListPageSchema, RunSessionSchema, RunStatusSchema } from './schemas'
+import {
+  RunActionSchema,
+  RunListPageSchema,
+  RunSessionSchema,
+  RunStatusSchema,
+  RunTriggerSchema,
+} from './schemas'
 
 const UUID = '0f3b2c1e-6a1d-4c8b-9e2f-1a2b3c4d5e6f'
 const ISO = '2026-09-18T10:00:00.000Z'
@@ -25,6 +31,8 @@ const runSession = {
   finishedAt: null,
   attempt: 1,
   cancelRequested: false,
+  trigger: 'webhook',
+  createdAt: '2026-09-18T11:00:00.000Z',
   summaryOnly: false,
   pullRequest,
   actionCount: 0,
@@ -139,6 +147,53 @@ describe('RunSessionSchema', () => {
       expect(result.error.issues[0]?.path).toEqual(['pullRequest', 'author'])
     }
   })
+})
+
+describe('RunSession origin', () => {
+  it('lists the four triggers of the api contract, in order', () => {
+    expect(RunTriggerSchema.options).toEqual(['webhook', 'manual', 'rerun', 'dry_run'])
+  })
+
+  it.each(['webhook', 'rerun'] as const)('keeps trigger %s and createdAt', (trigger) => {
+    const result = RunSessionSchema.safeParse({ ...runSession, trigger })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.trigger).toBe(trigger)
+      expect(result.data.createdAt).toBe(runSession.createdAt)
+    }
+  })
+
+  it('accepts a queued Run that has createdAt but no startedAt', () => {
+    const result = RunSessionSchema.safeParse({ ...runSession, status: 'queued', startedAt: null })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.startedAt).toBeNull()
+      expect(result.data.createdAt).toBe(runSession.createdAt)
+    }
+  })
+
+  it('rejects an unknown trigger', () => {
+    const result = RunSessionSchema.safeParse({ ...runSession, trigger: 'cron' })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues[0]?.path).toEqual(['trigger'])
+    }
+  })
+
+  it.each(['trigger', 'createdAt'] as const)('rejects a RunSession missing %s', (field) => {
+    const result = RunSessionSchema.safeParse({ ...runSession, [field]: undefined })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues[0]?.path).toEqual([field])
+    }
+  })
+
+  it.each([null, '2026-09-18 11:00:00', '2026-09-18T11:00:00'])(
+    'rejects createdAt %s: it is never null and is an ISO 8601 UTC timestamp',
+    (createdAt) => {
+      expect(RunSessionSchema.safeParse({ ...runSession, createdAt }).success).toBe(false)
+    },
+  )
 })
 
 describe('RunActionSchema', () => {

@@ -324,6 +324,8 @@ describe('RunDetailPage', () => {
           finishedAt: null,
           attempt: base.attempt + 1,
           cancelRequested: false,
+          trigger: 'webhook',
+          createdAt: '2026-09-18T11:00:00.000Z',
         }
       }
       if (endpoint.path === `/runs/${RERUN_RUN_ID}/diff` && endpoint.method === 'GET') {
@@ -381,6 +383,8 @@ describe('RunDetailPage', () => {
           startedAt: null,
           finishedAt: null,
           cancelRequested: false,
+          trigger: 'webhook',
+          createdAt: '2026-09-18T11:00:00.000Z',
         }
       }
       return undefined
@@ -477,6 +481,8 @@ describe('RunDetailPage', () => {
           ...session,
           status: 'cancelled',
           cancelRequested: true,
+          trigger: 'webhook',
+          createdAt: '2026-09-18T11:00:00.000Z',
           pullRequest: { repo, number, title, url, headSha },
         }
       }

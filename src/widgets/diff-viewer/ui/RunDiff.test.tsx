@@ -48,6 +48,8 @@ const SUMMARY_ONLY_RUN_WIRE = {
   finishedAt: '2026-09-18T07:20:00.000Z',
   attempt: 1,
   cancelRequested: false,
+  trigger: 'webhook',
+  createdAt: '2026-09-18T11:00:00.000Z',
   summaryOnly: true,
   pullRequest: PULL_REQUEST,
   actionCount: 20,

@@ -11,6 +11,8 @@ const runSession = {
   finishedAt: null,
   attempt: 1,
   cancelRequested: false,
+  trigger: 'webhook',
+  createdAt: '2026-09-18T11:00:00.000Z',
   summaryOnly: false,
   pullRequest: {
     repo: 'org/repo',

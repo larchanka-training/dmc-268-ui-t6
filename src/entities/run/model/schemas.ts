@@ -31,6 +31,11 @@ export const ACTIVE_RUN_STATUSES = [
 export const EngineSchema = z.enum(['fast', 'deep'])
 export type Engine = z.infer<typeof EngineSchema>
 
+// Who created the Run (api PIPELINE_SPEC §12). Only `webhook` and `rerun` are written today;
+// `manual` and `dry_run` are reserved by the same enum.
+export const RunTriggerSchema = z.enum(['webhook', 'manual', 'rerun', 'dry_run'])
+export type RunTrigger = z.infer<typeof RunTriggerSchema>
+
 export const PullRequestRefSchema = z.object({
   repo: z.string(),
   number: z.int().positive(),
@@ -49,6 +54,8 @@ export const RunSessionSchema = z
     engine: EngineSchema,
     model: z.string().nullable(),
     status: RunStatusSchema,
+    trigger: RunTriggerSchema,
+    createdAt: z.iso.datetime(),
     startedAt: z.iso.datetime().nullable(),
     finishedAt: z.iso.datetime().nullable(),
     attempt: z.int().nonnegative(),
