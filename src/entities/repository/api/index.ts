@@ -19,8 +19,8 @@ export const repoApi = {
   },
 } as const
 
-export async function fetchRepositories(): Promise<Repository[]> {
-  const data = await apiClient<unknown>(endpoints.repos.list())
+export async function fetchRepositories(signal?: AbortSignal): Promise<Repository[]> {
+  const data = await apiClient<unknown>(endpoints.repos.list(), { signal })
   return z.array(RepositorySchema).parse(data)
 }
 
@@ -43,7 +43,7 @@ export async function updateRepository(
 export function useRepositories() {
   return useQuery({
     queryKey: REPOSITORIES_QUERY_KEY,
-    queryFn: fetchRepositories,
+    queryFn: ({ signal }) => fetchRepositories(signal),
     refetchOnWindowFocus: 'always',
   })
 }

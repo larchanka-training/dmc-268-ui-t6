@@ -47,6 +47,17 @@ describe('repository API client methods', () => {
     expect(result[0]?.waitForCi).toBe('auto')
   })
 
+  it('fetchRepositories forwards the caller cancellation signal to the network', async () => {
+    const controller = new AbortController()
+    globalThis.fetch = vi.fn().mockResolvedValue(new Response('[]', { status: 200 }))
+
+    expect(await fetchRepositories(controller.signal)).toEqual([])
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/repos',
+      expect.objectContaining({ signal: controller.signal }),
+    )
+  })
+
   it('fetchRepository returns single repository', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue(
       new Response(JSON.stringify(sampleRepo), {
