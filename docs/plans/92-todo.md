@@ -156,10 +156,11 @@ boundaries; an actual staging-worker race was not exercised.
 
 **Acceptance criteria:**
 
-- [ ] Все frontend gates зелёные; результаты и ограничения проверки записаны.
-- [ ] Reviewer сообщает 0 Standards/Spec findings; все предыдущие findings
+- [x] Все frontend gates выполнены; результаты и известное исходное исключение
+      formatter для `.pnpm-store/` записаны.
+- [x] Reviewer сообщает 0 Standards/Spec findings; все предыдущие findings
       исправлены с повторной проверкой.
-- [ ] После ownership/main check publisher создал ветку, commit, push и PR с
+- [x] После ownership/main check publisher создал ветку, commit, push и PR с
       `Refs #92`, без closing keyword, merge и посторонней `.pnpm-store/`.
 
 **Verification:** Полные команды ниже; финальная проверка diff/status; ссылка PR
@@ -171,15 +172,41 @@ boundaries; an actual staging-worker race was not exercised.
 
 **Estimated scope:** Small documentation; full review/publishing checkpoint.
 
-- [ ] `pnpm lint`
-- [ ] `pnpm check-types`
-- [ ] `pnpm format:check`
-- [ ] `pnpm test`
-- [ ] `pnpm build`
-- [ ] `pnpm verify:prod-bundle`
-- [ ] Standards review: 0 findings.
-- [ ] Spec review: 0 findings.
-- [ ] Recheck open PR file ownership and current main; rebase if required.
-- [ ] Docs reflect final implementation; prior untracked files untouched.
-- [ ] Commit/push/PR complete; PR URL returned and attached to chat.
-- [ ] Task 4 complete.
+- [x] `pnpm lint`
+- [x] `pnpm check-types`
+- [x] `pnpm format:check` — executed; baseline exception and adjusted pass below.
+- [x] `pnpm test`
+- [x] `pnpm build`
+- [x] `pnpm verify:prod-bundle`
+- [x] Standards review: 0 findings.
+- [x] Spec review: 0 findings.
+- [x] Recheck open PR file ownership and current main; rebase if required.
+- [x] Docs reflect final implementation; prior untracked files untouched.
+- [x] Commit/push/PR complete; PR URL returned and attached to chat.
+- [x] Task 4 complete.
+
+**Task 4 review/base evidence (2026-10-10):** Final independent review reported
+0 Standards / 0 Spec findings; 54 targeted tests passed independently. Ownership
+recheck found no overlap with open PRs #85, #90 and #94. Publication fetched main
+at `423c164` (the landing workspace and runtime Docker update) and rebased this
+change without conflicts. App source was unchanged upstream. Final verification
+was repeated on that base before publication: lint, types, 589 tests / 71 files,
+build and production bundle verification passed. The new upstream landing CI
+checks also passed: types, 15 tests / 2 files, build. Frozen-lockfile workspace
+installation added only upstream landing dependencies; no lockfile change.
+
+Raw `pnpm format:check` failed only for the unchanged preexisting untracked
+`.pnpm-store/v11/.tmp/pnpm-12.4.1-1791563001124/package.json`.
+`pnpm format:check --ignore-path /private/tmp/dmc-268-ui-92-prettierignore`
+passed, preserving repository ignores and adding only `.pnpm-store/` in the
+temporary file. The directory and repository ignore configuration remain
+untouched and uncommitted. Test output includes existing jsdom pseudo-element
+and navigation notices; tests passed, and the browser smoke console was clean.
+
+**Publication evidence:** Implementation commit `94eec9f` was pushed to
+`fix/92-refresh-access` with normal lint-staged and pre-push hooks. Draft
+[PR #95](https://github.com/larchanka-training/dmc-268-ui-t6/pull/95) was created
+and attached to the chat. Its body documents verification and limitations,
+including the raw formatter exception and untested actual staging-worker race.
+No merge, issue closure, Development-panel link, or external PR comment was
+performed. Final completion evidence is recorded in a separate docs commit.
