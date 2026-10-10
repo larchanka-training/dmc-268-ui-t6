@@ -210,3 +210,57 @@ and attached to the chat. Its body documents verification and limitations,
 including the raw formatter exception and untested actual staging-worker race.
 No merge, issue closure, Development-panel link, or external PR comment was
 performed. Final completion evidence is recorded in a separate docs commit.
+
+## PR #95 review follow-up: preserve settings during access refresh
+
+[Review comment 4237554568](https://github.com/larchanka-training/dmc-268-ui-t6/pull/95#discussion_r4237554568)
+identified stale polling GETs overwriting optimistic and confirmed settings
+while repository PATCH requests were pending. The immediate access-refresh
+microtask and every interval tick now check the current
+`UPDATE_REPOSITORY_MUTATION_KEY` mutation count before fetching. The absolute
+120-second deadline and normal Query invalidation remain in place; polling
+resumes on the next tick only while the original window is still open.
+
+- [x] Public page regression: delayed PATCH retains the optimistic toggle,
+      expires at the original deadline, then settles through normal invalidation
+      without restarting polling.
+- [x] Public page regression: two concurrent PATCH requests retain both the
+      confirmed first row and optimistic second row when a delayed stale GET
+      would return between their completions; last-mutation invalidation and
+      subsequent polling still work.
+- [x] Public page regression: a mutation already pending at mount suppresses
+      the initial access-refresh microtask and following interval tick.
+- [x] Development gates and documentation complete.
+- [x] Independent Standards/Spec review: 0 findings; 22 page tests passed.
+- [ ] Follow-up committed and pushed; PR body updated and reviewer answered
+      with the implementation SHA.
+
+**RED/GREEN evidence (2026-10-10):** Without the mutation guard, the delayed-PATCH
+test reverted the optimistic switch from `false` to `true` at the first polling
+tick. The concurrent-PATCH test also failed after PATCH 1 confirmed `false` and
+the prepared stale GET returned `true` while PATCH 2 remained pending. Both pass
+with the guard; the initial-microtask regression passes as well. Page/API suite:
+30 tests passed. Full suite: 71 files / 592 tests passed. Lint, typecheck, build,
+production-bundle verification and adjusted formatting passed. No dependency
+or lockfile changes were made.
+
+Raw `pnpm format:check` still fails only inside the untouched, untracked local
+`.pnpm-store/`, now listing five generated package manifests:
+
+- `.pnpm-store/v11/.tmp/pnpm-12.4.1-1791563001124/package.json`
+- `.pnpm-store/v11/.tmp/pnpm-12.4.1-1791633279571/package.json`
+- `.pnpm-store/v11/.tmp/pnpm-12.4.1-1791633279572/package.json`
+- `.pnpm-store/v11/.tmp/pnpm-12.4.1-1791633279576/package.json`
+- `.pnpm-store/v11/.tmp/pnpm-12.4.1-1791633279581/package.json`
+
+`pnpm format:check --ignore-path /private/tmp/dmc-268-ui-92-prettierignore`
+passes. The temporary ignore preserves repository ignores and adds only
+`.pnpm-store/`; neither the store nor repository ignore configuration was
+changed. Existing jsdom pseudo-element/navigation notices remain in successful
+test output. This follow-up changes request scheduling without changing the UI;
+the earlier mock browser smoke evidence remains applicable.
+
+**Follow-up review/base evidence:** Independent review reported 0 Standards /
+0 Spec findings and passed all 22 page tests. Before publication, ownership was
+checked against open PRs #85, #90 and #94 with no collision. Current main remains
+`423c164`, already an ancestor of this branch; no additional rebase is needed.

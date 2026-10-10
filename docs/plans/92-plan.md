@@ -59,6 +59,12 @@ Query без перезагрузки страницы. По окончании 
    `cancelRefetch: false` сохраняет активный GET; немедленный refetch планируется
    через отменяемую microtask. Query остаётся enabled: focus и invalidation от
    mutations продолжают работать.
+   Перед немедленным refetch и каждым tick проверять актуальный
+   `queryClient.isMutating({ mutationKey: UPDATE_REPOSITORY_MUTATION_KEY })`.
+   Пока меняются настройки репозиториев, автоматические запросы пропускаются,
+   чтобы устаревший GET не заменил optimistic/confirmed значения. После последней
+   mutation работает штатная invalidation; следующий tick возобновляет опрос,
+   только если исходный deadline ещё не наступил.
    Проверять deadline внутри callback таймера перед каждым новым запросом,
    чтобы задержанный background timer не продлевал окно. На deadline отключить
    интервал независимо от settlement активного GET; таймеры убрать при unmount.
@@ -130,16 +136,17 @@ timeouts. Проверить повторные mount и StrictMode, включ�
 
 ## Risks and Mitigations
 
-| Risk                                                            | Mitigation                                                                      |
-| --------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Непустой устаревший список ошибочно останавливает polling       | Опрос не зависит от длины списка; отдельная регрессия old → old + new.          |
-| Новая строка появляется, но UI обещает полную синхронизацию     | Не объявлять завершение onboarding; весь цикл ограничен временем.               |
-| Intent переживает ошибку OAuth и запускает опрос при входе      | Очистка всех callback error exits и one-time consume; отдельные тесты.          |
-| StrictMode съедает intent или удваивает timer                   | Peek during render, consume in effect, cleanup и StrictMode тест.               |
-| Свежий Query cache скрывает первый GET после возврата           | Явный немедленный refetch; тест с preseeded cache.                              |
-| Медленный GET и таймер продлевают окно либо перекрывают запросы | Query deduplication, абсолютный deadline, AbortSignal и тест deferred response. |
-| Browser timer throttling запускает запрос после deadline        | Проверять текущее время перед интервальным запросом.                            |
-| Concurrent PR ownership меняется                                | Повторить gh pr list/files перед правками и публикацией.                        |
+| Risk                                                                   | Mitigation                                                                                                                              |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Непустой устаревший список ошибочно останавливает polling              | Опрос не зависит от длины списка; отдельная регрессия old → old + new.                                                                  |
+| Новая строка появляется, но UI обещает полную синхронизацию            | Не объявлять завершение onboarding; весь цикл ограничен временем.                                                                       |
+| Intent переживает ошибку OAuth и запускает опрос при входе             | Очистка всех callback error exits и one-time consume; отдельные тесты.                                                                  |
+| StrictMode съедает intent или удваивает timer                          | Peek during render, consume in effect, cleanup и StrictMode тест.                                                                       |
+| Свежий Query cache скрывает первый GET после возврата                  | Явный немедленный refetch; тест с preseeded cache.                                                                                      |
+| Медленный GET и таймер продлевают окно либо перекрывают запросы        | Query deduplication, абсолютный deadline, AbortSignal и тест deferred response.                                                         |
+| Polling GET заменяет optimistic или confirmed настройки во время PATCH | Проверять текущие keyed mutations на каждом автоматическом запросе; регрессии delayed PATCH, двух concurrent PATCH и initial microtask. |
+| Browser timer throttling запускает запрос после deadline               | Проверять текущее время перед интервальным запросом.                                                                                    |
+| Concurrent PR ownership меняется                                       | Повторить gh pr list/files перед правками и публикацией.                                                                                |
 
 ## Verification and Publishing
 

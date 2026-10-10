@@ -492,6 +492,221 @@ describe('RepositoriesPage', () => {
     expect(screen.getByText(/Это может занять до двух минут/)).toBeDefined()
   })
 
+  it('preserves an optimistic toggle during delayed PATCH and does not extend the polling deadline', async () => {
+    vi.useFakeTimers()
+    saveAccessRefreshIntent()
+    activateAccessRefreshIntent()
+    const repository: Repository = {
+      id: '22222222-2222-4222-8222-222222222222',
+      fullName: 'org/delayed-repo',
+      url: 'https://github.com/org/delayed-repo',
+      defaultBranch: 'main',
+      enabled: true,
+      defaultEngine: 'fast',
+      waitForCi: 'auto',
+      maxComments: 10,
+      reviewEvent: 'COMMENT',
+    }
+    let resolvePatch!: (response: Response) => void
+    const patch = new Promise<Response>((resolve) => {
+      resolvePatch = resolve
+    })
+    let serverRepository = repository
+    let gets = 0
+    globalThis.fetch = vi.fn((_url, options?: RequestInit) => {
+      if (options?.method === 'PATCH') return patch
+      gets += 1
+      return Promise.resolve(new Response(JSON.stringify([serverRepository]), { status: 200 }))
+    })
+    renderWithClient(<RepositoriesPage />)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1)
+    })
+    const toggle = screen.getByRole('switch', { name: 'Ревью для org/delayed-repo' })
+    fireEvent.click(toggle)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1)
+    })
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000)
+    })
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
+    expect(gets).toBe(1)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(114998)
+    })
+    expect(screen.queryByText(/Это может занять до двух минут/)).toBeNull()
+    expect(gets).toBe(1)
+
+    serverRepository = { ...repository, enabled: false }
+    await act(async () => {
+      resolvePatch(new Response(JSON.stringify(serverRepository), { status: 200 }))
+      await patch
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15000)
+    })
+    expect(gets).toBe(2)
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
+    expect(toggle.hasAttribute('disabled')).toBe(false)
+    expect(screen.queryByText(/Это может занять до двух минут/)).toBeNull()
+  })
+
+  it('preserves optimistic and confirmed rows until both concurrent PATCH requests finish', async () => {
+    vi.useFakeTimers()
+    saveAccessRefreshIntent()
+    activateAccessRefreshIntent()
+    const first: Repository = {
+      id: '11111111-1111-4111-8111-111111111111',
+      fullName: 'org/first-repo',
+      url: 'https://github.com/org/first-repo',
+      defaultBranch: 'main',
+      enabled: true,
+      defaultEngine: 'fast',
+      waitForCi: 'auto',
+      maxComments: 10,
+      reviewEvent: 'COMMENT',
+    }
+    const second: Repository = {
+      ...first,
+      id: '22222222-2222-4222-8222-222222222222',
+      fullName: 'org/second-repo',
+      url: 'https://github.com/org/second-repo',
+    }
+    let resolveFirst!: (response: Response) => void
+    const firstPatch = new Promise<Response>((resolve) => {
+      resolveFirst = resolve
+    })
+    let resolveSecond!: (response: Response) => void
+    const secondPatch = new Promise<Response>((resolve) => {
+      resolveSecond = resolve
+    })
+    let resolveStaleGet!: (response: Response) => void
+    const staleGet = new Promise<Response>((resolve) => {
+      resolveStaleGet = resolve
+    })
+    let secondPending = true
+    let serverRepositories = [first, second]
+    let gets = 0
+    globalThis.fetch = vi.fn((url: RequestInfo | URL, options?: RequestInit) => {
+      if (options?.method === 'PATCH') {
+        const requestUrl = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url
+        return requestUrl.includes(first.id) ? firstPatch : secondPatch
+      }
+      gets += 1
+      if (gets === 2 && secondPending) return staleGet
+      return Promise.resolve(new Response(JSON.stringify(serverRepositories), { status: 200 }))
+    })
+    renderWithClient(<RepositoriesPage />)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1)
+    })
+    const firstToggle = screen.getByRole('switch', { name: 'Ревью для org/first-repo' })
+    const secondToggle = screen.getByRole('switch', { name: 'Ревью для org/second-repo' })
+    fireEvent.click(firstToggle)
+    fireEvent.click(secondToggle)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000)
+    })
+    expect(firstToggle.getAttribute('aria-checked')).toBe('false')
+    expect(secondToggle.getAttribute('aria-checked')).toBe('false')
+
+    await act(async () => {
+      resolveFirst(new Response(JSON.stringify({ ...first, enabled: false }), { status: 200 }))
+      await firstPatch
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1)
+    })
+    expect(firstToggle.getAttribute('aria-checked')).toBe('false')
+    expect(firstToggle.hasAttribute('disabled')).toBe(false)
+    await act(async () => {
+      // The polling GET would have captured these old values before PATCH 1 settled.
+      // With the guard it never starts, and resolving this prepared response is harmless.
+      resolveStaleGet(new Response(JSON.stringify([first, second]), { status: 200 }))
+      await staleGet
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1)
+    })
+    expect(firstToggle.getAttribute('aria-checked')).toBe('false')
+    expect(firstToggle.hasAttribute('disabled')).toBe(false)
+    expect(secondToggle.getAttribute('aria-checked')).toBe('false')
+    expect(secondToggle.hasAttribute('disabled')).toBe(true)
+    expect(gets).toBe(1)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000)
+    })
+    expect(gets).toBe(1)
+
+    serverRepositories = [
+      { ...first, enabled: false },
+      { ...second, enabled: false },
+    ]
+    secondPending = false
+    await act(async () => {
+      resolveSecond(new Response(JSON.stringify(serverRepositories[1]), { status: 200 }))
+      await secondPatch
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1)
+    })
+    expect(gets).toBe(2)
+    expect(firstToggle.getAttribute('aria-checked')).toBe('false')
+    expect(secondToggle.getAttribute('aria-checked')).toBe('false')
+    expect(secondToggle.hasAttribute('disabled')).toBe(false)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000)
+    })
+    expect(gets).toBe(3)
+  })
+
+  it('skips the initial access-refresh microtask when a repository PATCH is already pending', async () => {
+    vi.useFakeTimers()
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
+    })
+    const repository: Repository = {
+      id: '11111111-1111-4111-8111-111111111111',
+      fullName: 'org/pending-repo',
+      url: 'https://github.com/org/pending-repo',
+      defaultBranch: 'main',
+      enabled: true,
+      defaultEngine: 'fast',
+      waitForCi: 'auto',
+      maxComments: 10,
+      reviewEvent: 'COMMENT',
+    }
+    client.setQueryData(REPOSITORIES_QUERY_KEY, [repository])
+    let gets = 0
+    globalThis.fetch = vi.fn((_url, options?: RequestInit) => {
+      if (options?.method === 'PATCH') return new Promise<Response>(() => undefined)
+      gets += 1
+      return Promise.resolve(new Response(JSON.stringify([repository]), { status: 200 }))
+    })
+    const ordinary = renderWithClient(<RepositoriesPage />, client)
+    fireEvent.click(screen.getByRole('switch', { name: 'Ревью для org/pending-repo' }))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1)
+    })
+    ordinary.unmount()
+    saveAccessRefreshIntent()
+    activateAccessRefreshIntent()
+
+    renderWithClient(<RepositoriesPage />, client)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000)
+    })
+    expect(gets).toBe(0)
+    expect(
+      screen
+        .getByRole('switch', { name: 'Ревью для org/pending-repo' })
+        .getAttribute('aria-checked'),
+    ).toBe('false')
+    expect(screen.getByText(/Это может занять до двух минут/)).toBeDefined()
+  })
+
   it('renders repository list within layout on successful load', async () => {
     const mockRepo = {
       id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
