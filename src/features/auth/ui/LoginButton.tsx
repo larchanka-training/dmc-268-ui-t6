@@ -5,6 +5,7 @@ import type { FC } from 'react'
 import { GITHUB_CLIENT_ID, isMockMode } from '../../../shared/config/env'
 import { VITE_MOCKS_BUILD, mocksEnabledAtRuntime } from '../../../shared/config/buildFlags'
 import { useAuthStore } from '../model/store'
+import { clearAccessRefreshIntent } from '../lib/returnTo'
 
 export interface LoginButtonProps {
   showMockButton?: boolean
@@ -29,7 +30,10 @@ export const LoginButton: FC<LoginButtonProps> = ({
       disabled={!isConfigured}
       icon={<GithubOutlined />}
       loading={isLoading}
-      onClick={loginWithGitHub}
+      onClick={() => {
+        clearAccessRefreshIntent()
+        loginWithGitHub()
+      }}
       size={size}
       type="primary"
     >
