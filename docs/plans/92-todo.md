@@ -232,7 +232,7 @@ resumes on the next tick only while the original window is still open.
       the initial access-refresh microtask and following interval tick.
 - [x] Development gates and documentation complete.
 - [x] Independent Standards/Spec review: 0 findings; 22 page tests passed.
-- [ ] Follow-up committed and pushed; PR body updated and reviewer answered
+- [x] Follow-up committed and pushed; PR body updated and reviewer answered
       with the implementation SHA.
 
 **RED/GREEN evidence (2026-10-10):** Without the mutation guard, the delayed-PATCH
@@ -264,3 +264,12 @@ the earlier mock browser smoke evidence remains applicable.
 0 Spec findings and passed all 22 page tests. Before publication, ownership was
 checked against open PRs #85, #90 and #94 with no collision. Current main remains
 `423c164`, already an ancestor of this branch; no additional rebase is needed.
+
+**Follow-up publication evidence:** Commit
+[`1d41eef`](https://github.com/larchanka-training/dmc-268-ui-t6/commit/1d41eef)
+was pushed with normal commit and pre-push hooks. The PR body now describes the
+mutation guard, 592-test full suite and five generated-manifest formatter
+exception. [Reply 4237584899](https://github.com/larchanka-training/dmc-268-ui-t6/pull/95#discussion_r4237584899)
+answers review comment 4237554568 with that SHA and the regression evidence.
+The review thread remains for its reviewer to resolve. PR readiness was
+preserved as observed (`isDraft: false`); no merge or issue closure occurred.
