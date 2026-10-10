@@ -6,7 +6,7 @@
   isolation: isolate;
 }
 
-/* Фон в духе Raycast: размытые диагональные лучи, зерно и затухание к фону страницы. */
+/* Фон в духе Raycast: стеклянные диагональные полосы (WebGL), зерно и затухание к фону страницы. */
 .backdrop {
   position: absolute;
   inset: 0 0 auto;
@@ -46,7 +46,7 @@
 
 .content > * {
   opacity: 0;
-  animation: rise 1s var(--ease-out) forwards;
+  animation: rise 1.4s var(--ease-out) forwards;
 }
 
 .content > :nth-child(1) {
@@ -54,11 +54,11 @@
 }
 
 .content > :nth-child(2) {
-  animation-delay: 0.2s;
+  animation-delay: 0.24s;
 }
 
 .content > :nth-child(3) {
-  animation-delay: 0.32s;
+  animation-delay: 0.4s;
 }
 
 @keyframes rise {

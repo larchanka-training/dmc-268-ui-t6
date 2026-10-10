@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 
 import { useInView } from '../lib/useInView'
 import { useReducedMotion } from '../lib/useReducedMotion'
@@ -9,11 +9,11 @@ import styles from './ReviewDemo.module.css'
 type Stage = 0 | 1 | 2 | 3 | 4 | 5
 const FINAL_STAGE: Stage = 5
 const TIMELINE: readonly (readonly [Stage, number])[] = [
-  [1, 300],
-  [2, 2000],
-  [3, 2500],
-  [4, 3300],
-  [5, 4200],
+  [1, 70],
+  [2, 480],
+  [3, 590],
+  [4, 790],
+  [5, 1000],
 ]
 
 type Token = readonly [kind: 'kw' | 'fn' | 'str' | 'ty' | 'pl', text: string]
@@ -160,7 +160,9 @@ function Code({ tokens }: { tokens: readonly Token[] }) {
 
 export function ReviewDemo() {
   const reducedMotion = useReducedMotion()
-  const [ref, inView] = useInView<HTMLDivElement>('0px 0px -15% 0px')
+  // Демо стартует не при открытии страницы, а когда сам код доскроллен до середины экрана:
+  // наблюдаем за диффом, и он должен подняться выше нижних 45% вьюпорта.
+  const [diffRef, inView] = useInView<HTMLDivElement>('0px 0px -45% 0px')
   const [animatedStage, setStage] = useState<Stage>(0)
   const [run, setRun] = useState(0)
   // Без анимации (reduced motion) окно сразу показывает итоговое состояние.
@@ -186,12 +188,12 @@ export function ReviewDemo() {
   }, [])
 
   const done = stage === FINAL_STAGE
-  const statusText =
-    stage === 0 ? 'Waiting to review' : done ? 'Review complete' : 'Reviewing changes'
+  // Спиннер крутится с самого открытия страницы: до старта демо окно уже «в работе».
+  const statusText = done ? 'Review complete' : 'Reviewing changes'
 
   return (
     <figure className={styles.figure}>
-      <div ref={ref} className={styles.window} data-stage={stage} aria-hidden="true">
+      <div className={styles.window} data-stage={stage} aria-hidden="true">
         <div className={styles.chrome}>
           <span className={styles.dots}>
             <i />
@@ -250,7 +252,7 @@ export function ReviewDemo() {
             <b>reviewer</b>
             <span className={styles.botTag}>bot</span>
             <span className={styles.statusText}>
-              {!done && stage > 0 && <span className={styles.spinner} />}
+              {!done && <span className={styles.spinner} />}
               {statusText}
               {done && <span className={styles.statusMeta}> · 1 file · 38s</span>}
             </span>
@@ -275,8 +277,7 @@ export function ReviewDemo() {
               <span className={styles.fileName}>src/api/users.ts</span>
             </div>
 
-            <div className={styles.diff}>
-              <span className={styles.scanner} />
+            <div ref={diffRef} className={styles.diff}>
               <div className={styles.hunk}>
                 <span className={styles.hunkGutter} />
                 <code>
@@ -289,6 +290,7 @@ export function ReviewDemo() {
                     className={styles.line}
                     data-kind={line.kind}
                     data-flagged={line.flagged === true ? 'true' : undefined}
+                    style={{ '--i': index } as CSSProperties}
                   >
                     <span className={styles.lineNo}>{line.oldNo ?? ''}</span>
                     <span className={styles.lineNo}>{line.newNo ?? ''}</span>
