@@ -319,47 +319,6 @@
   line-height: 20px;
 }
 
-/* Полоса «сканера» проходит по диффу, пока идёт анализ (stage 1). */
-.scanner {
-  position: absolute;
-  inset: 0 0 auto;
-  z-index: 1;
-  height: 44px;
-  border-bottom: 1px solid rgb(96 165 250 / 70%);
-  background: linear-gradient(
-    180deg,
-    transparent,
-    rgb(96 165 250 / 12%) 70%,
-    rgb(96 165 250 / 40%)
-  );
-  opacity: 0;
-  pointer-events: none;
-}
-
-.window[data-stage='1'] .scanner {
-  animation: scan 1.7s var(--ease-out) forwards;
-}
-
-@keyframes scan {
-  0% {
-    opacity: 0;
-    transform: translateY(-44px);
-  }
-
-  15% {
-    opacity: 1;
-  }
-
-  85% {
-    opacity: 1;
-  }
-
-  100% {
-    opacity: 0;
-    transform: translateY(240px);
-  }
-}
-
 .hunk {
   display: grid;
   grid-template-columns: 100px minmax(0, 1fr);
@@ -386,6 +345,27 @@
   transition:
     background-color 0.4s ease,
     box-shadow 0.4s ease;
+}
+
+/* Пока идёт анализ (stage 1), ревьюер «читает» дифф: строки по очереди на мгновение мягко
+   подсвечиваются сверху вниз. Очерёдность задаёт `--i` — номер строки. */
+.line::after {
+  position: absolute;
+  inset: 0;
+  background: rgb(96 165 250 / 10%);
+  opacity: 0;
+  pointer-events: none;
+  content: '';
+}
+
+.window[data-stage='1'] .line::after {
+  animation: read 0.16s ease-in-out calc(var(--i) * 0.03s);
+}
+
+@keyframes read {
+  50% {
+    opacity: 1;
+  }
 }
 
 .line[data-kind='add'] {

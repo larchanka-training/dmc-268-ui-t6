@@ -1,4 +1,4 @@
-import { HeroBeams } from './HeroBeams'
+import { HeroGlass } from './HeroGlass'
 import { ReviewDemo } from './ReviewDemo'
 import { cx } from '../lib/cx'
 import styles from './Hero.module.css'
@@ -7,12 +7,12 @@ export function Hero() {
   return (
     <section className={styles.hero} aria-labelledby="hero-title">
       <div className={styles.backdrop} aria-hidden="true">
-        <HeroBeams />
+        <HeroGlass textSelector="#hero-text" />
         <div className={styles.grain} />
         <div className={styles.fade} />
       </div>
 
-      <div className={cx('container', styles.content)}>
+      <div id="hero-text" className={cx('container', styles.content)}>
         <h1 id="hero-title" className={styles.title}>
           Less reviewing.
           <br />
