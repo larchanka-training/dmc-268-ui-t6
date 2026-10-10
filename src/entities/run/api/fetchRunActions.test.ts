@@ -82,6 +82,8 @@ describe('run api actions', () => {
       finishedAt: null,
       attempt: 2,
       cancelRequested: false,
+      trigger: 'webhook',
+      createdAt: '2026-09-18T11:00:00.000Z',
       summaryOnly: false,
       pullRequest: {
         repo: 'org/repo',

@@ -233,6 +233,8 @@ function handleMockTransport(
       finishedAt: null,
       attempt: session.attempt + 1,
       cancelRequested: false,
+      trigger: 'rerun' as const,
+      createdAt: new Date().toISOString(),
     }
   }
 
