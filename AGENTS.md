@@ -40,6 +40,7 @@ side-by-side), Zod 4, Zustand 5, TanStack Query 5, antd 6, Vitest 5.
 | Test         | `pnpm test`                                                 | `package.json` |
 | Build        | `pnpm build`                                                | `package.json` |
 | Bundle check | `pnpm verify:prod-bundle` (after `pnpm build`)              | `package.json` |
+| Storybook    | `pnpm storybook` (static build: `pnpm build-storybook`)     | `package.json` |
 
 ## Layout
 
@@ -72,6 +73,8 @@ only flow downward, `shared` never imports `entities`); details in
 - `.agents/agents/` — agent definitions.
 - `.agents/templates/` — code/test templates with proof blocks.
 - `docs/FRONTEND_ARCHITECTURE.md` — FSD conventions in full.
+- `docs/DESIGN_SYSTEM.md` — the design system (Flat Console): every number, the usage rules and
+  the checklist for a new Ant Design component. Base components come only from it.
 - [`TEST_PLAN.md`](https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/TEST_PLAN.md) —
   canonical test strategy for both repositories (`dmc-268-api-t6`, `main`).
 - [`SYSTEM_DESIGN.md`](https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md) —
@@ -84,5 +87,7 @@ only flow downward, `shared` never imports `entities`); details in
 - Do not duplicate server data in a Zustand store — TanStack Query is the
   server cache.
 - Do not import sideways or upward across FSD layers.
+- Do not restyle a base component on a screen or bring one from another library: take it from
+  the design system (`src/shared/ui`, `docs/DESIGN_SYSTEM.md`), fix it there if it is missing.
 - Do not skip the gates (`pnpm lint`, `pnpm check-types`, `pnpm format:check`,
   `pnpm test`, `pnpm build`, `pnpm verify:prod-bundle`) before claiming a task done.

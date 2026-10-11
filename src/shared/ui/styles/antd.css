@@ -1,0 +1,82 @@
+/* What Ant Design theme tokens cannot express. Rules here reach into the library's own classes, so
+   every rule is a small debt: keep the list short, try a token in `theme/buildTheme.ts` first, and
+   re-check this file when Ant Design is upgraded. Loaded once by `DesignSystemProvider`. */
+
+/* Table: one border around the data, no header fill, the edge columns line up with the frame. */
+.ant-table-wrapper .ant-table {
+  overflow: hidden;
+  border: 1px solid var(--rv-border);
+  border-radius: var(--rv-radius-md);
+  background: var(--rv-bg-raised);
+}
+
+.ant-table-wrapper .ant-table-thead > tr > th {
+  font-size: var(--rv-fs-xs);
+  font-weight: 500;
+}
+
+.ant-table-wrapper .ant-table-thead > tr > th:first-child,
+.ant-table-wrapper .ant-table-tbody > tr > td:first-child {
+  padding-left: 16px;
+}
+
+.ant-table-wrapper .ant-table-thead > tr > th:last-child,
+.ant-table-wrapper .ant-table-tbody > tr > td:last-child {
+  padding-right: 16px;
+}
+
+.ant-table-wrapper .ant-table-tbody > tr:last-child > td {
+  border-bottom: 0;
+}
+
+.ant-table-wrapper .ant-table-pagination.ant-pagination {
+  margin: 12px 0 0;
+}
+
+/* Pagination: the current page is neutral, like every other selected state. */
+.ant-pagination .ant-pagination-item-active {
+  border-color: var(--rv-border-strong);
+  background: var(--rv-selected);
+}
+
+.ant-pagination .ant-pagination-item-active a {
+  color: var(--rv-text);
+}
+
+/* Segmented: a hairline around the track. */
+.ant-segmented {
+  border: 1px solid var(--rv-border);
+}
+
+.ant-segmented .ant-segmented-item-label {
+  font-weight: 500;
+}
+
+/* Breadcrumb: small and quiet. */
+.ant-breadcrumb {
+  font-size: var(--rv-fs-sm);
+}
+
+.ant-breadcrumb .ant-breadcrumb-separator {
+  margin-inline: 6px;
+  font-size: 10px;
+}
+
+/* Dropdown: group titles are captions, not items. */
+.ant-dropdown-menu .ant-dropdown-menu-item-group-title {
+  padding: 4px 12px 2px;
+  font-size: 11.5px;
+}
+
+/* Forms inside a modal: tighter rhythm, labels carry the weight. */
+.ant-modal .ant-form-item {
+  margin-bottom: 16px;
+}
+
+.ant-modal .ant-form-item-label > label {
+  font-weight: 500;
+}
+
+.ant-modal .ant-modal-footer {
+  margin-top: 20px;
+}

@@ -1,5 +1,6 @@
 dist
 node_modules
 coverage
+storybook-static
 pnpm-lock.yaml
 .agents/skills/create-issue/tests/golden/

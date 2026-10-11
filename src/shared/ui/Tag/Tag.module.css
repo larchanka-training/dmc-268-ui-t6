@@ -1,0 +1,89 @@
+.tag {
+  --tone: var(--rv-text-2);
+
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px 0 7px;
+  border: 1px solid var(--rv-border);
+  border-radius: 999px;
+  color: var(--rv-text);
+  font-family: var(--rv-font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.tag[data-tone='info'] {
+  --tone: var(--rv-link);
+}
+
+.tag[data-tone='success'] {
+  --tone: var(--rv-success);
+}
+
+.tag[data-tone='warning'] {
+  --tone: var(--rv-warning);
+}
+
+.tag[data-tone='high'] {
+  --tone: var(--rv-high);
+}
+
+.tag[data-tone='critical'] {
+  --tone: var(--rv-critical);
+}
+
+.tag[data-tone='danger'] {
+  --tone: var(--rv-danger);
+}
+
+.tag[data-variant='solid'] {
+  padding: 0 8px;
+  border-color: transparent;
+  background: color-mix(in srgb, var(--tone) var(--rv-tint), transparent);
+  color: var(--tone);
+}
+
+.tag[data-variant='solid'][data-tone='critical'] {
+  background: color-mix(in srgb, var(--tone) 22%, transparent);
+  font-weight: 600;
+}
+
+.tag[data-variant='outline'] {
+  padding: 0 8px;
+  border-color: var(--rv-border-strong);
+  color: var(--rv-text-2);
+}
+
+.tag svg {
+  flex: none;
+  width: 12px;
+  height: 12px;
+}
+
+.dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--tone);
+}
+
+.dot[data-pulse] {
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot[data-pulse] {
+    animation: none;
+  }
+}

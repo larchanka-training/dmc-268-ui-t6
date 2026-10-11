@@ -7,3 +7,4 @@ dist/
 .stylelintcache
 __pycache__/
 .pytest_cache/
+storybook-static/

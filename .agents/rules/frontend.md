@@ -25,6 +25,7 @@
 | Test         | `pnpm test`                                                 | `package.json` |
 | Build        | `pnpm build`                                                | `package.json` |
 | Bundle check | `pnpm verify:prod-bundle` (after `pnpm build`)              | `package.json` |
+| Storybook    | `pnpm storybook` (static build: `pnpm build-storybook`)     | `package.json` |
 
 `pnpm-lock.yaml` is committed; `packageManager` is pinned in `package.json`; Node
 ≥ 22.22.0 is required (`engines` in `package.json`).
@@ -61,6 +62,23 @@ Slice structure:
 
 No path aliases. Import another slice through its `index.ts` by relative path;
 never deep-import its internals.
+
+## 3a. Design system
+
+The look of every screen comes from the design system in `src/shared/ui` (Flat Console):
+Ant Design under our theme plus our own components. The numbers, the rules and the checklist
+for a new component are in `docs/DESIGN_SYSTEM.md`; the showcase is `pnpm storybook`.
+
+1. Take base components only from Ant Design (themed by `DesignSystemProvider`) and from
+   `src/shared/ui`. Do not restyle them on a screen and do not bring a component from another
+   library.
+2. Write your own component only when it is a composite for a specific screen (a repository
+   table, an action tree, a diff view). Build it from base components in `widgets`/`features`.
+3. A base component that is missing or looks wrong is fixed in the design system first
+   (`docs/DESIGN_SYSTEM.md` §9) and gets a story, and only then is used on a screen.
+4. No raw colours, sizes, radii or spacing in screen code: use the theme and the `--rv-*` tokens.
+5. `.ant-*` classes are overridden for the whole app only in `src/shared/ui/styles/antd.css`.
+6. `Tag` and `Spinner` come from `src/shared/ui`, not from Ant Design.
 
 ## 4. Language rules
 
