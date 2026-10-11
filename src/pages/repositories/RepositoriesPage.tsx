@@ -9,20 +9,30 @@ import {
   type UpdateRepositoryInput,
   type UpdateRepositoryVariables,
 } from '../../entities/repository'
-import { saveAuthReturnTo, useAuthStore } from '../../features/auth'
+import { saveAccessRefreshIntent, saveAuthReturnTo, useAuthStore } from '../../features/auth'
 import { RepositoryList } from '../../widgets/repository-list'
 import { formatErrorMessage } from './lib/formatError'
+import { useRepositoryAccessRefresh } from './lib/useRepositoryAccessRefresh'
 
 export const RepositoriesPage: FC = () => {
   const { message } = App.useApp()
   const loginWithGitHub = useAuthStore((state) => state.loginWithGitHub)
 
   const handleSyncAccess = () => {
+    saveAccessRefreshIntent()
     saveAuthReturnTo('/repositories')
     loginWithGitHub()
   }
 
-  const { data: repositories = [], isLoading, isError, error, refetch } = useRepositories()
+  const {
+    data: repositories = [],
+    isLoading,
+    isFetching,
+    isError,
+    error,
+    refetch,
+  } = useRepositories()
+  const accessRefreshStatus = useRepositoryAccessRefresh(refetch)
 
   const updateMutation = useUpdateRepository()
 
@@ -61,7 +71,12 @@ export const RepositoriesPage: FC = () => {
       {isError ? (
         <Alert
           action={
-            <Button onClick={() => void refetch()} size="small" type="primary">
+            <Button
+              loading={isFetching}
+              onClick={() => void refetch({ cancelRefetch: false })}
+              size="small"
+              type="primary"
+            >
               Повторить попытку
             </Button>
           }
@@ -72,14 +87,16 @@ export const RepositoriesPage: FC = () => {
         />
       ) : null}
 
-      {!isError || repositories.length > 0 ? (
+      {!isError || repositories.length > 0 || accessRefreshStatus !== 'idle' ? (
         <RepositoryList
+          accessRefreshStatus={accessRefreshStatus}
           loading={isLoading}
-          onRefresh={() => void refetch()}
+          onRefresh={() => void refetch({ cancelRefetch: false })}
           onSyncAccess={handleSyncAccess}
           onToggleEnabled={handleToggleEnabled}
           onUpdateRepository={handleUpdateRepository}
           repositories={repositories}
+          refreshing={isFetching}
           updatingRepoIds={updatingRepoIds}
         />
       ) : null}

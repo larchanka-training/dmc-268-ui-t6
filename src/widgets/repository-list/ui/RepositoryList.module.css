@@ -1,3 +1,29 @@
+.accessRefreshStatus {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.accessRefreshLoading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (width <= 575px) {
+  .accessRefreshStatus {
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    height: 56px;
+  }
+}
+
 .toolbar {
   margin-bottom: 16px;
 }
