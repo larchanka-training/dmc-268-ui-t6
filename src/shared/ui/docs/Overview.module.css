@@ -11,15 +11,6 @@
   gap: 12px;
 }
 
-.eyebrow {
-  margin: 0;
-  color: var(--rv-link);
-  font-family: var(--rv-font-mono);
-  font-size: 12px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
 .title {
   margin: 0;
   font-size: 44px;
@@ -34,6 +25,52 @@
   color: var(--rv-text-2);
   font-size: 16px;
   line-height: 1.55;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--rv-border-strong);
+  border-radius: var(--rv-radius-ctl);
+  color: var(--rv-text);
+  font-size: var(--rv-fs-sm);
+  font-weight: 500;
+  text-decoration: none;
+  transition: background-color 0.18s ease;
+}
+
+.link:hover {
+  background: var(--rv-hover);
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--rv-link);
+  outline-offset: 2px;
+}
+
+.rule {
+  max-width: 44rem;
+  margin: 8px 0 0;
+  padding: 12px 14px;
+  border: 1px solid var(--rv-border);
+  border-radius: var(--rv-radius-md);
+  background: var(--rv-bg-raised);
+  color: var(--rv-text-2);
+  font-size: var(--rv-fs);
+  line-height: 1.55;
+}
+
+.rule strong {
+  color: var(--rv-text);
 }
 
 .section {
