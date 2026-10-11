@@ -62,8 +62,8 @@ export function buildTheme(mode: RvThemeMode): ThemeConfig {
         defaultBg: p.surface,
         defaultBorderColor: p.border,
         // Hover and press stay neutral: by default Ant Design recolours the text and the border
-        // of a secondary button to the primary colour. A press goes one step further than hover
-        // and the button shrinks slightly (styles/antd.css), since the click ripple is off.
+        // of a secondary button to the primary colour. A press goes one colour step further
+        // than hover: the click ripple is off, so the colour is the only press feedback.
         defaultHoverBg: p.buttonHover,
         defaultHoverColor: p.text,
         defaultHoverBorderColor: p.borderStrong,
