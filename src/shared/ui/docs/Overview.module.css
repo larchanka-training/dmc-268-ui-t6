@@ -27,13 +27,8 @@
   line-height: 1.55;
 }
 
-.links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 24px;
-}
-
 .link {
+  width: fit-content;
   color: var(--rv-link);
   font-size: 14px;
   text-decoration: underline;

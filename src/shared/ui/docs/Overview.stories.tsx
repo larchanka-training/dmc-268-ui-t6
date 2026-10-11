@@ -21,10 +21,8 @@ import { PageHeader } from '../PageHeader/PageHeader'
 import { Tag } from '../Tag/Tag'
 import styles from './Overview.module.css'
 
-// The rules page of this Storybook and the specification, which lives only in the repository.
-const RULES_URL = './?path=/docs/правила--docs'
-const SPEC_URL =
-  'https://github.com/larchanka-training/dmc-268-ui-t6/blob/main/docs/DESIGN_SYSTEM.md'
+// The specification page of this Storybook: docs/DESIGN_SYSTEM.md rendered as is.
+const SPEC_URL = './?path=/docs/спецификация--docs'
 
 const SURFACES = [
   ['--rv-bg', 'Фон страницы'],
@@ -111,14 +109,9 @@ function Overview(): JSX.Element {
         <p className={styles.lead}>
           Дизайн-система Reviewer для интерфейсов приложения. Построена на Ant Design.
         </p>
-        <nav aria-label="Документы" className={styles.links}>
-          <a className={styles.link} href={RULES_URL} target="_top">
-            Правила применения
-          </a>
-          <a className={styles.link} href={SPEC_URL} rel="noreferrer" target="_blank">
-            Спецификация (docs/DESIGN_SYSTEM.md)
-          </a>
-        </nav>
+        <a className={styles.link} href={SPEC_URL} target="_top">
+          Спецификация: все числа, правила и чеклист для нового компонента
+        </a>
       </header>
 
       <section className={styles.section}>
