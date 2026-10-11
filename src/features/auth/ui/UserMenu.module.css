@@ -1,9 +1,66 @@
 .trigger {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  min-height: 40px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--rv-radius-ctl);
+  background: transparent;
+  color: var(--rv-text);
+  font: inherit;
+  font-size: var(--rv-fs-sm);
+  font-weight: 600;
+  text-align: left;
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 6px;
+}
+
+.trigger:hover {
+  background: var(--rv-hover);
+}
+
+.trigger:focus-visible {
+  outline: 2px solid var(--rv-link);
+  outline-offset: 2px;
+}
+
+.trigger[data-compact] {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.avatar {
+  flex: none;
+  background: var(--rv-surface-3);
+  color: var(--rv-text);
 }
 
 .loginText {
-  max-width: 120px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chevron {
+  flex: none;
+  color: var(--rv-text-3);
+  font-size: 11px;
+}
+
+.userInfo {
+  cursor: default;
+}
+
+.userText {
+  display: grid;
+  color: var(--rv-text);
+  line-height: 1.35;
+}
+
+.userText small {
+  color: var(--rv-text-2);
+  font-size: var(--rv-fs-xs);
 }

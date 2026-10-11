@@ -1,51 +1,62 @@
+/* Colours are fixed to the dark palette on purpose: the glass background exists only in dark. */
 .container {
+  position: relative;
+  display: grid;
+  place-items: center;
   min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
+  padding: 40px 20px;
+  overflow: hidden;
+  background: #090d18;
+  color: #f8fafc;
+  isolation: isolate;
 }
 
-.themeToggleWrapper {
-  position: absolute;
-  top: 20px;
-  right: 24px;
+.container > :global(*):first-child {
+  z-index: -1;
 }
 
-.card {
+.form {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
   width: 100%;
-  max-width: 520px;
+  max-width: 340px;
+  text-align: center;
 }
 
-.iconWrapper {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.logo {
+  display: grid;
+  margin-bottom: 14px;
 }
 
-.headerFlex {
-  margin-bottom: 24px;
-}
-
-:global(.ant-typography).title {
+.title {
   margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
 }
 
-.list {
-  margin-bottom: 32px;
+.subtitle,
+.note {
+  margin: 0;
+  color: #cbd5e1;
 }
 
-:global(.ant-list) .listItem {
-  padding: 8px 0;
+.note {
+  font-size: 12px;
 }
 
 .alert {
-  margin-bottom: 16px;
+  width: 100%;
+  margin-top: 8px;
+  text-align: left;
 }
 
-.buttonContainer {
-  margin-top: 8px;
+.actions {
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+  width: 100%;
+  margin-top: 18px;
 }

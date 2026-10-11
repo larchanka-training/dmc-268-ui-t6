@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { RunStatus } from '../model/schemas'
-import { isActive, isStaleRunning, isTerminal, statusColor } from './status'
+import { isActive, isStaleRunning, isTerminal, statusTone } from './status'
 
 const ALL_STATUSES: RunStatus[] = [
   'queued',
@@ -61,10 +61,12 @@ describe('isStaleRunning', () => {
   })
 })
 
-describe('statusColor', () => {
-  it('maps known statuses to antd Tag colors', () => {
-    expect(statusColor('succeeded')).toBe('success')
-    expect(statusColor('failed')).toBe('error')
-    expect(statusColor('running')).toBe('processing')
+describe('statusTone', () => {
+  it('maps run statuses to design-system Tag tones', () => {
+    expect(statusTone('succeeded')).toBe('success')
+    expect(statusTone('failed')).toBe('danger')
+    expect(statusTone('running')).toBe('info')
+    expect(statusTone('queued')).toBe('neutral')
+    expect(statusTone('cancelled')).toBe('warning')
   })
 })

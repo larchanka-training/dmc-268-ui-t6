@@ -1,7 +1,6 @@
-import { Layout, theme } from 'antd'
+import { Layout } from 'antd'
 import type { FC, ReactNode } from 'react'
 
-import { AppHeader } from './AppHeader'
 import styles from './AppLayout.module.css'
 import { AppSidebar } from './AppSidebar'
 
@@ -11,31 +10,14 @@ export interface AppLayoutProps {
   children?: ReactNode
   currentPath?: string
   onNavigate?: (path: string) => void
-  headerExtra?: ReactNode
 }
 
-export const AppLayout: FC<AppLayoutProps> = ({
-  children,
-  currentPath,
-  onNavigate,
-  headerExtra,
-}) => {
-  const { token } = theme.useToken()
-
+/** App shell: the sidebar carries the brand, the navigation and the user; pages own their titles. */
+export const AppLayout: FC<AppLayoutProps> = ({ children, currentPath, onNavigate }) => {
   return (
-    <Layout className={styles.layout}>
-      <AppHeader extra={headerExtra} />
-      <Layout>
-        <AppSidebar currentPath={currentPath} onNavigate={onNavigate} />
-        <Content
-          className={styles.content}
-          style={{
-            background: token.colorBgLayout,
-          }}
-        >
-          {children}
-        </Content>
-      </Layout>
+    <Layout className={styles.layout} hasSider>
+      <AppSidebar currentPath={currentPath} onNavigate={onNavigate} />
+      <Content className={styles.content}>{children}</Content>
     </Layout>
   )
 }

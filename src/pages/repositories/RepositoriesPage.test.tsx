@@ -807,7 +807,7 @@ describe('RepositoriesPage', () => {
     renderWithClient(<RepositoriesPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('Подключенные репозитории')).toBeDefined()
+      expect(screen.getByRole('heading', { name: 'Репозитории' })).toBeDefined()
       expect(screen.getByText('larchanka-training/dmc-268-ui-t6')).toBeDefined()
     })
   })
@@ -840,7 +840,7 @@ describe('RepositoriesPage', () => {
         screen.getByText('Неожиданный формат данных от сервера. Пожалуйста, обновите страницу.'),
       ).toBeDefined()
       expect(screen.queryByText(/ещё не подключены/i)).toBeNull()
-      expect(screen.queryByText('Подключенные репозитории')).toBeNull()
+      expect(screen.queryByRole('heading', { name: 'Репозитории' })).toBeNull()
     })
   })
 

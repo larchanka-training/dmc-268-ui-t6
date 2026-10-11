@@ -6,13 +6,15 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { fromPatch } from '../../entities/diff'
 import { THEME_STORAGE_KEY, useThemeStore } from '../../features/theme'
 import { SAMPLE_PATCH_A } from '../../shared/fixtures/sample.patch'
+import { buildTheme } from '../../shared/ui'
 import { DiffViewer, useDiffViewerStore } from '../../widgets/diff-viewer'
 import { UiProvider } from './UiProvider'
 
 const FILE = fromPatch(SAMPLE_PATCH_A)
 const INSERT_BG = '--diff-code-insert-background-color'
-const LIGHT_INSERT_BG = theme.getDesignToken({ algorithm: theme.defaultAlgorithm }).colorSuccessBg
-const DARK_INSERT_BG = theme.getDesignToken({ algorithm: theme.darkAlgorithm }).colorSuccessBg
+// The diff takes its colours from the design system theme, not from the antd defaults.
+const LIGHT_INSERT_BG = theme.getDesignToken(buildTheme('light')).colorSuccessBg
+const DARK_INSERT_BG = theme.getDesignToken(buildTheme('dark')).colorSuccessBg
 
 function themeRoot(container: HTMLElement): HTMLElement {
   const root = container.querySelector<HTMLElement>('.diff-theme')

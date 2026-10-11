@@ -63,7 +63,7 @@ describe('RunsPage', () => {
     renderPage()
 
     await waitFor(() => {
-      expect(screen.getByText("Pull request'ы с ревью")).toBeTruthy()
+      expect(screen.getByRole('heading', { name: 'Прогоны' })).toBeTruthy()
     })
 
     expect(screen.getByText('feat: frontend architecture skeleton')).toBeTruthy()

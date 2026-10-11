@@ -1,10 +1,12 @@
 import type { JSX, ReactElement, ReactNode } from 'react'
 import { useMemo } from 'react'
+import { FileOutlined } from '@ant-design/icons'
 import { Alert, Segmented, Typography } from 'antd'
 import { Decoration, Diff, Hunk } from 'react-diff-view'
 import type { HunkData } from 'react-diff-view'
 import 'react-diff-view/style/index.css'
 import './diff-theme.css'
+import './diff-layout.css'
 
 import type { FileDiff } from '../../../entities/diff'
 import { commentKey, toHunks } from '../../../entities/diff'
@@ -99,18 +101,28 @@ export function DiffViewer(props: DiffViewerProps): JSX.Element {
 
   if (!file.hasPatch) {
     return (
-      <div>
-        <Typography.Text strong>{file.filename}</Typography.Text>
-        <Typography.Text type="secondary">Без диффа</Typography.Text>
+      <div className="diff-file">
+        <div className="diff-file-head">
+          <FileOutlined />
+          <Typography.Text className="diff-file-name" strong>
+            {file.filename}
+          </Typography.Text>
+          <Typography.Text type="secondary">Без диффа</Typography.Text>
+        </div>
       </div>
     )
   }
 
   if (file.chunks.length === 0) {
     return (
-      <div>
-        <Typography.Text strong>{file.filename}</Typography.Text>
-        <Typography.Text type="secondary">Бинарный файл или пустой дифф</Typography.Text>
+      <div className="diff-file">
+        <div className="diff-file-head">
+          <FileOutlined />
+          <Typography.Text className="diff-file-name" strong>
+            {file.filename}
+          </Typography.Text>
+          <Typography.Text type="secondary">Бинарный файл или пустой дифф</Typography.Text>
+        </div>
       </div>
     )
   }
@@ -171,19 +183,25 @@ export function DiffViewer(props: DiffViewerProps): JSX.Element {
 
   return (
     <div className={diffTheme.className} style={diffTheme.style}>
-      <div>
-        <Typography.Text strong>{file.filename}</Typography.Text>
-        <Segmented
-          onChange={(value: DiffViewType) => {
-            setViewType(value)
-          }}
-          options={VIEW_OPTIONS}
-          value={viewType}
-        />
+      <div className="diff-file">
+        <div className="diff-file-head">
+          <FileOutlined />
+          <Typography.Text className="diff-file-name" strong>
+            {file.filename}
+          </Typography.Text>
+          <Segmented
+            onChange={(value: DiffViewType) => {
+              setViewType(value)
+            }}
+            options={VIEW_OPTIONS}
+            size="small"
+            value={viewType}
+          />
+        </div>
+        <Diff diffType="modify" hunks={hunks} tokens={tokens} viewType={viewType} widgets={widgets}>
+          {renderHunks}
+        </Diff>
       </div>
-      <Diff diffType="modify" hunks={hunks} tokens={tokens} viewType={viewType} widgets={widgets}>
-        {renderHunks}
-      </Diff>
       {outOfDiff.length > 0 ? (
         <Alert
           data-testid="findings-outside-diff"
@@ -194,7 +212,7 @@ export function DiffViewer(props: DiffViewerProps): JSX.Element {
               ))}
             </div>
           }
-          style={{ marginTop: 12 }}
+          className="diff-outside"
           title="Замечания вне диффа"
           type="warning"
         />

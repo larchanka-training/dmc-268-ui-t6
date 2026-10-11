@@ -1,17 +1,33 @@
 .container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
   min-height: 100vh;
-  padding: 24px;
+  padding: 40px 20px;
 }
 
-.card {
+.content {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
   width: 100%;
-  max-width: 480px;
+  max-width: 360px;
   text-align: center;
 }
 
-.loadingContent {
-  padding: 32px 0;
+.title {
+  margin: 14px 0 0;
+  color: var(--rv-text);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+}
+
+.text {
+  margin: 0;
+  color: var(--rv-text-2);
+}
+
+.action {
+  margin-top: 18px;
 }

@@ -1,9 +1,10 @@
 import type { JSX } from 'react'
-import { Descriptions, Space, Tag, Typography } from 'antd'
+import { Descriptions, Flex, Typography } from 'antd'
 
 import type { RunSession, SeverityCounts, Verdict } from '../../../entities/run'
-import { isStaleRunning, statusColor } from '../../../entities/run'
+import { isActive, isStaleRunning, statusTone } from '../../../entities/run'
 import { safeHttpUrl } from '../../../shared/lib/safeHttpUrl'
+import { Tag } from '../../../shared/ui'
 import { formatDateTime, formatDuration, runDuration } from '../lib/format'
 
 interface RunHeaderProps {
@@ -21,10 +22,14 @@ const VERDICT_LABEL: Record<Verdict, string> = {
   clean: 'Clean',
 }
 
-const VERDICT_COLOR: Record<Verdict, string> = {
-  blocking: 'error',
-  attention: 'warning',
-  clean: 'success',
+/** Only a blocking verdict is filled: it is the one that needs action. */
+const VERDICT_TAG: Record<
+  Verdict,
+  { tone: 'danger' | 'warning' | 'success'; variant: 'solid' | 'dot' }
+> = {
+  blocking: { tone: 'danger', variant: 'solid' },
+  attention: { tone: 'warning', variant: 'dot' },
+  clean: { tone: 'success', variant: 'dot' },
 }
 
 function shortSha(sha: string): string {
@@ -76,13 +81,17 @@ export function RunHeader(props: RunHeaderProps): JSX.Element {
       key: 'status',
       label: 'Статус',
       children: (
-        <>
-          <Tag color={statusColor(run.status)}>{run.status}</Tag>
-          {isStaleRunning(run, now) ? <Tag color="warning">нет ответа &gt; 10 мин</Tag> : null}
+        <Flex gap={6} wrap>
+          <Tag pulse={isActive(run.status)} tone={statusTone(run.status)}>
+            {run.status}
+          </Tag>
+          {isStaleRunning(run, now) ? <Tag tone="warning">нет ответа &gt; 10 мин</Tag> : null}
           {verdict !== null ? (
-            <Tag color={VERDICT_COLOR[verdict]}>{VERDICT_LABEL[verdict]}</Tag>
+            <Tag tone={VERDICT_TAG[verdict].tone} variant={VERDICT_TAG[verdict].variant}>
+              {VERDICT_LABEL[verdict]}
+            </Tag>
           ) : null}
-        </>
+        </Flex>
       ),
     },
     ...(severityCounts && run.status === 'succeeded' && !run.summaryOnly
@@ -91,18 +100,18 @@ export function RunHeader(props: RunHeaderProps): JSX.Element {
             key: 'severityCounts',
             label: 'Находки',
             children: (
-              <Space size={[4, 4]} wrap>
-                <Tag>critical: {severityCounts.critical}</Tag>
-                <Tag>high: {severityCounts.high}</Tag>
-                <Tag>medium: {severityCounts.medium}</Tag>
-                <Tag>low: {severityCounts.low}</Tag>
-                <Tag>info: {severityCounts.info}</Tag>
+              <Flex gap={4} wrap>
+                <Tag variant="outline">critical: {severityCounts.critical}</Tag>
+                <Tag variant="outline">high: {severityCounts.high}</Tag>
+                <Tag variant="outline">medium: {severityCounts.medium}</Tag>
+                <Tag variant="outline">low: {severityCounts.low}</Tag>
+                <Tag variant="outline">info: {severityCounts.info}</Tag>
                 {droppedFindings > 0 ? (
                   <Typography.Text type="secondary">
                     {`Не показано находок: ${String(droppedFindings)} — не прошли проверку формата`}
                   </Typography.Text>
                 ) : null}
-              </Space>
+              </Flex>
             ),
           },
         ]

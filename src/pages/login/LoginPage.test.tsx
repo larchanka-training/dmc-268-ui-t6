@@ -30,7 +30,7 @@ describe('LoginPage', () => {
         <LoginPage />
       </QueryClientProvider>,
     )
-    expect(screen.getByText('AI Code Reviewer')).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Вход в Reviewer' })).toBeDefined()
     expect(screen.getByRole('button', { name: /войти через github/i })).toBeDefined()
     expect(screen.queryByRole('button', { name: /демо-вход/i })).toBeNull()
   })

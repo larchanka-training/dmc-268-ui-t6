@@ -6,6 +6,7 @@ import type { ActionTreeNode, RunAction } from '../../../entities/run'
 import { groupActions, useRunActionResponse } from '../../../entities/run'
 import { formatDuration } from '../lib/format'
 import { useRunInspectorStore } from '../model/store'
+import styles from './ActionTree.module.css'
 
 interface ActionTreeProps {
   actions: RunAction[]
@@ -91,7 +92,7 @@ export function ActionTree(props: ActionTreeProps): JSX.Element {
   }
 
   return (
-    <div>
+    <div className={styles.root}>
       <Tree
         treeData={treeData}
         expandedKeys={expandedKeys}

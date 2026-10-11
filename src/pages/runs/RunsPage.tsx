@@ -1,28 +1,28 @@
-import { Alert, Button, Card, Flex, Space, Spin, Table, Tag, Typography } from 'antd'
-import type { ColumnsType } from 'antd/es/table'
+import { ReloadOutlined } from '@ant-design/icons'
+import { Alert, Button, Flex, Spin, Typography, type TableColumnsType } from 'antd'
 import type { FC } from 'react'
 import { useNavigate } from 'react-router'
 
-import { statusColor, useRunList, type RunSession, type RunStatus } from '../../entities/run'
+import { isActive, statusTone, useRunList, type RunSession } from '../../entities/run'
+import { DataTable, PageHeader, Tag } from '../../shared/ui'
+import styles from './RunsPage.module.css'
 
-const { Title, Text } = Typography
-
-const ACTIVE_STATUSES: RunStatus[] = ['queued', 'running', 'publishing']
+const { Text } = Typography
 
 export const RunsPage: FC = () => {
   const navigate = useNavigate()
   const { data, isLoading, isError, error, refetch } = useRunList()
   const runSessions = data?.items ?? []
 
-  const columns: ColumnsType<RunSession> = [
+  const columns: TableColumnsType<RunSession> = [
     {
       title: 'PR',
       key: 'pr',
       render: (_, run) => (
-        <Space orientation="vertical" size={0}>
+        <div className={styles.pullRequest}>
           <Text strong>{`#${String(run.pullRequest.number)}`}</Text>
           <Text type="secondary">{run.pullRequest.title}</Text>
-        </Space>
+        </div>
       ),
     },
     {
@@ -34,46 +34,42 @@ export const RunsPage: FC = () => {
       title: 'Статус ревью',
       key: 'status',
       render: (_, run) => (
-        <Space wrap>
-          <Tag color={statusColor(run.status)}>{run.status}</Tag>
-          {ACTIVE_STATUSES.some((s) => s === run.status) ? (
-            <Tag color="processing">в процессе</Tag>
-          ) : null}
-          {run.summaryOnly ? <Tag>summary-only</Tag> : null}
-        </Space>
+        <Flex gap={8} wrap>
+          <Tag pulse={isActive(run.status)} tone={statusTone(run.status)}>
+            {run.status}
+          </Tag>
+          {isActive(run.status) ? <Tag variant="outline">в процессе</Tag> : null}
+          {run.summaryOnly ? <Tag variant="outline">summary-only</Tag> : null}
+        </Flex>
       ),
     },
     {
       title: 'Движок',
       dataIndex: 'engine',
       key: 'engine',
+      render: (engine: string) => <Text type="secondary">{engine}</Text>,
     },
   ]
 
   return (
-    <Flex vertical gap="large">
-      <Card>
-        <Flex align="center" justify="space-between" wrap="wrap" gap="middle">
-          <div>
-            <Title level={4} style={{ margin: 0 }}>
-              Прогоны AI Review
-            </Title>
-            <Text type="secondary">
-              Pull request'ы, по которым выполнялось или выполняется ревью (GET /api/runs)
-            </Text>
-          </div>
+    <>
+      <PageHeader
+        actions={
           <Button
+            icon={<ReloadOutlined />}
             onClick={() => {
               void refetch()
             }}
           >
             Обновить
           </Button>
-        </Flex>
-      </Card>
+        }
+        description="Pull request'ы, по которым выполнялось или выполняется ревью"
+        title="Прогоны"
+      />
 
       {isLoading ? (
-        <Flex align="center" justify="center" style={{ minHeight: 160 }}>
+        <Flex align="center" className={styles.loading} justify="center">
           <Spin />
         </Flex>
       ) : null}
@@ -88,23 +84,19 @@ export const RunsPage: FC = () => {
       ) : null}
 
       {!isLoading && !isError ? (
-        <Card title="Pull request'ы с ревью">
-          <Table<RunSession>
-            columns={columns}
-            dataSource={runSessions}
-            locale={{ emptyText: 'Нет прогонов ревью' }}
-            onRow={(run) => ({
-              onClick: () => {
-                void navigate(`/runs/${run.id}`)
-              },
-              style: { cursor: 'pointer' },
-            })}
-            pagination={false}
-            rowKey="id"
-            size="middle"
-          />
-        </Card>
+        <DataTable<RunSession>
+          columns={columns}
+          dataSource={runSessions}
+          locale={{ emptyText: 'Нет прогонов ревью' }}
+          onRow={(run) => ({
+            onClick: () => {
+              void navigate(`/runs/${run.id}`)
+            },
+            style: { cursor: 'pointer' },
+          })}
+          rowKey="id"
+        />
       ) : null}
-    </Flex>
+    </>
   )
 }
