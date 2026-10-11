@@ -63,6 +63,79 @@ describe('RepositoriesPage', () => {
     sessionStorage.clear()
   })
 
+  it.each(['empty', 'populated'] as const)(
+    'shows loading only for pending GETs while polling a previously %s list',
+    async (initialList) => {
+      vi.useFakeTimers()
+      saveAccessRefreshIntent()
+      activateAccessRefreshIntent()
+      const repository: Repository = {
+        id: '11111111-1111-4111-8111-111111111111',
+        fullName: 'org/old-repo',
+        url: 'https://github.com/org/old-repo',
+        defaultBranch: 'main',
+        enabled: true,
+        defaultEngine: 'fast',
+        waitForCi: 'auto',
+        maxComments: 10,
+        reviewEvent: 'COMMENT',
+      }
+      const newRepository: Repository = {
+        ...repository,
+        id: '22222222-2222-4222-8222-222222222222',
+        fullName: 'org/new-repo',
+        url: 'https://github.com/org/new-repo',
+      }
+      const initialRepositories = initialList === 'empty' ? [] : [repository]
+      const client = new QueryClient({
+        defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
+      })
+      client.setQueryData(REPOSITORIES_QUERY_KEY, initialRepositories)
+      let resolveGet!: (response: Response) => void
+      globalThis.fetch = vi.fn(
+        () =>
+          new Promise<Response>((resolve) => {
+            resolveGet = resolve
+          }),
+      )
+
+      renderWithClient(<RepositoriesPage />, client)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1)
+      })
+      const status = screen.getByRole('status')
+      expect(within(status).getByText('Загрузка репозиториев')).toBeDefined()
+      await act(async () => {
+        resolveGet(new Response(JSON.stringify(initialRepositories), { status: 200 }))
+        await vi.advanceTimersByTimeAsync(1)
+      })
+      expect(within(status).queryByText('Загрузка репозиториев')).toBeNull()
+      if (initialList === 'populated') {
+        expect(screen.getByText('org/old-repo')).toBeDefined()
+        expect(
+          screen.getByRole('button', { name: 'Настройки org/old-repo' }).hasAttribute('disabled'),
+        ).toBe(false)
+      } else {
+        expect(screen.getByText(/Репозитории ещё не подключены/)).toBeDefined()
+      }
+      expect(globalThis.fetch).toHaveBeenCalledOnce()
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(4999)
+      })
+      expect(globalThis.fetch).toHaveBeenCalledTimes(2)
+      expect(within(status).getByText('Загрузка репозиториев')).toBeDefined()
+      await act(async () => {
+        resolveGet(
+          new Response(JSON.stringify([...initialRepositories, newRepository]), { status: 200 }),
+        )
+        await vi.advanceTimersByTimeAsync(1)
+      })
+      expect(screen.getByText('org/new-repo')).toBeDefined()
+      expect(within(status).queryByText('Загрузка репозиториев')).toBeNull()
+      expect(screen.queryByText('Нужного репозитория нет?')).toBeNull()
+    },
+  )
+
   it('refreshes fresh cached repositories immediately and adds delayed repositories after five seconds', async () => {
     vi.useFakeTimers()
     saveAccessRefreshIntent()
@@ -103,13 +176,13 @@ describe('RepositoriesPage', () => {
       await vi.advanceTimersByTimeAsync(0)
     })
     const status = screen.getByRole('status')
-    expect(within(status).getByText('Загрузка репозиториев')).toBeDefined()
+    expect(within(status).queryByText('Загрузка репозиториев')).toBeNull()
     expect(screen.queryByRole('alert')).toBeNull()
     expect(client.isFetching({ queryKey: REPOSITORIES_QUERY_KEY })).toBe(0)
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1000)
     })
-    expect(within(status).getByText('Загрузка репозиториев')).toBeDefined()
+    expect(within(status).queryByText('Загрузка репозиториев')).toBeNull()
     expect(
       screen.getByRole('button', { name: 'Настройки org/old-repo' }).hasAttribute('disabled'),
     ).toBe(false)
@@ -373,7 +446,7 @@ describe('RepositoriesPage', () => {
       await vi.advanceTimersByTimeAsync(1)
     })
     expect(screen.getByText('Ошибка загрузки данных')).toBeDefined()
-    expect(screen.getByText('Загрузка репозиториев')).toBeDefined()
+    expect(screen.queryByText('Загрузка репозиториев')).toBeNull()
     await act(async () => {
       await vi.advanceTimersByTimeAsync(119999)
     })
@@ -413,7 +486,7 @@ describe('RepositoriesPage', () => {
       await vi.advanceTimersByTimeAsync(5000)
     })
     expect(screen.getByText('org/new-repo')).toBeDefined()
-    expect(screen.getByText('Загрузка репозиториев')).toBeDefined()
+    expect(screen.queryByText('Загрузка репозиториев')).toBeNull()
     await act(async () => {
       await vi.advanceTimersByTimeAsync(5000)
     })
@@ -493,7 +566,7 @@ describe('RepositoriesPage', () => {
       await vi.advanceTimersByTimeAsync(5000)
     })
     expect(gets).toBe(3)
-    expect(screen.getByText('Загрузка репозиториев')).toBeDefined()
+    expect(screen.queryByText('Загрузка репозиториев')).toBeNull()
   })
 
   it('preserves an optimistic toggle during delayed PATCH and does not extend the polling deadline', async () => {
@@ -708,7 +781,7 @@ describe('RepositoriesPage', () => {
         .getByRole('switch', { name: 'Ревью для org/pending-repo' })
         .getAttribute('aria-checked'),
     ).toBe('false')
-    expect(screen.getByText('Загрузка репозиториев')).toBeDefined()
+    expect(screen.queryByText('Загрузка репозиториев')).toBeNull()
   })
 
   it('renders repository list within layout on successful load', async () => {

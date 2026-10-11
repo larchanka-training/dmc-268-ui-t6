@@ -276,6 +276,9 @@ preserved as observed (`isDraft: false`); no merge or issue closure occurred.
 
 ## PR #95 review follow-up: compact loading feedback
 
+Historical evidence: the continuous-loader behavior in this section is
+superseded by the request-driven follow-up below. Slot geometry remains applicable.
+
 [Review comment 6102089977](https://github.com/larchanka-training/dmc-268-ui-t6/pull/95#issuecomment-6102089977)
 requested a small «Загрузка репозиториев» indicator without page jumps. Both
 large informational banners are replaced by one permanent status slot inside
@@ -342,3 +345,67 @@ is the publication target for this commit; its whole-feature body is updated
 with the compact feedback and final verification. Ready-for-review state is
 preserved, and review resolution and issue closure remain with the reviewer
 and tech lead.
+
+## PR #95 review follow-up: loader follows actual GET requests
+
+[Review comment 4241161211](https://github.com/larchanka-training/dmc-268-ui-t6/pull/95#discussion_r4241161211)
+identified a misleading loader that kept spinning after repository GETs had
+settled. The final display contract is now `waiting && refreshing`, using
+actual Query `isFetching` through the existing `refreshing` prop. After success
+or failure, and while a PATCH pauses automatic GETs, the compact slot is empty.
+The original background reconciliation still runs at its unchanged cadence
+and deadline; empty or nonempty results do not prove onboarding completion.
+The permanent slot CSS and timeout guidance/manual action are unchanged.
+
+- [x] Public page RED/GREEN covers deferred initial GET → settlement → empty
+      loading slot → deferred next poll → newly discovered row → empty slot,
+      for both previously empty and populated cached lists.
+- [x] Settled/error/paused-PATCH expectations corrected without dropping prior
+      cadence, deadline, mutation, StrictMode, cancellation or callback coverage.
+- [x] Minimal display condition only; no polling-hook/API/auth/CSS changes.
+- [x] All frontend gates executed; unchanged store formatting exception recorded.
+- [x] Actual-page browser desktop/mobile loading/gap geometry verification.
+- [x] Independent Standards/Spec source review: 0 findings.
+- [x] Follow-up publication to existing PR #95 in this commit and authorized
+      reviewer reply linking its SHA; the reviewer retains thread resolution.
+
+**RED/GREEN evidence (2026-10-11):** Both new parameterized public page cases
+failed before implementation because loading text remained after the first
+GET settled. The one-condition change passes both cases. Page/widget suites:
+45 tests passed, including all existing scheduling and settings regressions.
+The prior continuous-loading browser assertions above describe historical
+behavior and are superseded by this request-driven display contract.
+
+**Final verification (2026-10-11):** Full suite: 71 files / 604 tests passed.
+Lint, typecheck, build and production-bundle verification passed. Raw
+`pnpm format:check` still reports only the same five untouched generated
+`.pnpm-store/` manifests listed above. The existing temporary ignore gives
+an adjusted formatting pass. No dependencies, lockfile, repository ignores,
+CSS, polling hook or API/auth behavior changed. Existing jsdom pseudo-element
+and navigation notices remain in successful test output.
+
+**Browser evidence:** An external, uncommitted QA harness rendered the actual
+`RepositoriesPage` and QueryClient with controllable deferred GETs and the real
+access-refresh intent/cadence. At desktop 1265×712, the 32 px status slot and
+search input y=235 px stayed unchanged from pending GET to settled nonempty
+response and the next actual polling GET. At mobile 390×844, the 56 px slot
+and search y=259 px stayed unchanged from pending GET to settled empty response.
+Loading text appeared for pending requests, disappeared after settlement, and
+reappeared for the next GET. On mobile, the third pending GET showed loading;
+a new-repository response rendered `org/new-repo`, emptied the status and kept
+search y=259 px. The fourth GET was deliberately rejected: the existing network
+error Alert appeared, cached rows stayed available and the loader disappeared.
+Console warning/error logs were empty before that intentional network failure.
+The main mock app
+also returned from actual «Обновить доступ» OAuth to a settled repository list
+with no loader. The unchanged timeout/manual action retains its earlier
+browser evidence and passing deadline/slow-GET tests; actual staging-worker
+latency remains outside this local smoke.
+
+**Independent source review/publication:** Standards and Spec each reported zero
+findings. The publisher verified that current remote `main` remains `7b89560`
+and is already included, and that the prior remote PR head matches `cefba40`.
+This commit publishes the four reviewed files to existing PR #95 with normal
+hooks, updates its whole-feature body to the request-driven loader contract
+and answers review comment 4241161211 with this commit's SHA and test/browser
+evidence. PR readiness remains unchanged; the reviewer resolves the thread.
