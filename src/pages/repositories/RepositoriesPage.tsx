@@ -1,5 +1,5 @@
 import { useMutationState } from '@tanstack/react-query'
-import { Alert, App, Button, Flex, Spin } from 'antd'
+import { Alert, App, Button, Flex } from 'antd'
 import { useMemo, type FC } from 'react'
 
 import {
@@ -68,29 +68,6 @@ export const RepositoriesPage: FC = () => {
 
   return (
     <Flex gap="middle" vertical>
-      {accessRefreshStatus === 'waiting' ? (
-        <Alert
-          icon={<Spin size="small" />}
-          showIcon
-          title="Обновляем список репозиториев после авторизации через GitHub. Это может занять до двух минут"
-          type="info"
-        />
-      ) : accessRefreshStatus === 'timedOut' ? (
-        <Alert
-          description={
-            <Button
-              loading={isFetching}
-              onClick={() => void refetch({ cancelRefetch: false })}
-              size="small"
-            >
-              Обновить список
-            </Button>
-          }
-          showIcon
-          title="Автоматическое обновление завершено. Если нужный репозиторий ещё не появился, обновите список вручную"
-          type="info"
-        />
-      ) : null}
       {isError ? (
         <Alert
           action={
@@ -110,8 +87,9 @@ export const RepositoriesPage: FC = () => {
         />
       ) : null}
 
-      {!isError || repositories.length > 0 ? (
+      {!isError || repositories.length > 0 || accessRefreshStatus !== 'idle' ? (
         <RepositoryList
+          accessRefreshStatus={accessRefreshStatus}
           loading={isLoading}
           onRefresh={() => void refetch({ cancelRefetch: false })}
           onSyncAccess={handleSyncAccess}

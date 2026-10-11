@@ -273,3 +273,72 @@ exception. [Reply 4237584899](https://github.com/larchanka-training/dmc-268-ui-t
 answers review comment 4237554568 with that SHA and the regression evidence.
 The review thread remains for its reviewer to resolve. PR readiness was
 preserved as observed (`isDraft: false`); no merge or issue closure occurred.
+
+## PR #95 review follow-up: compact loading feedback
+
+[Review comment 6102089977](https://github.com/larchanka-training/dmc-268-ui-t6/pull/95#issuecomment-6102089977)
+requested a small «Загрузка репозиториев» indicator without page jumps. Both
+large informational banners are replaced by one permanent status slot inside
+`RepositoryList`, before its toolbar. It reserves 32 px on desktop and 56 px
+at widths up to 575 px, plus a constant 8 px bottom margin, including idle.
+Waiting remains visible throughout the original window, including settled GET
+gaps. At the deadline the same slot offers «Нужного репозитория нет?» and a
+small «Обновить список» button; it performs one manual refetch. Real failures
+keep the existing error Alert; during access refresh the card and compact
+feedback remain available even when a failed GET has no cached rows.
+
+- [x] Public page RED/GREEN: exact compact text, polite status region, no large
+      waiting Alert, continuity between settled GETs, retained settings controls.
+- [x] Additional public page RED/GREEN: network errors with no cached rows keep
+      waiting feedback and the eventual manual timeout action.
+- [x] Prior deadline, slow-GET, StrictMode, callback, ordinary-login and mutation
+      regressions retain their behavioral assertions with the revised UI copy.
+- [x] Full frontend gates executed; no dependencies, lockfile or request-scheduling
+      changes.
+- [x] Independent Standards/Spec review: 0 findings.
+- [x] Mock browser desktop/mobile layout verification.
+- [x] Follow-up publication to the existing PR #95 in this commit; current-main
+      rebase, final gates and normal hooks completed before the push.
+
+**RED/GREEN evidence (2026-10-11):** The updated public page regression failed
+against the large Alert because there was no `role="status"`. It passed after
+moving the compact feedback into the reserved card slot. A second regression
+failed when the existing empty-error conditional hid the card and its loading
+text; retaining the card during the access-refresh window fixed it. The page
+and widget suites passed 43 tests. Full suite: 71 files / 592 tests passed.
+Lint, typecheck, build and production-bundle verification passed.
+
+Raw `pnpm format:check` reports only the same five unchanged generated package
+manifests listed in the prior follow-up. Adjusted formatting with
+`--ignore-path /private/tmp/dmc-268-ui-92-prettierignore` passes; repository
+ignore files and the untracked `.pnpm-store/` were not edited. Existing jsdom
+pseudo-element/navigation notices remain in passing test output. Gates used
+provisioned Node 24.20.0 and the pinned pnpm 12.4.1; missing workspace dependencies
+were restored from the existing external store offline with the frozen lockfile,
+reusing 413 packages with zero downloads and no lockfile change.
+
+**Browser evidence (2026-10-11):** The mock app was exercised through the actual
+«Обновить доступ» OAuth return and the real 120-second deadline. At desktop
+1265×712, the search input remained at y=213 px in idle, waiting, timedOut,
+manual-refetch and returned-idle states. At mobile 390×844 it remained at
+y=237 px in waiting, timedOut, manual-refetch and returned-idle states. The
+status slot stayed 32 px high on desktop and 56 px on mobile throughout.
+The small spinner remained visible across observed settled GET gaps. Manual
+refresh did not restart it; navigating to runs and back returned an empty idle
+slot. Browser warning/error logs were empty. The preexisting mobile header and
+table horizontal overflow are outside this narrow feedback change; actual
+staging-worker timing remains untested by this mock smoke.
+
+**Independent review evidence:** Standards and Spec review each reported zero
+findings for the compact feedback implementation. Publication rebased the
+existing PR branch onto current `main` (`7b89560`) without conflicts. All four
+existing commits were unchanged in `git range-diff`; the compact-feedback
+source diff was preserved. Final lint, types, 602 tests / 71 files, UI build and
+production-bundle verification passed. Landing CI gates also passed: types,
+15 tests / 2 files and build. Raw formatting reproduced only the same five
+untracked generated manifests; the adjusted formatting check passed. The
+existing [PR #95](https://github.com/larchanka-training/dmc-268-ui-t6/pull/95)
+is the publication target for this commit; its whole-feature body is updated
+with the compact feedback and final verification. Ready-for-review state is
+preserved, and review resolution and issue closure remain with the reviewer
+and tech lead.

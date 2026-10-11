@@ -19,6 +19,7 @@ import {
   type RadioChangeEvent,
   Select,
   Space,
+  Spin,
   Switch,
   Table,
   Tag,
@@ -56,6 +57,7 @@ export interface RepositoryListProps {
   repositories: Repository[]
   loading?: boolean
   refreshing?: boolean
+  accessRefreshStatus?: 'idle' | 'waiting' | 'timedOut'
   updatingRepoIds?: string[] | ReadonlySet<string>
   onToggleEnabled?: (id: string, enabled: boolean) => Promise<void> | void
   onUpdateRepository?: (id: string, patch: UpdateRepositoryInput) => Promise<void> | void
@@ -67,6 +69,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
   repositories,
   loading = false,
   refreshing = false,
+  accessRefreshStatus = 'idle',
   updatingRepoIds,
   onToggleEnabled,
   onUpdateRepository,
@@ -320,6 +323,22 @@ export const RepositoryList: FC<RepositoryListProps> = ({
         </Flex>
       }
     >
+      <div aria-atomic="true" className={styles.accessRefreshStatus} role="status">
+        {accessRefreshStatus === 'waiting' ? (
+          <span className={styles.accessRefreshLoading}>
+            <Spin aria-hidden="true" size="small" />
+            <Text type="secondary">Загрузка репозиториев</Text>
+          </span>
+        ) : accessRefreshStatus === 'timedOut' ? (
+          <>
+            <Text type="secondary">Нужного репозитория нет?</Text>
+            <Button loading={refreshing} onClick={onRefresh} size="small">
+              Обновить список
+            </Button>
+          </>
+        ) : null}
+      </div>
+
       <Flex className={styles.toolbar} gap="middle" justify="space-between" wrap="wrap">
         <Input
           allowClear

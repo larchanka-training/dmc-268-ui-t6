@@ -102,17 +102,23 @@ describe('RepositoriesPage', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0)
     })
+    const status = screen.getByRole('status')
+    expect(within(status).getByText('Загрузка репозиториев')).toBeDefined()
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(client.isFetching({ queryKey: REPOSITORIES_QUERY_KEY })).toBe(0)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000)
+    })
+    expect(within(status).getByText('Загрузка репозиториев')).toBeDefined()
     expect(
-      screen.getByText(
-        'Обновляем список репозиториев после авторизации через GitHub. Это может занять до двух минут',
-      ),
-    ).toBeDefined()
+      screen.getByRole('button', { name: 'Настройки org/old-repo' }).hasAttribute('disabled'),
+    ).toBe(false)
     expect(requests).toBe(1)
     expect(screen.getByText('org/old-repo')).toBeDefined()
     expect(screen.queryByText('org/new-repo')).toBeNull()
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(5000)
+      await vi.advanceTimersByTimeAsync(4000)
     })
     expect(requests).toBe(2)
     await act(async () => {
@@ -158,12 +164,8 @@ describe('RepositoriesPage', () => {
     })
 
     expect(globalThis.fetch).toHaveBeenCalledTimes(24)
-    expect(
-      screen.getByText(
-        'Автоматическое обновление завершено. Если нужный репозиторий ещё не появился, обновите список вручную',
-      ),
-    ).toBeDefined()
-    expect(screen.queryByText(/Это может занять до двух минут/)).toBeNull()
+    expect(screen.getByText('Нужного репозитория нет?')).toBeDefined()
+    expect(screen.queryByText('Загрузка репозиториев')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Обновить список' }))
     await act(async () => {
       await vi.advanceTimersByTimeAsync(15000)
@@ -249,7 +251,7 @@ describe('RepositoriesPage', () => {
       await vi.advanceTimersByTimeAsync(120000)
     })
     expect(globalThis.fetch).toHaveBeenCalledOnce()
-    expect(screen.queryByText(/Это может занять до двух минут/)).toBeNull()
+    expect(screen.queryByText('Загрузка репозиториев')).toBeNull()
     const manual = screen.getByRole('button', { name: /Обновить список$/ })
     expect(within(manual).getByRole('img', { name: 'loading' })).toBeDefined()
     await act(async () => {
@@ -283,7 +285,7 @@ describe('RepositoriesPage', () => {
       await vi.advanceTimersByTimeAsync(5000)
     })
     expect(globalThis.fetch).toHaveBeenCalledOnce()
-    expect(screen.queryByText(/Это может занять до двух минут/)).toBeNull()
+    expect(screen.queryByText('Загрузка репозиториев')).toBeNull()
     expect(screen.getByRole('button', { name: 'Обновить список' })).toBeDefined()
   })
 
@@ -298,7 +300,7 @@ describe('RepositoriesPage', () => {
       await vi.advanceTimersByTimeAsync(15000)
     })
     expect(globalThis.fetch).toHaveBeenCalledOnce()
-    expect(screen.queryByText(/Это может занять до двух минут/)).toBeNull()
+    expect(screen.queryByText('Загрузка репозиториев')).toBeNull()
     ordinary.unmount()
     saveAccessRefreshIntent()
     activateAccessRefreshIntent()
@@ -313,7 +315,7 @@ describe('RepositoriesPage', () => {
       await vi.advanceTimersByTimeAsync(15000)
     })
     expect(globalThis.fetch).toHaveBeenCalledTimes(2)
-    expect(screen.queryByText(/Это может занять до двух минут/)).toBeNull()
+    expect(screen.queryByText('Загрузка репозиториев')).toBeNull()
   })
 
   it('does not overlap requests or duplicate the refresh loop in StrictMode', async () => {
@@ -358,7 +360,7 @@ describe('RepositoriesPage', () => {
     expect(maximumActive).toBe(1)
     expect(aborted).toBe(1)
     expect(completed).toBe(24)
-    expect(screen.queryByText(/Это может занять до двух минут/)).toBeNull()
+    expect(screen.queryByText('Загрузка репозиториев')).toBeNull()
   })
 
   it('continues after network errors within the same window and stops at its deadline', async () => {
@@ -371,11 +373,13 @@ describe('RepositoriesPage', () => {
       await vi.advanceTimersByTimeAsync(1)
     })
     expect(screen.getByText('Ошибка загрузки данных')).toBeDefined()
+    expect(screen.getByText('Загрузка репозиториев')).toBeDefined()
     await act(async () => {
       await vi.advanceTimersByTimeAsync(119999)
     })
     expect(globalThis.fetch).toHaveBeenCalledTimes(24)
-    expect(screen.queryByText(/Это может занять до двух минут/)).toBeNull()
+    expect(screen.queryByText('Загрузка репозиториев')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Обновить список' })).toBeDefined()
   })
 
   it('adds repositories after an initially empty response without ending the waiting window', async () => {
@@ -409,7 +413,7 @@ describe('RepositoriesPage', () => {
       await vi.advanceTimersByTimeAsync(5000)
     })
     expect(screen.getByText('org/new-repo')).toBeDefined()
-    expect(screen.getByText(/Это может занять до двух минут/)).toBeDefined()
+    expect(screen.getByText('Загрузка репозиториев')).toBeDefined()
     await act(async () => {
       await vi.advanceTimersByTimeAsync(5000)
     })
@@ -489,7 +493,7 @@ describe('RepositoriesPage', () => {
       await vi.advanceTimersByTimeAsync(5000)
     })
     expect(gets).toBe(3)
-    expect(screen.getByText(/Это может занять до двух минут/)).toBeDefined()
+    expect(screen.getByText('Загрузка репозиториев')).toBeDefined()
   })
 
   it('preserves an optimistic toggle during delayed PATCH and does not extend the polling deadline', async () => {
@@ -536,7 +540,7 @@ describe('RepositoriesPage', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(114998)
     })
-    expect(screen.queryByText(/Это может занять до двух минут/)).toBeNull()
+    expect(screen.queryByText('Загрузка репозиториев')).toBeNull()
     expect(gets).toBe(1)
 
     serverRepository = { ...repository, enabled: false }
@@ -550,7 +554,7 @@ describe('RepositoriesPage', () => {
     expect(gets).toBe(2)
     expect(toggle.getAttribute('aria-checked')).toBe('false')
     expect(toggle.hasAttribute('disabled')).toBe(false)
-    expect(screen.queryByText(/Это может занять до двух минут/)).toBeNull()
+    expect(screen.queryByText('Загрузка репозиториев')).toBeNull()
   })
 
   it('preserves optimistic and confirmed rows until both concurrent PATCH requests finish', async () => {
@@ -704,7 +708,7 @@ describe('RepositoriesPage', () => {
         .getByRole('switch', { name: 'Ревью для org/pending-repo' })
         .getAttribute('aria-checked'),
     ).toBe('false')
-    expect(screen.getByText(/Это может занять до двух минут/)).toBeDefined()
+    expect(screen.getByText('Загрузка репозиториев')).toBeDefined()
   })
 
   it('renders repository list within layout on successful load', async () => {
