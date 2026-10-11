@@ -14,7 +14,7 @@ export function buildTheme(mode: RvThemeMode): ThemeConfig {
     token: {
       colorPrimary: p.accent,
       colorPrimaryHover: p.accentHover,
-      colorPrimaryActive: p.accentHover,
+      colorPrimaryActive: p.accentActive,
       colorLink: p.link,
       colorLinkHover: p.link,
       colorLinkActive: p.link,
@@ -35,6 +35,8 @@ export function buildTheme(mode: RvThemeMode): ThemeConfig {
       colorTextDescription: p.text2,
       colorTextPlaceholder: p.text3,
       colorTextHeading: p.text,
+      colorBgTextHover: p.hover,
+      colorBgTextActive: p.selected,
       fontFamily: RV_FONT_SANS,
       fontFamilyCode: RV_FONT_MONO,
       fontSize: 13,
@@ -56,22 +58,22 @@ export function buildTheme(mode: RvThemeMode): ThemeConfig {
         // The dark algorithm darkens the seed colour; pin the exact accent.
         colorPrimary: p.accent,
         colorPrimaryHover: p.accentHover,
-        colorPrimaryActive: p.accentHover,
+        colorPrimaryActive: p.accentActive,
         defaultBg: p.surface,
         defaultBorderColor: p.border,
         // Hover and press stay neutral: by default Ant Design recolours the text and the border
-        // of a secondary button to the primary colour.
+        // of a secondary button to the primary colour. A press goes one step further than hover
+        // and the button shrinks slightly (styles/antd.css), since the click ripple is off.
         defaultHoverBg: p.buttonHover,
         defaultHoverColor: p.text,
         defaultHoverBorderColor: p.borderStrong,
-        defaultActiveBg: p.buttonHover,
+        defaultActiveBg: p.buttonActive,
         defaultActiveColor: p.text,
         defaultActiveBorderColor: p.borderStrong,
         textTextColor: p.text2,
         textTextHoverColor: p.text,
         textTextActiveColor: p.text,
         textHoverBg: p.hover,
-        colorBgTextActive: p.selected,
         paddingInline: 12,
         paddingInlineLG: 18,
         paddingInlineSM: 8,
