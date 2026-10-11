@@ -2,18 +2,6 @@
    every rule is a small debt: keep the list short, try a token in `theme/buildTheme.ts` first, and
    re-check this file when Ant Design is upgraded. Loaded once by `DesignSystemProvider`. */
 
-/* Button: a press is felt as a slight shrink. The click ripple of Ant Design is off, so without
-   this a click would give no feedback beyond the colour step set in the theme. */
-.ant-btn:not(:disabled, .ant-btn-loading):active {
-  transform: scale(0.98);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ant-btn:not(:disabled, .ant-btn-loading):active {
-    transform: none;
-  }
-}
-
 /* Table: one border around the data, no header fill, the edge columns line up with the frame. */
 .ant-table-wrapper .ant-table {
   overflow: hidden;
