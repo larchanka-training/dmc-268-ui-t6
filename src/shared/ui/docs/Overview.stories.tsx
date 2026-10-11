@@ -3,7 +3,6 @@ import type { Meta, StoryObj } from '@storybook/react-vite'
 import {
   Alert,
   Button,
-  Card,
   Checkbox,
   Input,
   Radio,
@@ -110,25 +109,16 @@ function Overview(): JSX.Element {
       <header className={styles.hero}>
         <h1 className={styles.title}>Reviewer UI</h1>
         <p className={styles.lead}>
-          Дизайн-система Reviewer: на ней строятся все интерфейсы приложения. Плоские поверхности,
-          тонкие рамки, плотная сетка. Всё на этой странице собрано из настоящих компонентов: Ant
-          Design в нашей теме и свои из src/shared/ui. Переключатель «Тема» в верхней панели меняет
-          палитру.
+          Дизайн-система Reviewer для интерфейсов приложения. Построена на Ant Design.
         </p>
         <nav aria-label="Документы" className={styles.links}>
           <a className={styles.link} href={RULES_URL} target="_top">
             Правила применения
           </a>
           <a className={styles.link} href={SPEC_URL} rel="noreferrer" target="_blank">
-            Спецификация: docs/DESIGN_SYSTEM.md
+            Спецификация (docs/DESIGN_SYSTEM.md)
           </a>
         </nav>
-        <p className={styles.rule}>
-          <strong>Главное правило.</strong> Базовые компоненты берутся только отсюда: из Ant Design
-          в нашей теме и из src/shared/ui. На экране их не перекрашивают. Отдельно пишутся только
-          составные компоненты под конкретный экран. Если нужного компонента нет, его сначала
-          добавляют сюда по чеклисту из спецификации.
-        </p>
       </header>
 
       <section className={styles.section}>
@@ -141,32 +131,50 @@ function Overview(): JSX.Element {
 
       <section className={styles.section}>
         <h2 className={styles.heading}>Типографика</h2>
-        <Card className={styles.type}>
+        <div className={styles.type}>
           <div className={styles.typeRow}>
-            <span className={styles.typeMeta}>Заголовок</span>
+            <span className={styles.typeMeta}>Заголовок страницы, 24 / 600</span>
             <span style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.015em' }}>
               Прогоны AI Review
             </span>
           </div>
           <div className={styles.typeRow}>
-            <span className={styles.typeMeta}>Блок</span>
+            <span className={styles.typeMeta}>Заголовок блока, 15 / 600</span>
             <span style={{ fontSize: 15, fontWeight: 600 }}>Подключенные репозитории</span>
           </div>
           <div className={styles.typeRow}>
-            <span className={styles.typeMeta}>Текст</span>
+            <span className={styles.typeMeta}>Текст, 13 / 400</span>
             <span>Ревью запускается по метке ai-review и успешному CI.</span>
           </div>
           <div className={styles.typeRow}>
-            <span className={styles.typeMeta}>Мелкий</span>
+            <span className={styles.typeMeta}>Мелкий, 12 / 400</span>
             <span style={{ color: 'var(--rv-text-2)', fontSize: 'var(--rv-fs-xs)' }}>
               Обновлено 2 минуты назад
             </span>
           </div>
           <div className={styles.typeRow}>
-            <span className={styles.typeMeta}>Код</span>
+            <span className={styles.typeMeta}>Код, 12, JetBrains Mono</span>
             <code className={styles.mono}>src/webhooks/retry.ts:42</code>
           </div>
-        </Card>
+        </div>
+      </section>
+
+      <section className={styles.section}>
+        <h2 className={styles.heading}>Логотип</h2>
+        <div className={styles.logos}>
+          <Logo size={64} title="Reviewer" />
+          <Logo size={40} />
+          <Logo size={24} />
+          <Logo size={16} />
+          <span className={styles.lockupLarge}>
+            <Logo size={32} />
+            Reviewer
+          </span>
+          <span className={styles.lockup}>
+            <Logo size={20} />
+            Reviewer
+          </span>
+        </div>
       </section>
 
       <section className={styles.section}>
