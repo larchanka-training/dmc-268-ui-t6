@@ -291,7 +291,13 @@ function Overview(): JSX.Element {
 const meta: Meta<typeof Overview> = {
   title: 'Reviewer UI',
   component: Overview,
-  parameters: { layout: 'fullscreen' },
+  // A page, not a component: no addon panel (controls, actions, interactions) under it.
+  parameters: {
+    layout: 'fullscreen',
+    controls: { disable: true },
+    actions: { disable: true },
+    interactions: { disable: true },
+  },
 }
 
 export default meta
