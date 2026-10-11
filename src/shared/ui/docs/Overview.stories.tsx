@@ -22,6 +22,11 @@ import { PageHeader } from '../PageHeader/PageHeader'
 import { Tag } from '../Tag/Tag'
 import styles from './Overview.module.css'
 
+// The rules page of this Storybook and the specification, which lives only in the repository.
+const RULES_URL = './?path=/docs/правила--docs'
+const SPEC_URL =
+  'https://github.com/larchanka-training/dmc-268-ui-t6/blob/main/docs/DESIGN_SYSTEM.md'
+
 const SURFACES = [
   ['--rv-bg', 'Фон страницы'],
   ['--rv-bg-raised', 'Приподнятый фон'],
@@ -103,12 +108,26 @@ function Overview(): JSX.Element {
   return (
     <div className={styles.page}>
       <header className={styles.hero}>
-        <p className={styles.eyebrow}>Reviewer UI</p>
-        <h1 className={styles.title}>Flat Console</h1>
+        <h1 className={styles.title}>Reviewer UI</h1>
         <p className={styles.lead}>
-          Плоские поверхности, тонкие рамки, плотная сетка. Всё на этой странице собрано из
-          настоящих компонентов: Ant Design в нашей теме и свои из src/shared/ui. Переключатель
-          «Тема» в верхней панели меняет палитру.
+          Дизайн-система Reviewer: на ней строятся все интерфейсы приложения. Плоские поверхности,
+          тонкие рамки, плотная сетка. Всё на этой странице собрано из настоящих компонентов: Ant
+          Design в нашей теме и свои из src/shared/ui. Переключатель «Тема» в верхней панели меняет
+          палитру.
+        </p>
+        <nav aria-label="Документы" className={styles.links}>
+          <a className={styles.link} href={RULES_URL} target="_top">
+            Правила применения
+          </a>
+          <a className={styles.link} href={SPEC_URL} rel="noreferrer" target="_blank">
+            Спецификация: docs/DESIGN_SYSTEM.md
+          </a>
+        </nav>
+        <p className={styles.rule}>
+          <strong>Главное правило.</strong> Базовые компоненты берутся только отсюда: из Ant Design
+          в нашей теме и из src/shared/ui. На экране их не перекрашивают. Отдельно пишутся только
+          составные компоненты под конкретный экран. Если нужного компонента нет, его сначала
+          добавляют сюда по чеклисту из спецификации.
         </p>
       </header>
 
@@ -270,11 +289,12 @@ function Overview(): JSX.Element {
 }
 
 const meta: Meta<typeof Overview> = {
-  title: 'Начало/Обзор',
+  title: 'Reviewer UI',
   component: Overview,
   parameters: { layout: 'fullscreen' },
 }
 
 export default meta
 
-export const Page: StoryObj<typeof Overview> = { name: 'Flat Console' }
+// One story named like the component: Storybook shows it as a single entry, not as a folder.
+export const ReviewerUi: StoryObj<typeof Overview> = { name: 'Reviewer UI' }

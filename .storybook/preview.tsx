@@ -52,12 +52,7 @@ const preview: Preview = {
     docs: { theme: themes.dark },
     options: {
       storySort: {
-        order: [
-          'Начало',
-          ['Введение', 'Правила', 'Спецификация', 'Обзор'],
-          'Свои компоненты',
-          'Ant Design',
-        ],
+        order: ['Reviewer UI', 'Правила', 'Свои компоненты', 'Ant Design'],
       },
     },
   },
