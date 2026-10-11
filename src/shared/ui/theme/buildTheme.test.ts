@@ -33,6 +33,13 @@ describe('buildTheme', () => {
     expect(button?.colorPrimaryHover).toBe('#3b74f0')
   })
 
+  it('gives a press its own colour step, darker than hover', () => {
+    const button = buildTheme('dark').components?.Button
+    expect(button?.colorPrimaryActive).toBe('#1d4fd0')
+    expect(button?.defaultActiveBg).toBe('#2a3042')
+    expect(button?.defaultActiveColor).toBe('#f8fafc')
+  })
+
   it('keeps a secondary button neutral on hover', () => {
     const button = buildTheme('dark').components?.Button
     expect(button?.defaultHoverColor).toBe('#f8fafc')

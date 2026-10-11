@@ -21,6 +21,8 @@ export interface RvPalette {
   hover: string
   selected: string
   buttonHover: string
+  buttonActive: string
+  accentActive: string
   focusRing: string
 }
 
@@ -45,6 +47,8 @@ export const RV_PALETTE: Record<RvThemeMode, RvPalette> = {
     hover: 'rgba(148, 163, 184, 0.06)',
     selected: 'rgba(248, 250, 252, 0.08)',
     buttonHover: '#222737',
+    buttonActive: '#2a3042',
+    accentActive: '#1d4fd0',
     focusRing: 'rgba(96, 165, 250, 0.25)',
   },
   light: {
@@ -67,6 +71,8 @@ export const RV_PALETTE: Record<RvThemeMode, RvPalette> = {
     hover: 'rgba(15, 23, 42, 0.04)',
     selected: 'rgba(15, 23, 42, 0.06)',
     buttonHover: '#ebeced',
+    buttonActive: '#dfe2e6',
+    accentActive: '#1d4fd0',
     focusRing: 'rgba(29, 78, 216, 0.2)',
   },
 }
