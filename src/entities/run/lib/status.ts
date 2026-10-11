@@ -21,23 +21,24 @@ export function isStaleRunning(
   return now.getTime() - new Date(run.startedAt).getTime() > STALE_RUNNING_MS
 }
 
-export function statusColor(
+/** Tone of the design-system `Tag` for a run status. Active statuses also pulse (`isActive`). */
+export function statusTone(
   status: RunStatus,
-): 'default' | 'processing' | 'blue' | 'success' | 'error' | 'warning' {
+): 'neutral' | 'info' | 'success' | 'danger' | 'warning' {
   switch (status) {
     case 'queued':
-      return 'default'
+      return 'neutral'
     case 'running':
-      return 'processing'
+      return 'info'
     case 'publishing':
-      return 'blue'
+      return 'info'
     case 'succeeded':
       return 'success'
     case 'failed':
-      return 'error'
+      return 'danger'
     case 'cancelled':
       return 'warning'
     case 'skipped':
-      return 'default'
+      return 'neutral'
   }
 }

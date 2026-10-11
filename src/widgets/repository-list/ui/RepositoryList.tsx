@@ -1,31 +1,25 @@
 import {
+  BranchesOutlined,
   GithubOutlined,
   PlusOutlined,
   ReloadOutlined,
   SearchOutlined,
-  SettingOutlined,
 } from '@ant-design/icons'
 import {
-  Badge,
   Button,
-  Card,
   Empty,
   Flex,
   Form,
   Input,
   InputNumber,
   Modal,
-  Radio,
-  type RadioChangeEvent,
+  Segmented,
   Select,
-  Space,
   Spin,
   Switch,
-  Table,
-  Tag,
   Tooltip,
   Typography,
-  theme,
+  type TableColumnsType,
 } from 'antd'
 import { useMemo, useState, type FC } from 'react'
 
@@ -38,6 +32,7 @@ import type {
 } from '../../../entities/repository'
 import { GITHUB_APP_SLUG, GITHUB_CLIENT_ID, isMockMode } from '../../../shared/config/env'
 import { safeHttpUrl } from '../../../shared/lib/safeHttpUrl'
+import { DataTable, IconSettings, PageHeader, Tag } from '../../../shared/ui'
 import styles from './RepositoryList.module.css'
 
 const { Text, Link } = Typography
@@ -76,7 +71,6 @@ export const RepositoryList: FC<RepositoryListProps> = ({
   onRefresh,
   onSyncAccess,
 }) => {
-  const { token } = theme.useToken()
   const [search, setSearch] = useState('')
   const [filterActive, setFilterActive] = useState<'all' | 'active'>('all')
   const [editingRepo, setEditingRepo] = useState<Repository | null>(null)
@@ -167,7 +161,16 @@ export const RepositoryList: FC<RepositoryListProps> = ({
     </Button>
   )
 
-  const columns = [
+  const WAIT_FOR_CI_LABEL: Record<WaitForCi, string> = {
+    auto: 'Авто',
+    always: 'Всегда',
+    never: 'Никогда',
+  }
+  // deep (SandboxEngine) is phase 3; the api returns only fast until then.
+  const ENGINE_LABEL: Record<RepositoryEngine, string> = { fast: 'DiffEngine (быстрый)' }
+  const activeCount = repositories.filter((r) => r.enabled).length
+
+  const columns: TableColumnsType<Repository> = [
     {
       title: 'Репозиторий',
       dataIndex: 'fullName',
@@ -176,9 +179,9 @@ export const RepositoryList: FC<RepositoryListProps> = ({
         const shortName = fullName.split('/')[1] ?? fullName
         const href = safeHttpUrl(record.url)
         return (
-          <Flex align="center" gap="small">
-            <GithubOutlined style={{ fontSize: token.fontSizeLG }} />
-            <Flex vertical>
+          <Flex align="center" gap={10}>
+            <GithubOutlined className={styles.repoIcon} />
+            <div className={styles.repoName}>
               {href ? (
                 <Link href={href} rel="noopener noreferrer" strong target="_blank">
                   {fullName}
@@ -186,10 +189,10 @@ export const RepositoryList: FC<RepositoryListProps> = ({
               ) : (
                 <Text strong>{fullName}</Text>
               )}
-              <Text style={{ fontSize: token.fontSizeSM }} type="secondary">
+              <Text className={styles.repoMeta} type="secondary">
                 {shortName} • {record.id}
               </Text>
-            </Flex>
+            </div>
           </Flex>
         )
       },
@@ -198,31 +201,23 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       title: 'Ветка',
       dataIndex: 'defaultBranch',
       key: 'defaultBranch',
-      render: (branch: string) => <Tag color="blue">{branch}</Tag>,
+      render: (branch: string) => (
+        <Tag icon={<BranchesOutlined />} variant="outline">
+          {branch}
+        </Tag>
+      ),
     },
     {
       title: 'Движок',
       dataIndex: 'defaultEngine',
       key: 'defaultEngine',
-      render: (engine: RepositoryEngine) => {
-        // deep (SandboxEngine) is phase 3; the api returns only fast until then.
-        const labels: Record<RepositoryEngine, string> = { fast: 'DiffEngine (быстрый)' }
-        return <Tag color="cyan">{labels[engine]}</Tag>
-      },
+      render: (engine: RepositoryEngine) => <Text type="secondary">{ENGINE_LABEL[engine]}</Text>,
     },
     {
       title: 'Ожидание CI',
       dataIndex: 'waitForCi',
       key: 'waitForCi',
-      render: (wait: WaitForCi) => {
-        const config: Record<WaitForCi, { color: string; label: string }> = {
-          auto: { color: 'blue', label: 'Авто' },
-          always: { color: 'green', label: 'Всегда' },
-          never: { color: 'default', label: 'Никогда' },
-        }
-        const item = config[wait]
-        return <Tag color={item.color}>{item.label}</Tag>
-      },
+      render: (wait: WaitForCi) => <Text type="secondary">{WAIT_FOR_CI_LABEL[wait]}</Text>,
     },
     {
       title: 'Лимит',
@@ -234,11 +229,14 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       title: 'Вердикт',
       dataIndex: 'reviewEvent',
       key: 'reviewEvent',
-      render: (event: ReviewEvent) => (
-        <Tag color={event === 'REQUEST_CHANGES' ? 'volcano' : 'blue'}>
-          {event === 'REQUEST_CHANGES' ? 'Запрос изменений' : 'Комментарий'}
-        </Tag>
-      ),
+      render: (event: ReviewEvent) =>
+        event === 'REQUEST_CHANGES' ? (
+          <Tag tone="high" variant="solid">
+            Запрос изменений
+          </Tag>
+        ) : (
+          <Tag>Комментарий</Tag>
+        ),
     },
     {
       title: 'Статус',
@@ -251,25 +249,29 @@ export const RepositoryList: FC<RepositoryListProps> = ({
             : updatingRepoIds.has(record.id)
           : false
         return (
-          <Switch
-            aria-label={`Ревью для ${record.fullName}`}
-            checked={enabled}
-            checkedChildren="Активен"
-            disabled={updating}
-            loading={updating}
-            onChange={(checked) => void onToggleEnabled?.(record.id, checked)}
-            unCheckedChildren="Пауза"
-          />
+          <Flex align="center" gap={10}>
+            <Switch
+              aria-label={`Ревью для ${record.fullName}`}
+              checked={enabled}
+              disabled={updating}
+              loading={updating}
+              onChange={(checked) => void onToggleEnabled?.(record.id, checked)}
+            />
+            <Text className={styles.switchLabel} type="secondary">
+              {enabled ? 'Активен' : 'Пауза'}
+            </Text>
+          </Flex>
         )
       },
     },
     {
-      title: 'Настройки',
+      title: '',
       key: 'actions',
+      align: 'right',
       render: (_: unknown, record: Repository) => (
         <Button
           aria-label={`Настройки ${record.fullName}`}
-          icon={<SettingOutlined />}
+          icon={<IconSettings height={14} width={14} />}
           onClick={() => {
             openSettings(record)
           }}
@@ -282,47 +284,45 @@ export const RepositoryList: FC<RepositoryListProps> = ({
   ]
 
   return (
-    <Card
-      extra={
-        <Space>
-          <Tooltip title={REFRESH_TOOLTIP}>
-            <Button icon={<ReloadOutlined />} loading={refreshing} onClick={onRefresh}>
-              Обновить
-            </Button>
-          </Tooltip>
-          <Tooltip
-            title={
-              isSyncConfigured
-                ? SYNC_ACCESS_TOOLTIP
-                : 'Обновление доступа недоступно: не задан VITE_GITHUB_CLIENT_ID'
-            }
-          >
-            <span>
-              <Button disabled={!isSyncConfigured} onClick={onSyncAccess}>
-                Обновить доступ
+    <div className={styles.root}>
+      <PageHeader
+        actions={
+          <>
+            <Tooltip title={REFRESH_TOOLTIP}>
+              <Button icon={<ReloadOutlined />} loading={refreshing} onClick={onRefresh}>
+                Обновить
               </Button>
-            </span>
-          </Tooltip>
-          {!isAppConfigured ? (
-            <Tooltip title="Инсталляция недоступна: не задан VITE_GITHUB_APP_SLUG">
-              <span>{connectButton}</span>
             </Tooltip>
-          ) : (
-            <Tooltip title={APP_INSTALL_TOOLTIP}>{connectButton}</Tooltip>
-          )}
-        </Space>
-      }
-      title={
-        <Flex align="center" gap="small">
-          <span>Подключенные репозитории</span>
-          <Badge
-            count={repositories.length}
-            overflowCount={999}
-            style={{ backgroundColor: token.colorPrimary }}
-          />
-        </Flex>
-      }
-    >
+            <Tooltip
+              title={
+                isSyncConfigured
+                  ? SYNC_ACCESS_TOOLTIP
+                  : 'Обновление доступа недоступно: не задан VITE_GITHUB_CLIENT_ID'
+              }
+            >
+              <span>
+                <Button disabled={!isSyncConfigured} onClick={onSyncAccess}>
+                  Обновить доступ
+                </Button>
+              </span>
+            </Tooltip>
+            {!isAppConfigured ? (
+              <Tooltip title="Инсталляция недоступна: не задан VITE_GITHUB_APP_SLUG">
+                <span>{connectButton}</span>
+              </Tooltip>
+            ) : (
+              <Tooltip title={APP_INSTALL_TOOLTIP}>{connectButton}</Tooltip>
+            )}
+          </>
+        }
+        description={
+          repositories.length > 0
+            ? `Подключено: ${String(repositories.length)}, ревью включено в ${String(activeCount)}`
+            : 'Пока ничего не подключено'
+        }
+        title="Репозитории"
+      />
+
       <div aria-atomic="true" className={styles.accessRefreshStatus} role="status">
         {accessRefreshStatus === 'waiting' && refreshing ? (
           <span className={styles.accessRefreshLoading}>
@@ -339,34 +339,9 @@ export const RepositoryList: FC<RepositoryListProps> = ({
         ) : null}
       </div>
 
-      <Flex className={styles.toolbar} gap="middle" justify="space-between" wrap="wrap">
-        <Input
-          allowClear
-          className={styles.searchInput}
-          onChange={(e) => {
-            setSearch(e.target.value)
-          }}
-          placeholder="Поиск по названию..."
-          prefix={<SearchOutlined />}
-          value={search}
-        />
-
-        <Radio.Group
-          onChange={(e: RadioChangeEvent) => {
-            setFilterActive(e.target.value as 'all' | 'active')
-          }}
-          value={filterActive}
-        >
-          <Radio.Button value="all">Все ({repositories.length})</Radio.Button>
-          <Radio.Button value="active">
-            Активные ({repositories.filter((r) => r.enabled).length})
-          </Radio.Button>
-        </Radio.Group>
-      </Flex>
-
       {repositories.length === 0 && !loading ? (
-        <Empty description={EMPTY_REPOSITORIES_DESCRIPTION} image={Empty.PRESENTED_IMAGE_SIMPLE}>
-          <Space>
+        <div className={styles.empty}>
+          <Empty description={EMPTY_REPOSITORIES_DESCRIPTION} image={Empty.PRESENTED_IMAGE_SIMPLE}>
             {!isAppConfigured ? (
               <Tooltip title="Инсталляция недоступна: не задан VITE_GITHUB_APP_SLUG">
                 <span>{emptyConnectButton}</span>
@@ -374,20 +349,45 @@ export const RepositoryList: FC<RepositoryListProps> = ({
             ) : (
               <Tooltip title={APP_INSTALL_TOOLTIP}>{emptyConnectButton}</Tooltip>
             )}
-          </Space>
-        </Empty>
+          </Empty>
+        </div>
       ) : (
-        <Table
-          columns={columns}
-          dataSource={filteredRepositories}
-          loading={loading}
-          pagination={{ pageSize: 10, showSizeChanger: false }}
-          rowKey="id"
-          scroll={{ x: 800 }}
-        />
+        <>
+          <Flex gap="middle" justify="space-between" wrap="wrap">
+            <Input
+              allowClear
+              className={styles.searchInput}
+              onChange={(e) => {
+                setSearch(e.target.value)
+              }}
+              placeholder="Поиск по названию..."
+              prefix={<SearchOutlined />}
+              value={search}
+            />
+
+            <Segmented<'all' | 'active'>
+              onChange={setFilterActive}
+              options={[
+                { value: 'all', label: `Все (${String(repositories.length)})` },
+                { value: 'active', label: `Активные (${String(activeCount)})` },
+              ]}
+              value={filterActive}
+            />
+          </Flex>
+
+          <DataTable<Repository>
+            columns={columns}
+            dataSource={filteredRepositories}
+            loading={loading}
+            pagination={{ pageSize: 10 }}
+            rowKey="id"
+            scroll={{ x: 900 }}
+          />
+        </>
       )}
 
       <Modal
+        cancelText="Отмена"
         confirmLoading={saving}
         okText="Сохранить"
         onCancel={() => {
@@ -396,10 +396,11 @@ export const RepositoryList: FC<RepositoryListProps> = ({
         onOk={() => void handleSaveSettings()}
         open={Boolean(editingRepo)}
         title={`Настройки репозитория ${editingRepo?.fullName ?? ''}`}
+        width={520}
       >
         <Form form={form} layout="vertical">
           <Form.Item label="Активность ревью" name="enabled" valuePropName="checked">
-            <Switch checkedChildren="Активен" unCheckedChildren="Пауза" />
+            <Switch />
           </Form.Item>
 
           <Form.Item
@@ -446,6 +447,6 @@ export const RepositoryList: FC<RepositoryListProps> = ({
           </Form.Item>
         </Form>
       </Modal>
-    </Card>
+    </div>
   )
 }

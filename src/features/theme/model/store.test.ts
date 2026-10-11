@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { THEME_STORAGE_KEY, getInitialTheme, useThemeStore } from './store'
+import { THEME_STORAGE_KEY, getInitialPreference, getInitialTheme, useThemeStore } from './store'
 
 describe('useThemeStore', () => {
   beforeEach(() => {
@@ -28,6 +28,54 @@ describe('useThemeStore', () => {
     useThemeStore.getState().setTheme('dark')
     expect(useThemeStore.getState().mode).toBe('dark')
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark')
+  })
+})
+
+describe('useThemeStore preference', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    useThemeStore.setState({ mode: 'light', preference: 'system' })
+  })
+
+  afterEach(() => {
+    localStorage.clear()
+    vi.restoreAllMocks()
+  })
+
+  it('remembers an explicit choice and applies it', () => {
+    useThemeStore.getState().setPreference('dark')
+    expect(useThemeStore.getState().preference).toBe('dark')
+    expect(useThemeStore.getState().mode).toBe('dark')
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark')
+  })
+
+  it('follows the operating system and forgets the saved choice for "system"', () => {
+    localStorage.setItem(THEME_STORAGE_KEY, 'light')
+    vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({
+      matches: query.includes('prefers-color-scheme: dark'),
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }))
+    useThemeStore.getState().setPreference('system')
+    expect(useThemeStore.getState().preference).toBe('system')
+    expect(useThemeStore.getState().mode).toBe('dark')
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBeNull()
+  })
+
+  it('turns a toggle into an explicit choice', () => {
+    useThemeStore.getState().toggleTheme()
+    expect(useThemeStore.getState().preference).toBe('dark')
+  })
+
+  it('starts from "system" when nothing is saved and from the saved value otherwise', () => {
+    expect(getInitialPreference()).toBe('system')
+    localStorage.setItem(THEME_STORAGE_KEY, 'dark')
+    expect(getInitialPreference()).toBe('dark')
   })
 })
 

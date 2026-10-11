@@ -1,0 +1,23 @@
+/* The action log reads like a trace: monospace, compact, no background of its own. */
+.root :global(.ant-tree) {
+  background: transparent;
+  font-family: var(--rv-font-mono);
+  font-size: 12px;
+}
+
+.root :global(.ant-tree-switcher),
+.root :global(.ant-tree-indent-unit) {
+  width: 18px;
+}
+
+.root :global(.ant-collapse) {
+  margin-top: 12px;
+}
+
+.root pre {
+  margin: 0;
+  overflow-x: auto;
+  font-family: var(--rv-font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+}

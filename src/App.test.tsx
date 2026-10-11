@@ -49,10 +49,10 @@ describe('App root integration and protected routes', () => {
     render(<App />)
 
     await waitFor(() => {
-      expect(screen.getByText('AI Code Reviewer')).toBeDefined()
+      expect(screen.getByRole('heading', { name: 'Вход в Reviewer' })).toBeDefined()
       expect(screen.getByRole('button', { name: /войти через github/i })).toBeDefined()
       // Repositories page content must NOT be rendered
-      expect(screen.queryByText('Подключенные репозитории')).toBeNull()
+      expect(screen.queryByRole('heading', { name: 'Репозитории' })).toBeNull()
     })
   })
 
@@ -81,7 +81,7 @@ describe('App root integration and protected routes', () => {
     render(<App />)
 
     await waitFor(() => {
-      expect(screen.getByText('AI Code Reviewer')).toBeDefined()
+      expect(screen.getByRole('heading', { name: 'Вход в Reviewer' })).toBeDefined()
       expect(screen.getByRole('button', { name: /войти через github/i })).toBeDefined()
       expect(screen.queryByLabelText('Меню пользователя')).toBeNull()
     })
@@ -152,7 +152,7 @@ describe('App root integration and protected routes', () => {
     render(<App />)
 
     await waitFor(() => {
-      expect(screen.getByText('Подключенные репозитории')).toBeDefined()
+      expect(screen.getByRole('heading', { name: 'Репозитории' })).toBeDefined()
     })
     expect(meCalls).toBe(1)
   })
@@ -230,7 +230,7 @@ describe('App root integration and protected routes', () => {
     render(<App />)
 
     await waitFor(() => {
-      expect(screen.getByText('Подключенные репозитории')).toBeDefined()
+      expect(screen.getByRole('heading', { name: 'Репозитории' })).toBeDefined()
       expect(screen.getByText('larchanka-training/dmc-268-ui-t6')).toBeDefined()
     })
 
@@ -243,7 +243,7 @@ describe('App root integration and protected routes', () => {
       // User is at login screen
       expect(screen.getByRole('button', { name: /войти через github/i })).toBeDefined()
       // Repositories content is unmounted
-      expect(screen.queryByText('Подключенные репозитории')).toBeNull()
+      expect(screen.queryByRole('heading', { name: 'Репозитории' })).toBeNull()
     })
   })
 
@@ -332,7 +332,7 @@ describe('App root integration and protected routes', () => {
 
     // Wait for repositories list to be displayed after transparent refresh recovery
     await waitFor(() => {
-      expect(screen.getByText('Подключенные репозитории')).toBeDefined()
+      expect(screen.getByRole('heading', { name: 'Репозитории' })).toBeDefined()
       expect(screen.getByText('larchanka-training/dmc-268-ui-t6')).toBeDefined()
     })
 
@@ -413,7 +413,7 @@ describe('App root integration and protected routes', () => {
 
     // Wait for repositories page to load
     await waitFor(() => {
-      expect(screen.getByText('Подключенные репозитории')).toBeDefined()
+      expect(screen.getByRole('heading', { name: 'Репозитории' })).toBeDefined()
     })
 
     // Initially menu is expanded, collapse button has aria-label "Свернуть меню"
@@ -431,7 +431,7 @@ describe('App root integration and protected routes', () => {
 
     // Wait for RunsPage to render
     await waitFor(() => {
-      expect(screen.getByText('Прогоны AI Review')).toBeDefined()
+      expect(screen.getByRole('heading', { name: 'Прогоны' })).toBeDefined()
     })
 
     // Verify sidebar remains collapsed
@@ -446,7 +446,7 @@ describe('App root integration and protected routes', () => {
     render(<App />)
 
     await waitFor(() => {
-      expect(screen.getByText('Ошибка авторизации')).toBeDefined()
+      expect(screen.getByText('Не удалось войти')).toBeDefined()
       expect(
         screen.getByText(/Недействительный параметр безопасности state \(защита от CSRF\)/i),
       ).toBeDefined()
@@ -538,7 +538,7 @@ describe('App root integration and protected routes', () => {
     render(<App />)
 
     await waitFor(() => {
-      expect(screen.getByText('Подключенные репозитории')).toBeDefined()
+      expect(screen.getByRole('heading', { name: 'Репозитории' })).toBeDefined()
     })
 
     expect(callbackCallCount).toBe(1)
@@ -605,7 +605,7 @@ describe('App root integration and protected routes', () => {
     render(<App />)
 
     await waitFor(() => {
-      expect(screen.getByText('Подключенные репозитории')).toBeDefined()
+      expect(screen.getByRole('heading', { name: 'Репозитории' })).toBeDefined()
     })
 
     expect(screen.queryByRole('button', { name: /войти через github/i })).toBeNull()
@@ -662,7 +662,7 @@ describe('App root integration and protected routes', () => {
     render(<App router={router} />)
 
     await waitFor(() => {
-      expect(screen.getByText('Прогоны AI Review')).toBeDefined()
+      expect(screen.getByRole('heading', { name: 'Прогоны' })).toBeDefined()
       expect(screen.getByText('Нет прогонов ревью')).toBeDefined()
     })
 
@@ -685,7 +685,7 @@ describe('App root integration and protected routes', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /войти через github/i })).toBeDefined()
-      expect(screen.getByText('AI Code Reviewer')).toBeDefined()
+      expect(screen.getByRole('heading', { name: 'Вход в Reviewer' })).toBeDefined()
     })
     expect(useAuthStore.getState().isInitialized).toBe(true)
   })
@@ -702,7 +702,7 @@ describe('App root integration and protected routes', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /войти через github/i })).toBeDefined()
-      expect(screen.getByText('AI Code Reviewer')).toBeDefined()
+      expect(screen.getByRole('heading', { name: 'Вход в Reviewer' })).toBeDefined()
     })
     expect(useAuthStore.getState().isInitialized).toBe(true)
   })

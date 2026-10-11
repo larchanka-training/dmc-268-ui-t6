@@ -1,0 +1,98 @@
+/*
+ * Layout of a rendered diff in the design system (docs/DESIGN_SYSTEM.md): every file sits in its
+ * own frame with a header, code is monospace 12px, review comments are quiet rows under the line.
+ * Colours come from the `--rv-*` tokens; the diff line colours above stay with antd tokens.
+ */
+.run-diff {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.diff-file {
+  overflow: hidden;
+  border: 1px solid var(--rv-border-strong);
+  border-radius: var(--rv-radius-md);
+  background: var(--rv-bg-raised);
+}
+
+.diff-file-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--rv-border);
+  background: color-mix(in srgb, var(--rv-text-2) 5%, transparent);
+  color: var(--rv-text-2);
+}
+
+.diff-file-head:only-child {
+  border-bottom: 0;
+}
+
+.diff-file-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--rv-font-mono);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diff-theme .diff {
+  font-family: var(--rv-font-mono);
+  font-size: 12px;
+  line-height: 21px;
+}
+
+.diff-theme .diff-widget-content {
+  padding: 6px 10px;
+  border-block: 1px solid var(--rv-border);
+  background: var(--rv-bg);
+  font-family: var(--rv-font-sans);
+}
+
+.diff-outside {
+  margin-top: 12px;
+}
+
+.inline-comment {
+  font-family: var(--rv-font-sans);
+}
+
+.inline-comment-header.ant-btn {
+  gap: 8px;
+  justify-content: flex-start;
+  width: 100%;
+  height: auto;
+  min-height: 30px;
+  padding: 2px 8px;
+  font-weight: 400;
+  white-space: normal;
+  text-align: left;
+}
+
+.inline-comment-body {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  margin: 4px 8px 10px;
+  padding: 12px;
+  border: 1px solid var(--rv-border);
+  border-radius: var(--rv-radius-md);
+  background: var(--rv-bg-raised);
+  font-size: var(--rv-fs-sm);
+  line-height: 1.5;
+}
+
+.inline-comment-body .ant-typography {
+  margin-bottom: 0;
+}
+
+.diff-suggestion {
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--rv-border-strong);
+  border-radius: var(--rv-radius-xs);
+}

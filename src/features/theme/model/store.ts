@@ -1,48 +1,83 @@
 import { create } from 'zustand'
 
 export type ThemeMode = 'light' | 'dark'
+/** What the user picked. `system` follows the operating system and is the default. */
+export type ThemePreference = ThemeMode | 'system'
 
 interface ThemeState {
+  /** The theme in effect, with `system` already resolved. */
   mode: ThemeMode
+  preference: ThemePreference
   toggleTheme: () => void
   setTheme: (mode: ThemeMode) => void
+  setPreference: (preference: ThemePreference) => void
 }
 
 export const THEME_STORAGE_KEY = 'dmc_theme_mode'
 
-export function getInitialTheme(): ThemeMode {
-  if (typeof window === 'undefined') return 'light'
+function systemTheme(): ThemeMode {
+  try {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  } catch {
+    return 'light'
+  }
+}
+
+function savedTheme(): ThemeMode | null {
   try {
     const saved = localStorage.getItem(THEME_STORAGE_KEY)
-    if (saved === 'dark' || saved === 'light') {
-      return saved
-    }
-    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      return 'dark'
+    return saved === 'dark' || saved === 'light' ? saved : null
+  } catch {
+    return null
+  }
+}
+
+function persist(preference: ThemePreference): void {
+  try {
+    if (preference === 'system') {
+      localStorage.removeItem(THEME_STORAGE_KEY)
+    } else {
+      localStorage.setItem(THEME_STORAGE_KEY, preference)
     }
   } catch {
     // ignore
   }
-  return 'light'
+}
+
+export function getInitialTheme(): ThemeMode {
+  if (typeof window === 'undefined') return 'light'
+  return savedTheme() ?? systemTheme()
+}
+
+export function getInitialPreference(): ThemePreference {
+  if (typeof window === 'undefined') return 'system'
+  return savedTheme() ?? 'system'
 }
 
 export const useThemeStore = create<ThemeState>((set, get) => ({
   mode: getInitialTheme(),
+  preference: getInitialPreference(),
   toggleTheme: () => {
-    const next = get().mode === 'light' ? 'dark' : 'light'
-    try {
-      localStorage.setItem(THEME_STORAGE_KEY, next)
-    } catch {
-      // ignore
-    }
-    set({ mode: next })
+    get().setPreference(get().mode === 'light' ? 'dark' : 'light')
   },
   setTheme: (mode: ThemeMode) => {
-    try {
-      localStorage.setItem(THEME_STORAGE_KEY, mode)
-    } catch {
-      // ignore
-    }
-    set({ mode })
+    get().setPreference(mode)
+  },
+  setPreference: (preference: ThemePreference) => {
+    persist(preference)
+    set({ preference, mode: preference === 'system' ? systemTheme() : preference })
   },
 }))
+
+// While the preference is `system`, follow the operating system as it changes.
+if (typeof window !== 'undefined') {
+  try {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      if (useThemeStore.getState().preference === 'system') {
+        useThemeStore.setState({ mode: systemTheme() })
+      }
+    })
+  } catch {
+    // matchMedia is unavailable: the theme simply stays as resolved at start
+  }
+}

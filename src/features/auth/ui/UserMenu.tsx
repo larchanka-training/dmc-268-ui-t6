@@ -1,19 +1,35 @@
-import { LogoutOutlined, UserOutlined } from '@ant-design/icons'
-import { Avatar, Dropdown, Flex, type MenuProps, theme, Typography } from 'antd'
-import { useState, type FC, type KeyboardEvent } from 'react'
+import { LogoutOutlined, UpOutlined, UserOutlined } from '@ant-design/icons'
+import { Avatar, Dropdown, type MenuProps } from 'antd'
+import { useState, type FC } from 'react'
 
 import { useMe } from '../../../entities/user'
 import { useAuthStore } from '../model/store'
 import styles from './UserMenu.module.css'
 
-const { Text } = Typography
+export interface UserMenuProps {
+  /** Items shown between the user block and "Выйти", for example the theme choice. */
+  extraItems?: MenuProps['items']
+  /** Shows only the avatar, for a collapsed sidebar. */
+  compact?: boolean
+}
 
-export const UserMenu: FC = () => {
+export const UserMenu: FC<UserMenuProps> = ({ extraItems, compact = false }) => {
+  const extra = extraItems ?? []
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   const { data: user } = useMe(isAuthenticated)
   const logout = useAuthStore((state) => state.logout)
-  const { token } = theme.useToken()
   const [open, setOpen] = useState(false)
+  const login = user?.login ?? 'Пользователь'
+
+  const avatar = (
+    <Avatar
+      alt={login}
+      className={styles.avatar}
+      icon={!user?.avatarUrl ? <UserOutlined /> : undefined}
+      size={28}
+      src={user?.avatarUrl ?? undefined}
+    />
+  )
 
   const items: MenuProps['items'] = [
     ...(user
@@ -21,20 +37,19 @@ export const UserMenu: FC = () => {
           {
             key: 'user-info',
             disabled: true,
+            className: styles.userInfo,
             label: (
-              <Flex vertical>
-                <Text strong>{user.name ?? user.login}</Text>
-                <Text style={{ fontSize: token.fontSizeSM }} type="secondary">
-                  ID: {user.id}
-                </Text>
-              </Flex>
+              <span className={styles.userText}>
+                <b>{user.name ?? user.login}</b>
+                <small>ID: {user.id}</small>
+              </span>
             ),
           },
-          {
-            type: 'divider' as const,
-          },
+          { type: 'divider' as const },
         ]
       : []),
+    ...extra,
+    ...(extra.length > 0 ? [{ type: 'divider' as const }] : []),
     {
       danger: true,
       icon: <LogoutOutlined />,
@@ -46,42 +61,36 @@ export const UserMenu: FC = () => {
     },
   ]
 
-  const onTriggerKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault()
-      setOpen((value) => !value)
-    }
-  }
-
   return (
     <Dropdown
       menu={{ items }}
       onOpenChange={setOpen}
       open={open}
-      placement="bottomRight"
+      placement="topLeft"
       trigger={['click']}
     >
-      <Flex
-        align="center"
+      <button
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label="Меню пользователя"
         className={styles.trigger}
-        gap="small"
-        onKeyDown={onTriggerKeyDown}
-        role="button"
-        tabIndex={0}
+        data-compact={compact || undefined}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            setOpen((value) => !value)
+          }
+        }}
+        type="button"
       >
-        <Avatar
-          alt={user?.login ?? 'Пользователь'}
-          icon={!user?.avatarUrl ? <UserOutlined /> : undefined}
-          size="small"
-          src={user?.avatarUrl ?? undefined}
-        />
-        <Text className={styles.loginText} ellipsis strong>
-          {user?.login ?? 'Пользователь'}
-        </Text>
-      </Flex>
+        {avatar}
+        {compact ? null : (
+          <>
+            <span className={styles.loginText}>{login}</span>
+            <UpOutlined className={styles.chevron} />
+          </>
+        )}
+      </button>
     </Dropdown>
   )
 }

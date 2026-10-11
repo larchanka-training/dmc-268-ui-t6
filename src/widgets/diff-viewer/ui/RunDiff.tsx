@@ -46,7 +46,7 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
 
   if (summaryOnly) {
     return (
-      <div>
+      <div className="run-diff">
         <Alert
           description="Больше 3 000 строк — показан только список файлов, построчного ревью нет."
           title="Дифф слишком большой"
@@ -70,7 +70,7 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
                 ))}
               </div>
             }
-            style={{ marginTop: 12 }}
+            className="diff-outside"
             title="Замечания вне диффа"
             type="warning"
           />
@@ -80,7 +80,7 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
   }
 
   return (
-    <div>
+    <div className="run-diff">
       {files.map((file) => (
         <div key={file.filename}>
           <DiffViewer
@@ -113,7 +113,7 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
               ))}
             </div>
           }
-          style={{ marginTop: 12 }}
+          className="diff-outside"
           title="Замечания вне диффа"
           type="warning"
         />

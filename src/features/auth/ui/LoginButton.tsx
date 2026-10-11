@@ -10,6 +10,8 @@ import { clearAccessRefreshIntent } from '../lib/returnTo'
 export interface LoginButtonProps {
   showMockButton?: boolean
   size?: 'small' | 'middle' | 'large'
+  /** Stretches the buttons to the width of the container and stacks them, for the sign-in form. */
+  block?: boolean
 }
 
 const showDemoLogin = mocksEnabledAtRuntime(isMockMode)
@@ -17,6 +19,7 @@ const showDemoLogin = mocksEnabledAtRuntime(isMockMode)
 export const LoginButton: FC<LoginButtonProps> = ({
   showMockButton = showDemoLogin,
   size = 'middle',
+  block = false,
 }) => {
   const loginWithGitHub = useAuthStore((state) => state.loginWithGitHub)
   const loginAsMockUser = useAuthStore((state) => state.loginAsMockUser)
@@ -27,6 +30,7 @@ export const LoginButton: FC<LoginButtonProps> = ({
   const githubBtn = (
     <Button
       aria-label="Войти через GitHub"
+      block={block}
       disabled={!isConfigured}
       icon={<GithubOutlined />}
       loading={isLoading}
@@ -42,7 +46,13 @@ export const LoginButton: FC<LoginButtonProps> = ({
   )
 
   return (
-    <Flex align="center" gap="middle" wrap="wrap">
+    <Flex
+      align={block ? 'stretch' : 'center'}
+      gap="middle"
+      style={block ? { width: '100%' } : undefined}
+      vertical={block}
+      wrap={block ? undefined : 'wrap'}
+    >
       {!isConfigured ? (
         <Tooltip title="Вход не настроен (VITE_GITHUB_CLIENT_ID)">
           <span>{githubBtn}</span>
@@ -54,6 +64,7 @@ export const LoginButton: FC<LoginButtonProps> = ({
       {VITE_MOCKS_BUILD && showDemoLogin && showMockButton ? (
         <Button
           aria-label="Войти как демо-пользователь"
+          block={block}
           icon={<UserOutlined />}
           onClick={loginAsMockUser}
           size={size}

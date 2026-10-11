@@ -1,7 +1,7 @@
-:global(.ant-typography).title {
-  margin: 0;
+.pullRequest {
+  display: grid;
 }
 
-.runSelect {
-  min-width: 320px;
+.loading {
+  min-height: 160px;
 }

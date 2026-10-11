@@ -1,4 +1,4 @@
-import { Button, Card, Flex, Layout, Result, Spin, Typography, theme } from 'antd'
+import { Button, Spin } from 'antd'
 import { useEffect, useRef, useState, type FC } from 'react'
 
 import {
@@ -10,8 +10,6 @@ import {
 import { oauthCallbackErrorMessage } from './oauthErrors'
 import styles from './CallbackPage.module.css'
 
-const { Text } = Typography
-
 export interface CallbackPageProps {
   onSuccess?: () => void
   onError?: (err: Error) => void
@@ -19,7 +17,6 @@ export interface CallbackPageProps {
 }
 
 export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError, onBackToLogin }) => {
-  const { token } = theme.useToken()
   const handleCallback = useAuthStore((state) => state.handleCallback)
   const markInitialized = useAuthStore((state) => state.markInitialized)
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
@@ -92,57 +89,42 @@ export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError, onBack
   }, [handleCallback, markInitialized, onSuccess])
 
   return (
-    <Layout
-      className={styles.container}
-      style={{
-        background: token.colorBgLayout,
-      }}
-    >
-      <Card
-        className={styles.card}
-        style={{
-          boxShadow: token.boxShadowSecondary,
-        }}
-      >
+    <main className={styles.container}>
+      <div className={styles.content}>
         {status === 'loading' ? (
-          <Flex align="center" className={styles.loadingContent} gap="middle" vertical>
+          <>
             <Spin size="large" />
-            <Text strong style={{ fontSize: token.fontSizeLG }}>
-              Авторизация через GitHub...
-            </Text>
-            <Text type="secondary">Обмениваем код подтверждения на сессионный токен</Text>
-          </Flex>
+            <h1 className={styles.title}>Авторизация через GitHub...</h1>
+            <p className={styles.text}>Обмениваем код подтверждения на сессионный токен</p>
+          </>
         ) : status === 'error' ? (
-          <Result
-            extra={[
-              <Button
-                key="back"
-                onClick={() => {
-                  if (onBackToLogin) {
-                    onBackToLogin()
-                  } else if (onError) {
-                    onError(new Error(errorMessage ?? 'Auth error'))
-                  } else {
-                    window.location.href = '/login'
-                  }
-                }}
-                type="primary"
-              >
-                Вернуться к экрану входа
-              </Button>,
-            ]}
-            status="error"
-            subTitle={errorMessage}
-            title="Ошибка авторизации"
-          />
+          <>
+            <h1 className={styles.title}>Не удалось войти</h1>
+            <p className={styles.text} role="alert">
+              {errorMessage}
+            </p>
+            <Button
+              className={styles.action}
+              onClick={() => {
+                if (onBackToLogin) {
+                  onBackToLogin()
+                } else if (onError) {
+                  onError(new Error(errorMessage ?? 'Auth error'))
+                } else {
+                  window.location.href = '/login'
+                }
+              }}
+            >
+              Вернуться к экрану входа
+            </Button>
+          </>
         ) : (
-          <Result
-            status="success"
-            subTitle="Перенаправляем в панель управления..."
-            title="Авторизация успешна!"
-          />
+          <>
+            <h1 className={styles.title}>Авторизация успешна!</h1>
+            <p className={styles.text}>Перенаправляем в панель управления...</p>
+          </>
         )}
-      </Card>
-    </Layout>
+      </div>
+    </main>
   )
 }
