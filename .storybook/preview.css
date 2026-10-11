@@ -1,0 +1,4 @@
+/* The canvas around a story takes the page colour of the current theme instead of white. */
+body {
+  background: var(--rv-bg);
+}

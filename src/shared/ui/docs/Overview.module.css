@@ -1,0 +1,142 @@
+.page {
+  display: grid;
+  gap: 48px;
+  max-width: 1080px;
+  margin-inline: auto;
+  padding: 48px 24px 80px;
+}
+
+.hero {
+  display: grid;
+  gap: 12px;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--rv-link);
+  font-family: var(--rv-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  font-size: 44px;
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.lead {
+  max-width: 44rem;
+  margin: 0;
+  color: var(--rv-text-2);
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.section {
+  display: grid;
+  gap: 16px;
+}
+
+.heading {
+  margin: 0;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--rv-border);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.label {
+  margin: 0;
+  color: var(--rv-text-2);
+  font-size: var(--rv-fs-xs);
+  font-weight: 500;
+}
+
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.swatch {
+  display: grid;
+  gap: 2px;
+  font-size: var(--rv-fs-xs);
+}
+
+.chip {
+  height: 56px;
+  margin-bottom: 6px;
+  border: 1px solid var(--rv-border-strong);
+  border-radius: var(--rv-radius-md);
+}
+
+.swatch code {
+  color: var(--rv-text-2);
+  font-family: var(--rv-font-mono);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.type {
+  display: grid;
+  gap: 14px;
+}
+
+.typeRow {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+}
+
+.typeMeta {
+  color: var(--rv-text-3);
+  font-family: var(--rv-font-mono);
+  font-size: 11px;
+}
+
+.mono {
+  color: var(--rv-link);
+  font-family: var(--rv-font-mono);
+  font-size: var(--rv-fs-sm);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.group {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.stack {
+  display: grid;
+  gap: 12px;
+}
+
+@media (width <= 760px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .title {
+    font-size: 32px;
+  }
+}

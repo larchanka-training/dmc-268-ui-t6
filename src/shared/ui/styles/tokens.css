@@ -1,0 +1,71 @@
+/* Reviewer design tokens (Flat Console) as CSS custom properties. They mirror
+   `theme/palette.ts`, which feeds the Ant Design theme; this file serves our own components and
+   plain CSS. Custom properties only: nothing here styles a tag. Dark is the default,
+   `data-rv-theme="light"` on the root element switches the palette. */
+:root {
+  --rv-bg: #090d18;
+  --rv-bg-raised: #0c1121;
+  --rv-surface: #0f1526;
+  --rv-surface-2: #141b2f;
+  --rv-surface-3: #1a2238;
+  --rv-border: rgb(148 163 184 / 12%);
+  --rv-border-strong: rgb(148 163 184 / 20%);
+  --rv-text: #f8fafc;
+  --rv-text-2: #94a3b8;
+  --rv-text-3: #6b7a90;
+  --rv-accent: #2563eb;
+  --rv-accent-hover: #3b74f0;
+  --rv-accent-fg: #fff;
+  --rv-link: #60a5fa;
+  --rv-success: #4ade80;
+  --rv-warning: #fbbf24;
+  --rv-high: #fb923c;
+  --rv-critical: #f97316;
+  --rv-danger: #f87171;
+  --rv-hover: rgb(148 163 184 / 6%);
+  --rv-selected: rgb(248 250 252 / 8%);
+  --rv-overlay: rgb(0 0 0 / 55%);
+  --rv-pop-bg: #141b2f;
+  --rv-pop-shadow: 0 8px 24px -12px rgb(0 0 0 / 60%), 0 0 0 1px rgb(148 163 184 / 20%);
+  --rv-tint: 14%;
+  --rv-font-sans:
+    'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --rv-font-mono:
+    'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SFMono-Regular', menlo, monospace;
+  --rv-fs: 13px;
+  --rv-fs-sm: 12.5px;
+  --rv-fs-xs: 12px;
+  --rv-radius-xs: 4px;
+  --rv-radius-ctl: 6px;
+  --rv-radius-md: 8px;
+  --rv-radius-lg: 10px;
+  --rv-ctl-sm: 26px;
+  --rv-ctl-md: 32px;
+  --rv-ctl-lg: 40px;
+  --rv-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:root[data-rv-theme='light'] {
+  --rv-bg: #fff;
+  --rv-bg-raised: #fff;
+  --rv-surface: #fff;
+  --rv-surface-2: #f5f7fa;
+  --rv-surface-3: #e4e9f2;
+  --rv-border: rgb(15 23 42 / 9%);
+  --rv-border-strong: rgb(15 23 42 / 16%);
+  --rv-text: #0b1220;
+  --rv-text-2: #475569;
+  --rv-text-3: #64748b;
+  --rv-link: #1d4ed8;
+  --rv-success: #15803d;
+  --rv-warning: #a16207;
+  --rv-high: #c2410c;
+  --rv-critical: #b91c1c;
+  --rv-danger: #dc2626;
+  --rv-hover: rgb(15 23 42 / 4%);
+  --rv-selected: rgb(15 23 42 / 6%);
+  --rv-overlay: rgb(15 23 42 / 35%);
+  --rv-pop-bg: #fff;
+  --rv-pop-shadow: 0 8px 24px -12px rgb(15 23 42 / 20%), 0 0 0 1px rgb(15 23 42 / 16%);
+  --rv-tint: 11%;
+}

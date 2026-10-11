@@ -6,7 +6,7 @@ import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules', 'coverage', 'landing/dist'] },
+  { ignores: ['dist', 'node_modules', 'coverage', 'landing/dist', 'storybook-static'] },
 
   // Исходники приложения: полный type-aware набор.
   {
@@ -98,6 +98,13 @@ export default tseslint.config(
         },
       ],
     },
+  },
+
+  // Stories export a meta object and story objects next to components, which is what Storybook
+  // expects and what `only-export-components` forbids; they are never part of the app bundle.
+  {
+    files: ['**/*.stories.tsx', '.storybook/**/*.{ts,tsx}'],
+    rules: { 'react-refresh/only-export-components': 'off' },
   },
 
   // Конфиги на JS не входят ни в один TS-проект, поэтому type-aware правила

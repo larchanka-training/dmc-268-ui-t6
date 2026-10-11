@@ -1,0 +1,4 @@
+.nowrap :global(.ant-table-thead > tr > th),
+.nowrap :global(.ant-table-tbody > tr > td) {
+  white-space: nowrap;
+}
