@@ -40,6 +40,21 @@ describe('mockRunReview verdict variants', () => {
     expect(RunDetailSchema.safeParse(cleanDetail).success).toBe(true)
     expect(cleanDetail.verdict).toBe('clean')
   })
+
+  it('creates the variant runs one minute before they started', () => {
+    expect(mockVerdictVariantRuns.map((run) => run.createdAt)).toEqual([
+      '2026-09-18T11:49:00.000Z',
+      '2026-09-18T11:49:00.000Z',
+    ])
+    expect(mockVerdictVariantRuns.map((run) => run.trigger)).toEqual(['webhook', 'webhook'])
+  })
+
+  it('never starts a listed mock run before it was created', () => {
+    const inverted = mockRunsListPage.items.filter(
+      (run) => run.startedAt !== null && Date.parse(run.createdAt) > Date.parse(run.startedAt),
+    )
+    expect(inverted).toEqual([])
+  })
 })
 
 describe('buildMockRunDetail', () => {
