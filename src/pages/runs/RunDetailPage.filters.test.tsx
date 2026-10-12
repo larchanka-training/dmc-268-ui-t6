@@ -24,6 +24,7 @@ import { setAccessToken, setMockTransport } from '../../shared/api/client'
 import { useAuthStore } from '../../features/auth'
 import { useDiffViewerStore } from '../../widgets/diff-viewer'
 import { useRunInspectorStore } from '../../widgets/run-inspector'
+import { stubResponsiveSelectLayout } from '../../test/responsiveSelectLayout'
 import { RunDetailPage } from './RunDetailPage'
 
 // Demo run (hand-counted from the mocks): 8 findings + 3 published comments, all on files with a
@@ -62,14 +63,17 @@ function cardTitles(): string[] {
 }
 
 function searchInput(): HTMLInputElement {
-  return screen.getByPlaceholderText('Поиск по замечаниям')
+  return screen.getByRole('textbox', { name: 'Поиск по замечаниям' })
 }
 
+/** The chips of a select, without the hidden «+ N ...» chip of `maxTagCount="responsive"`. */
 function selectedTags(name: string): string[] {
   const selector = screen.getByRole('combobox', { name }).closest('.ant-select')
-  return [...(selector?.querySelectorAll('.ant-select-selection-item') ?? [])].map(
-    (tag) => tag.textContent,
-  )
+  return [
+    ...(selector?.querySelectorAll(
+      '.ant-select-content-item:not(.ant-select-content-item-rest) .ant-select-selection-item',
+    ) ?? []),
+  ].map((tag) => tag.textContent)
 }
 
 function pick(name: string, optionText: string): void {
@@ -101,11 +105,13 @@ describe('RunDetailPage filters in the URL', () => {
     })
     useDiffViewerStore.setState({ viewType: 'unified', selectedFile: null })
     useRunInspectorStore.setState({ expandedKeys: [], selectedActionIndex: null })
+    stubResponsiveSelectLayout()
   })
 
   afterEach(() => {
     cleanup()
     vi.restoreAllMocks()
+    vi.unstubAllGlobals()
     setAccessToken(null)
     setMockTransport(null)
   })
@@ -142,7 +148,7 @@ describe('RunDetailPage filters in the URL', () => {
     await screen.findByText('Retry without backoff')
     expect(screen.getByText(counter(1, TOTAL))).toBeTruthy()
     expect(cardTitles()).toEqual(['Retry without backoff'])
-    expect(selectedTags('Файлы')).toEqual(['src/utils/retry.ts'])
+    expect(selectedTags('Файлы')).toEqual(['retry.ts'])
     expect(screen.queryByText('Docs tone')).toBeNull()
   })
 
