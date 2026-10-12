@@ -333,6 +333,7 @@ src/widgets/run-inspector/ui/RunHeader.test.tsx
 src/widgets/run-inspector/ui/RunHeader.tsx
 src/widgets/run-inspector/ui/RunInspector.test.tsx
 src/widgets/run-inspector/ui/RunInspector.tsx
+src/widgets/run-inspector/ui/RunProgressBar.module.css
 src/widgets/run-inspector/ui/RunProgressBar.test.tsx
 src/widgets/run-inspector/ui/RunProgressBar.tsx
 ```
@@ -1059,14 +1060,19 @@ React, без `innerHTML`.
 
 ### Прогресс-бар (Refs ui#84)
 
-Над журналом действий — три этапа: «Сбор контекста» (`context`), «Анализ LLM» (`analysis`),
-«Публикация» (`publishing`). Модель — чистая функция `runProgress(run, actions)`
-(`src/entities/run/lib/runProgress.ts`, экспорт через `entities/run`): `Pick<RunSession, 'status' |
-'errorCode'>` и `RunAction[]` → `RunProgress | null`; для `skipped` — `null`, бара нет. Этап —
-`{ key, label, state, errorCode }`, `state` — `wait`, `process`, `finish`, `error` или `stopped`;
-`errorCode` (из `run.errorCode`) есть только у этапа `error`/`stopped`. Отрисовка — `RunProgressBar`
-(`src/widgets/run-inspector/ui/RunProgressBar.tsx`, antd `Steps`, `size="small"`): `RunInspector` ставит
-его сразу под `RunHeader`, перед `headerExtra`; `Tag` статуса и строка «Ошибка» в шапке остаются.
+Под карточкой прогона, во всю ширину над журналом действий и диффом, — три этапа: «Сбор контекста»
+(`context`), «Анализ LLM» (`analysis`), «Публикация» (`publishing`). Модель — чистая функция
+`runProgress(run, actions)` (`src/entities/run/lib/runProgress.ts`, экспорт через `entities/run`):
+`Pick<RunSession, 'status' | 'errorCode'>` и `RunAction[]` → `RunProgress | null`; для `skipped` — `null`,
+бара нет. Этап — `{ key, label, state, errorCode }`, `state` — `wait`, `process`, `finish`, `error` или
+`stopped`; `errorCode` (из `run.errorCode`) есть только у этапа `error`/`stopped`. Отрисовка —
+`RunProgressBar` (`src/widgets/run-inspector/ui/RunProgressBar.tsx`) на antd `Steps` с `size="small"`;
+`Steps` принят в дизайн-систему по [DESIGN_SYSTEM §9](DESIGN_SYSTEM.md) (строка в §10, история
+«Ant Design/Steps»). `RunInspector` ставит бар отдельной строкой своей сетки `.root`
+(`RunInspector.module.css`): сразу после `Card` с `RunHeader` и перед `headerExtra` (место для блока во
+всю ширину; `RunDetailPage` его сейчас не передаёт), то есть над колонками журнала и диффа. Отступ сверху
+и снизу — `gap: 18px` этой сетки, своего отступа у бара нет. `Tag` статуса и строка «Ошибка» в шапке
+остаются.
 
 Карта «инструмент → этап» (поле `tool` журнала `/actions`; `RunActionSchema.tool` остаётся `z.string()`):
 
@@ -1110,9 +1116,11 @@ React, без `innerHTML`.
 `running → queued → running`, действия прежних попыток остаются в списке.
 
 Вид. `error` — antd-статус `error` с `errorCode` в описании. `stopped` — не красный: статус `wait`, иконка
-`StopOutlined` цвета токена `colorWarning`, описание «Остановлено» (с `: <errorCode>`, если код есть).
-Состояние этапа в DOM — `data-stage-state` и `data-testid="run-progress-<key>"` на заголовке этапа;
-обёртка бара — `data-testid="run-progress"`. Цветовых литералов нет (Ф-13, §3).
+`StopOutlined` с классом `stopIcon` из `RunProgressBar.module.css` (`color: var(--rv-warning)`), описание
+«Остановлено» (с `: <errorCode>`, если код есть). Состояние этапа в DOM — `data-stage-state` и
+`data-testid="run-progress-<key>"` на заголовке этапа; обёртка бара — `data-testid="run-progress"`. Бар
+не задаёт цветов сам: ни `theme.useToken()`, ни инлайн-`style`; кроме класса иконки остановки, все цвета
+приходят из темы (Ф-13, Ф-20).
 
 Активный шаг. antd помечает активным шаг `current`, поэтому без правки у `queued` первый этап выглядел бы
 идущим, а у `succeeded` последний отличался бы от остальных готовых. Активен только этап в работе
@@ -1120,22 +1128,32 @@ React, без `innerHTML`.
 `finish` (`succeeded`), активного шага нет — `current` указывает за последний этап (`.ant-steps-item-active`
 не появляется).
 
-Цвет текста. Описание этапа `error` (`errorCode`) и заголовок вместе с описанием этапа `stopped` берут токен
-`colorText`, а не красный `error` antd (#ff4d4f на белом — 3,27) и не серый `wait` (3,35): контраст ниже
-нормы. Состояние по-прежнему отмечают иконка (крестик, `StopOutlined`) и класс статуса. Заголовки остальных
-этапов — `wait`, `finish` и заголовок `error` — остаются на цвете antd по умолчанию (вторичный текст — общий
-приём приложения); тест держит это как есть.
+Цвета — тона тегов статуса прогона, без акцента `--rv-accent` (DESIGN_SYSTEM §3). Их задаёт тема:
+`components.Steps` в `src/shared/ui/theme/buildTheme.ts` — `colorPrimary` и `colorPrimaryHover` равны
+`--rv-link` (этап в работе, тон info), `colorTextLightSolid` — `--rv-bg` (цифра и крестик на заливке
+текущего этапа), `colorTextDisabled` — `--rv-text-3`, `colorFillTertiary: 'transparent'` (ждущий этап без
+заливки), `customIconFontSize: 22` (иконка остановки размером с кружок `small`, 22px, а не 26px). Что
+токенами не выражается, лежит в `src/shared/ui/styles/antd.css`: линия между этапами `--rv-border-strong`,
+перед готовым этапом `--rv-success`; готовый этап зелёный (`--rv-success` на своём оттенке `--rv-tint`);
+у ждущего этапа рамка `--rv-border-strong`. Итог: `finish` зелёный, `process` цвета ссылки, `error`
+`--rv-danger`, `wait` и `stopped` нейтральные: заголовок `--rv-text-2` (у `wait` и цифра), у `stopped` —
+жёлтая иконка остановки. Заголовки 13px/400; заголовок и описание `error` — `--rv-danger`, описание
+активного `stopped` — `--rv-text`. Контраст всех заголовков и описаний не ниже 4.5:1 в обеих темах (держит
+`theme/buildTheme.test.ts`), поэтому прежняя подмена цвета текста на `colorText` в баре снята.
 
 Журнал недоступен. Бар не гадает по пустому списку: если запрос `/actions` упал и данных нет,
 `RunDetailPage` передаёт `actionsUnavailable`, и бар не рисуется для статусов, которые читают журнал, —
 `running`, `failed`, `cancelled` (их называет `runProgressReadsLog`, рядом с `runProgress`). `queued`,
 `publishing` и `succeeded` журнал не читают, для них бар остаётся. Данные последнего удачного запроса при сбое очередного опроса
-журналом считаются: бар остаётся. Спиннер вместо инспектора показывается только при первой загрузке
-журнала (`isLoading` и `errorUpdateCount === 0`): запрос, который ни разу не удался, снова `pending` на
-каждом опросе (TanStack сбрасывает `status` и `error`, пока данных нет), и иначе карточка мигала бы между
-спиннером и инспектором, а `RunControls` перемонтировался. По той же причине `actionsUnavailable` считается
-как `errorUpdateCount > 0` без данных, а не по `isError`: во время опроса `isError` ложен, и бар
-показал бы догадку по пустому списку.
+журналом считаются: бар остаётся. Инспектор смонтирован всегда: пока журнал грузится, `RunDetailPage`
+передаёт `actionsLoading`, и `Spin` заменяет только дерево действий в колонке «Сессия ревью»; бар в это
+время получает `actionsUnavailable || actionsLoading` и для тех же статусов не рисуется, иначе на первой
+загрузке он гадал бы по пустому списку (`running` — контекст в работе, `failed`/`cancelled` — остановка на
+контексте). `actionsLoading` — `isLoading && errorUpdateCount === 0`, только первая загрузка: запрос,
+который ни разу не удался, снова `pending` на каждом опросе (TanStack сбрасывает `status` и `error`, пока
+данных нет), и без этой оговорки колонка мигала бы спиннером каждые 3 с; при недоступном журнале в ней
+остаётся пустое дерево. По той же причине `actionsUnavailable` считается как `errorUpdateCount > 0` без
+данных, а не по `isError`: во время опроса `isError` ложен, и бар показал бы догадку по пустому списку.
 
 Число действий в шапке. «Действий» в `RunHeader` — `Math.max(run.actionCount, длина журнала)`: число из
 деталей отстаёт от опрашиваемого журнала (деталь обновляется по `run.updated`, журнал — раз в 3 с).
@@ -1226,7 +1244,8 @@ React, без `innerHTML`.
   `vcs.fetch_diff`, `llm.call`, `llm.repo_conventions`, `context.build`, `llm.call`, `llm.call`; `publishing`
   с 11 с (в этот момент появляются сразу `llm.review_output` и `review.postprocess`); `github.publish_review`
   в 12,5 с; `succeeded` с 14 с. `finishedAt` задан только у терминального, `actionCount = actions.length`,
-  `attempt: 1`. Метки времени отсчитываются от реального старта, поэтому «зависшим» (§7) прогон не выглядит.
+  `attempt: 1`, `trigger: 'webhook'`, `createdAt` — начало шкалы (раньше `startedAt` на 2 с очереди).
+  Метки времени отсчитываются от реального старта, поэтому «зависшим» (§7) прогон не выглядит.
 - **Часы** стартуют на первом запросе деталей или `/actions` этого прогона (`startWalkingRun`; повторный
   старт игнорируется). Запрос списка, диффа или комментариев часы не запускает: в списке прогон остаётся
   `queued`, пока его не откроют. Список отдаёт текущий статус прогона. `initMockTransport()` часы сбрасывает
@@ -1236,7 +1255,8 @@ React, без `innerHTML`.
   затем 3 демо-комментария: до публикации инлайн-комментариев быть не должно.
 - **Упавший прогон** `11111111-1111-4111-8111-000000000012` (PR #42), статичный: `failed`,
   `errorCode: 'llm_timeout'`, действия `vcs.fetch_diff`, `llm.repo_conventions`, `context.build` и `llm.call`
-  с `response.error`; бар — `finish` / `error` / `wait`. Комментариев нет.
+  с `response.error`; бар — `finish` / `error` / `wait`. `trigger: 'webhook'`, `createdAt` за минуту до
+  `startedAt`, как у остальных мок-прогонов (#96). Комментариев нет.
 - **`startMockRunEvents()`** (`mockTransport.ts`) стоит вместо SSE-потока, который на моках не открывается:
   интервал 500 мс (`MOCK_RUN_EVENTS_INTERVAL_MS`) и на каждую смену статуса идущего прогона вызов
   `applyRunUpdated({ runId, status })` из `runStreamConnect.ts`. Первое событие — начальный `queued`, затем
