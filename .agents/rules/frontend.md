@@ -88,12 +88,16 @@ for a new component are in `docs/DESIGN_SYSTEM.md`; the showcase is `pnpm storyb
 
 ## 3b. Before you open a UI pull request
 
-Run this list in a real browser, in both themes. The gates do not catch any of it.
+Run this list in a real browser, in both themes. The gates do not catch any of it. The expected
+values are in `docs/DESIGN_SYSTEM.md` §3, §5 and §7: this list says what to check, not what the
+numbers are.
 
 1. **Keyboard.** Every action is available without a mouse. A clickable row or card is not
    enough: put a link or a button inside it.
-2. **Focus is visible.** Every focused element shows a ring: 2px, the colour of `--rv-link`.
-   Check it after arrow keys too, not only after Tab, and on a field in the error state.
+2. **Focus is visible.** Every focused element shows the focus of `docs/DESIGN_SYSTEM.md` §7:
+   a 2px `--rv-link` ring on buttons and links; on fields a `--rv-link` border and halo, or only
+   the halo while the field is in the error state. Check it after arrow keys too, not only after
+   Tab, and on a field in the error state.
 3. **Focus survives the action.** When the focused element disappears (a menu or a modal
    closes, a panel folds, a row is deleted), move the focus to the element the user would
    expect: the button that opened the menu, the button that undoes the fold. It must not fall
@@ -102,11 +106,13 @@ Run this list in a real browser, in both themes. The gates do not catch any of i
 4. **Nothing fires twice.** A key press that closes a menu must not reopen it; a click on a
    link inside a clickable row is one navigation.
 5. **Names.** Every control has an accessible name. An icon-only button has `aria-label`. Text
-   hidden from the eye is hidden with a clip, never with `display: none`.
+   hidden from the eye but meant for a screen reader is clipped (`clip-path: inset(50%)`, as in
+   `NavMenu.module.css`), never removed with `display: none`.
 6. **Contrast.** Text is at least 4.5:1 against its background in both themes, including hover,
-   pressed, disabled, empty and error states. Measure the computed colours, do not judge by eye.
-7. **Sizes.** Controls in one row have one height: 26, 32 or 40px. Measure with
-   `getBoundingClientRect()`.
+   pressed, empty and error states; disabled controls are exempt (WCAG 1.4.3). Measure the
+   computed colours, do not judge by eye.
+7. **Sizes.** Controls in one row have one height, one of the control heights of
+   `docs/DESIGN_SYSTEM.md` §5. Measure with `getBoundingClientRect()`.
 8. **Narrow screen.** At 390px the page has no horizontal scroll:
    `document.documentElement.scrollWidth` equals the viewport width.
 9. **Reduced motion.** With `prefers-reduced-motion: reduce` nothing essential depends on an
@@ -117,8 +123,9 @@ Tests for UI code, on top of §5:
 
 - A test must fail when the behaviour in its title breaks. Before you commit, break the code on
   purpose (remove the line under test) and see the test go red.
-- jsdom does not apply CSS Modules and does not turn Enter into a click: what depends on either
-  is checked in the browser, and the PR body says so.
+- jsdom computes no styles (CSS Module classes are present, their rules are not applied) and
+  does not turn Enter into a click: what depends on either is checked in the browser, and the PR
+  body says so.
 - A wrapper component has a test that its own CSS-module class stays next to a class of the
   caller.
 
