@@ -62,11 +62,12 @@ export const AppSidebar: FC<AppSidebarProps> = ({ currentPath = HOME_PATH, onNav
 
   const goHome = (event: MouseEvent): void => {
     // A click with a modifier belongs to the browser: it opens the link in a new tab.
-    if (event.metaKey || event.ctrlKey || event.shiftKey) {
+    // So does any click when nobody handles navigation: the link then simply works.
+    if (onNavigate === undefined || event.metaKey || event.ctrlKey || event.shiftKey) {
       return
     }
     event.preventDefault()
-    onNavigate?.(HOME_PATH)
+    onNavigate(HOME_PATH)
   }
 
   // The three themes are one radio group: assistive tech hears which one is chosen. The `role`
