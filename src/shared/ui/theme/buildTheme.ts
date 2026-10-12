@@ -286,22 +286,19 @@ export function buildTheme(mode: RvThemeMode, options: BuildThemeOptions = {}): 
       Alert: { withDescriptionPadding: '12px 14px', withDescriptionIconSize: 18 },
       Checkbox: { colorPrimary: p.accent, colorPrimaryHover: p.accentHover },
       Radio: { colorPrimary: p.accent, colorPrimaryHover: p.accentHover },
-      // Stages take the tones of the status tags: the stage in progress is in the link colour of
-      // the info tone, never in the accent of the primary action. A finished stage turns green
-      // and a waiting one gets its grey border in `styles/antd.css`: no token reaches them.
+      // Steps draws its marks through `ProgressSteps`. Ant Design still colours the box around a
+      // custom mark and the hover of a title with the primary colour: the link colour here, never
+      // the accent. The custom-icon tokens name the 20px ring of the mark; Ant Design 6.6.5 reads
+      // `customIconFontSize` (the font size of that box) but not `customIconSize` or
+      // `customIconTop`. The box takes its size from `iconSizeSM`, which stays unset here because
+      // it would resize every small `Steps`: `ProgressSteps.module.css` sizes the box for its own
+      // marks. The rail is coloured in `styles/antd.css`.
       Steps: {
         colorPrimary: p.link,
         colorPrimaryHover: p.link,
-        // The number or the cross on the filled circle of the current stage: dark on the light
-        // link and danger fills of the dark theme, white on the darker ones of the light theme.
-        colorTextLightSolid: p.bg,
-        // A custom icon in a waiting stage that the screen does not colour stays readable.
-        colorTextDisabled: p.text3,
-        // A waiting stage is an outlined circle, not a filled one.
-        colorFillTertiary: 'transparent',
-        // As large as the small circle (`fontSizeHeading3`, 22px): by default a custom icon,
-        // such as a stop sign, is 26px and sticks out of the row of numbered circles.
-        customIconFontSize: 22,
+        customIconSize: 20,
+        customIconFontSize: 20,
+        customIconTop: 0,
       },
     },
   }

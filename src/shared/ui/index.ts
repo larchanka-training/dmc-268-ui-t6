@@ -14,6 +14,12 @@ export { NavMenu } from './NavMenu/NavMenu'
 export type { NavMenuItem, NavMenuProps } from './NavMenu/NavMenu'
 export { PageHeader } from './PageHeader/PageHeader'
 export type { PageHeaderProps } from './PageHeader/PageHeader'
+export { ProgressSteps } from './ProgressSteps/ProgressSteps'
+export type {
+  ProgressStep,
+  ProgressStepState,
+  ProgressStepsProps,
+} from './ProgressSteps/ProgressSteps'
 export { RowButton } from './RowButton/RowButton'
 export type { RowButtonProps } from './RowButton/RowButton'
 export { Spinner } from './Spinner/Spinner'

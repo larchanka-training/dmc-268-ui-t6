@@ -4,15 +4,6 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import type { RunAction, RunStatus } from '../../../entities/run'
 import { RunProgressBar } from './RunProgressBar'
-import styles from './RunProgressBar.module.css'
-
-// No @types/node here and Vitest zeroes `.css?raw`: load `fs` untyped to read the real stylesheet.
-// Under jsdom `import.meta.url` is not a file URL, so the path is relative to the project root,
-// where Vitest runs.
-const FS_MODULE = 'node:fs'
-const { readFileSync } = (await import(/* @vite-ignore */ FS_MODULE)) as {
-  readFileSync: (path: string, encoding: 'utf8') => string
-}
 
 const RUN_ID = '11111111-1111-4111-8111-000000000004'
 const FAILURE = { error: { type: 'LLMTimeout', message: 'the model call timed out' } }
@@ -67,6 +58,15 @@ function stageItem(key: 'context' | 'analysis' | 'publishing'): HTMLElement {
   return item
 }
 
+/** The ring mark `ProgressSteps` draws for the stage. */
+function mark(key: 'context' | 'analysis' | 'publishing'): HTMLElement {
+  const found = stageItem(key).querySelector('.ant-steps-item-icon [data-state]')
+  if (!(found instanceof HTMLElement)) {
+    throw new Error(`mark of ${key} not found`)
+  }
+  return found
+}
+
 afterEach(() => {
   cleanup()
 })
@@ -95,6 +95,13 @@ describe('RunProgressBar', () => {
   ])('%s', (_label, status, steps, expected) => {
     renderBar(status, build(...steps))
     expect(stages().map((stage) => stage.state)).toEqual(expected)
+  })
+
+  it('is a group named «Этапы прогона» for assistive technology', () => {
+    renderBar('queued')
+    expect(screen.getByRole('group', { name: 'Этапы прогона' })).toBe(
+      screen.getByTestId('run-progress'),
+    )
   })
 
   it('maps the progress states to the antd step statuses', () => {
@@ -177,9 +184,9 @@ describe('RunProgressBar', () => {
     })
   })
 
-  // Colours come from the theme (DESIGN_SYSTEM §1): the bar writes none inline, and the stop icon
-  // takes the warning colour from a class of its own module.
-  describe('colours', () => {
+  // Colours and marks come from the design system (DESIGN_SYSTEM §1): the bar draws every stage
+  // with `ProgressSteps` and writes no colour of its own.
+  describe('colours and marks', () => {
     const failedActions = build('vcs.fetch_diff', 'llm.repo_conventions', 'context.build', [
       'llm.call',
       FAILURE,
@@ -194,23 +201,25 @@ describe('RunProgressBar', () => {
       expect(container.querySelector('[style*="color"]')).toBeNull()
     })
 
-    it('writes no colour inline on the title, the note or the icon of a stopped stage', () => {
+    it('writes no colour inline on the title, the note or the mark of a stopped stage', () => {
       const { container } = renderBar('cancelled', [], 'cancelled_by_user')
       expect(screen.getByTestId('run-progress-context').style.color).toBe('')
       expect(screen.getByText('Остановлено: cancelled_by_user').style.color).toBe('')
-      expect(within(stageItem('context')).getByRole('img', { name: 'stop' }).style.color).toBe('')
+      expect(mark('context').style.color).toBe('')
       expect(container.querySelector('[style*="color"]')).toBeNull()
     })
 
-    it('tints the stop icon with the warning colour of its module class, not the error one', () => {
-      renderBar('cancelled', [], null)
-      const icon = within(stageItem('context')).getByRole('img', { name: 'stop' })
-      expect(styles.stopIcon).toBeTruthy()
-      expect(icon.classList.contains(styles.stopIcon ?? '')).toBe(true)
-      const css = readFileSync('src/widgets/run-inspector/ui/RunProgressBar.module.css', 'utf8')
-      const rule = /\.stopIcon\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
-      expect(rule).toContain('color: var(--rv-warning);')
-      expect(rule).not.toContain('--rv-danger')
+    it('draws every stage with the ring mark of its state and no icon of its own', () => {
+      const failed = renderBar('failed', failedActions, 'llm_timeout')
+      expect(
+        (['context', 'analysis', 'publishing'] as const).map((key) => mark(key).dataset.state),
+      ).toEqual(['finish', 'error', 'wait'])
+      failed.unmount()
+      const { container } = renderBar('cancelled', [], null)
+      expect(
+        (['context', 'analysis', 'publishing'] as const).map((key) => mark(key).dataset.state),
+      ).toEqual(['stopped', 'wait', 'wait'])
+      expect(container.querySelector('.anticon')).toBeNull()
     })
 
     it('leaves the spacing around the bar to the layout it sits in', () => {
@@ -218,12 +227,13 @@ describe('RunProgressBar', () => {
       expect(screen.getByTestId('run-progress').getAttribute('style')).toBeNull()
     })
 
-    it('keeps the stop icon and the error class that mark the state', () => {
+    it('keeps the error class of a failed stage and the stopped mark of a cancelled one', () => {
       const failed = renderBar('failed', failedActions, 'llm_timeout')
       expect(stageItem('analysis').className).toContain('ant-steps-item-error')
       failed.unmount()
       renderBar('cancelled', [], null)
-      expect(within(stageItem('context')).getByRole('img', { name: 'stop' })).toBeTruthy()
+      expect(mark('context').dataset.state).toBe('stopped')
+      expect(stageItem('context').className).not.toContain('ant-steps-item-error')
     })
   })
 
@@ -300,12 +310,13 @@ describe('RunProgressBar', () => {
       expect(within(stageItem('context')).getByText('Остановлено')).toBeTruthy()
     })
 
-    it('uses a stop icon for stopped and none for an error', () => {
+    it('marks a stopped stage with the stopped mark and a failed one with the error mark', () => {
       const stopped = renderBar('cancelled', publishing, null)
-      expect(within(stageItem('publishing')).getByRole('img', { name: 'stop' })).toBeTruthy()
+      expect(mark('publishing').dataset.state).toBe('stopped')
       stopped.unmount()
       renderBar('failed', publishing, 'publish_failed')
-      expect(screen.queryByRole('img', { name: 'stop' })).toBeNull()
+      expect(mark('publishing').dataset.state).toBe('error')
+      expect(document.querySelector('.ant-steps-item-icon [data-state="stopped"]')).toBeNull()
     })
   })
 
