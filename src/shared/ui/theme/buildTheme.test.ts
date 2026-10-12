@@ -244,6 +244,22 @@ describe('danger colours', () => {
     expect(buildTheme('dark').components?.Table?.rowSelectedBg).toBe('rgba(248, 250, 252, 0.08)')
     expect(buildTheme('light').components?.Table?.rowSelectedBg).toBe('rgba(15, 23, 42, 0.06)')
   })
+
+  // Ant Design colours the check mark of a selected option with the accent and has no token for
+  // it, so the rule is read from the stylesheet. Its selector must outweigh the library's
+  // `.ant-select-dropdown .ant-select-item-option-selected:not(…) .ant-select-item-option-state`.
+  it('keeps a multiple Select neutral: chips on the selected surface, a plain check mark', () => {
+    expect(buildTheme('dark').components?.Select?.multipleItemBg).toBe('#1a2238')
+    expect(buildTheme('light').components?.Select?.multipleItemBg).toBe('#e4e9f2')
+    const antdCss = readFileSync(new URL('../styles/antd.css', import.meta.url), 'utf8').replace(
+      /\/\*[\s\S]*?\*\//g,
+      '',
+    )
+    const rule = /([^{}]*\.ant-select-item-option-state)\s*\{([^}]*)\}/.exec(antdCss)
+    expect(rule?.[2]).toContain('color: var(--rv-text);')
+    expect(rule?.[1]).toContain('.ant-select-item-option-selected')
+    expect(rule?.[1]?.match(/\.ant-[a-z-]+/g)?.length ?? 0).toBeGreaterThan(4)
+  })
 })
 
 // `tokens.css` repeats the palette for plain CSS. The two copies are written by hand, so this

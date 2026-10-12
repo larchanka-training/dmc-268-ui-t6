@@ -225,6 +225,8 @@ export function buildTheme(mode: RvThemeMode, options: BuildThemeOptions = {}): 
         activeOutlineColor: p.focusRing,
         optionSelectedBg: p.selected,
         optionFontSize: 12.5,
+        // A multiple Select's chip lies on the selected surface, not on Ant Design's grey fill.
+        multipleItemBg: p.surface3,
       },
       Segmented: {
         trackBg: p.bg,

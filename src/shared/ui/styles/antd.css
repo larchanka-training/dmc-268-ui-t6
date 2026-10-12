@@ -88,6 +88,15 @@
   color: color-mix(in srgb, var(--rv-danger) 85%, var(--rv-text));
 }
 
+/* Select: the check mark of a selected option is neutral, like every selected state. Ant Design
+   paints it with the accent and has no token for it. The selector repeats the one of Ant Design
+   with one more class, otherwise the library wins. */
+.ant-select-dropdown
+  .ant-select-item.ant-select-item-option-selected:not(.ant-select-item-option-disabled)
+  .ant-select-item-option-state {
+  color: var(--rv-text);
+}
+
 /* Navigation menu: items carry the weight of a label. */
 .ant-menu-inline .ant-menu-item,
 .ant-menu-inline-collapsed .ant-menu-item {
