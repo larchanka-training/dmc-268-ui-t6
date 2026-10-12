@@ -71,7 +71,7 @@ describe('AppSidebar review navigation', () => {
   it('has no single-key shortcut: a bracket typed on the page leaves the sidebar as it is', () => {
     vi.mocked(isMockMode).mockReturnValue(false)
     renderWithQuery(<AppSidebar currentPath="/runs" onNavigate={vi.fn()} />)
-    fireEvent.keyDown(window, { key: '[', code: 'BracketLeft' })
+    // One press only: the old shortcut was a toggle, two presses would hide its return.
     fireEvent.keyDown(document.body, { key: '[', code: 'BracketLeft' })
     expect(screen.getByRole('button', { name: 'Свернуть меню' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Развернуть меню' })).toBeNull()
@@ -139,7 +139,11 @@ describe('AppSidebar review navigation', () => {
     const trigger = screen.getByLabelText('Меню пользователя')
     fireEvent.click(trigger)
     fireEvent.click(await screen.findByText('Тёмная'))
-    expect(document.activeElement).toBe(trigger)
+    // Not within the same event: a key press that chose the item must not reach the button.
+    expect(document.activeElement).not.toBe(trigger)
+    await waitFor(() => {
+      expect(document.activeElement).toBe(trigger)
+    })
     expect(trigger.getAttribute('aria-expanded')).toBe('false')
   })
 })

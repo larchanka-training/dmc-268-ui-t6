@@ -215,8 +215,6 @@ src/features/auth/ui/UserMenu.tsx
 src/features/theme/index.ts
 src/features/theme/model/store.test.ts
 src/features/theme/model/store.ts
-src/features/theme/ui/ThemeToggle.test.tsx
-src/features/theme/ui/ThemeToggle.tsx
 src/main.tsx
 src/pages/auth/CallbackPage.module.css
 src/pages/auth/CallbackPage.test.tsx
@@ -263,7 +261,6 @@ src/shared/lib/safeHttpUrl.ts
 src/test/setup.ts
 src/vite-env.d.ts
 src/widgets/app-layout/index.ts
-src/widgets/app-layout/ui/AppHeader.tsx
 src/widgets/app-layout/ui/AppLayout.module.css
 src/widgets/app-layout/ui/AppLayout.test.tsx
 src/widgets/app-layout/ui/AppLayout.tsx
@@ -731,8 +728,8 @@ flowchart LR
 `punctuation` не стилизуется намеренно: Prism алиасит его на декораторы и интерполяцию, а те
 должны сохранить свой цвет.
 
-Тема переключается без перезагрузки: `ThemeToggle` → `toggleTheme()` → `useThemeStore.mode` →
-`UiProvider` отдаёт `ConfigProvider` другой `algorithm` → `theme.useToken()` в `DiffViewer` /
+Тема переключается без перезагрузки: выбор в меню пользователя → `setPreference()` →
+`useThemeStore.mode` → `UiProvider` отдаёт `DesignSystemProvider` другой `mode` → `theme.useToken()` в `DiffViewer` /
 `DiffSuggestion` возвращает новый токен → `diffThemeVars` → новый inline `style` в том же коммите,
 без `useEffect` и вспышки старых цветов. `data-theme` и `@media (prefers-color-scheme)` не нужны.
 С пустым `localStorage` и тёмной ОС тема тёмная уже в первом рендере: `getInitialTheme()`
@@ -775,7 +772,7 @@ React, без `innerHTML`.
 содержат `import './diff-theme.css'`. `ui/DiffViewer.theme.test.tsx` — значения переменных на
 `.diff-theme` различаются под светлым и тёмным `ConfigProvider` и равны ролям antd
 (`colorSuccessBg` …), а не результату маппера (так же в `DiffSuggestion.test.tsx` и
-`RunDiff.test.tsx`); первый кадр в тёмной теме и смена после `toggleTheme()` без перемонтирования
+`RunDiff.test.tsx`); первый кадр в тёмной теме и смена после `setPreference()` без перемонтирования
 (настоящий `UiProvider`) — в `app/providers/UiProvider.diffTheme.test.tsx`;
 `ui/DiffSuggestion.test.tsx` — тот же корень `.diff-theme` вне `DiffViewer`, подсветка `.ts` /
 `.py` правки и отсутствие токенов выше бюджета в 1000 строк. jsdom CSS не загружает, поэтому
@@ -806,8 +803,9 @@ React, без `innerHTML`.
 | Активные (`isActive`)       | `queued`, `running`, `publishing`             |
 | Терминальные (`isTerminal`) | `succeeded`, `failed`, `cancelled`, `skipped` |
 
-Цвета `Tag` (`statusColor`): `queued → default`, `running → processing`, `publishing → blue`,
-`succeeded → success`, `failed → error`, `cancelled → warning`, `skipped → default`.
+Тон `Tag` из дизайн-системы (`statusTone`): `queued → neutral`, `running → info`,
+`publishing → info`, `succeeded → success`, `failed → danger`, `cancelled → warning`,
+`skipped → neutral`. У активных статусов точка пульсирует.
 
 «Зависший» `running` — `isStaleRunning`: `status === 'running'`, `finishedAt === null`,
 `startedAt` старше 10 минут (`STALE_RUNNING_MS`) — порог совпадает с порогом реконсилера в [SD §6.4][sd-6.4]
@@ -916,7 +914,7 @@ Prod без демо: `pnpm build && pnpm verify:prod-bundle` (Refs #65, AC 3.3 
 - тесты компонентов под jsdom: `DiffViewer.test.tsx`, `RunDiff.test.tsx`, `RunInspector.test.tsx`,
   `RunHeader.test.tsx`, `InlineComment.test.tsx`, `App.test.tsx`, `LoginPage.test.tsx`,
   `CallbackPage.test.tsx`, `RepositoriesPage.test.tsx`, `RepositoryList.test.tsx`,
-  `RunsPage.test.tsx`, `UserMenu.test.tsx`, `ThemeToggle.test.tsx`;
+  `RunsPage.test.tsx`, `UserMenu.test.tsx`, `AppSidebar.test.tsx`;
 - тесты сторов и утилит: `auth/model/store.test.ts`, `theme/model/store.test.ts` (включая `getInitialTheme`),
   `client.test.ts`, `formatError.test.ts`, `zodJitless.test.ts` (`jitless` включён, первый импорт
   `main.tsx`, группа `vendor-zod` в `vite.config.ts`).

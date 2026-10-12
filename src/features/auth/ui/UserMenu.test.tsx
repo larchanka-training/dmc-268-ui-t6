@@ -66,7 +66,7 @@ describe('UserMenu', () => {
     expect(screen.getAllByText('skvertl').length).toBeGreaterThan(0)
   })
 
-  it('opens the menu from a native button, which the keyboard activates', async () => {
+  it('opens the menu from a native button and reports it as expanded', async () => {
     vi.spyOn(userApi, 'useMe').mockReturnValue({
       data: { ...MOCK_USER, workspaces: [] },
       isLoading: false,
