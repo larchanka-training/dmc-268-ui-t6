@@ -107,9 +107,13 @@ export function RunHeader(props: RunHeaderProps): JSX.Element {
           },
         ]
       : []),
+    ...(run.trigger === 'rerun'
+      ? [{ key: 'trigger', label: 'Запуск', children: 'Перезапущен вручную' }]
+      : []),
+    { key: 'createdAt', label: 'Создан', children: formatDateTime(run.createdAt) },
     {
       key: 'startedAt',
-      label: 'Запущен',
+      label: 'Начат',
       children: run.startedAt ? formatDateTime(run.startedAt) : '—',
     },
     {

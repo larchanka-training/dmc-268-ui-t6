@@ -35,6 +35,53 @@ afterEach(() => {
   cleanup()
 })
 
+describe('RunHeader run origin', () => {
+  // The em dash is rendered by several rows, so a value is read inside its own row.
+  function rowValue(label: string): string | null {
+    const item = screen.getByText(label).closest('.ant-descriptions-item')
+    return item?.querySelector('.ant-descriptions-item-content')?.textContent ?? null
+  }
+
+  it('marks a rerun in its own row', () => {
+    render(
+      <RunHeader
+        now={new Date('2026-09-18T12:00:00.000Z')}
+        run={{ ...baseRun, trigger: 'rerun' as const }}
+      />,
+    )
+    expect(screen.getByText('Перезапущен вручную')).toBeTruthy()
+    expect(rowValue('Запуск')).toBe('Перезапущен вручную')
+  })
+
+  it.each([
+    { name: 'a webhook run', trigger: 'webhook' as const },
+    { name: 'a manual run', trigger: 'manual' as const },
+    { name: 'a dry run', trigger: 'dry_run' as const },
+  ])('shows no origin mark for $name but still shows its creation time', ({ trigger }) => {
+    render(<RunHeader now={new Date('2026-09-18T12:00:00.000Z')} run={{ ...baseRun, trigger }} />)
+    expect(screen.queryByText('Перезапущен вручную')).toBeNull()
+    expect(screen.queryByText('Запуск')).toBeNull()
+    expect(rowValue('Создан')).toBe('2026-09-18 11:00:00')
+  })
+
+  it('shows the creation time and a dash for the start time of a queued run', () => {
+    render(
+      <RunHeader
+        now={new Date('2026-09-18T12:00:00.000Z')}
+        run={{ ...baseRun, status: 'queued' as const, startedAt: null, finishedAt: null }}
+      />,
+    )
+    expect(rowValue('Создан')).toBe('2026-09-18 11:00:00')
+    expect(rowValue('Начат')).toBe('—')
+  })
+
+  it('labels the start time «Начат» for a started run', () => {
+    render(<RunHeader now={new Date('2026-09-18T12:00:00.000Z')} run={baseRun} />)
+    expect(rowValue('Начат')).toBe('2026-09-18 11:50:00')
+    expect(screen.queryByText('Запущен')).toBeNull()
+  })
+})
+
 describe('RunHeader PR metadata', () => {
   it('shows repo, short sha, author, branches, verdict and counts when provided', () => {
     render(
