@@ -252,12 +252,12 @@ Ant Design, которыми управляет токен `motion` (мерца�
 
 | Компонент                                                   | Чем приведён к виду                                         |
 | ----------------------------------------------------------- | ----------------------------------------------------------- |
-| Button, Input, InputNumber, Select, Switch, Checkbox, Radio | токены                                                      |
+| Button, Input, InputNumber, Switch, Checkbox, Radio         | токены                                                      |
 | Modal, Form, Tooltip, Alert, Skeleton, Empty, Card, message | токены                                                      |
 | Descriptions, Collapse, Layout, Avatar, List, Result        | токены                                                      |
 | Typography                                                  | токены                                                      |
 | Table, Pagination                                           | токены и `antd.css`                                         |
-| Segmented, Breadcrumb, Dropdown                             | токены и `antd.css`                                         |
+| Select, Segmented, Breadcrumb, Dropdown                     | токены и `antd.css`                                         |
 | Menu                                                        | токены, `antd.css` и обёртка `NavMenu`                      |
 | Tree                                                        | токены; для журнала шагов обёртка `TraceTree`               |
 | Tag                                                         | свой компонент, `Tag` из Ant Design не используется         |

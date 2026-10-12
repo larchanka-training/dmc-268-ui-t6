@@ -37,3 +37,50 @@ export const States: Story = {
     </div>
   ),
 }
+
+// Long path-like options: the list shows the count, a chip the whole path.
+const fileOptions = [
+  {
+    value: 'src/widgets/diff-viewer/ui/RunDiff.tsx',
+    label: 'src/widgets/diff-viewer/ui/RunDiff.tsx (4)',
+  },
+  {
+    value: 'src/features/finding-filters/model/useFindingFiltersParams.ts',
+    label: 'src/features/finding-filters/model/useFindingFiltersParams.ts (2)',
+  },
+  { value: 'src/pages/runs/RunDetailPage.tsx', label: 'src/pages/runs/RunDetailPage.tsx (1)' },
+  { value: 'docs/FRONTEND_ARCHITECTURE.md', label: 'docs/FRONTEND_ARCHITECTURE.md (1)' },
+]
+
+const selectedFiles = [
+  'src/widgets/diff-viewer/ui/RunDiff.tsx',
+  'src/features/finding-filters/model/useFindingFiltersParams.ts',
+  'src/pages/runs/RunDetailPage.tsx',
+]
+
+export const Multiple: Story = {
+  render: () => (
+    <div style={stack}>
+      <Select
+        allowClear
+        defaultValue={selectedFiles}
+        maxTagCount="responsive"
+        mode="multiple"
+        optionLabelProp="value"
+        options={fileOptions}
+        placeholder="Файлы"
+        style={{ width: '100%' }}
+      />
+      <Select
+        defaultValue={selectedFiles}
+        disabled
+        maxTagCount="responsive"
+        mode="multiple"
+        optionLabelProp="value"
+        options={fileOptions}
+        placeholder="Файлы"
+        style={{ width: '100%' }}
+      />
+    </div>
+  ),
+}
