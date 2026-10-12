@@ -41,6 +41,15 @@ export function IconRuns(props: IconProps): JSX.Element {
   )
 }
 
+export function IconReview(props: IconProps): JSX.Element {
+  return (
+    <Icon {...props}>
+      <rect height="16" rx="3" width="18" x="3" y="4" />
+      <path d="m8 10 2.5 2L8 14M13 14h3" />
+    </Icon>
+  )
+}
+
 export function IconSidebar(props: IconProps): JSX.Element {
   return (
     <Icon {...props}>
