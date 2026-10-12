@@ -1,11 +1,18 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, within } from '@testing-library/react'
-import { ConfigProvider, theme } from 'antd'
-import type { ReactElement } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import type { RunAction, RunStatus } from '../../../entities/run'
 import { RunProgressBar } from './RunProgressBar'
+import styles from './RunProgressBar.module.css'
+
+// No @types/node here and Vitest zeroes `.css?raw`: load `fs` untyped to read the real stylesheet.
+// Under jsdom `import.meta.url` is not a file URL, so the path is relative to the project root,
+// where Vitest runs.
+const FS_MODULE = 'node:fs'
+const { readFileSync } = (await import(/* @vite-ignore */ FS_MODULE)) as {
+  readFileSync: (path: string, encoding: 'utf8') => string
+}
 
 const RUN_ID = '11111111-1111-4111-8111-000000000004'
 const FAILURE = { error: { type: 'LLMTimeout', message: 'the model call timed out' } }
@@ -42,17 +49,6 @@ function renderBar(
       run={{ status, errorCode }}
     />,
   )
-}
-
-// What a colour is stored as once the DOM has normalised it: a token and an inline style compare.
-function normalised(color: string): string {
-  const probe = document.createElement('span')
-  probe.style.color = color
-  return probe.style.color
-}
-
-function renderThemed(ui: ReactElement, algorithm: typeof theme.defaultAlgorithm) {
-  return render(<ConfigProvider theme={{ algorithm }}>{ui}</ConfigProvider>)
 }
 
 function stages(): { label: string | null; state: string | null }[] {
@@ -181,63 +177,45 @@ describe('RunProgressBar', () => {
     })
   })
 
-  // antd paints the error text #ff4d4f and the waiting text #8c8c8c, which are 3.27 and 3.35 on white;
-  // the text of a failed or stopped stage uses the normal text token, the icon still marks the state.
-  describe('the text colour of a failed or stopped stage', () => {
+  // Colours come from the theme (DESIGN_SYSTEM §1): the bar writes none inline, and the stop icon
+  // takes the warning colour from a class of its own module.
+  describe('colours', () => {
     const failedActions = build('vcs.fetch_diff', 'llm.repo_conventions', 'context.build', [
       'llm.call',
       FAILURE,
     ])
 
-    it.each([
-      ['light', theme.defaultAlgorithm],
-      ['dark', theme.darkAlgorithm],
-    ])('is the colorText token for the errorCode of a failed stage, %s', (_name, algorithm) => {
-      renderThemed(
-        <RunProgressBar
-          actions={failedActions}
-          run={{ status: 'failed', errorCode: 'llm_timeout' }}
-        />,
-        algorithm,
-      )
-      const { colorText, colorError } = theme.getDesignToken({ algorithm })
-      const note = screen.getByText('llm_timeout')
-      expect(note.style.color).toBe(normalised(colorText))
-      expect(note.style.color).not.toBe(normalised(colorError))
-    })
-
-    it.each([
-      ['light', theme.defaultAlgorithm],
-      ['dark', theme.darkAlgorithm],
-    ])(
-      'is the colorText token for the title and the note of a stopped stage, %s',
-      (_name, algorithm) => {
-        renderThemed(
-          <RunProgressBar
-            actions={[]}
-            run={{ status: 'cancelled', errorCode: 'cancelled_by_user' }}
-          />,
-          algorithm,
-        )
-        const { colorText } = theme.getDesignToken({ algorithm })
-        expect(screen.getByTestId('run-progress-context').style.color).toBe(normalised(colorText))
-        expect(screen.getByText('Остановлено: cancelled_by_user').style.color).toBe(
-          normalised(colorText),
-        )
-      },
-    )
-
-    it('takes a different colour in the dark theme than in the light one', () => {
-      const light = theme.getDesignToken({ algorithm: theme.defaultAlgorithm }).colorText
-      const dark = theme.getDesignToken({ algorithm: theme.darkAlgorithm }).colorText
-      expect(normalised(light)).not.toBe(normalised(dark))
-    })
-
-    it('leaves the titles of waiting, finished and failed stages to antd', () => {
-      renderBar('failed', failedActions, 'llm_timeout')
+    it('writes no colour inline on the titles or the note of a failed stage', () => {
+      const { container } = renderBar('failed', failedActions, 'llm_timeout')
       expect(screen.getByTestId('run-progress-context').style.color).toBe('')
       expect(screen.getByTestId('run-progress-analysis').style.color).toBe('')
       expect(screen.getByTestId('run-progress-publishing').style.color).toBe('')
+      expect(screen.getByText('llm_timeout').style.color).toBe('')
+      expect(container.querySelector('[style*="color"]')).toBeNull()
+    })
+
+    it('writes no colour inline on the title, the note or the icon of a stopped stage', () => {
+      const { container } = renderBar('cancelled', [], 'cancelled_by_user')
+      expect(screen.getByTestId('run-progress-context').style.color).toBe('')
+      expect(screen.getByText('Остановлено: cancelled_by_user').style.color).toBe('')
+      expect(within(stageItem('context')).getByRole('img', { name: 'stop' }).style.color).toBe('')
+      expect(container.querySelector('[style*="color"]')).toBeNull()
+    })
+
+    it('tints the stop icon with the warning colour of its module class, not the error one', () => {
+      renderBar('cancelled', [], null)
+      const icon = within(stageItem('context')).getByRole('img', { name: 'stop' })
+      expect(styles.stopIcon).toBeTruthy()
+      expect(icon.classList.contains(styles.stopIcon ?? '')).toBe(true)
+      const css = readFileSync('src/widgets/run-inspector/ui/RunProgressBar.module.css', 'utf8')
+      const rule = /\.stopIcon\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
+      expect(rule).toContain('color: var(--rv-warning);')
+      expect(rule).not.toContain('--rv-danger')
+    })
+
+    it('leaves the spacing around the bar to the layout it sits in', () => {
+      renderBar('running')
+      expect(screen.getByTestId('run-progress').getAttribute('style')).toBeNull()
     })
 
     it('keeps the stop icon and the error class that mark the state', () => {
@@ -329,14 +307,6 @@ describe('RunProgressBar', () => {
       renderBar('failed', publishing, 'publish_failed')
       expect(screen.queryByRole('img', { name: 'stop' })).toBeNull()
     })
-  })
-
-  it('tints the stop icon with the warning token, not the error one', () => {
-    renderBar('cancelled', [], null)
-    const icon = within(stageItem('context')).getByRole('img', { name: 'stop' })
-    const { colorWarning, colorError } = theme.getDesignToken()
-    expect(icon.style.color).toBe(normalised(colorWarning))
-    expect(icon.style.color).not.toBe(normalised(colorError))
   })
 
   it('renders nothing for a skipped run', () => {
