@@ -8,20 +8,6 @@
   min-width: 0;
 }
 
-.columns {
-  display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
-  gap: 24px;
-  align-items: start;
-}
-
-.trace {
-  position: sticky;
-  top: 20px;
-  max-height: calc(100vh - 40px);
-  overflow-y: auto;
-}
-
 .diff {
   display: grid;
   gap: 12px;
@@ -29,27 +15,12 @@
 }
 
 .label {
-  margin: 0 0 12px;
+  margin: 0;
   color: var(--rv-text-2);
   font-size: var(--rv-fs-xs);
   font-weight: 500;
 }
 
-.diff > .label {
-  margin-bottom: 0;
-}
-
 .loading {
   min-height: 120px;
-}
-
-@media (width <= 1100px) {
-  .columns {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .trace {
-    position: static;
-    max-height: none;
-  }
 }

@@ -1,5 +1,5 @@
 import { useState, type JSX } from 'react'
-import { Button, Typography } from 'antd'
+import { Typography } from 'antd'
 
 import { extractNewSideLines, type FileDiff } from '../../../entities/diff'
 import type { FindingView } from '../../../entities/review'
@@ -8,7 +8,7 @@ import {
   SEVERITY_BADGE_LABEL,
   severityBadgeGroup,
 } from '../../../entities/review'
-import { Tag } from '../../../shared/ui'
+import { RowButton, Tag } from '../../../shared/ui'
 import { DiffSuggestion } from './DiffSuggestion'
 
 /** Only the critical group is filled: it is the one that needs action (docs/DESIGN_SYSTEM.md §8). */
@@ -36,26 +36,26 @@ export function InlineComment(props: InlineCommentProps): JSX.Element {
 
   return (
     <div className="inline-comment" data-testid="inline-comment">
-      <Button
+      <RowButton
+        aria-expanded={expanded}
         className="inline-comment-header"
         onClick={() => {
           setExpanded((value) => !value)
         }}
-        type="text"
       >
         <Tag tone={SEVERITY_TAG[badge].tone} variant={SEVERITY_TAG[badge].variant}>
           {SEVERITY_BADGE_LABEL[badge]}
         </Tag>
         <Typography.Text strong>{finding.title}</Typography.Text>
         {range !== null ? <Typography.Text type="secondary">{range}</Typography.Text> : null}
-      </Button>
+      </RowButton>
       {expanded ? (
         <div className="inline-comment-body">
           <Typography.Text type="secondary">{finding.category}</Typography.Text>
           {finding.ruleName !== null ? (
             <Tag variant="outline">правило: {finding.ruleName}</Tag>
           ) : null}
-          <Typography.Paragraph style={{ whiteSpace: 'pre-wrap' }}>
+          <Typography.Paragraph className="inline-comment-text">
             {finding.body}
           </Typography.Paragraph>
           {finding.suggestion !== null ? (

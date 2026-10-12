@@ -1,5 +1,9 @@
 // Копия `landing/src/components/HeroGlass.tsx`: лендинг живёт отдельным пакетом, поэтому импортировать
-// его напрямую нельзя. Отличие одно: сила приглушения под текстом вынесена в параметр `dim`.
+// его напрямую нельзя. Отличия от лендинга:
+// 1. сила приглушения под текстом вынесена в параметр `dim`;
+// 2. контекст WebGL при размонтировании не закрывается (см. комментарий в очистке эффекта);
+// 3. если шейдер не собрался, цикл кадров останавливается, а не ждёт его вечно;
+// 4. настройка «уменьшить движение» отслеживается по событию, без хука лендинга.
 import { useEffect, useRef } from 'react'
 
 import styles from './HeroGlass.module.css'
@@ -132,6 +136,8 @@ function compile(gl: WebGLRenderingContext, type: number, source: string) {
   return shader
 }
 
+type ProgramState = 'pending' | 'ready' | 'failed'
+
 /**
  * Фон Hero: диагональные стеклянные полосы, за которыми перетекает свет (WebGL, один шейдер).
  * `textSelector` — блок заголовка, под которым свет должен оставаться приглушённым.
@@ -154,7 +160,8 @@ export function HeroGlass({ textSelector, dim = LANDING_DIM }: HeroGlassProps) {
 
   useEffect(() => {
     const canvas = canvasRef.current
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const motion = window.matchMedia('(prefers-reduced-motion: reduce)')
+    let reduced = motion.matches
     const gl = canvas?.getContext('webgl', {
       antialias: false,
       alpha: false,
@@ -184,10 +191,23 @@ export function HeroGlass({ textSelector, dim = LANDING_DIM }: HeroGlassProps) {
     // Компиляция шейдера на телефоне может занять время. С KHR_parallel_shader_compile браузер делает её
     // вне главного потока, а мы просто ждём — анимация заголовка, идущая в это же время, не дёргается.
     const parallel = gl.getExtension('KHR_parallel_shader_compile')
-    const ready = () => {
-      if (uniforms) return true
-      if (parallel && !gl.getProgramParameter(program, parallel.COMPLETION_STATUS_KHR)) return false
-      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return false
+    let failed = false
+    const programState = (): ProgramState => {
+      if (uniforms) return 'ready'
+      if (failed) return 'failed'
+      if (parallel && !gl.getProgramParameter(program, parallel.COMPLETION_STATUS_KHR)) {
+        return 'pending'
+      }
+      // Шейдер мог не собраться (например, нет `highp` во фрагментном шейдере): фон остаётся
+      // тёмным, цикл кадров больше не запускается.
+      if (
+        !gl.getShaderParameter(vert, gl.COMPILE_STATUS) ||
+        !gl.getShaderParameter(frag, gl.COMPILE_STATUS) ||
+        !gl.getProgramParameter(program, gl.LINK_STATUS)
+      ) {
+        failed = true
+        return 'failed'
+      }
       gl.useProgram(program)
       gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer())
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW)
@@ -195,7 +215,7 @@ export function HeroGlass({ textSelector, dim = LANDING_DIM }: HeroGlassProps) {
       gl.enableVertexAttribArray(position)
       gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0)
       uniforms = UNIFORMS.map((name) => gl.getUniformLocation(program, name))
-      return true
+      return 'ready'
     }
     let last = 0
     let slow = 0
@@ -243,7 +263,12 @@ export function HeroGlass({ textSelector, dim = LANDING_DIM }: HeroGlassProps) {
     }
 
     const frame = (ms: number) => {
-      if (!ready()) {
+      const state = programState()
+      if (state === 'failed') {
+        raf = 0
+        return
+      }
+      if (state === 'pending') {
         last = ms
         raf = requestAnimationFrame(frame)
         return
@@ -272,16 +297,23 @@ export function HeroGlass({ textSelector, dim = LANDING_DIM }: HeroGlassProps) {
       target.y = -((event.clientY / window.innerHeight) * 2 - 1)
     }
     const onResize = () => {
-      if (!raf) raf = requestAnimationFrame(frame)
+      if (!raf && !failed) raf = requestAnimationFrame(frame)
+    }
+    const onMotionChange = () => {
+      reduced = motion.matches
+      window.removeEventListener('pointermove', onMove)
+      if (!coarse && !reduced) window.addEventListener('pointermove', onMove)
+      if (!raf && !failed) raf = requestAnimationFrame(frame)
     }
     // Пока Hero прокручен за пределы экрана, ничего не рисуется
     const observer = new IntersectionObserver(([entry]) => {
       visible = entry?.isIntersecting ?? true
-      if (visible && !raf) raf = requestAnimationFrame(frame)
+      if (visible && !raf && !failed) raf = requestAnimationFrame(frame)
     })
 
     observer.observe(canvas)
     window.addEventListener('resize', onResize)
+    motion.addEventListener('change', onMotionChange)
     if (!coarse && !reduced) window.addEventListener('pointermove', onMove)
     raf = requestAnimationFrame(frame)
 
@@ -289,6 +321,7 @@ export function HeroGlass({ textSelector, dim = LANDING_DIM }: HeroGlassProps) {
       cancelAnimationFrame(raf)
       observer.disconnect()
       window.removeEventListener('resize', onResize)
+      motion.removeEventListener('change', onMotionChange)
       window.removeEventListener('pointermove', onMove)
       // В отличие от лендинга контекст здесь не закрывается: в режиме разработки React запускает
       // эффект дважды, и второй запуск получил бы уже потерянный контекст (белый холст). Канвас

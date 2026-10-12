@@ -19,17 +19,18 @@
   position: sticky;
   top: 0;
   height: 100vh;
-  border-right: 1px solid var(--rv-border);
+  border-inline-end: 1px solid var(--rv-border);
 }
 
-.sidebar :global(.ant-layout-sider-children) {
+.sidebarBody {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  height: 100%;
   padding: 16px 12px;
 }
 
-.sidebar:global(.ant-layout-sider-collapsed) :global(.ant-layout-sider-children) {
+.sidebarBody[data-collapsed] {
   padding-inline: 8px;
 }
 
@@ -42,7 +43,7 @@
   height: 34px;
 }
 
-.sidebarTop[data-collapsed] {
+.sidebarBody[data-collapsed] .sidebarTop {
   justify-content: center;
 }
 
@@ -51,101 +52,51 @@
   gap: 10px;
   align-items: center;
   padding: 6px 10px;
+  border-radius: var(--rv-radius-ctl);
   color: var(--rv-text);
-  font-size: 15px;
+  font-size: var(--rv-fs-lg);
   font-weight: 600;
   letter-spacing: -0.01em;
 }
 
-.toggle,
-.expand {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--rv-radius-ctl);
-  background: transparent;
-  color: var(--rv-text-3);
-  cursor: pointer;
-}
-
-.expand {
-  width: 34px;
-  height: 34px;
+.brand:hover {
   color: var(--rv-text);
 }
 
-.toggle:hover,
-.expand:hover {
-  background: var(--rv-hover);
-  color: var(--rv-text);
-}
-
-.toggle:focus-visible,
-.expand:focus-visible {
+.brand:focus-visible {
   outline: 2px solid var(--rv-link);
   outline-offset: 2px;
 }
 
-.expandLogo,
-.expandIcon {
+/* The folded button shows the mark and swaps it for the sidebar icon on hover and focus. */
+.unfoldMark {
+  display: grid;
+  place-items: center;
+}
+
+.unfoldLogo,
+.unfoldIcon {
   display: grid;
   grid-area: 1 / 1;
   transition: opacity 0.15s ease;
 }
 
-.expandIcon {
-  color: var(--rv-text-2);
-  opacity: 0;
-}
-
-.expand:hover .expandLogo,
-.expand:focus-visible .expandLogo {
-  opacity: 0;
-}
-
-.expand:hover .expandIcon,
-.expand:focus-visible .expandIcon {
-  opacity: 1;
-}
-
-/* Ant Design draws the inline menu with a right border and a 24px indent; the sidebar wants neither. */
-.menu:global(.ant-menu) {
-  border-inline-end: 0;
-}
-
-.menu :global(.ant-menu-item) {
-  width: 100%;
-  padding-inline: 8px !important;
-  font-weight: 500;
-}
-
-.menu :global(.ant-menu-item svg) {
-  flex: none;
-}
-
-.menu :global(.ant-menu-item .ant-menu-title-content) {
-  margin-inline-start: 9px;
-}
-
-.menu :global(.ant-menu-item-selected .ant-menu-item-icon) {
+.unfoldLogo {
   color: var(--rv-text);
 }
 
-.menu:global(.ant-menu-inline-collapsed) {
-  width: 100%;
+.unfoldIcon {
+  opacity: 0;
 }
 
-.menu:global(.ant-menu-inline-collapsed) > :global(.ant-menu-item) {
-  display: flex;
-  justify-content: center;
-  padding-inline: 0 !important;
+.unfold:hover .unfoldLogo,
+.unfold:focus-visible .unfoldLogo {
+  opacity: 0;
 }
 
-.menu:global(.ant-menu-inline-collapsed) > :global(.ant-menu-item .ant-menu-title-content) {
-  display: none;
+.unfold:hover .unfoldIcon,
+.unfold:focus-visible .unfoldIcon {
+  opacity: 1;
 }
 
 .sidebarUser {
@@ -157,6 +108,13 @@
   gap: 12px;
   align-items: center;
   justify-content: space-between;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .unfoldLogo,
+  .unfoldIcon {
+    transition: none;
+  }
 }
 
 @media (width <= 900px) {

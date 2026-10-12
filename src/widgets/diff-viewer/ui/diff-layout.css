@@ -35,14 +35,17 @@
   min-width: 0;
   overflow: hidden;
   font-family: var(--rv-font-mono);
-  font-size: 12px;
+  font-size: var(--rv-fs-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.diff-theme .diff {
+/* react-diff-view sets its own font on the cells, so the table alone is not enough. */
+.diff-theme .diff,
+.diff-theme .diff-code,
+.diff-theme .diff-gutter {
   font-family: var(--rv-font-mono);
-  font-size: 12px;
+  font-size: var(--rv-fs-xs);
   line-height: 21px;
 }
 
@@ -61,18 +64,6 @@
   font-family: var(--rv-font-sans);
 }
 
-.inline-comment-header.ant-btn {
-  gap: 8px;
-  justify-content: flex-start;
-  width: 100%;
-  height: auto;
-  min-height: 30px;
-  padding: 2px 8px;
-  font-weight: 400;
-  white-space: normal;
-  text-align: left;
-}
-
 .inline-comment-body {
   display: grid;
   gap: 8px;
@@ -86,8 +77,9 @@
   line-height: 1.5;
 }
 
-.inline-comment-body .ant-typography {
-  margin-bottom: 0;
+.inline-comment-text {
+  margin: 0;
+  white-space: pre-wrap;
 }
 
 .diff-suggestion {

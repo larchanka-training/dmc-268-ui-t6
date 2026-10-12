@@ -1,8 +1,8 @@
 import { RightOutlined } from '@ant-design/icons'
-import { Alert, Breadcrumb, Card, Empty, Flex, Spin, Typography } from 'antd'
+import { Alert, Breadcrumb, Empty, Flex, Spin, Typography } from 'antd'
 import type { FC } from 'react'
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router'
+import { Link, useParams } from 'react-router'
 
 import { expandContext, fetchRunFileSlice, useRunDiff } from '../../entities/diff'
 import type { FileDiff } from '../../entities/diff'
@@ -10,7 +10,7 @@ import { useRunActions, useRunDetail } from '../../entities/run'
 import { useRunComments } from '../../entities/review'
 import { PageHeader } from '../../shared/ui'
 import { contextChunkLimit, RunDiff, type ContextGap } from '../../widgets/diff-viewer'
-import { ActionTree, RunControls, RunHeader } from '../../widgets/run-inspector'
+import { RunControls, RunInspector } from '../../widgets/run-inspector'
 import { runDetailLoadMessage, runDiffLoadMessage } from './lib/runLoadErrors'
 import styles from './RunDetailPage.module.css'
 
@@ -21,7 +21,6 @@ function mergeFileLists(base: FileDiff[], overrides: Map<string, FileDiff>): Fil
 }
 
 const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
-  const navigate = useNavigate()
   const now = new Date()
   const runQuery = useRunDetail(runId)
   const diffQuery = useRunDiff(runId)
@@ -100,19 +99,7 @@ const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
     <div className={styles.page} data-testid="run-detail-page">
       <Breadcrumb
         items={[
-          {
-            title: (
-              <a
-                href="/runs"
-                onClick={(event) => {
-                  event.preventDefault()
-                  void navigate('/runs')
-                }}
-              >
-                Прогоны
-              </a>
-            ),
-          },
+          { title: <Link to="/runs">Прогоны</Link> },
           { title: `PR #${String(run.pullRequest.number)}` },
         ]}
         separator={<RightOutlined />}
@@ -124,22 +111,15 @@ const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
         title={`Прогон PR #${String(run.pullRequest.number)}`}
       />
 
-      <Card>
-        <RunHeader
-          droppedFindings={run.droppedFindings}
-          now={now}
-          run={run}
-          severityCounts={run.severityCounts}
-          verdict={run.verdict}
-        />
-      </Card>
-
-      <div className={styles.columns}>
-        <section aria-label="Сессия ревью" className={styles.trace}>
-          <h2 className={styles.label}>Сессия ревью</h2>
-          {actionsQuery.isLoading ? <Spin /> : <ActionTree actions={actions} runId={run.id} />}
-        </section>
-
+      <RunInspector
+        actions={actions}
+        actionsLoading={actionsQuery.isLoading}
+        droppedFindings={run.droppedFindings}
+        now={now}
+        run={run}
+        severityCounts={run.severityCounts}
+        verdict={run.verdict}
+      >
         <section aria-label="Дифф и замечания" className={styles.diff}>
           <h2 className={styles.label}>Дифф и замечания</h2>
           {loadError ? <Text type="danger">{loadError}</Text> : null}
@@ -166,7 +146,7 @@ const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
             />
           )}
         </section>
-      </div>
+      </RunInspector>
     </div>
   )
 }

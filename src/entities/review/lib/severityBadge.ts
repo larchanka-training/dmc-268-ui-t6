@@ -17,9 +17,3 @@ export const SEVERITY_BADGE_LABEL: Record<SeverityBadgeGroup, string> = {
   warning: 'Warning',
   info: 'Info',
 }
-
-export const SEVERITY_BADGE_COLOR: Record<SeverityBadgeGroup, string> = {
-  critical: 'red',
-  warning: 'orange',
-  info: 'blue',
-}

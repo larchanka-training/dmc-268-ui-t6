@@ -1,4 +1,3 @@
-/* Colours are fixed to the dark palette on purpose: the glass background exists only in dark. */
 .container {
   position: relative;
   display: grid;
@@ -6,8 +5,8 @@
   min-height: 100vh;
   padding: 40px 20px;
   overflow: hidden;
-  background: #090d18;
-  color: #f8fafc;
+  background: var(--rv-bg);
+  color: var(--rv-text);
   isolation: isolate;
 }
 
@@ -31,7 +30,7 @@
 
 .title {
   margin: 0;
-  font-size: 22px;
+  font-size: var(--rv-fs-title);
   font-weight: 600;
   line-height: 1.2;
   letter-spacing: -0.015em;
@@ -40,11 +39,11 @@
 .subtitle,
 .note {
   margin: 0;
-  color: #cbd5e1;
+  color: var(--rv-text-2);
 }
 
 .note {
-  font-size: 12px;
+  font-size: var(--rv-fs-xs);
 }
 
 .alert {

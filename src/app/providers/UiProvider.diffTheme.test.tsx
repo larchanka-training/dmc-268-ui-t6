@@ -1,20 +1,18 @@
 // @vitest-environment jsdom
 import { act, cleanup, render } from '@testing-library/react'
-import { theme } from 'antd'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { fromPatch } from '../../entities/diff'
 import { THEME_STORAGE_KEY, useThemeStore } from '../../features/theme'
 import { SAMPLE_PATCH_A } from '../../shared/fixtures/sample.patch'
-import { buildTheme } from '../../shared/ui'
 import { DiffViewer, useDiffViewerStore } from '../../widgets/diff-viewer'
 import { UiProvider } from './UiProvider'
 
 const FILE = fromPatch(SAMPLE_PATCH_A)
 const INSERT_BG = '--diff-code-insert-background-color'
-// The diff takes its colours from the design system theme, not from the antd defaults.
-const LIGHT_INSERT_BG = theme.getDesignToken(buildTheme('light')).colorSuccessBg
-const DARK_INSERT_BG = theme.getDesignToken(buildTheme('dark')).colorSuccessBg
+// The background of an added line, as written in docs/DESIGN_SYSTEM.md §3 (status backgrounds).
+const LIGHT_INSERT_BG = '#e0f7e8'
+const DARK_INSERT_BG = '#132a2c'
 
 function themeRoot(container: HTMLElement): HTMLElement {
   const root = container.querySelector<HTMLElement>('.diff-theme')
@@ -45,7 +43,7 @@ describe('UiProvider diff theme', () => {
     expect(themeRoot(container).style.getPropertyValue(INSERT_BG)).toBe(DARK_INSERT_BG)
   })
 
-  it('follows toggleTheme() through the real UiProvider without remounting', () => {
+  it('follows a change of the theme through the real UiProvider without remounting', () => {
     useThemeStore.setState({ mode: 'light' })
     const { container } = render(
       <UiProvider>
@@ -58,7 +56,7 @@ describe('UiProvider diff theme', () => {
     expect(lightInsert).toBe(LIGHT_INSERT_BG)
 
     act(() => {
-      useThemeStore.getState().toggleTheme()
+      useThemeStore.getState().setPreference('dark')
     })
 
     const rootAfter = themeRoot(container)
@@ -68,7 +66,7 @@ describe('UiProvider diff theme', () => {
     expect(rootAfter.style.getPropertyValue(INSERT_BG)).not.toBe(lightInsert)
 
     act(() => {
-      useThemeStore.getState().toggleTheme()
+      useThemeStore.getState().setPreference('light')
     })
     expect(themeRoot(container)).toBe(rootBefore)
     expect(rootBefore.style.getPropertyValue(INSERT_BG)).toBe(lightInsert)
