@@ -86,6 +86,42 @@ for a new component are in `docs/DESIGN_SYSTEM.md`; the showcase is `pnpm storyb
    margin, width, grid position).
 6. `Tag` and `Spinner` come from `src/shared/ui`, not from Ant Design.
 
+## 3b. Before you open a UI pull request
+
+Run this list in a real browser, in both themes. The gates do not catch any of it.
+
+1. **Keyboard.** Every action is available without a mouse. A clickable row or card is not
+   enough: put a link or a button inside it.
+2. **Focus is visible.** Every focused element shows a ring: 2px, the colour of `--rv-link`.
+   Check it after arrow keys too, not only after Tab, and on a field in the error state.
+3. **Focus survives the action.** When the focused element disappears (a menu or a modal
+   closes, a panel folds, a row is deleted), move the focus to the element the user would
+   expect: the button that opened the menu, the button that undoes the fold. It must not fall
+   back to the top of the page. This is not about `:focus-visible`, which only decides whether
+   the ring is drawn.
+4. **Nothing fires twice.** A key press that closes a menu must not reopen it; a click on a
+   link inside a clickable row is one navigation.
+5. **Names.** Every control has an accessible name. An icon-only button has `aria-label`. Text
+   hidden from the eye is hidden with a clip, never with `display: none`.
+6. **Contrast.** Text is at least 4.5:1 against its background in both themes, including hover,
+   pressed, disabled, empty and error states. Measure the computed colours, do not judge by eye.
+7. **Sizes.** Controls in one row have one height: 26, 32 or 40px. Measure with
+   `getBoundingClientRect()`.
+8. **Narrow screen.** At 390px the page has no horizontal scroll:
+   `document.documentElement.scrollWidth` equals the viewport width.
+9. **Reduced motion.** With `prefers-reduced-motion: reduce` nothing essential depends on an
+   animation.
+10. **No new shortcut** of a single key without a way to turn it off.
+
+Tests for UI code, on top of §5:
+
+- A test must fail when the behaviour in its title breaks. Before you commit, break the code on
+  purpose (remove the line under test) and see the test go red.
+- jsdom does not apply CSS Modules and does not turn Enter into a click: what depends on either
+  is checked in the browser, and the PR body says so.
+- A wrapper component has a test that its own CSS-module class stays next to a class of the
+  caller.
+
 ## 4. Language rules
 
 - Strict TypeScript: no `any`; unknown external input goes through Zod at the
