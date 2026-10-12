@@ -1,0 +1,78 @@
+/* The box Ant Design draws around a step mark takes the size of the mark (by default 22px in a
+   small row), so the rail and the title start right at the ring. It is set here, not by the
+   `iconSizeSM` token, on purpose: the token would resize every small `Steps`, while the 20px box
+   belongs to the marks of this wrapper. The selector repeats the one of Ant Design with one more
+   class, otherwise the library wins. */
+.steps:global(.ant-steps.ant-steps-small) {
+  --ant-cmp-steps-icon-size: 20px;
+}
+
+/* One mark for every state: a thin ring without a fill. The glyph inside and the colour of the
+   ring tell the state (DESIGN_SYSTEM §8: a fill is only for what needs action). Chrome draws the
+   1.5px border as 1px at any device scale; the design review approved the ring as drawn. */
+.mark {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid var(--rv-border-strong);
+  border-radius: 50%;
+  color: var(--rv-text-3);
+  font-family: var(--rv-font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* Glyphs are drawn like the navigation icons (§5): a 1.5 stroke. */
+.mark svg {
+  width: 12px;
+  height: 12px;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.mark[data-state='process'] {
+  border-color: var(--rv-link);
+  color: var(--rv-link);
+}
+
+.mark[data-state='finish'] {
+  color: var(--rv-success);
+}
+
+.mark[data-state='error'] {
+  border-color: var(--rv-danger);
+  color: var(--rv-danger);
+}
+
+.mark[data-state='stopped'] {
+  border-color: var(--rv-warning);
+  color: var(--rv-warning);
+}
+
+.title {
+  color: var(--rv-text-2);
+  font-size: var(--rv-fs);
+  font-weight: 400;
+}
+
+.title[data-state='process'],
+.title[data-state='error'],
+.title[data-state='stopped'] {
+  color: var(--rv-text);
+  font-weight: 500;
+}
+
+.title[data-state='finish'] {
+  color: var(--rv-text);
+}
+
+.note {
+  color: var(--rv-text-2);
+  font-size: var(--rv-fs-xs);
+}

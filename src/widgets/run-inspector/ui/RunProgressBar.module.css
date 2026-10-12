@@ -1,4 +1,0 @@
-/* The stop sign of a cancelled stage: a warning, not an error, because nothing broke. */
-.stopIcon {
-  color: var(--rv-warning);
-}

@@ -1,11 +1,8 @@
-import { StopOutlined } from '@ant-design/icons'
-import { Steps } from 'antd'
-import type { StepsProps } from 'antd'
 import type { JSX } from 'react'
 
 import type { RunAction, RunProgressStage, RunSession } from '../../../entities/run'
 import { runProgress, runProgressReadsLog } from '../../../entities/run'
-import styles from './RunProgressBar.module.css'
+import { ProgressSteps, type ProgressStep } from '../../../shared/ui'
 
 interface RunProgressBarProps {
   run: Pick<RunSession, 'status' | 'errorCode'>
@@ -14,7 +11,34 @@ interface RunProgressBarProps {
   actionsUnavailable?: boolean
 }
 
-type StepItem = NonNullable<StepsProps['items']>[number]
+/** The line under the title: the error code of a failed stage, the stop of a cancelled one. */
+function noteOf(stage: RunProgressStage): string | undefined {
+  switch (stage.state) {
+    case 'error':
+      return stage.errorCode ?? undefined
+    case 'stopped':
+      // Not an error: the run was cancelled, nothing broke.
+      return stage.errorCode === null ? 'Остановлено' : `Остановлено: ${stage.errorCode}`
+    case 'wait':
+    case 'process':
+    case 'finish':
+      return undefined
+  }
+}
+
+function toStep(stage: RunProgressStage): ProgressStep {
+  return {
+    key: stage.key,
+    // The data attributes carry the progress state for the page and its tests.
+    title: (
+      <span data-stage-state={stage.state} data-testid={`run-progress-${stage.key}`}>
+        {stage.label}
+      </span>
+    ),
+    state: stage.state,
+    note: noteOf(stage),
+  }
+}
 
 export function RunProgressBar(props: RunProgressBarProps): JSX.Element | null {
   const { run, actions, actionsUnavailable = false } = props
@@ -22,49 +46,9 @@ export function RunProgressBar(props: RunProgressBarProps): JSX.Element | null {
   if (progress === null || (actionsUnavailable && runProgressReadsLog(run.status))) {
     return null
   }
-
-  function toItem(stage: RunProgressStage): StepItem {
-    // The data attribute carries the progress state itself: antd has no `stopped` status.
-    const title = (
-      <span data-stage-state={stage.state} data-testid={`run-progress-${stage.key}`}>
-        {stage.label}
-      </span>
-    )
-    switch (stage.state) {
-      case 'error':
-        return {
-          title,
-          status: 'error',
-          content: stage.errorCode ?? undefined,
-        }
-      case 'stopped':
-        // Not red: the run was cancelled, nothing broke. A neutral step with a warning stop icon.
-        return {
-          title,
-          status: 'wait',
-          icon: <StopOutlined className={styles.stopIcon} />,
-          content: stage.errorCode === null ? 'Остановлено' : `Остановлено: ${stage.errorCode}`,
-        }
-      case 'wait':
-      case 'process':
-      case 'finish':
-        return { title, status: stage.state }
-    }
-  }
-
-  // antd marks the step at `current` as active. Only a stage in progress, failed or stopped is one;
-  // with every stage waiting or finished there is none, so `current` points past the last step.
-  const active = progress.findIndex(
-    (stage) => stage.state === 'process' || stage.state === 'error' || stage.state === 'stopped',
-  )
-
   return (
     <div aria-label="Этапы прогона" data-testid="run-progress" role="group">
-      <Steps
-        current={active === -1 ? progress.length : active}
-        items={progress.map(toItem)}
-        size="small"
-      />
+      <ProgressSteps steps={progress.map(toStep)} />
     </div>
   )
 }

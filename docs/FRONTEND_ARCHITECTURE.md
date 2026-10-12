@@ -333,7 +333,6 @@ src/widgets/run-inspector/ui/RunHeader.test.tsx
 src/widgets/run-inspector/ui/RunHeader.tsx
 src/widgets/run-inspector/ui/RunInspector.test.tsx
 src/widgets/run-inspector/ui/RunInspector.tsx
-src/widgets/run-inspector/ui/RunProgressBar.module.css
 src/widgets/run-inspector/ui/RunProgressBar.test.tsx
 src/widgets/run-inspector/ui/RunProgressBar.tsx
 ```
@@ -524,8 +523,8 @@ sequenceDiagram
 **Ф-20.** Вид всех экранов задаёт дизайн-система Flat Console в `src/shared/ui`: тема antd
 (`theme/buildTheme.ts`), CSS-токены (`styles/tokens.css`), правки поверх antd (`styles/antd.css`)
 и свои компоненты
-(`Tag`, `Spinner`, `PageHeader`, `DataTable`, `NavMenu`, `RowButton`, `TraceTree`, `CodeBlock`,
-`Logo`). Всё включается одним `DesignSystemProvider`.
+(`Tag`, `Spinner`, `PageHeader`, `DataTable`, `NavMenu`, `RowButton`, `TraceTree`, `ProgressSteps`,
+`CodeBlock`, `Logo`). Всё включается одним `DesignSystemProvider`.
 Числа, правила и чеклист для нового компонента antd: [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md).
 Витрина: `pnpm storybook`. Правило: базовые компоненты берутся только из antd в нашей теме и из
 `src/shared/ui`; на экране их не перекрашивают. Вид компонента antd меняется только внутри
@@ -1066,9 +1065,9 @@ React, без `innerHTML`.
 `Pick<RunSession, 'status' | 'errorCode'>` и `RunAction[]` → `RunProgress | null`; для `skipped` — `null`,
 бара нет. Этап — `{ key, label, state, errorCode }`, `state` — `wait`, `process`, `finish`, `error` или
 `stopped`; `errorCode` (из `run.errorCode`) есть только у этапа `error`/`stopped`. Отрисовка —
-`RunProgressBar` (`src/widgets/run-inspector/ui/RunProgressBar.tsx`) на antd `Steps` с `size="small"`;
-`Steps` принят в дизайн-систему по [DESIGN_SYSTEM §9](DESIGN_SYSTEM.md) (строка в §10, история
-«Ant Design/Steps»). `RunInspector` ставит бар отдельной строкой своей сетки `.root`
+`RunProgressBar` (`src/widgets/run-inspector/ui/RunProgressBar.tsx`) через `ProgressSteps` из
+`src/shared/ui` — обёртку дизайн-системы над antd `Steps` ([DESIGN_SYSTEM](DESIGN_SYSTEM.md) §2 и §10,
+история «Свои компоненты/ProgressSteps»). `RunInspector` ставит бар отдельной строкой своей сетки `.root`
 (`RunInspector.module.css`): сразу после `Card` с `RunHeader` и перед `headerExtra` (место для блока во
 всю ширину; `RunDetailPage` его сейчас не передаёт), то есть над колонками журнала и диффа. Отступ сверху
 и снизу — `gap: 18px` этой сетки, своего отступа у бара нет. `Tag` статуса и строка «Ошибка» в шапке
@@ -1115,33 +1114,35 @@ React, без `innerHTML`.
 `failed` или `cancelled` показывали `analysis` вместо `context`. Ретрай (T9/T12) идёт
 `running → queued → running`, действия прежних попыток остаются в списке.
 
-Вид. `error` — antd-статус `error` с `errorCode` в описании. `stopped` — не красный: статус `wait`, иконка
-`StopOutlined` с классом `stopIcon` из `RunProgressBar.module.css` (`color: var(--rv-warning)`), описание
-«Остановлено» (с `: <errorCode>`, если код есть). Состояние этапа в DOM — `data-stage-state` и
-`data-testid="run-progress-<key>"` на заголовке этапа; обёртка бара — `data-testid="run-progress"`. Бар
-не задаёт цветов сам: ни `theme.useToken()`, ни инлайн-`style`; кроме класса иконки остановки, все цвета
-приходят из темы (Ф-13, Ф-20).
+Вид. Бар только переводит этапы в шаги `ProgressSteps` — `{ key, title, state, note }`: `state` этапа
+совпадает с состоянием шага, `note` у `error` — `errorCode`, у `stopped` — «Остановлено» (с
+`: <errorCode>`, если код есть). antd-статус `stopped` нет: `ProgressSteps` показывает его как `wait`
+со своей отметкой, поэтому остановка не красная. Состояние этапа в DOM — `data-stage-state` и
+`data-testid="run-progress-<key>"` на заголовке этапа (у `ProgressSteps` на заголовке и отметке ещё
+`data-state`); обёртка бара — `data-testid="run-progress"` с `role="group"` и именем «Этапы прогона». Бар
+не задаёт ни цветов, ни отметок сам: ни `theme.useToken()`, ни инлайн-`style`, ни своих классов (Ф-13,
+Ф-20).
 
 Активный шаг. antd помечает активным шаг `current`, поэтому без правки у `queued` первый этап выглядел бы
-идущим, а у `succeeded` последний отличался бы от остальных готовых. Активен только этап в работе
-(`process`), с ошибкой (`error`) или остановленный (`stopped`); когда все этапы `wait` (`queued`) или все
-`finish` (`succeeded`), активного шага нет — `current` указывает за последний этап (`.ant-steps-item-active`
-не появляется).
+идущим, а у `succeeded` последний отличался бы от остальных готовых. `ProgressSteps` делает активным только
+шаг в работе (`process`), с ошибкой (`error`) или остановленный (`stopped`); когда все шаги `wait`
+(`queued`) или все `finish` (`succeeded`), активного шага нет — `current` указывает за последний шаг
+(`.ant-steps-item-active` не появляется).
 
-Цвета — тона тегов статуса прогона, без акцента `--rv-accent` (DESIGN_SYSTEM §3). Их задаёт тема:
-`components.Steps` в `src/shared/ui/theme/buildTheme.ts` — `colorPrimary` и `colorPrimaryHover` равны
-`--rv-link` (этап в работе, тон info), `colorTextLightSolid` — `--rv-bg` (цифра и крестик на заливке
-текущего этапа), `colorTextDisabled` — `--rv-text-3`, `colorFillTertiary: 'transparent'` (ждущий этап без
-заливки), `customIconFontSize: 22` (иконка остановки размером с кружок `small`, 22px, а не 26px). Что
-токенами не выражается, лежит в `src/shared/ui/styles/antd.css`: линия между этапами `--rv-border-strong`,
-перед готовым этапом `--rv-success`; готовый этап зелёный (`--rv-success` на своём оттенке `--rv-tint`);
-у ждущего этапа рамка `--rv-border-strong`. Итог: `finish` зелёный, `process` цвета ссылки, `error`
-`--rv-danger`, `wait` и `stopped` нейтральные: заголовок `--rv-text-2` (у `wait` и цифра), у `stopped` —
-жёлтая иконка остановки. Заголовки 13px/400; заголовок и описание `error` — `--rv-danger`, описание
-активного `stopped` — `--rv-text`. Контраст всех заголовков и описаний не ниже 4.5:1 в обеих темах (держит
-`theme/buildTheme.test.ts`), поэтому прежняя подмена цвета текста на `colorText` в баре снята. Кружок
-этапа — antd `small` (22px, цифра 13px): это индикатор состояния, а не контрол и не иконка из
-DESIGN_SYSTEM §5, поэтому его размер остаётся antd, а своя иконка остановки подогнана под него.
+Отметки и цвета задаёт `ProgressSteps` (`ProgressSteps.module.css`), по дизайн-ревью createunix (PR #85):
+одна отметка на все состояния — кольцо 20×20px, рамка 1.5px, без заливки (Chrome рисует рамку 1px),
+внутри значок 12px со штрихом 1.5 или номер 11px/600. `wait` — кольцо `--rv-border-strong`, номер
+`--rv-text-3`, заголовок `--rv-text-2`/400; `process` — кольцо и номер `--rv-link`, заголовок
+`--rv-text`/500; `finish` — кольцо `--rv-border-strong`, галочка `--rv-success`, заголовок `--rv-text`/400;
+`error` — кольцо и крестик `--rv-danger`, заголовок `--rv-text`/500, `errorCode` строкой ниже `--rv-text-2`;
+`stopped` — кольцо и черта `--rv-warning`, заголовок `--rv-text`/500, «Остановлено» строкой ниже
+`--rv-text-2`. Залитых кругов нет (DESIGN_SYSTEM §8), акцента `--rv-accent` нет: что antd ещё красит
+основным цветом (коробку вокруг своей отметки), `components.Steps` в `buildTheme.ts` переводит на
+`--rv-link`. Линия между этапами — правила `antd.css`: `--rv-border-strong`, перед готовым этапом
+`--rv-success`. Кольцо — индикатор состояния, а не контрол и не иконка из DESIGN_SYSTEM §5; серое кольцо
+`wait` и `finish` (около 1.4:1) состояние не несёт — его несут номер (не ниже 4.9:1) и галочка. Контраст
+заголовков и описаний не ниже 4.5:1, цветных колец и значков — не ниже 3:1 в обеих темах (держат
+`theme/buildTheme.test.ts` и `ProgressSteps.test.tsx`).
 
 Журнал недоступен. Бар не гадает по пустому списку: если запрос `/actions` упал и данных нет,
 `RunDetailPage` передаёт `actionsUnavailable`, и бар не рисуется для статусов, которые читают журнал, —
