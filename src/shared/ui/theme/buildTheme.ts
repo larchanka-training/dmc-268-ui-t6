@@ -122,6 +122,10 @@ export function buildTheme(mode: RvThemeMode, options: BuildThemeOptions = {}): 
       controlHeightSM: 26,
       controlHeightLG: 40,
       lineWidthFocus: 2,
+      // A focused field in the error or warning state keeps its red or yellow border, so the
+      // halo is what shows the focus: it takes the focus colour instead of a faint tint.
+      colorErrorOutline: p.link,
+      colorWarningOutline: p.link,
       wireframe: false,
     },
     components: {

@@ -107,6 +107,13 @@ describe('buildTheme', () => {
     expect(resolved('dark').lineWidthFocus).toBe(2)
   })
 
+  it('shows the focus of a field in the error or warning state with the focus colour', () => {
+    expect(resolved('dark').colorErrorOutline).toBe('#60a5fa')
+    expect(resolved('dark').colorWarningOutline).toBe('#60a5fa')
+    expect(resolved('light').colorErrorOutline).toBe('#1d4ed8')
+    expect(resolved('light').colorWarningOutline).toBe('#1d4ed8')
+  })
+
   it('gives a primary button its own hover and press steps in both modes', () => {
     for (const mode of MODES) {
       const button = buildTheme(mode).components?.Button
