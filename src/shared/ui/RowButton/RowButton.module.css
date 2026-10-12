@@ -1,0 +1,20 @@
+.row:global(.ant-btn) {
+  gap: 8px;
+  justify-content: flex-start;
+  height: auto;
+  min-height: var(--rv-ctl-md);
+  padding: 2px 8px;
+  font-weight: 400;
+  white-space: normal;
+  text-align: start;
+}
+
+.row:global(.ant-btn-lg) {
+  gap: 10px;
+  min-height: var(--rv-ctl-lg);
+  padding: 6px 8px;
+}
+
+.row:global(.ant-btn) > span {
+  display: contents;
+}

@@ -407,7 +407,8 @@ sequenceDiagram
 **Ф-20.** Вид всех экранов задаёт дизайн-система Flat Console в `src/shared/ui`: тема antd
 (`theme/buildTheme.ts`), CSS-токены (`styles/tokens.css`), правки поверх antd (`styles/antd.css`)
 и свои компоненты
-(`Tag`, `Spinner`, `PageHeader`, `DataTable`, `Logo`). Всё включается одним `DesignSystemProvider`.
+(`Tag`, `Spinner`, `PageHeader`, `DataTable`, `NavMenu`, `RowButton`, `TraceTree`, `CodeBlock`,
+`Logo`). Всё включается одним `DesignSystemProvider`.
 Числа, правила и чеклист для нового компонента antd: [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md).
 Витрина: `pnpm storybook`. Правило: базовые компоненты берутся только из antd в нашей теме и из
 `src/shared/ui`; на экране их не перекрашивают. Вид компонента antd меняется только внутри

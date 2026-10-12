@@ -1,0 +1,22 @@
+.nav {
+  min-width: 0;
+}
+
+.nav :global(.ant-menu-item svg) {
+  flex: none;
+}
+
+/* Folded: the menu takes the width the sidebar gives it and shows the icon alone, centred. */
+.nav :global(.ant-menu-inline-collapsed) {
+  width: 100%;
+}
+
+.nav :global(.ant-menu-inline-collapsed > .ant-menu-item) {
+  display: flex;
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.nav :global(.ant-menu-inline-collapsed > .ant-menu-item .ant-menu-title-content) {
+  display: none;
+}

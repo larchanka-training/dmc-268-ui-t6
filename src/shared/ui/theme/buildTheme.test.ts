@@ -143,6 +143,17 @@ describe('buildTheme', () => {
     }
   })
 
+  it('draws an avatar without a picture as a neutral circle', () => {
+    expect(buildTheme('dark').components?.Avatar).toEqual({
+      colorTextPlaceholder: '#1a2238',
+      colorTextLightSolid: '#f8fafc',
+    })
+    expect(buildTheme('light').components?.Avatar).toEqual({
+      colorTextPlaceholder: '#e4e9f2',
+      colorTextLightSolid: '#0b1220',
+    })
+  })
+
   it('uses a separate sidebar background only in the light mode', () => {
     expect(buildTheme('dark').components?.Layout?.siderBg).toBe('#090d18')
     expect(buildTheme('light').components?.Layout?.siderBg).toBe('#f8f9fc')

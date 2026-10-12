@@ -1,0 +1,9 @@
+.trace:global(.ant-tree) {
+  font-family: var(--rv-font-mono);
+  font-size: var(--rv-fs-xs);
+}
+
+.trace :global(.ant-tree-switcher),
+.trace :global(.ant-tree-indent-unit) {
+  width: 18px;
+}
