@@ -76,7 +76,9 @@ for a new component are in `docs/DESIGN_SYSTEM.md`; the showcase is `pnpm storyb
    table, an action tree, a diff view). Build it from base components in `widgets`/`features`.
 3. A base component that is missing or looks wrong is fixed in the design system first
    (`docs/DESIGN_SYSTEM.md` §9) and gets a story, and only then is used on a screen.
-4. No raw colours, sizes, radii or spacing in screen code: use the theme and the `--rv-*` tokens.
+4. No raw colours, font sizes, radii or control heights in screen code: use the theme and the
+   `--rv-*` tokens. Layout spacing of a screen is written in numbers of the 4px grid
+   (`docs/DESIGN_SYSTEM.md` §5).
 5. The look of an Ant Design component (colour, font, size, radius, border, inner spacing) is
    changed only inside `src/shared/ui`: a token in `theme/buildTheme.ts`, a rule in
    `styles/antd.css` or the CSS Module of a wrapper component. In the CSS Module of a screen

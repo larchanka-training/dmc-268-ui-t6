@@ -242,6 +242,8 @@ export function buildTheme(mode: RvThemeMode, options: BuildThemeOptions = {}): 
       Collapse: { headerBg: p.surface, contentBg: 'transparent' },
       Breadcrumb: { linkColor: p.text2, lastItemColor: p.text, separatorColor: p.text3 },
       Switch: { colorPrimary: p.accent, colorPrimaryHover: p.accentHover },
+      // An avatar without a picture is a neutral circle with the text colour.
+      Avatar: { colorTextPlaceholder: p.surface3, colorTextLightSolid: p.text },
       Card: { colorBgContainer: p.bgRaised, bodyPadding: 16 },
       Alert: { withDescriptionPadding: '12px 14px', withDescriptionIconSize: 18 },
       Checkbox: { colorPrimary: p.accent, colorPrimaryHover: p.accentHover },

@@ -1,41 +1,23 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { Avatar, Layout, Menu, type MenuProps } from 'antd'
+import { Avatar, Layout } from 'antd'
 import { useState } from 'react'
 
-import { IconRepositories, IconRuns, IconSidebar } from '../icons/icons'
+import { IconRepositories, IconRuns } from '../icons/icons'
 import { Logo } from '../Logo/Logo'
+import { NavMenu } from '../NavMenu/NavMenu'
 
-const meta: Meta<typeof Menu> = {
-  title: 'Ant Design/Navigation',
-  component: Menu,
+const meta: Meta<typeof Layout> = {
+  title: 'Ant Design/Layout',
+  component: Layout,
 }
 
 export default meta
-type Story = StoryObj<typeof Menu>
+type Story = StoryObj<typeof Layout>
 
-const items: MenuProps['items'] = [
-  { key: 'repositories', icon: <IconRepositories />, label: 'Репозитории' },
-  { key: 'runs', icon: <IconRuns />, label: 'Прогоны' },
-  { key: 'disabled', icon: <IconSidebar />, label: 'Недоступно', disabled: true },
+const items = [
+  { path: '/repositories', icon: <IconRepositories />, label: 'Репозитории' },
+  { path: '/runs', icon: <IconRuns />, label: 'Прогоны' },
 ]
-
-/** The selected item is neutral grey, never blue. Items are 30px high. */
-export const InlineMenu: Story = {
-  render: () => (
-    <div style={{ width: 232 }}>
-      <Menu defaultSelectedKeys={['repositories']} items={items} mode="inline" />
-    </div>
-  ),
-}
-
-/** Collapsed: only icons, the label moves into a tooltip. */
-export const CollapsedMenu: Story = {
-  render: () => (
-    <div style={{ width: 60 }}>
-      <Menu defaultSelectedKeys={['runs']} inlineCollapsed items={items} mode="inline" />
-    </div>
-  ),
-}
 
 /** Sidebar 232px, collapsed 60px. In the light theme the sidebar has its own background. */
 export const PageLayout: Story = {
@@ -56,8 +38,8 @@ export const PageLayout: Story = {
             <Logo size={20} />
             {collapsed ? null : <strong>Reviewer</strong>}
           </div>
-          <div style={{ padding: '0 10px' }}>
-            <Menu defaultSelectedKeys={['repositories']} items={items} mode="inline" />
+          <div style={{ padding: '0 8px' }}>
+            <NavMenu items={items} label="Разделы" selectedPath="/repositories" />
           </div>
         </Layout.Sider>
         <Layout.Content style={{ padding: '28px 32px' }}>Содержимое страницы</Layout.Content>
