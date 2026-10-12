@@ -297,7 +297,7 @@ describe('RunDiff filters: wiring', () => {
       }),
     )
 
-    fireEvent.change(screen.getByPlaceholderText('Поиск по замечаниям'), {
+    fireEvent.change(screen.getByRole('textbox', { name: 'Поиск по замечаниям' }), {
       target: { value: 'x' },
     })
     await waitFor(() => {
@@ -819,7 +819,7 @@ describe('RunDiff filters: search text and pending comments', () => {
       }),
     )
 
-    fireEvent.change(screen.getByPlaceholderText('Поиск по замечаниям'), {
+    fireEvent.change(screen.getByRole('textbox', { name: 'Поиск по замечаниям' }), {
       target: { value: 'x' },
     })
 

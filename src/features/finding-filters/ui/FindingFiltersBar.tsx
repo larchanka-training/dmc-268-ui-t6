@@ -1,6 +1,6 @@
-import type { JSX } from 'react'
+import { useId, type JSX } from 'react'
 import { SearchOutlined } from '@ant-design/icons'
-import { Button, Empty, Flex, Input, Select, Typography } from 'antd'
+import { Button, Empty, Flex, Form, Input, Select, Typography } from 'antd'
 
 import {
   SEVERITY_BADGE_GROUPS,
@@ -47,6 +47,20 @@ const SEVERITY_OPTIONS = SEVERITY_BADGE_GROUPS.map((group) => ({
   label: SEVERITY_BADGE_LABEL[group],
 }))
 
+// A longer name is cut with «...» so that its chip and the «+N» chip share one row.
+const FILE_TAG_MAX_LENGTH = 11
+
+/** The chip for the selected values that do not fit: short, so that the first chip keeps its room. */
+function restChip(omitted: readonly unknown[]): string {
+  return `+${String(omitted.length)}`
+}
+
+/** A chip shows the file name, so the first selected file stays readable in a narrow select. */
+function fileName(file: string): string {
+  const name = file.slice(file.lastIndexOf('/') + 1)
+  return name === '' ? file : name
+}
+
 export function FindingFiltersBar(props: FindingFiltersBarProps): JSX.Element {
   const {
     filters,
@@ -64,10 +78,16 @@ export function FindingFiltersBar(props: FindingFiltersBarProps): JSX.Element {
     onQueryChange,
     navigationKey,
   )
+  const id = useId()
+  const filesId = `${id}-files`
+  const severityId = `${id}-severity`
+  const searchId = `${id}-search`
 
+  // The list shows the whole path; the chip's tooltip (`title`) keeps it too.
   const fileSelectOptions = fileOptions.map(({ file, count }) => ({
     value: file,
     label: `${file} (${String(count)})`,
+    title: file,
   }))
   // A whitespace-only query is not "active" for the filter, but it is in the URL and must be clearable.
   const canReset = hasActiveFindingFilters(filters) || filters.query !== '' || text !== ''
@@ -79,60 +99,69 @@ export function FindingFiltersBar(props: FindingFiltersBarProps): JSX.Element {
 
   return (
     <>
-      <Flex
-        align="center"
-        className={styles.bar}
-        data-testid="finding-filters-bar"
-        gap="small"
-        wrap="wrap"
-      >
-        <Select
-          allowClear
-          aria-label="Файлы"
-          className={styles.select}
-          mode="multiple"
-          onChange={(files: string[]) => {
-            onChange({ files, query: takePending() })
-          }}
-          optionLabelProp="value"
-          options={fileSelectOptions}
-          placeholder="Файлы"
-          value={filters.files}
-        />
-        <Select
-          allowClear
-          aria-label="Критичность"
-          className={styles.select}
-          mode="multiple"
-          onChange={(values: SeverityBadgeGroup[]) => {
-            onChange({
-              severities: SEVERITY_BADGE_GROUPS.filter((group) => values.includes(group)),
-              query: takePending(),
-            })
-          }}
-          options={SEVERITY_OPTIONS}
-          placeholder="Критичность"
-          value={filters.severities}
-        />
-        <Input
-          allowClear
-          aria-label="Поиск по замечаниям"
-          className={styles.search}
-          maxLength={QUERY_MAX_LENGTH}
-          onChange={(event) => {
-            type(event.target.value)
-          }}
-          placeholder="Поиск по замечаниям"
-          prefix={<SearchOutlined />}
-          value={text}
-        />
-        <Typography.Text role="status">
-          {`Показано ${String(shown)} из ${String(total)} замечаний`}
-        </Typography.Text>
-        <Button disabled={!canReset} onClick={reset}>
-          Сбросить фильтры
-        </Button>
-      </Flex>
+      <Form className={styles.bar} data-testid="finding-filters-bar" layout="inline">
+        <Form.Item className={styles.files} htmlFor={filesId} label="Файлы">
+          <Select
+            allowClear
+            aria-label="Файлы"
+            id={filesId}
+            labelRender={({ value }) => fileName(String(value))}
+            maxTagCount="responsive"
+            maxTagPlaceholder={restChip}
+            maxTagTextLength={FILE_TAG_MAX_LENGTH}
+            mode="multiple"
+            onChange={(files: string[]) => {
+              onChange({ files, query: takePending() })
+            }}
+            options={fileSelectOptions}
+            placeholder="Все файлы"
+            value={filters.files}
+          />
+        </Form.Item>
+        <Form.Item className={styles.severity} htmlFor={severityId} label="Критичность">
+          <Select
+            allowClear
+            aria-label="Критичность"
+            id={severityId}
+            maxTagCount="responsive"
+            maxTagPlaceholder={restChip}
+            mode="multiple"
+            onChange={(values: SeverityBadgeGroup[]) => {
+              onChange({
+                severities: SEVERITY_BADGE_GROUPS.filter((group) => values.includes(group)),
+                query: takePending(),
+              })
+            }}
+            options={SEVERITY_OPTIONS}
+            placeholder="Все уровни"
+            value={filters.severities}
+          />
+        </Form.Item>
+        {/* The visible label is short; the name keeps «Поиск по замечаниям» and contains it. */}
+        <Form.Item className={styles.search} htmlFor={searchId} label="Поиск">
+          <Input
+            allowClear
+            aria-label="Поиск по замечаниям"
+            id={searchId}
+            maxLength={QUERY_MAX_LENGTH}
+            onChange={(event) => {
+              type(event.target.value)
+            }}
+            placeholder="Текст, правило"
+            prefix={<SearchOutlined />}
+            value={text}
+          />
+        </Form.Item>
+        {/* One group: the reset button wraps with the counter, never alone. */}
+        <Flex align="center" className={styles.summary} gap="small">
+          <Typography.Text role="status" type="secondary">
+            {`Показано ${String(shown)} из ${String(total)} замечаний`}
+          </Typography.Text>
+          <Button disabled={!canReset} onClick={reset}>
+            Сбросить фильтры
+          </Button>
+        </Flex>
+      </Form>
       {empty ? (
         <div data-testid="findings-filter-empty">
           <Empty

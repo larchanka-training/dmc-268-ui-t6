@@ -50,7 +50,7 @@ async function ready(): Promise<HTMLInputElement> {
 }
 
 function searchInput(): HTMLInputElement {
-  return screen.getByPlaceholderText('Поиск по замечаниям')
+  return screen.getByRole('textbox', { name: 'Поиск по замечаниям' })
 }
 
 /**

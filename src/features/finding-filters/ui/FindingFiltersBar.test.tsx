@@ -1,7 +1,16 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  cleanup,
+  createEvent,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { stubResponsiveSelectLayout } from '../../../test/responsiveSelectLayout'
 import { EMPTY_FINDING_FILTERS, type FindingFilters } from '../model/findingFilters'
 import { FindingFiltersBar } from './FindingFiltersBar'
 
@@ -57,7 +66,7 @@ function pause(ms: number): Promise<void> {
 }
 
 function searchInput(): HTMLInputElement {
-  return screen.getByPlaceholderText('Поиск по замечаниям')
+  return screen.getByRole('textbox', { name: 'Поиск по замечаниям' })
 }
 
 function type(text: string): void {
@@ -88,8 +97,25 @@ function resetButton(): HTMLElement {
   return screen.getByRole('button', { name: 'Сбросить фильтры' })
 }
 
+/** The chips of a select, without the hidden «+ N ...» chip of `maxTagCount="responsive"`. */
+function chips(name: string): Element[] {
+  const selector = screen.getByRole('combobox', { name }).closest('.ant-select')
+  expect(selector).not.toBeNull()
+  return [
+    ...(selector?.querySelectorAll(
+      '.ant-select-content-item:not(.ant-select-content-item-rest) .ant-select-selection-item',
+    ) ?? []),
+  ]
+}
+
+beforeEach(() => {
+  stubResponsiveSelectLayout()
+})
+
 afterEach(() => {
   cleanup()
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
 describe('FindingFiltersBar', () => {
@@ -98,10 +124,31 @@ describe('FindingFiltersBar', () => {
 
     expect(screen.getByRole('combobox', { name: 'Файлы' })).toBeTruthy()
     expect(screen.getByRole('combobox', { name: 'Критичность' })).toBeTruthy()
-    expect(screen.getByPlaceholderText('Поиск по замечаниям')).toBeTruthy()
+    expect(screen.getByRole('textbox', { name: 'Поиск по замечаниям' })).toBeTruthy()
     expect(screen.getByText('Показано 3 из 8 замечаний')).toBeTruthy()
-    expect(screen.getByText('Файлы')).toBeTruthy()
-    expect(screen.getByText('Критичность')).toBeTruthy()
+  })
+
+  it('says in the placeholders what an empty field means and what the search matches', () => {
+    renderBar()
+
+    expect(screen.getByText('Все файлы')).toBeTruthy()
+    expect(screen.getByText('Все уровни')).toBeTruthy()
+    expect(screen.getByPlaceholderText('Текст, правило')).toBeTruthy()
+  })
+
+  it('labels each field with visible text tied to its control', () => {
+    renderBar()
+
+    const fields = [
+      screen.getByRole('combobox', { name: 'Файлы' }),
+      screen.getByRole('combobox', { name: 'Критичность' }),
+      screen.getByRole('textbox', { name: 'Поиск по замечаниям' }),
+    ]
+    expect(
+      fields.map((field) =>
+        [...((field as HTMLInputElement).labels ?? [])].map((label) => label.textContent),
+      ),
+    ).toEqual([['Файлы'], ['Критичность'], ['Поиск']])
   })
 
   it('labels the file options "file (count)" in the given order', () => {
@@ -156,31 +203,55 @@ describe('FindingFiltersBar', () => {
     expect(onChange).toHaveBeenCalledWith({ severities: ['critical', 'info'], query: '' })
   })
 
-  it('shows the selected files as tags by file name, including one the run does not have', () => {
+  it('shows the selected files as tags by file name, including one the run does not have', async () => {
     renderBar({ filters: { ...EMPTY_FINDING_FILTERS, files: ['README.md', 'gone.ts'] } })
 
-    const selector = screen.getByRole('combobox', { name: 'Файлы' }).closest('.ant-select')
-    expect(selector).not.toBeNull()
-    const tags = [...(selector?.querySelectorAll('.ant-select-selection-item') ?? [])].map(
-      (tag) => tag.textContent,
-    )
-    expect(tags).toEqual(['README.md', 'gone.ts'])
+    await waitFor(() => {
+      expect(chips('Файлы').map((chip) => chip.textContent)).toEqual(['README.md', 'gone.ts'])
+    })
   })
 
-  it('shows the selected severities as tags', () => {
+  it('shows a selected file by its name, the whole path in the tooltip and in the list', async () => {
+    renderBar({ filters: { ...EMPTY_FINDING_FILTERS, files: ['src/utils/retry.ts'] } })
+
+    await waitFor(() => {
+      expect(chips('Файлы')).toHaveLength(1)
+    })
+    const [chip] = chips('Файлы')
+    expect(chip?.textContent).toBe('retry.ts')
+    expect(chip?.getAttribute('title')).toBe('src/utils/retry.ts')
+    openSelect('Файлы')
+    expect(optionTexts()).toEqual(['src/a.ts (6)', 'README.md (1)', 'src/utils/retry.ts (0)'])
+  })
+
+  it('cuts a long file name in its chip', async () => {
+    renderBar({
+      filters: {
+        ...EMPTY_FINDING_FILTERS,
+        files: ['src/features/finding-filters/model/useFindingFiltersParams.ts'],
+      },
+    })
+
+    await waitFor(() => {
+      expect(chips('Файлы').map((chip) => chip.textContent)).toEqual(['useFindingF...'])
+    })
+  })
+
+  it('shows the selected severities as tags', async () => {
     renderBar({ filters: { ...EMPTY_FINDING_FILTERS, severities: ['critical', 'info'] } })
 
-    const selector = screen.getByRole('combobox', { name: 'Критичность' }).closest('.ant-select')
-    const tags = [...(selector?.querySelectorAll('.ant-select-selection-item') ?? [])].map(
-      (tag) => tag.textContent,
-    )
-    expect(tags).toEqual(['Critical', 'Info'])
+    await waitFor(() => {
+      expect(chips('Критичность').map((chip) => chip.textContent)).toEqual(['Critical', 'Info'])
+    })
   })
 
   it('shows the query in the search input', () => {
     renderBar({ filters: { ...EMPTY_FINDING_FILTERS, query: 'утечка' } })
 
-    expect(screen.getByPlaceholderText('Поиск по замечаниям')).toHaveProperty('value', 'утечка')
+    expect(screen.getByRole('textbox', { name: 'Поиск по замечаниям' })).toHaveProperty(
+      'value',
+      'утечка',
+    )
   })
 
   it('typing goes through onQueryChange, not onChange', async () => {
@@ -236,10 +307,14 @@ describe('FindingFiltersBar', () => {
       expect(onChange).not.toHaveBeenCalled()
     })
 
-    it('is inside the bar', () => {
+    it('is inside the bar, in one group with the counter', () => {
       renderBar()
       const bar = screen.getByTestId('finding-filters-bar')
       expect(within(bar).getByRole('button', { name: 'Сбросить фильтры' })).toBeTruthy()
+      // The pair wraps as one item of the bar, so the button never lands alone on a row.
+      const group = screen.getByRole('status').parentElement
+      expect(group?.parentElement).toBe(bar)
+      expect(resetButton().parentElement).toBe(group)
     })
   })
 })
@@ -272,6 +347,28 @@ describe('FindingFiltersBar search text', () => {
   it('limits the text to 200 characters', () => {
     renderBar()
     expect(searchInput().maxLength).toBe(200)
+  })
+
+  // jsdom submits nothing on Enter, so the test pins both halves: the bar's form never lets a
+  // submit through (no page reload), and Enter itself neither filters nor drops the text.
+  it('Enter in the search field neither submits the bar nor reloads the page', () => {
+    const { onChange, onQueryChange, onReset } = renderBar()
+    const form = searchInput().closest('form')
+    expect(form).not.toBeNull()
+    if (form === null) {
+      return
+    }
+    type('утечка')
+
+    fireEvent.keyDown(searchInput(), { key: 'Enter', code: 'Enter', keyCode: 13 })
+    const submit = createEvent.submit(form)
+    fireEvent(form, submit)
+
+    expect(submit.defaultPrevented).toBe(true)
+    expect(searchInput().value).toBe('утечка')
+    expect(onChange).not.toHaveBeenCalled()
+    expect(onQueryChange).not.toHaveBeenCalled()
+    expect(onReset).not.toHaveBeenCalled()
   })
 
   it('a select flushes the typed text into its own call and cancels the pending write', async () => {
@@ -404,12 +501,12 @@ describe('FindingFiltersBar search text', () => {
     expect(onQueryChange).not.toHaveBeenCalled()
   })
 
-  it('announces the counter as a status in normal text', () => {
+  it('announces the counter as a status in secondary text', () => {
     renderBar({ shown: 3, total: 8 })
 
     const status = screen.getByRole('status')
     expect(status.textContent).toBe('Показано 3 из 8 замечаний')
-    expect(status.classList.contains('ant-typography-secondary')).toBe(false)
+    expect(status.classList.contains('ant-typography-secondary')).toBe(true)
   })
 
   it('the reset button of the empty message also empties the typed text and cancels the pending write', async () => {
