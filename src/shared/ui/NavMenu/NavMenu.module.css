@@ -2,6 +2,14 @@
   min-width: 0;
 }
 
+/* Arrow keys move the focus to the link inside an item, and the reset of Ant Design removes the
+   outline of an element with `tabindex="-1"`. The ring is drawn on the item instead, which also
+   keeps it visible in a folded menu, where the link is clipped. */
+.nav :global(.ant-menu-item:has(a:focus-visible)) {
+  outline: 2px solid var(--rv-link);
+  outline-offset: 1px;
+}
+
 .nav :global(.ant-menu-item svg) {
   flex: none;
 }
