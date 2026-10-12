@@ -2,7 +2,11 @@ import '@fontsource-variable/inter'
 import '@fontsource-variable/jetbrains-mono'
 import './preview.css'
 
+import { DocsContainer, type DocsContainerProps } from '@storybook/addon-docs/blocks'
 import type { Decorator, Preview } from '@storybook/react-vite'
+import { useEffect, useState, type JSX, type PropsWithChildren } from 'react'
+import { GLOBALS_UPDATED } from 'storybook/internal/core-events'
+import { addons } from 'storybook/preview-api'
 import { themes } from 'storybook/theming'
 
 import { DesignSystemProvider } from '../src/shared/ui'
@@ -30,6 +34,33 @@ const withDesignSystem: Decorator = (Story, context) => {
   )
 }
 
+type Mode = 'dark' | 'light'
+
+function modeFromUrl(): Mode {
+  const globals = new URLSearchParams(window.location.search).get('globals') ?? ''
+  return globals.includes('theme:light') ? 'light' : 'dark'
+}
+
+// Documentation pages (the specification) have no story around them, so the decorator above does
+// not run there. This container gives them the same theme switch from the toolbar.
+function ThemedDocsContainer(props: PropsWithChildren<DocsContainerProps>): JSX.Element {
+  const [mode, setMode] = useState<Mode>(modeFromUrl)
+  useEffect(() => {
+    const channel = addons.getChannel()
+    const onGlobals = (event: { globals: { theme?: unknown } }): void => {
+      setMode(event.globals.theme === 'light' ? 'light' : 'dark')
+    }
+    channel.on(GLOBALS_UPDATED, onGlobals)
+    return () => {
+      channel.off(GLOBALS_UPDATED, onGlobals)
+    }
+  }, [])
+  useEffect(() => {
+    document.documentElement.dataset.rvTheme = mode
+  }, [mode])
+  return <DocsContainer {...props} theme={mode === 'light' ? themes.light : themes.dark} />
+}
+
 const preview: Preview = {
   decorators: [withDesignSystem],
   globalTypes: {
@@ -49,7 +80,7 @@ const preview: Preview = {
   initialGlobals: { theme: 'dark' },
   parameters: {
     layout: 'padded',
-    docs: { theme: themes.dark },
+    docs: { container: ThemedDocsContainer },
     options: {
       storySort: {
         order: ['Reviewer UI', 'Спецификация', 'Свои компоненты', 'Ant Design'],

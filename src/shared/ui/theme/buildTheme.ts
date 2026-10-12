@@ -1,4 +1,4 @@
-import { theme as antdTheme, type ThemeConfig } from 'antd'
+import { theme as antdTheme, type MappingAlgorithm, type ThemeConfig } from 'antd'
 
 import { RV_FONT_MONO, RV_FONT_SANS, RV_PALETTE, type RvThemeMode } from './palette'
 
@@ -7,11 +7,83 @@ import { RV_FONT_MONO, RV_FONT_SANS, RV_PALETTE, type RvThemeMode } from './pale
  * that the app has not used yet still arrives in the right colours, sizes and font. What tokens
  * cannot express lives in `styles/antd.css`. Rules and numbers: `docs/DESIGN_SYSTEM.md`.
  */
-export function buildTheme(mode: RvThemeMode): ThemeConfig {
+export interface BuildThemeOptions {
+  /** Turns every Ant Design animation off, for the "reduce motion" system setting. */
+  reducedMotion?: boolean
+}
+
+/**
+ * Ant Design treats `colorPrimary`, `colorSuccess` and the other seeds as input of its algorithm:
+ * the dark one darkens them and both derive backgrounds and borders on their own. This second
+ * algorithm runs after the stock one and pins the results to the palette, so every component,
+ * including ones the app does not use yet, gets exactly our colours.
+ */
+function pinPalette(mode: RvThemeMode): MappingAlgorithm {
+  const p = RV_PALETTE[mode]
+  return (_seed, map) => {
+    if (map === undefined) {
+      throw new Error('pinPalette must run after a base algorithm')
+    }
+    return {
+      ...map,
+      colorPrimary: p.accent,
+      colorPrimaryHover: p.accentHover,
+      colorPrimaryActive: p.accentActive,
+      // The focus ring of Ant Design is drawn with this token.
+      colorPrimaryBorder: p.link,
+      colorPrimaryBg: p.infoBg,
+      colorPrimaryBgHover: p.infoBgStrong,
+      colorLink: p.link,
+      colorLinkHover: p.link,
+      colorLinkActive: p.link,
+      colorInfo: p.link,
+      colorInfoBg: p.infoBg,
+      colorInfoBgHover: p.infoBgStrong,
+      colorInfoBorder: p.infoBorder,
+      colorSuccess: p.success,
+      colorSuccessBg: p.successBg,
+      colorSuccessBgHover: p.successBgStrong,
+      colorSuccessBorder: p.successBorder,
+      colorWarning: p.warning,
+      colorWarningBg: p.warningBg,
+      colorWarningBgHover: p.warningBgStrong,
+      colorWarningBorder: p.warningBorder,
+      colorError: p.danger,
+      colorErrorBg: p.dangerBg,
+      colorErrorBgHover: p.dangerBgStrong,
+      colorErrorBgFilledHover: p.dangerBgStrong,
+      colorErrorBgActive: p.dangerBorder,
+      colorErrorBorder: p.dangerBorder,
+      // Coloured text (`Typography type="success"`, the icon of an `Alert`) is the status colour
+      // itself, not a darker step of it.
+      colorPrimaryText: p.link,
+      colorPrimaryTextHover: p.link,
+      colorPrimaryTextActive: p.link,
+      colorInfoText: p.link,
+      colorSuccessText: p.success,
+      colorSuccessTextHover: p.success,
+      colorSuccessTextActive: p.success,
+      colorWarningText: p.warning,
+      colorWarningTextHover: p.warning,
+      colorWarningTextActive: p.warning,
+      colorErrorText: p.danger,
+      colorErrorTextHover: p.danger,
+      colorErrorTextActive: p.danger,
+      colorBgMask: p.mask,
+    }
+  }
+}
+
+export function buildTheme(mode: RvThemeMode, options: BuildThemeOptions = {}): ThemeConfig {
   const p = RV_PALETTE[mode]
   return {
-    algorithm: mode === 'dark' ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
+    algorithm: [
+      mode === 'dark' ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
+      pinPalette(mode),
+    ],
     token: {
+      motion: options.reducedMotion !== true,
+      boxShadowSecondary: p.popoverShadow,
       colorPrimary: p.accent,
       colorPrimaryHover: p.accentHover,
       colorPrimaryActive: p.accentActive,
@@ -80,8 +152,16 @@ export function buildTheme(mode: RvThemeMode): ThemeConfig {
         contentFontSize: 12.5,
         contentFontSizeSM: 12,
         contentFontSizeLG: 13,
+        // A large button keeps the control radius of 6px instead of the card radius.
+        borderRadiusLG: 6,
       },
-      Layout: { siderBg: p.bg, bodyBg: p.bg, headerBg: p.bg },
+      Layout: {
+        siderBg: p.sidebar,
+        bodyBg: p.bg,
+        headerBg: p.bg,
+        triggerBg: p.sidebar,
+        triggerColor: p.text2,
+      },
       Menu: {
         itemBg: 'transparent',
         itemColor: p.text2,
@@ -94,6 +174,8 @@ export function buildTheme(mode: RvThemeMode): ThemeConfig {
         itemMarginInline: 0,
         itemMarginBlock: 2,
         iconSize: 16,
+        collapsedIconSize: 16,
+        iconMarginInlineEnd: 9,
         activeBarBorderWidth: 0,
         fontSize: 13,
       },
@@ -141,10 +223,22 @@ export function buildTheme(mode: RvThemeMode): ThemeConfig {
         itemSelectedBg: p.surface3,
         itemSelectedColor: p.text,
       },
-      Modal: { contentBg: p.popover, headerBg: p.popover, footerBg: p.popover, titleFontSize: 15 },
+      Modal: {
+        contentBg: p.popover,
+        headerBg: p.popover,
+        footerBg: p.popover,
+        titleFontSize: 15,
+        borderRadiusLG: 10,
+        boxShadow: p.popoverShadow,
+      },
       Tooltip: { colorBgSpotlight: p.text, colorTextLightSolid: p.bg },
       Descriptions: { labelColor: p.text2, itemPaddingBottom: 10 },
-      Tree: { nodeSelectedBg: p.selected, nodeHoverBg: p.hover, titleHeight: 28 },
+      Tree: {
+        nodeSelectedBg: p.selected,
+        nodeHoverBg: p.hover,
+        titleHeight: 28,
+        colorBgContainer: 'transparent',
+      },
       Collapse: { headerBg: p.surface, contentBg: 'transparent' },
       Breadcrumb: { linkColor: p.text2, lastItemColor: p.text, separatorColor: p.text3 },
       Switch: { colorPrimary: p.accent, colorPrimaryHover: p.accentHover },

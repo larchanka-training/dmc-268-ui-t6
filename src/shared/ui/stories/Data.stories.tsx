@@ -28,11 +28,13 @@ export const RunMeta: Story = {
   ),
 }
 
+/** The second row is selected: neutral grey, as everywhere. */
 export const ActionTree: Story = {
   render: () => (
     <div style={{ maxWidth: 320 }}>
       <Tree
         defaultExpandedKeys={['tree']}
+        defaultSelectedKeys={['1']}
         treeData={[
           { key: '0', title: '#0 get_pull_request (<1 с)', isLeaf: true },
           { key: '1', title: '#1 get_diff (<1 с)', isLeaf: true },
@@ -67,6 +69,7 @@ export const Panels: Story = {
   ),
 }
 
+/** Every item but the last is a link. */
 export const Path: Story = {
-  render: () => <Breadcrumb items={[{ title: 'Прогоны' }, { title: 'PR #34' }]} />,
+  render: () => <Breadcrumb items={[{ title: 'Прогоны', href: '#runs' }, { title: 'PR #34' }]} />,
 }

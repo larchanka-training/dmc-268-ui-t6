@@ -3,7 +3,7 @@ import '../styles/antd.css'
 
 import { ConfigProvider } from 'antd'
 import ruRU from 'antd/locale/ru_RU'
-import { useEffect, type JSX, type ReactNode } from 'react'
+import { useEffect, useMemo, useSyncExternalStore, type JSX, type ReactNode } from 'react'
 
 import { Spinner } from '../Spinner/Spinner'
 import { buildTheme } from './buildTheme'
@@ -14,13 +14,30 @@ export interface DesignSystemProviderProps {
   children: ReactNode
 }
 
+const REDUCED_MOTION = '(prefers-reduced-motion: reduce)'
+
+function subscribeReducedMotion(onChange: () => void): () => void {
+  const media = window.matchMedia(REDUCED_MOTION)
+  media.addEventListener('change', onChange)
+  return () => {
+    media.removeEventListener('change', onChange)
+  }
+}
+
+function readReducedMotion(): boolean {
+  return window.matchMedia(REDUCED_MOTION).matches
+}
+
 /**
  * Single entry point of the design system: Ant Design theme, our CSS tokens and the overrides on
  * top of Ant Design. Everything rendered inside looks like Flat Console. The click ripple is off
- * because the design has none, and every `Spin` shows our loading ring instead of the default dots.
+ * because the design has none, every `Spin` shows our loading ring instead of the default dots,
+ * and Ant Design animations stop while the system asks to reduce motion.
  */
 export function DesignSystemProvider(props: DesignSystemProviderProps): JSX.Element {
   const { mode, children } = props
+  const reducedMotion = useSyncExternalStore(subscribeReducedMotion, readReducedMotion, () => false)
+  const theme = useMemo(() => buildTheme(mode, { reducedMotion }), [mode, reducedMotion])
   useEffect(() => {
     document.documentElement.dataset.rvTheme = mode
   }, [mode])
@@ -28,7 +45,7 @@ export function DesignSystemProvider(props: DesignSystemProviderProps): JSX.Elem
     <ConfigProvider
       locale={ruRU}
       spin={{ indicator: <Spinner label={null} size="inherit" /> }}
-      theme={buildTheme(mode)}
+      theme={theme}
       wave={{ disabled: true }}
     >
       {children}

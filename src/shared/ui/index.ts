@@ -1,5 +1,7 @@
 // Public API of the design system. Screens take base components from Ant Design (themed by
 // `DesignSystemProvider`) and from here; they do not restyle either. Rules: docs/DESIGN_SYSTEM.md.
+// Importing this file loads `styles/tokens.css` and `styles/antd.css` (through the provider): the
+// components here rely on the tokens, so the styles come with any of them.
 export { DataTable } from './DataTable/DataTable'
 export type { DataTableProps } from './DataTable/DataTable'
 export { IconRepositories, IconRuns, IconSettings, IconSidebar } from './icons/icons'

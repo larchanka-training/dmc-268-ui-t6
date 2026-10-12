@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { Alert, Button, Empty, Skeleton, Spin, Tooltip } from 'antd'
+import { Alert, Button, Empty, message, Skeleton, Spin, Tooltip } from 'antd'
 
 const meta: Meta<typeof Alert> = {
   title: 'Ant Design/Feedback',
@@ -71,4 +71,38 @@ export const Hint: Story = {
       </Tooltip>
     </div>
   ),
+}
+
+/** A short confirmation of an action. It disappears on its own, so it never carries an error
+ * the user has to act on: that is the job of `Alert`. */
+export const Message: Story = {
+  render: function MessageStory() {
+    const [api, contextHolder] = message.useMessage()
+    return (
+      <div style={row}>
+        {contextHolder}
+        <Button
+          onClick={() => {
+            void api.success('Прогон перезапущен')
+          }}
+        >
+          Успех
+        </Button>
+        <Button
+          onClick={() => {
+            void api.error('Не удалось перезапустить прогон')
+          }}
+        >
+          Ошибка
+        </Button>
+        <Button
+          onClick={() => {
+            void api.loading('Отменяем прогон')
+          }}
+        >
+          Загрузка
+        </Button>
+      </div>
+    )
+  },
 }

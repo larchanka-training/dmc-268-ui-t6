@@ -24,6 +24,22 @@ export interface RvPalette {
   buttonActive: string
   accentActive: string
   focusRing: string
+  sidebar: string
+  mask: string
+  popoverShadow: string
+  /** Background, stronger background and border of each status, for alerts and the diff. */
+  successBg: string
+  successBgStrong: string
+  successBorder: string
+  warningBg: string
+  warningBgStrong: string
+  warningBorder: string
+  dangerBg: string
+  dangerBgStrong: string
+  dangerBorder: string
+  infoBg: string
+  infoBgStrong: string
+  infoBorder: string
 }
 
 export const RV_PALETTE: Record<RvThemeMode, RvPalette> = {
@@ -37,9 +53,9 @@ export const RV_PALETTE: Record<RvThemeMode, RvPalette> = {
     borderStrong: 'rgba(148, 163, 184, 0.2)',
     text: '#f8fafc',
     text2: '#94a3b8',
-    text3: '#6b7a90',
+    text3: '#7786a0',
     accent: '#2563eb',
-    accentHover: '#3b74f0',
+    accentHover: '#356eee',
     link: '#60a5fa',
     success: '#4ade80',
     warning: '#fbbf24',
@@ -50,6 +66,21 @@ export const RV_PALETTE: Record<RvThemeMode, RvPalette> = {
     buttonActive: '#2a3042',
     accentActive: '#1d4fd0',
     focusRing: 'rgba(96, 165, 250, 0.25)',
+    sidebar: '#090d18',
+    mask: 'rgba(0, 0, 0, 0.55)',
+    popoverShadow: '0 8px 24px -12px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(148, 163, 184, 0.2)',
+    successBg: '#132a2c',
+    successBgStrong: '#1a3e36',
+    successBorder: '#20533f',
+    warningBg: '#292621',
+    warningBgStrong: '#413722',
+    warningBorder: '#584922',
+    dangerBg: '#281d2b',
+    dangerBgStrong: '#402633',
+    dangerBorder: '#58303b',
+    infoBg: '#16233b',
+    infoBgStrong: '#1e3251',
+    infoBorder: '#274066',
   },
   light: {
     bg: '#ffffff',
@@ -61,9 +92,9 @@ export const RV_PALETTE: Record<RvThemeMode, RvPalette> = {
     borderStrong: 'rgba(15, 23, 42, 0.16)',
     text: '#0b1220',
     text2: '#475569',
-    text3: '#64748b',
+    text3: '#627289',
     accent: '#2563eb',
-    accentHover: '#3b74f0',
+    accentHover: '#356eee',
     link: '#1d4ed8',
     success: '#15803d',
     warning: '#a16207',
@@ -74,6 +105,21 @@ export const RV_PALETTE: Record<RvThemeMode, RvPalette> = {
     buttonActive: '#dfe2e6',
     accentActive: '#1d4fd0',
     focusRing: 'rgba(29, 78, 216, 0.2)',
+    sidebar: '#f8f9fc',
+    mask: 'rgba(15, 23, 42, 0.35)',
+    popoverShadow: '0 8px 24px -12px rgba(15, 23, 42, 0.2), 0 0 0 1px rgba(15, 23, 42, 0.16)',
+    successBg: '#e0f7e8',
+    successBgStrong: '#c6f0d5',
+    successBorder: '#b4d6c1',
+    warningBg: '#f6efe6',
+    warningBgStrong: '#eee3d2',
+    warningBorder: '#e1cdb0',
+    dangerBg: '#fdecec',
+    dangerBgStrong: '#fbd6d6',
+    dangerBorder: '#f4baba',
+    infoBg: '#e8edfb',
+    infoBgStrong: '#d6dff8',
+    infoBorder: '#b7c6f3',
   },
 }
 

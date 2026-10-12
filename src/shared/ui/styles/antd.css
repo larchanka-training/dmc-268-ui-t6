@@ -65,7 +65,14 @@
 /* Dropdown: group titles are captions, not items. */
 .ant-dropdown-menu .ant-dropdown-menu-item-group-title {
   padding: 4px 12px 2px;
+  color: var(--rv-text-3);
   font-size: 11.5px;
+}
+
+/* Navigation menu: items carry the weight of a label. */
+.ant-menu-inline .ant-menu-item,
+.ant-menu-inline-collapsed .ant-menu-item {
+  font-weight: 500;
 }
 
 /* Forms inside a modal: tighter rhythm, labels carry the weight. */
