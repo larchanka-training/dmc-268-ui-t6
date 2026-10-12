@@ -211,7 +211,19 @@ describe('walkingRunAt session', () => {
     const { session, actions } = walkingRunAt(14_000, origin)
     expect(session.startedAt).toBe('2026-10-01T00:00:02.000Z')
     expect(session.finishedAt).toBe('2026-10-01T00:00:14.000Z')
+    expect(session.createdAt).toBe('2026-10-01T00:00:00.000Z')
     expect(actions[0]?.startedAt).toBe('2026-10-01T00:00:02.000Z')
+  })
+
+  it('is created by a webhook at the start of the timeline, never after it started', () => {
+    for (const elapsedMs of [0, 1999, 2000, 6500, 11_000, 14_000]) {
+      const { session } = walkingRunAt(elapsedMs)
+      expect(session.trigger).toBe('webhook')
+      expect(session.createdAt).toBe('2026-09-18T12:00:00.000Z')
+      if (session.startedAt !== null) {
+        expect(Date.parse(session.createdAt)).toBeLessThanOrEqual(Date.parse(session.startedAt))
+      }
+    }
   })
 
   it('validates against the contract at every moment, and the log only grows', () => {
@@ -304,6 +316,14 @@ describe('the static failed run', () => {
     expect(mockFailedRun.finishedAt).not.toBeNull()
     expect(mockFailedRun.attempt).toBe(1)
     expect(mockFailedRun.actionCount).toBe(4)
+  })
+
+  it('is created by a webhook a minute before it started, like the other mock runs', () => {
+    expect(mockFailedRun.trigger).toBe('webhook')
+    expect(mockFailedRun.createdAt).toBe('2026-09-18T09:59:00.000Z')
+    expect(Date.parse(mockFailedRun.createdAt)).toBeLessThanOrEqual(
+      Date.parse(mockFailedRun.startedAt ?? ''),
+    )
   })
 
   it('records the pipeline up to a failed llm.call', () => {

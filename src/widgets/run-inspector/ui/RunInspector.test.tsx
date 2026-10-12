@@ -86,6 +86,11 @@ describe('RunInspector', () => {
     expect(follows(header, bar)).toBe(true)
     expect(follows(bar, extra)).toBe(true)
     expect(follows(extra, tree)).toBe(true)
+    // Its own row of the inspector grid: next to the run card, not inside it.
+    const card = header.closest('.ant-card')
+    expect(card).not.toBeNull()
+    expect(bar.closest('.ant-card')).toBeNull()
+    expect(bar.parentElement).toBe(card?.parentElement)
     expect(
       Array.from(bar.querySelectorAll('[data-stage-state]')).map((node) =>
         node.getAttribute('data-stage-state'),
