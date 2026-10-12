@@ -192,23 +192,44 @@ function mix(top: string, bottom: string, share: number): string {
 }
 
 describe('danger colours', () => {
-  it('keeps the text of a filled danger button readable in both modes', () => {
+  it('keeps a danger button readable at rest, on hover and on press in both modes', () => {
     for (const mode of MODES) {
       const p = RV_PALETTE[mode]
+      const tokens = resolved(mode)
       expect(buildTheme(mode).components?.Button?.dangerColor).toBe(p.dangerFg)
-      expect(contrast(p.dangerFg, p.danger)).toBeGreaterThanOrEqual(4.5)
+      expect([tokens.colorError, tokens.colorErrorHover, tokens.colorErrorActive]).toEqual([
+        p.danger,
+        p.dangerHover,
+        p.dangerActive,
+      ])
+      for (const fill of [p.danger, p.dangerHover, p.dangerActive]) {
+        // Filled button: its text on the fill. Outlined button: the same colour as text.
+        expect(contrast(p.dangerFg, fill), `${mode} ${fill} fill`).toBeGreaterThanOrEqual(4.5)
+        expect(contrast(fill, p.surface), `${mode} ${fill} text`).toBeGreaterThanOrEqual(4.5)
+      }
     }
   })
 
-  // `styles/antd.css` tints a hovered danger item of a dropdown with `--rv-tint` of the danger
-  // colour over the popover and writes with 85% danger mixed into the text colour.
+  // A hovered danger item of a dropdown is tinted, not filled. The shares of the two mixes are
+  // read from the stylesheets, so removing or weakening the rule fails this test.
   it('keeps a hovered danger item of a dropdown readable in both modes', () => {
-    const tint = { dark: 0.14, light: 0.11 }
+    const antdCss = readFileSync(new URL('../styles/antd.css', import.meta.url), 'utf8')
+    const tokensCss = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8')
+    const rule = /\.ant-dropdown-menu-item-danger[^{]*\{([^}]*)\}/.exec(antdCss)?.[1] ?? ''
+    expect(rule).toContain(
+      'background: color-mix(in srgb, var(--rv-danger) var(--rv-tint), transparent)',
+    )
+    const textShare =
+      /color: color-mix\(in srgb, var\(--rv-danger\) (\d+)%, var\(--rv-text\)\)/.exec(rule)?.[1]
+    const tints = [...tokensCss.matchAll(/--rv-tint: (\d+)%/g)].map((match) => Number(match[1]))
+    expect(textShare).toBeDefined()
+    expect(tints).toHaveLength(2)
+    const tint = { dark: tints[0] ?? 100, light: tints[1] ?? 100 }
     for (const mode of MODES) {
       const p = RV_PALETTE[mode]
-      const background = mix(p.danger, p.popover, tint[mode])
-      const text = mix(p.danger, p.text, 0.85)
-      expect(contrast(text, background)).toBeGreaterThanOrEqual(4.5)
+      const background = mix(p.danger, p.popover, tint[mode] / 100)
+      const text = mix(p.danger, p.text, Number(textShare) / 100)
+      expect(contrast(text, background), mode).toBeGreaterThanOrEqual(4.5)
     }
   })
 

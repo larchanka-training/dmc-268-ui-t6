@@ -1,3 +1,5 @@
+// The same reset the app loads in `main.tsx`, so a story shows focus exactly as a screen does.
+import 'antd/dist/reset.css'
 import '@fontsource-variable/inter'
 import '@fontsource-variable/jetbrains-mono'
 import './preview.css'

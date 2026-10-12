@@ -23,6 +23,8 @@ export interface RvPalette {
   high: string
   critical: string
   danger: string
+  dangerHover: string
+  dangerActive: string
   /** Text on a surface filled with `danger`. */
   dangerFg: string
   hover: string
@@ -71,6 +73,8 @@ export const RV_PALETTE: Record<RvThemeMode, RvPalette> = {
     high: '#fb923c',
     critical: '#f97316',
     danger: '#f87171',
+    dangerHover: '#fa8a8a',
+    dangerActive: '#e06060',
     dangerFg: '#090d18',
     hover: 'rgba(148, 163, 184, 0.06)',
     selected: 'rgba(248, 250, 252, 0.08)',
@@ -115,6 +119,8 @@ export const RV_PALETTE: Record<RvThemeMode, RvPalette> = {
     high: '#c2410c',
     critical: '#b91c1c',
     danger: '#d92626',
+    dangerHover: '#c52020',
+    dangerActive: '#b01c1c',
     dangerFg: '#ffffff',
     hover: 'rgba(15, 23, 42, 0.04)',
     selected: 'rgba(15, 23, 42, 0.06)',

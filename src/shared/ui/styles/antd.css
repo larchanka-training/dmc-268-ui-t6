@@ -74,10 +74,10 @@
    fills it with the danger colour and writes in white, which is unreadable on the light red of
    the dark theme. */
 .ant-dropdown
-  .ant-dropdown-menu
+  .ant-dropdown-menu.ant-dropdown-menu-root
   .ant-dropdown-menu-item.ant-dropdown-menu-item-danger:not(.ant-dropdown-menu-item-disabled):hover,
 .ant-dropdown
-  .ant-dropdown-menu
+  .ant-dropdown-menu.ant-dropdown-menu-root
   .ant-dropdown-menu-item.ant-dropdown-menu-item-danger.ant-dropdown-menu-item-active {
   background: color-mix(in srgb, var(--rv-danger) var(--rv-tint), transparent);
   color: color-mix(in srgb, var(--rv-danger) 85%, var(--rv-text));
