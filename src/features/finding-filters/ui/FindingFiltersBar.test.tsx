@@ -270,6 +270,28 @@ describe('FindingFiltersBar', () => {
     })
   })
 
+  it('names the clear buttons of both selects in Russian once they have a value', () => {
+    const { onChange } = renderBar({
+      filters: { ...EMPTY_FINDING_FILTERS, files: ['src/a.ts'], severities: ['critical'] },
+    })
+
+    expect(screen.queryByRole('button', { name: 'Clear' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Очистить выбор критичности' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Очистить выбор файлов' }))
+    expect(onChange).toHaveBeenCalledWith({ files: [], query: '' })
+  })
+
+  it('names the clear button of the search in Russian once it has text', async () => {
+    const { onQueryChange } = renderBar({ filters: { ...EMPTY_FINDING_FILTERS, query: 'утечка' } })
+
+    expect(screen.queryByRole('button', { name: 'close-circle' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Очистить поиск' }))
+    expect(searchInput().value).toBe('')
+    await waitFor(() => {
+      expect(onQueryChange).toHaveBeenCalledWith('')
+    })
+  })
+
   it('shows the selected severities as tags', async () => {
     renderBar({ filters: { ...EMPTY_FINDING_FILTERS, severities: ['critical', 'info'] } })
 
@@ -315,6 +337,32 @@ describe('FindingFiltersBar', () => {
   })
 
   describe('«Сбросить фильтры»', () => {
+    // The bar's button turns disabled and the empty message goes away after a reset; the focus
+    // must not fall back to the page (.agents/rules/frontend.md §3b, item 3).
+    it('moves the focus to the Files select, the start of the bar', () => {
+      renderBar({ filters: { ...EMPTY_FINDING_FILTERS, severities: ['info'] } })
+      const button = within(screen.getByTestId('finding-filters-bar')).getByRole('button', {
+        name: 'Сбросить фильтры',
+      })
+      button.focus()
+
+      fireEvent.click(button)
+
+      expect(document.activeElement).toBe(screen.getByRole('combobox', { name: 'Файлы' }))
+    })
+
+    it('moves the focus to the Files select from the button of the empty message too', () => {
+      renderBar({ empty: true, filters: { ...EMPTY_FINDING_FILTERS, query: 'zzzz' } })
+      const button = within(screen.getByTestId('findings-filter-empty')).getByRole('button', {
+        name: 'Сбросить фильтры',
+      })
+      button.focus()
+
+      fireEvent.click(button)
+
+      expect(document.activeElement).toBe(screen.getByRole('combobox', { name: 'Файлы' }))
+    })
+
     it('is disabled when nothing is active', () => {
       renderBar()
       expect(resetButton().hasAttribute('disabled')).toBe(true)
