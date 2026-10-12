@@ -66,7 +66,7 @@ describe('UserMenu', () => {
     expect(screen.getAllByText('skvertl').length).toBeGreaterThan(0)
   })
 
-  it('opens the menu from the keyboard', async () => {
+  it('opens the menu from a native button, which the keyboard activates', async () => {
     vi.spyOn(userApi, 'useMe').mockReturnValue({
       data: { ...MOCK_USER, workspaces: [] },
       isLoading: false,
@@ -78,8 +78,13 @@ describe('UserMenu', () => {
         <UserMenu />
       </QueryClientProvider>,
     )
-    const trigger = screen.getByLabelText('Меню пользователя')
-    fireEvent.keyDown(trigger, { key: 'Enter' })
+    // The trigger is a real button: the browser turns Enter and Space on it into a click.
+    const trigger = screen.getByRole('button', { name: 'Меню пользователя' })
+    expect(trigger.tagName).toBe('BUTTON')
+    expect(trigger.getAttribute('aria-expanded')).toBe('false')
+    trigger.focus()
+    fireEvent.click(trigger)
     expect(await screen.findByText('Выйти')).toBeDefined()
+    expect(trigger.getAttribute('aria-expanded')).toBe('true')
   })
 })

@@ -62,11 +62,19 @@ describe('isStaleRunning', () => {
 })
 
 describe('statusTone', () => {
-  it('maps run statuses to design-system Tag tones', () => {
-    expect(statusTone('succeeded')).toBe('success')
-    expect(statusTone('failed')).toBe('danger')
-    expect(statusTone('running')).toBe('info')
-    expect(statusTone('queued')).toBe('neutral')
-    expect(statusTone('cancelled')).toBe('warning')
+  it.each([
+    ['queued', 'neutral'],
+    ['running', 'info'],
+    ['publishing', 'info'],
+    ['succeeded', 'success'],
+    ['failed', 'danger'],
+    ['cancelled', 'warning'],
+    ['skipped', 'neutral'],
+  ] as const)('shows %s with the %s tone of the design-system Tag', (status, tone) => {
+    expect(statusTone(status)).toBe(tone)
+  })
+
+  it('covers every run status', () => {
+    expect(ALL_STATUSES).toHaveLength(7)
   })
 })

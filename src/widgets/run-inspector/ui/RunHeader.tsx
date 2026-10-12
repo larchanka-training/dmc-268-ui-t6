@@ -137,7 +137,7 @@ export function RunHeader(props: RunHeaderProps): JSX.Element {
 
   return (
     <div>
-      <Descriptions column={4} items={items} size="small" />
+      <Descriptions column={{ xs: 1, sm: 2, lg: 4 }} items={items} size="small" />
       {run.summaryOnly ? (
         <Typography.Text type="secondary">
           Summary-only прогон (дифф &gt; 3000 строк)

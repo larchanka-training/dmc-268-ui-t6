@@ -97,4 +97,29 @@ describe('RunsPage', () => {
     fireEvent.click(screen.getByText(demoRun.pullRequest.title))
     expect(await screen.findByTestId('run-detail-route')).toBeTruthy()
   })
+
+  it('gives every run a link, so it opens from the keyboard and in a new tab', async () => {
+    vi.mocked(useRunList).mockReturnValue({
+      data: mockRunsListPage,
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useRunList>)
+
+    const demoRun = mockRunsListPage.items.find((run) => run.status === 'succeeded')
+    if (!demoRun) {
+      throw new Error('fixture must include a succeeded run')
+    }
+    renderPage()
+
+    const links = await screen.findAllByRole('link')
+    expect(links).toHaveLength(mockRunsListPage.items.length)
+    const link = links.find((item) => item.getAttribute('href') === `/runs/${demoRun.id}`)
+    expect(link?.textContent).toBe(`#${String(demoRun.pullRequest.number)}`)
+
+    // A click on the link is one navigation, not two: the row leaves it to the link.
+    fireEvent.click(link ?? document.body)
+    expect(await screen.findByTestId('run-detail-route')).toBeTruthy()
+  })
 })

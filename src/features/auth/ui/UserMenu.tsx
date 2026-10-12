@@ -1,8 +1,9 @@
 import { LogoutOutlined, UpOutlined, UserOutlined } from '@ant-design/icons'
 import { Avatar, Dropdown, type MenuProps } from 'antd'
-import { useState, type FC } from 'react'
+import { useRef, useState, type FC } from 'react'
 
 import { useMe } from '../../../entities/user'
+import { RowButton } from '../../../shared/ui'
 import { useAuthStore } from '../model/store'
 import styles from './UserMenu.module.css'
 
@@ -19,17 +20,8 @@ export const UserMenu: FC<UserMenuProps> = ({ extraItems, compact = false }) => 
   const { data: user } = useMe(isAuthenticated)
   const logout = useAuthStore((state) => state.logout)
   const [open, setOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement | HTMLAnchorElement>(null)
   const login = user?.login ?? 'Пользователь'
-
-  const avatar = (
-    <Avatar
-      alt={login}
-      className={styles.avatar}
-      icon={!user?.avatarUrl ? <UserOutlined /> : undefined}
-      size={28}
-      src={user?.avatarUrl ?? undefined}
-    />
-  )
 
   const items: MenuProps['items'] = [
     ...(user
@@ -63,34 +55,35 @@ export const UserMenu: FC<UserMenuProps> = ({ extraItems, compact = false }) => 
 
   return (
     <Dropdown
-      menu={{ items }}
+      menu={{
+        items,
+        // The menu closes on a choice; the focus goes back to the button that opened it.
+        onClick: () => {
+          setOpen(false)
+          triggerRef.current?.focus()
+        },
+      }}
       onOpenChange={setOpen}
       open={open}
       placement="topLeft"
       trigger={['click']}
     >
-      <button
+      <RowButton
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label="Меню пользователя"
-        className={styles.trigger}
-        data-compact={compact || undefined}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault()
-            setOpen((value) => !value)
-          }
-        }}
-        type="button"
+        ref={triggerRef}
+        size="large"
       >
-        {avatar}
-        {compact ? null : (
-          <>
-            <span className={styles.loginText}>{login}</span>
-            <UpOutlined className={styles.chevron} />
-          </>
-        )}
-      </button>
+        <Avatar
+          alt={login}
+          icon={!user?.avatarUrl ? <UserOutlined /> : undefined}
+          size={28}
+          src={user?.avatarUrl ?? undefined}
+        />
+        {compact ? null : <span className={styles.loginText}>{login}</span>}
+        {compact ? null : <UpOutlined className={styles.chevron} />}
+      </RowButton>
     </Dropdown>
   )
 }

@@ -8,8 +8,6 @@ interface ThemeState {
   /** The theme in effect, with `system` already resolved. */
   mode: ThemeMode
   preference: ThemePreference
-  toggleTheme: () => void
-  setTheme: (mode: ThemeMode) => void
   setPreference: (preference: ThemePreference) => void
 }
 
@@ -54,15 +52,9 @@ export function getInitialPreference(): ThemePreference {
   return savedTheme() ?? 'system'
 }
 
-export const useThemeStore = create<ThemeState>((set, get) => ({
+export const useThemeStore = create<ThemeState>((set) => ({
   mode: getInitialTheme(),
   preference: getInitialPreference(),
-  toggleTheme: () => {
-    get().setPreference(get().mode === 'light' ? 'dark' : 'light')
-  },
-  setTheme: (mode: ThemeMode) => {
-    get().setPreference(mode)
-  },
   setPreference: (preference: ThemePreference) => {
     persist(preference)
     set({ preference, mode: preference === 'system' ? systemTheme() : preference })

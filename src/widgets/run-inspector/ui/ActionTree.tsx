@@ -1,9 +1,10 @@
 import type { JSX, ReactNode } from 'react'
-import { Collapse, Spin, Tree, Typography } from 'antd'
+import { Collapse, Spin, Typography } from 'antd'
 import type { TreeDataNode } from 'antd'
 
 import type { ActionTreeNode, RunAction } from '../../../entities/run'
 import { groupActions, useRunActionResponse } from '../../../entities/run'
+import { CodeBlock, TraceTree } from '../../../shared/ui'
 import { formatDuration } from '../lib/format'
 import { useRunInspectorStore } from '../model/store'
 import styles from './ActionTree.module.css'
@@ -74,7 +75,7 @@ export function ActionTree(props: ActionTreeProps): JSX.Element {
       return null
     }
     if (selectedAction.response !== null) {
-      return <pre>{JSON.stringify(selectedAction.response, null, 2)}</pre>
+      return <CodeBlock>{JSON.stringify(selectedAction.response, null, 2)}</CodeBlock>
     }
     if (selectedAction.responseRef === null) {
       return noResponse
@@ -88,12 +89,12 @@ export function ActionTree(props: ActionTreeProps): JSX.Element {
     if (responseQuery.data === null || responseQuery.data === undefined) {
       return noResponse
     }
-    return <pre>{JSON.stringify(responseQuery.data, null, 2)}</pre>
+    return <CodeBlock>{JSON.stringify(responseQuery.data, null, 2)}</CodeBlock>
   }
 
   return (
     <div className={styles.root}>
-      <Tree
+      <TraceTree
         treeData={treeData}
         expandedKeys={expandedKeys}
         onExpand={(keys) => {
@@ -113,7 +114,7 @@ export function ActionTree(props: ActionTreeProps): JSX.Element {
             {
               key: 'request',
               label: 'request',
-              children: <pre>{JSON.stringify(selectedAction.request, null, 2)}</pre>,
+              children: <CodeBlock>{JSON.stringify(selectedAction.request, null, 2)}</CodeBlock>,
             },
             {
               key: 'response',

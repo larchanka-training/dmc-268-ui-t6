@@ -1,7 +1,7 @@
 import { ReloadOutlined } from '@ant-design/icons'
 import { Alert, Button, Flex, Spin, Typography, type TableColumnsType } from 'antd'
 import type { FC } from 'react'
-import { useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 
 import { isActive, statusTone, useRunList, type RunSession } from '../../entities/run'
 import { DataTable, PageHeader, Tag } from '../../shared/ui'
@@ -20,7 +20,9 @@ export const RunsPage: FC = () => {
       key: 'pr',
       render: (_, run) => (
         <div className={styles.pullRequest}>
-          <Text strong>{`#${String(run.pullRequest.number)}`}</Text>
+          <Link className={styles.runLink} to={`/runs/${run.id}`}>
+            {`#${String(run.pullRequest.number)}`}
+          </Link>
           <Text type="secondary">{run.pullRequest.title}</Text>
         </div>
       ),
@@ -89,7 +91,12 @@ export const RunsPage: FC = () => {
           dataSource={runSessions}
           locale={{ emptyText: 'Нет прогонов ревью' }}
           onRow={(run) => ({
-            onClick: () => {
+            // The whole row opens the run for the mouse; the link in the first cell does it
+            // for the keyboard and for "open in a new tab", and handles its own click.
+            onClick: (event) => {
+              if (event.target instanceof Element && event.target.closest('a') !== null) {
+                return
+              }
               void navigate(`/runs/${run.id}`)
             },
             style: { cursor: 'pointer' },

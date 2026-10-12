@@ -3,7 +3,7 @@
   align-items: center;
   gap: 8px;
   min-height: 0;
-  font-size: 13px;
+  font-size: var(--rv-fs);
   white-space: nowrap;
 }
 
@@ -57,13 +57,13 @@
 .repoMeta {
   max-width: 232px;
   overflow: hidden;
-  font-size: 12px;
+  font-size: var(--rv-fs-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .switchLabel {
-  font-size: 12px;
+  font-size: var(--rv-fs-xs);
 }
 
 .empty {
@@ -73,7 +73,8 @@
   background: var(--rv-bg-raised);
 }
 
-.empty :global(.ant-empty-description) {
+.emptyText {
+  display: block;
   max-width: 520px;
   margin-inline: auto;
 }

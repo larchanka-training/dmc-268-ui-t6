@@ -3,7 +3,8 @@ import type { FC } from 'react'
 
 import { useMe } from '../../entities/user'
 import { LoginButton, useAuthStore } from '../../features/auth'
-import { buildTheme, HeroGlass, Logo } from '../../shared/ui'
+import { buildTheme, Logo } from '../../shared/ui'
+import { HeroGlass } from './HeroGlass'
 import styles from './LoginPage.module.css'
 
 export interface LoginPageProps {
@@ -15,7 +16,8 @@ const FORM_DIM = [0.5, 0.27, 2.1] as const
 
 /**
  * Sign-in. The only screen with the animated glass background of the landing; that background is
- * dark-only, so the screen stays dark whatever theme the user picked.
+ * dark-only, so the screen stays dark whatever theme the user picked: the nested provider themes
+ * Ant Design and `data-rv-theme="dark"` switches the `--rv-*` tokens for this subtree.
  */
 export const LoginPage: FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
@@ -24,7 +26,7 @@ export const LoginPage: FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
   return (
     <ConfigProvider theme={buildTheme('dark')}>
-      <main className={styles.container}>
+      <main className={styles.container} data-rv-theme="dark">
         <HeroGlass dim={FORM_DIM} textSelector="#login-form" />
         <div className={styles.form} id="login-form">
           <span className={styles.logo}>

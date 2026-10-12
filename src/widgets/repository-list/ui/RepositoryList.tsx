@@ -341,7 +341,10 @@ export const RepositoryList: FC<RepositoryListProps> = ({
 
       {repositories.length === 0 && !loading ? (
         <div className={styles.empty}>
-          <Empty description={EMPTY_REPOSITORIES_DESCRIPTION} image={Empty.PRESENTED_IMAGE_SIMPLE}>
+          <Empty
+            description={<span className={styles.emptyText}>{EMPTY_REPOSITORIES_DESCRIPTION}</span>}
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+          >
             {!isAppConfigured ? (
               <Tooltip title="Инсталляция недоступна: не задан VITE_GITHUB_APP_SLUG">
                 <span>{emptyConnectButton}</span>
@@ -353,7 +356,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
         </div>
       ) : (
         <>
-          <Flex gap="middle" justify="space-between" wrap="wrap">
+          <Flex align="center" gap="middle" justify="space-between" wrap="wrap">
             <Input
               allowClear
               className={styles.searchInput}
@@ -379,6 +382,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
             columns={columns}
             dataSource={filteredRepositories}
             loading={loading}
+            locale={{ emptyText: 'Ничего не найдено' }}
             pagination={{ pageSize: 10 }}
             rowKey="id"
             scroll={{ x: 900 }}
@@ -400,7 +404,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       >
         <Form form={form} layout="vertical">
           <Form.Item label="Активность ревью" name="enabled" valuePropName="checked">
-            <Switch />
+            <Switch checkedChildren="Активен" unCheckedChildren="Пауза" />
           </Form.Item>
 
           <Form.Item
