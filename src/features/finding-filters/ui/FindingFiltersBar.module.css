@@ -20,11 +20,11 @@
 }
 
 .bar:global(.ant-form-inline) :global(.ant-form-item).severity {
-  flex: 1 1 252px;
+  flex: 1 1 264px;
 }
 
 .bar:global(.ant-form-inline) :global(.ant-form-item).search {
-  flex: 1 1 200px;
+  flex: 1 1 212px;
 }
 
 /* Never wider than the bar: on a narrow column the counter wraps next to the button. */
