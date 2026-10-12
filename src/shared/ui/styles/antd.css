@@ -167,3 +167,32 @@
 .ant-modal .ant-modal-footer {
   margin-top: 20px;
 }
+
+/* Steps: the line between stages is a neutral rule, green along a finished stretch. Ant Design
+   draws it in the primary colour up to the stage in progress and red before a failed one. */
+.ant-steps .ant-steps-item .ant-steps-item-rail {
+  --ant-cmp-steps-item-solid-line-color: var(--rv-border-strong);
+}
+
+.ant-steps .ant-steps-item .ant-steps-item-rail-finish {
+  --ant-cmp-steps-item-solid-line-color: var(--rv-success);
+}
+
+/* Steps: a finished stage is green, like the tag of a succeeded run. Ant Design paints it with
+   the primary colour it shares with the stage in progress, so a token cannot separate the two.
+   The selector repeats the one of Ant Design with one more class, otherwise the library wins. */
+.ant-steps.ant-steps-filled .ant-steps-item.ant-steps-item-finish {
+  --ant-cmp-steps-item-icon-bg-color: color-mix(
+    in srgb,
+    var(--rv-success) var(--rv-tint),
+    transparent
+  );
+  --ant-cmp-steps-item-icon-text-color: var(--rv-success);
+  --ant-cmp-steps-item-icon-custom-color: var(--rv-success);
+}
+
+/* Steps: a waiting stage is an outlined grey circle (the fill is off by a token). Ant Design
+   hides the border of a filled step without a token for it. */
+.ant-steps.ant-steps-filled .ant-steps-item.ant-steps-item-wait {
+  --ant-cmp-steps-item-icon-border-color: var(--rv-border-strong);
+}

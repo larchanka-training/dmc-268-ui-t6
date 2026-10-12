@@ -302,6 +302,121 @@ describe('danger colours', () => {
   })
 })
 
+// Stages take the tones of the status tags. The tokens are pinned here and the rules that no token
+// expresses are read from `antd.css`, so dropping either of them fails a test.
+describe('Steps', () => {
+  const antdCss = readFileSync(new URL('../styles/antd.css', import.meta.url), 'utf8')
+  const tokensCss = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8')
+  const SURFACES = ['bg', 'bgRaised', 'surface'] as const
+
+  /** Declarations of the `antd.css` rule the pattern matches, written out on one line. */
+  function declarations(selector: RegExp): string {
+    const body = new RegExp(`${selector.source}\\s*\\{([^}]*)\\}`).exec(antdCss)?.[1] ?? ''
+    return body.replace(/\s+/g, ' ').replace(/\( /g, '(').replace(/ \)/g, ')')
+  }
+
+  it('paints the stage in progress with the link colour, never with the accent', () => {
+    for (const mode of MODES) {
+      const p = RV_PALETTE[mode]
+      const steps = buildTheme(mode).components?.Steps
+      expect([steps?.colorPrimary, steps?.colorPrimaryHover]).toEqual([p.link, p.link])
+      expect(JSON.stringify(steps)).not.toContain(p.accent)
+      expect(JSON.stringify(steps)).not.toContain(p.accentHover)
+      // The tint of a stage in progress that is not current stays the global one: info, not accent.
+      const tokens = resolved(mode)
+      expect([tokens.colorPrimaryBg, tokens.colorPrimaryBgHover]).toEqual([
+        p.infoBg,
+        p.infoBgStrong,
+      ])
+    }
+  })
+
+  it('keeps the number and the cross on the filled circle of the current stage readable', () => {
+    for (const mode of MODES) {
+      const foreground = buildTheme(mode).components?.Steps?.colorTextLightSolid ?? ''
+      for (const fill of [RV_PALETTE[mode].link, resolved(mode).colorError]) {
+        expect(contrast(foreground, fill), `${mode} on ${fill}`).toBeGreaterThanOrEqual(4.5)
+      }
+    }
+  })
+
+  it('keeps every title, note and number of a stage readable on the page and on a card', () => {
+    for (const mode of MODES) {
+      const p = RV_PALETTE[mode]
+      const tokens = resolved(mode)
+      // Title of a finished stage or one in progress; title and note of a waiting stage and its
+      // number; title and note of a failed stage.
+      const texts = [
+        tokens.colorText,
+        tokens.colorTextDescription,
+        tokens.colorTextLabel,
+        tokens.colorError,
+      ]
+      const customIcon = buildTheme(mode).components?.Steps?.colorTextDisabled ?? ''
+      for (const surface of SURFACES) {
+        for (const text of texts) {
+          expect(
+            contrast(text, p[surface]),
+            `${mode} ${text} on ${surface}`,
+          ).toBeGreaterThanOrEqual(4.5)
+        }
+        // An icon is not text: 3 to 1 is enough for it.
+        expect(
+          contrast(customIcon, p[surface]),
+          `${mode} icon on ${surface}`,
+        ).toBeGreaterThanOrEqual(3)
+      }
+    }
+  })
+
+  it('draws a waiting stage as an outlined grey circle', () => {
+    for (const mode of MODES) {
+      expect(buildTheme(mode).components?.Steps?.colorFillTertiary).toBe('transparent')
+    }
+    expect(declarations(/\.ant-steps-item\.ant-steps-item-wait/)).toContain(
+      '--ant-cmp-steps-item-icon-border-color: var(--rv-border-strong);',
+    )
+  })
+
+  it('paints a finished stage green, like the tag of a succeeded run', () => {
+    const rule = declarations(/\.ant-steps-item\.ant-steps-item-finish/)
+    expect(rule).toContain(
+      '--ant-cmp-steps-item-icon-bg-color: color-mix(in srgb, var(--rv-success) var(--rv-tint), transparent);',
+    )
+    expect(rule).toContain('--ant-cmp-steps-item-icon-text-color: var(--rv-success);')
+    expect(rule).toContain('--ant-cmp-steps-item-icon-custom-color: var(--rv-success);')
+    const tints = [...tokensCss.matchAll(/--rv-tint: (\d+)%/g)].map((match) => Number(match[1]))
+    const tint = { dark: tints[0] ?? 100, light: tints[1] ?? 100 }
+    for (const mode of MODES) {
+      const p = RV_PALETTE[mode]
+      // The check mark is an icon: 3 to 1 against its tint over the page.
+      const background = mix(p.success, p.bg, tint[mode] / 100)
+      expect(contrast(p.success, background), mode).toBeGreaterThanOrEqual(3)
+    }
+  })
+
+  it('draws the line between stages neutral and a finished stretch green', () => {
+    expect(declarations(/\.ant-steps-item \.ant-steps-item-rail/)).toContain(
+      '--ant-cmp-steps-item-solid-line-color: var(--rv-border-strong);',
+    )
+    expect(declarations(/\.ant-steps-item \.ant-steps-item-rail-finish/)).toContain(
+      '--ant-cmp-steps-item-solid-line-color: var(--rv-success);',
+    )
+    const stepsRules = antdCss.match(/\.ant-steps[^{]*\{[^}]*\}/g) ?? []
+    expect(stepsRules).toHaveLength(4)
+    expect(stepsRules.join('\n')).not.toContain('--rv-accent')
+  })
+
+  it('keeps a custom icon as large as the circle of a small step', () => {
+    for (const mode of MODES) {
+      // Ant Design sizes the small circle by `fontSizeHeading3`.
+      expect(buildTheme(mode).components?.Steps?.customIconFontSize).toBe(
+        resolved(mode).fontSizeHeading3,
+      )
+    }
+  })
+})
+
 // `tokens.css` repeats the palette for plain CSS. The two copies are written by hand, so this
 // test is what keeps them from drifting apart.
 describe('tokens.css', () => {
