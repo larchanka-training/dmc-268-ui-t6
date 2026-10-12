@@ -97,6 +97,13 @@
   color: var(--rv-text);
 }
 
+/* Select, disabled: the arrow keeps Ant Design's disabled text colour. The theme gives the arrow of
+   an enabled Select a brighter colour (`colorTextQuaternary`, for 3:1), which on a disabled one
+   would read as available. One class heavier than the library's rule. */
+.ant-select.ant-select-disabled .ant-select-suffix {
+  color: var(--ant-color-text-disabled);
+}
+
 /* Select: the clear button is a tab stop, so when the keyboard reaches it, it shows with the focus
    ring of §7 instead of staying transparent; the arrow under it steps aside, as on hover. Ant Design
    shows the button only under the pointer. One class heavier than the library's rules. */
@@ -109,6 +116,15 @@
 
 .ant-select:has(.ant-select-clear:focus-visible) .ant-select-suffix {
   opacity: 0;
+}
+
+/* Input: the clear button's focus ring is 2px like every ring of §7; Ant Design draws it 1px, and
+   its `lineWidthFocus` token for Input empties the library's variable instead of widening it. One
+   class heavier than the library's rule. */
+.ant-input-affix-wrapper .ant-input-suffix .ant-input-clear-icon:focus-visible {
+  border-radius: 50%;
+  outline: 2px solid var(--rv-link);
+  outline-offset: 2px;
 }
 
 /* Form, inline: from 576px up a label and its control stay on one line and only the control

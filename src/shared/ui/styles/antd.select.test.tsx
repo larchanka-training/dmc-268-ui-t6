@@ -19,6 +19,7 @@ const RULES = {
     '.ant-select-dropdown .ant-select-item.ant-select-item-option-selected:not(.ant-select-item-option-disabled) .ant-select-item-option-state',
   focusedClear: '.ant-select .ant-select-clear:focus-visible',
   arrowUnderFocusedClear: '.ant-select:has(.ant-select-clear:focus-visible) .ant-select-suffix',
+  disabledArrow: '.ant-select.ant-select-disabled .ant-select-suffix',
 } as const
 
 const CSS = readFileSync('src/shared/ui/styles/antd.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
@@ -64,6 +65,7 @@ describe('the Select rules of antd.css', () => {
   it('are exactly these, the focused clear button with the focus ring of §7', () => {
     expect(selectRules()).toEqual([
       `${RULES.checkMark} { color: var(--rv-text); }`,
+      `${RULES.disabledArrow} { color: var(--ant-color-text-disabled); }`,
       `${RULES.focusedClear} { border-radius: 50%; opacity: 1; outline: 2px solid var(--rv-link); outline-offset: 2px; }`,
       `${RULES.arrowUnderFocusedClear} { opacity: 0; }`,
     ])
@@ -80,6 +82,18 @@ describe('the Select rules of antd.css', () => {
 
     expect(clear.matches(RULES.focusedClear)).toBe(true)
     expect(arrow.matches(RULES.arrowUnderFocusedClear)).toBe(true)
+  })
+
+  it('match the arrow of a disabled select and not of an enabled one', () => {
+    const { container } = render(
+      <>
+        <Select disabled options={[{ value: 'a', label: 'A' }]} value="a" />
+        <Select options={[{ value: 'a', label: 'A' }]} value="a" />
+      </>,
+    )
+    const [disabledArrow, enabledArrow] = [...container.querySelectorAll('.ant-select-suffix')]
+    expect(disabledArrow?.matches(RULES.disabledArrow)).toBe(true)
+    expect(enabledArrow?.matches(RULES.disabledArrow)).toBe(false)
   })
 
   it('match the check mark of a selected option and not of the others', () => {

@@ -260,6 +260,46 @@ describe('danger colours', () => {
     expect(rule?.[1]).toContain('.ant-select-item-option-selected')
     expect(rule?.[1]?.match(/\.ant-[a-z-]+/g)?.length ?? 0).toBeGreaterThan(4)
   })
+
+  it('gives a disabled control the neutral border of a field, once for every component', () => {
+    for (const mode of MODES) {
+      const p = RV_PALETTE[mode]
+      // Ant Design derives it from the page background, which made it blue in the dark mode.
+      expect(resolved(mode).colorBorderDisabled).toBe(p.borderStrong)
+      for (const component of ['Button', 'Input', 'InputNumber', 'Select'] as const) {
+        expect(buildTheme(mode).components?.[component], component).not.toHaveProperty(
+          'colorBorderDisabled',
+        )
+      }
+    }
+  })
+
+  it('gives Select and Input the focus, option, icon and text values of the specification', () => {
+    for (const mode of MODES) {
+      const p = RV_PALETTE[mode]
+      const { Select, Input } = buildTheme(mode).components ?? {}
+      // §7: the focus halo of a field is 3px, on Select as on Input.
+      expect(Select?.controlOutlineWidth).toBe(3)
+      expect(Input?.activeShadow).toBe(`0 0 0 3px ${p.focusRing}`)
+      // §7 and §3: the option under the keyboard is hovered; a selected one stays selected.
+      expect(Select?.optionActiveBg).toBe(p.hover)
+      expect(Select?.controlItemBgActiveHover).toBe(p.selected)
+      // §4: text in a control is 12.5px; a Select keeps its 21px line, so it stays 32px high.
+      expect(Select?.fontSize).toBe(12.5)
+      expect((Select?.lineHeight ?? 0) * (Select?.fontSize ?? 0)).toBeCloseTo(21)
+      expect(Input?.inputFontSize).toBe(12.5)
+      expect(buildTheme(mode).components?.InputNumber?.inputFontSize).toBe(12.5)
+      // WCAG 1.4.11: the clear icons have 3:1 against the field at rest and on hover.
+      for (const tokens of [Select, Input]) {
+        expect([tokens?.colorTextQuaternary, tokens?.colorIcon]).toEqual([p.text3, p.text2])
+      }
+      for (const icon of [p.text3, p.text2]) {
+        expect(contrast(icon, p.bg), `${mode} ${icon}`).toBeGreaterThanOrEqual(3)
+      }
+      // `lineWidthFocus` on Input empties the CSS variable of the clear button's ring (antd.css).
+      expect(Input).not.toHaveProperty('lineWidthFocus')
+    }
+  })
 })
 
 // `tokens.css` repeats the palette for plain CSS. The two copies are written by hand, so this
