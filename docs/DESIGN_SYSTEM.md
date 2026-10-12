@@ -260,6 +260,7 @@ Ant Design, которыми управляет токен `motion` (мерца�
 | Typography                                            | токены                                                      |
 | Table, Pagination                                     | токены и `antd.css`                                         |
 | Select, Input, Form, Segmented, Breadcrumb, Dropdown  | токены и `antd.css`                                         |
+| Steps                                                 | токены и `antd.css`                                         |
 | Menu                                                  | токены, `antd.css` и обёртка `NavMenu`                      |
 | Tree                                                  | токены; для журнала шагов обёртка `TraceTree`               |
 | Tag                                                   | свой компонент, `Tag` из Ant Design не используется         |
