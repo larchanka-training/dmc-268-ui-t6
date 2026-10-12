@@ -17,6 +17,13 @@
   padding-inline: 0;
 }
 
+/* The text is hidden from the eye only: `display: none` would take the name of the item away
+   from assistive tech. */
 .nav :global(.ant-menu-inline-collapsed > .ant-menu-item .ant-menu-title-content) {
-  display: none;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }

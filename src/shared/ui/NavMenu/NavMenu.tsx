@@ -36,6 +36,8 @@ export function NavMenu(props: NavMenuProps): JSX.Element {
         items={items.map((item) => ({
           key: item.path,
           icon: item.icon,
+          // The name of the item for assistive tech: it stays when the folded menu hides the text.
+          'aria-label': item.label,
           label: (
             <a
               aria-current={item.path === selectedPath ? 'page' : undefined}
@@ -49,11 +51,17 @@ export function NavMenu(props: NavMenuProps): JSX.Element {
         mode="inline"
         onClick={({ key, domEvent }) => {
           // A click with a modifier belongs to the browser: it opens the link in a new tab.
-          if (domEvent.metaKey || domEvent.ctrlKey || domEvent.shiftKey) {
+          // So does any click when nobody handles navigation: the link then simply works.
+          if (
+            onNavigate === undefined ||
+            domEvent.metaKey ||
+            domEvent.ctrlKey ||
+            domEvent.shiftKey
+          ) {
             return
           }
           domEvent.preventDefault()
-          onNavigate?.(key)
+          onNavigate(key)
         }}
         selectedKeys={selectedPath === undefined ? [] : [selectedPath]}
       />

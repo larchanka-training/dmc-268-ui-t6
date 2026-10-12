@@ -3,6 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { DataTable } from './DataTable'
+import styles from './DataTable.module.css'
 
 afterEach(() => {
   cleanup()
@@ -72,9 +73,19 @@ describe('DataTable', () => {
     const { container, rerender } = render(
       <DataTable<Row> columns={columns} dataSource={rows} rowKey="id" />,
     )
-    const withNowrap = container.querySelector('.ant-table-wrapper')?.className
+    expect(styles.nowrap).toBeTruthy()
+    const wrapper = (): Element | null => container.querySelector('.ant-table-wrapper')
+    expect(wrapper()?.classList.contains(styles.nowrap ?? '')).toBe(true)
     rerender(<DataTable<Row> columns={columns} dataSource={rows} nowrap={false} rowKey="id" />)
-    const withoutNowrap = container.querySelector('.ant-table-wrapper')?.className
-    expect(withNowrap).not.toBe(withoutNowrap)
+    expect(wrapper()?.classList.contains(styles.nowrap ?? '')).toBe(false)
+  })
+
+  it('keeps its own class next to a class of the caller', () => {
+    const { container } = render(
+      <DataTable<Row> className="mine" columns={columns} dataSource={rows} rowKey="id" />,
+    )
+    const wrapper = container.querySelector('.ant-table-wrapper')
+    expect(wrapper?.classList.contains('mine')).toBe(true)
+    expect(wrapper?.classList.contains(styles.nowrap ?? '')).toBe(true)
   })
 })

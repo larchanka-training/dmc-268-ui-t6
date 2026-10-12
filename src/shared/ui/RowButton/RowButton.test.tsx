@@ -3,6 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { RowButton } from './RowButton'
+import styles from './RowButton.module.css'
 
 afterEach(() => {
   cleanup()
@@ -40,6 +41,7 @@ describe('RowButton', () => {
     render(<RowButton className="mine">Строка</RowButton>)
     const button = screen.getByRole('button')
     expect(button.classList.contains('mine')).toBe(true)
-    expect(button.classList.length).toBeGreaterThan(1)
+    expect(styles.row).toBeTruthy()
+    expect(button.classList.contains(styles.row ?? '')).toBe(true)
   })
 })

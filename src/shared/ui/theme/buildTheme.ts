@@ -2,11 +2,6 @@ import { theme as antdTheme, type MappingAlgorithm, type ThemeConfig } from 'ant
 
 import { RV_FONT_MONO, RV_FONT_SANS, RV_PALETTE, type RvThemeMode } from './palette'
 
-/**
- * Flat Console as an Ant Design theme. Everything a token can reach is set here, so a component
- * that the app has not used yet still arrives in the right colours, sizes and font. What tokens
- * cannot express lives in `styles/antd.css`. Rules and numbers: `docs/DESIGN_SYSTEM.md`.
- */
 export interface BuildThemeOptions {
   /** Turns every Ant Design animation off, for the "reduce motion" system setting. */
   reducedMotion?: boolean
@@ -74,6 +69,11 @@ function pinPalette(mode: RvThemeMode): MappingAlgorithm {
   }
 }
 
+/**
+ * Flat Console as an Ant Design theme. Everything a token can reach is set here, so a component
+ * that the app has not used yet still arrives in the right colours, sizes and font. What tokens
+ * cannot express lives in `styles/antd.css`. Rules and numbers: `docs/DESIGN_SYSTEM.md`.
+ */
 export function buildTheme(mode: RvThemeMode, options: BuildThemeOptions = {}): ThemeConfig {
   const p = RV_PALETTE[mode]
   return {
@@ -127,10 +127,11 @@ export function buildTheme(mode: RvThemeMode, options: BuildThemeOptions = {}): 
         primaryShadow: 'none',
         defaultShadow: 'none',
         dangerShadow: 'none',
-        // The dark algorithm darkens the seed colour; pin the exact accent.
         colorPrimary: p.accent,
         colorPrimaryHover: p.accentHover,
         colorPrimaryActive: p.accentActive,
+        // Text of a filled danger button: dark on the light red of the dark theme.
+        dangerColor: p.dangerFg,
         defaultBg: p.surface,
         defaultBorderColor: p.border,
         // Hover and press stay neutral: by default Ant Design recolours the text and the border
@@ -185,6 +186,9 @@ export function buildTheme(mode: RvThemeMode, options: BuildThemeOptions = {}): 
         headerSplitColor: 'transparent',
         borderColor: p.border,
         rowHoverBg: p.hover,
+        // A selected row is neutral, like every selected state.
+        rowSelectedBg: p.selected,
+        rowSelectedHoverBg: p.selected,
         cellPaddingBlock: 9,
         cellPaddingInline: 12,
         cellFontSize: 12.5,

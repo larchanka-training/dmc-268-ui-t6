@@ -5,6 +5,7 @@ export interface RvPalette {
   bg: string
   bgRaised: string
   surface: string
+  surface2: string
   surface3: string
   popover: string
   border: string
@@ -14,10 +15,16 @@ export interface RvPalette {
   text3: string
   accent: string
   accentHover: string
+  /** Text on the accent. */
+  accentFg: string
   link: string
   success: string
   warning: string
+  high: string
+  critical: string
   danger: string
+  /** Text on a surface filled with `danger`. */
+  dangerFg: string
   hover: string
   selected: string
   buttonHover: string
@@ -47,6 +54,7 @@ export const RV_PALETTE: Record<RvThemeMode, RvPalette> = {
     bg: '#090d18',
     bgRaised: '#0c1121',
     surface: '#0f1526',
+    surface2: '#141b2f',
     surface3: '#1a2238',
     popover: '#141b2f',
     border: 'rgba(148, 163, 184, 0.12)',
@@ -56,10 +64,14 @@ export const RV_PALETTE: Record<RvThemeMode, RvPalette> = {
     text3: '#7786a0',
     accent: '#2563eb',
     accentHover: '#356eee',
+    accentFg: '#ffffff',
     link: '#60a5fa',
     success: '#4ade80',
     warning: '#fbbf24',
+    high: '#fb923c',
+    critical: '#f97316',
     danger: '#f87171',
+    dangerFg: '#090d18',
     hover: 'rgba(148, 163, 184, 0.06)',
     selected: 'rgba(248, 250, 252, 0.08)',
     buttonHover: '#222737',
@@ -86,6 +98,7 @@ export const RV_PALETTE: Record<RvThemeMode, RvPalette> = {
     bg: '#ffffff',
     bgRaised: '#ffffff',
     surface: '#ffffff',
+    surface2: '#f5f7fa',
     surface3: '#e4e9f2',
     popover: '#ffffff',
     border: 'rgba(15, 23, 42, 0.09)',
@@ -95,10 +108,14 @@ export const RV_PALETTE: Record<RvThemeMode, RvPalette> = {
     text3: '#627289',
     accent: '#2563eb',
     accentHover: '#356eee',
+    accentFg: '#ffffff',
     link: '#1d4ed8',
     success: '#15803d',
     warning: '#a16207',
-    danger: '#dc2626',
+    high: '#c2410c',
+    critical: '#b91c1c',
+    danger: '#d92626',
+    dangerFg: '#ffffff',
     hover: 'rgba(15, 23, 42, 0.04)',
     selected: 'rgba(15, 23, 42, 0.06)',
     buttonHover: '#ebeced',
