@@ -3,6 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { TraceTree } from './TraceTree'
+import styles from './TraceTree.module.css'
 
 afterEach(() => {
   cleanup()
@@ -19,7 +20,8 @@ describe('TraceTree', () => {
     expect(screen.getByText('#1 post_review')).toBeTruthy()
     const tree = container.querySelector('.ant-tree')
     expect(tree?.classList.contains('mine')).toBe(true)
-    expect(tree?.classList.length).toBeGreaterThan(2)
+    expect(styles.trace).toBeTruthy()
+    expect(tree?.classList.contains(styles.trace ?? '')).toBe(true)
   })
 
   it('reports a selected node', () => {

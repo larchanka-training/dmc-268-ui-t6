@@ -56,7 +56,7 @@ describe('buildTheme', () => {
     expect(light.colorLink).toBe('#1d4ed8')
     expect(light.colorSuccess).toBe('#15803d')
     expect(light.colorWarning).toBe('#a16207')
-    expect(light.colorError).toBe('#dc2626')
+    expect(light.colorError).toBe('#d92626')
   })
 
   it('colours status text with the status colour itself in both modes', () => {
@@ -70,7 +70,7 @@ describe('buildTheme', () => {
     expect([light.colorSuccessText, light.colorWarningText, light.colorErrorText]).toEqual([
       '#15803d',
       '#a16207',
-      '#dc2626',
+      '#d92626',
     ])
   })
 
@@ -166,6 +166,58 @@ describe('buildTheme', () => {
   })
 })
 
+/** WCAG contrast ratio of two `#rrggbb` colours. */
+function contrast(first: string, second: string): number {
+  const luminance = (hex: string): number => {
+    const channel = (offset: number): number => {
+      const value = Number.parseInt(hex.slice(offset, offset + 2), 16) / 255
+      return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+    }
+    return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5)
+  }
+  const [light, dark] = [luminance(first), luminance(second)].sort((a, b) => b - a)
+  return ((light ?? 0) + 0.05) / ((dark ?? 0) + 0.05)
+}
+
+/** `color-mix(in srgb, top share, bottom)` for two `#rrggbb` colours. */
+function mix(top: string, bottom: string, share: number): string {
+  const channel = (offset: number): string => {
+    const a = Number.parseInt(top.slice(offset, offset + 2), 16)
+    const b = Number.parseInt(bottom.slice(offset, offset + 2), 16)
+    return Math.round(a * share + b * (1 - share))
+      .toString(16)
+      .padStart(2, '0')
+  }
+  return `#${channel(1)}${channel(3)}${channel(5)}`
+}
+
+describe('danger colours', () => {
+  it('keeps the text of a filled danger button readable in both modes', () => {
+    for (const mode of MODES) {
+      const p = RV_PALETTE[mode]
+      expect(buildTheme(mode).components?.Button?.dangerColor).toBe(p.dangerFg)
+      expect(contrast(p.dangerFg, p.danger)).toBeGreaterThanOrEqual(4.5)
+    }
+  })
+
+  // `styles/antd.css` tints a hovered danger item of a dropdown with `--rv-tint` of the danger
+  // colour over the popover and writes with 85% danger mixed into the text colour.
+  it('keeps a hovered danger item of a dropdown readable in both modes', () => {
+    const tint = { dark: 0.14, light: 0.11 }
+    for (const mode of MODES) {
+      const p = RV_PALETTE[mode]
+      const background = mix(p.danger, p.popover, tint[mode])
+      const text = mix(p.danger, p.text, 0.85)
+      expect(contrast(text, background)).toBeGreaterThanOrEqual(4.5)
+    }
+  })
+
+  it('keeps a selected table row neutral', () => {
+    expect(buildTheme('dark').components?.Table?.rowSelectedBg).toBe('rgba(248, 250, 252, 0.08)')
+    expect(buildTheme('light').components?.Table?.rowSelectedBg).toBe('rgba(15, 23, 42, 0.06)')
+  })
+})
+
 // `tokens.css` repeats the palette for plain CSS. The two copies are written by hand, so this
 // test is what keeps them from drifting apart.
 describe('tokens.css', () => {
@@ -207,6 +259,7 @@ describe('tokens.css', () => {
     '--rv-bg': 'bg',
     '--rv-bg-raised': 'bgRaised',
     '--rv-surface': 'surface',
+    '--rv-surface-2': 'surface2',
     '--rv-surface-3': 'surface3',
     '--rv-border': 'border',
     '--rv-border-strong': 'borderStrong',
@@ -215,9 +268,12 @@ describe('tokens.css', () => {
     '--rv-text-3': 'text3',
     '--rv-accent': 'accent',
     '--rv-accent-hover': 'accentHover',
+    '--rv-accent-fg': 'accentFg',
     '--rv-link': 'link',
     '--rv-success': 'success',
     '--rv-warning': 'warning',
+    '--rv-high': 'high',
+    '--rv-critical': 'critical',
     '--rv-danger': 'danger',
     '--rv-hover': 'hover',
     '--rv-selected': 'selected',

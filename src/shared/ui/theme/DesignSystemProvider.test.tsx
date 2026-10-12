@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, render } from '@testing-library/react'
-import { Button, Spin, theme as antdTheme } from 'antd'
-import type { JSX } from 'react'
+import { ConfigProvider, Spin, theme as antdTheme } from 'antd'
+import { useContext, type JSX } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { DesignSystemProvider } from './DesignSystemProvider'
@@ -70,13 +70,16 @@ describe('DesignSystemProvider', () => {
   })
 
   it('turns the click ripple of Ant Design off', () => {
-    const inside = render(
+    function WaveProbe(): JSX.Element {
+      const { wave } = useContext(ConfigProvider.ConfigContext)
+      return <output data-testid="wave">{String(wave?.disabled)}</output>
+    }
+    const { getByTestId } = render(
       <DesignSystemProvider mode="dark">
-        <Button>Сохранить</Button>
+        <WaveProbe />
       </DesignSystemProvider>,
     )
-    inside.getByRole('button').click()
-    expect(document.querySelector('.ant-wave')).toBeNull()
+    expect(getByTestId('wave').textContent).toBe('true')
   })
 
   it('keeps Ant Design animations while the system does not ask to reduce motion', () => {

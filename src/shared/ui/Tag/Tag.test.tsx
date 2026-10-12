@@ -53,7 +53,7 @@ describe('Tag', () => {
     render(<Tag tone="info">queued</Tag>)
     const dot = screen.getByText('queued').querySelector('[aria-hidden="true"]')
     expect(dot).not.toBeNull()
-    expect(dot?.getAttribute('data-pulse')).not.toBe('true')
+    expect(dot?.hasAttribute('data-pulse')).toBe(false)
   })
 
   it('falls back to the neutral tone', () => {
