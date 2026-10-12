@@ -97,6 +97,42 @@
   color: var(--rv-text);
 }
 
+/* Select: the clear button is a tab stop, so when the keyboard reaches it, it shows with the focus
+   ring of §7 instead of staying transparent; the arrow under it steps aside, as on hover. Ant Design
+   shows the button only under the pointer. One class heavier than the library's rules. */
+.ant-select .ant-select-clear:focus-visible {
+  border-radius: 50%;
+  opacity: 1;
+  outline: 2px solid var(--rv-link);
+  outline-offset: 2px;
+}
+
+.ant-select:has(.ant-select-clear:focus-visible) .ant-select-suffix {
+  opacity: 0;
+}
+
+/* Form, inline: from 576px up a label and its control stay on one line and only the control
+   narrows. Ant Design means that (its inline style sets the row to nowrap), but in 6.6.5 those
+   selectors miss the row and the label. Below 576px the label goes above a full-width control, as
+   Ant Design does for its other form layouts, so the controls line up on a phone. */
+@media (width >= 576px) {
+  .ant-form-inline .ant-form-item .ant-form-item-row {
+    flex-wrap: nowrap;
+  }
+
+  .ant-form-inline .ant-form-item .ant-form-item-label {
+    flex-shrink: 0;
+  }
+}
+
+@media (width < 576px) {
+  .ant-form-inline .ant-form-item .ant-form-item-label,
+  .ant-form-inline .ant-form-item .ant-form-item-control {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+}
+
 /* Navigation menu: items carry the weight of a label. */
 .ant-menu-inline .ant-menu-item,
 .ant-menu-inline-collapsed .ant-menu-item {

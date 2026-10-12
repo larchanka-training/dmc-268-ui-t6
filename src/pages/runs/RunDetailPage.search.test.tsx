@@ -141,17 +141,29 @@ describe('RunDetailPage search box on the app router', () => {
     expect(router.state.historyAction).toBe('REPLACE')
   })
 
+  // Fake timers once the page is up: on a busy machine a real pause could outlast the 250 ms
+  // debounce and write the URL before the test looks at it.
   it('does not touch the URL before the debounce has passed', async () => {
     const { router } = renderApp(DEMO)
     const input = await ready()
 
-    keystroke(input, 'a')
-    keystroke(input, 'b')
-    keystroke(input, 'c')
-    await pause(100)
-    expect(input.value).toBe('abc')
-    expect(router.state.location.search).toBe('')
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      keystroke(input, 'a')
+      keystroke(input, 'b')
+      keystroke(input, 'c')
+      act(() => {
+        vi.advanceTimersByTime(249)
+      })
+      expect(input.value).toBe('abc')
+      expect(router.state.location.search).toBe('')
 
+      act(() => {
+        vi.advanceTimersByTime(1)
+      })
+    } finally {
+      vi.useRealTimers()
+    }
     await waitFor(() => {
       expect(router.state.location.search).toBe('?q=abc')
     })

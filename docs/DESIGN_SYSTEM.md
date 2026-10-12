@@ -250,18 +250,18 @@ Ant Design, которыми управляет токен `motion` (мерца�
 
 ## 10. Проверенные компоненты
 
-| Компонент                                                   | Чем приведён к виду                                         |
-| ----------------------------------------------------------- | ----------------------------------------------------------- |
-| Button, Input, InputNumber, Switch, Checkbox, Radio         | токены                                                      |
-| Modal, Form, Tooltip, Alert, Skeleton, Empty, Card, message | токены                                                      |
-| Descriptions, Collapse, Layout, Avatar, List, Result        | токены                                                      |
-| Typography                                                  | токены                                                      |
-| Table, Pagination                                           | токены и `antd.css`                                         |
-| Select, Segmented, Breadcrumb, Dropdown                     | токены и `antd.css`                                         |
-| Menu                                                        | токены, `antd.css` и обёртка `NavMenu`                      |
-| Tree                                                        | токены; для журнала шагов обёртка `TraceTree`               |
-| Tag                                                         | свой компонент, `Tag` из Ant Design не используется         |
-| Spin                                                        | индикатор заменён на наш `Spinner` (кольцо) через провайдер |
+| Компонент                                             | Чем приведён к виду                                         |
+| ----------------------------------------------------- | ----------------------------------------------------------- |
+| Button, Input, InputNumber, Switch, Checkbox, Radio   | токены                                                      |
+| Modal, Tooltip, Alert, Skeleton, Empty, Card, message | токены                                                      |
+| Descriptions, Collapse, Layout, Avatar, List, Result  | токены                                                      |
+| Typography                                            | токены                                                      |
+| Table, Pagination                                     | токены и `antd.css`                                         |
+| Select, Form, Segmented, Breadcrumb, Dropdown         | токены и `antd.css`                                         |
+| Menu                                                  | токены, `antd.css` и обёртка `NavMenu`                      |
+| Tree                                                  | токены; для журнала шагов обёртка `TraceTree`               |
+| Tag                                                   | свой компонент, `Tag` из Ant Design не используется         |
+| Spin                                                  | индикатор заменён на наш `Spinner` (кольцо) через провайдер |
 
 У каждого компонента из таблицы есть история в Storybook: в разделе «Ant Design» или, если у
 него есть обёртка (`DataTable`, `NavMenu`, `TraceTree`), в разделе «Свои компоненты».
