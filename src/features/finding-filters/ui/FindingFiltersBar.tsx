@@ -1,6 +1,6 @@
-import { useId, type JSX } from 'react'
-import { SearchOutlined } from '@ant-design/icons'
-import { Button, Empty, Flex, Form, Input, Select, Typography } from 'antd'
+import { useId, useRef, type JSX } from 'react'
+import { CloseCircleFilled, SearchOutlined } from '@ant-design/icons'
+import { Button, Empty, Flex, Form, Input, Select, Typography, type RefSelectProps } from 'antd'
 
 import {
   SEVERITY_BADGE_GROUPS,
@@ -50,6 +50,13 @@ const SEVERITY_OPTIONS = SEVERITY_BADGE_GROUPS.map((group) => ({
 // A longer name is cut with «...» so that its chip and the «+N» chip share one row.
 const FILE_TAG_MAX_LENGTH = 11
 
+// rc-select names a clear button «Clear», and antd's ru_RU does not translate it. An `allowClear`
+// object gives it a Russian name but replaces the icon, so Ant Design's own icon is passed again.
+const FILES_CLEAR = { clearIcon: <CloseCircleFilled />, label: 'Очистить выбор файлов' }
+const SEVERITY_CLEAR = { clearIcon: <CloseCircleFilled />, label: 'Очистить выбор критичности' }
+// The search's clear button is named by its icon («close-circle»), so the icon carries the name.
+const SEARCH_CLEAR = { clearIcon: <CloseCircleFilled aria-label="Очистить поиск" /> }
+
 /** The chip for the selected values that do not fit: short, so that the first chip keeps its room. */
 function restChip(omitted: readonly unknown[]): string {
   return `+${String(omitted.length)}`
@@ -79,6 +86,7 @@ export function FindingFiltersBar(props: FindingFiltersBarProps): JSX.Element {
     navigationKey,
   )
   const id = useId()
+  const filesRef = useRef<RefSelectProps>(null)
   const filesId = `${id}-files`
   const severityId = `${id}-severity`
   const searchId = `${id}-search`
@@ -92,9 +100,12 @@ export function FindingFiltersBar(props: FindingFiltersBarProps): JSX.Element {
   // A whitespace-only query is not "active" for the filter, but it is in the URL and must be clearable.
   const canReset = hasActiveFindingFilters(filters) || filters.query !== '' || text !== ''
   // Both reset buttons empty the search text here as well: it is local, the URL alone cannot clear it.
+  // The focus goes to the start of the bar: the bar's button turns disabled and the empty message
+  // with its button goes away, so the focus would otherwise fall back to the page.
   const reset = () => {
     clear()
     onReset()
+    filesRef.current?.focus()
   }
 
   return (
@@ -102,7 +113,7 @@ export function FindingFiltersBar(props: FindingFiltersBarProps): JSX.Element {
       <Form className={styles.bar} data-testid="finding-filters-bar" layout="inline">
         <Form.Item className={styles.files} htmlFor={filesId} label="Файлы">
           <Select
-            allowClear
+            allowClear={FILES_CLEAR}
             aria-label="Файлы"
             id={filesId}
             labelRender={({ value }) => fileName(String(value))}
@@ -115,12 +126,13 @@ export function FindingFiltersBar(props: FindingFiltersBarProps): JSX.Element {
             }}
             options={fileSelectOptions}
             placeholder="Все файлы"
+            ref={filesRef}
             value={filters.files}
           />
         </Form.Item>
         <Form.Item className={styles.severity} htmlFor={severityId} label="Критичность">
           <Select
-            allowClear
+            allowClear={SEVERITY_CLEAR}
             aria-label="Критичность"
             id={severityId}
             maxTagCount="responsive"
@@ -140,7 +152,7 @@ export function FindingFiltersBar(props: FindingFiltersBarProps): JSX.Element {
         {/* The visible label is short; the name keeps «Поиск по замечаниям» and contains it. */}
         <Form.Item className={styles.search} htmlFor={searchId} label="Поиск">
           <Input
-            allowClear
+            allowClear={SEARCH_CLEAR}
             aria-label="Поиск по замечаниям"
             id={searchId}
             maxLength={QUERY_MAX_LENGTH}
