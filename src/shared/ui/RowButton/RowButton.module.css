@@ -14,7 +14,3 @@
   min-height: var(--rv-ctl-lg);
   padding: 6px 8px;
 }
-
-.row:global(.ant-btn) > span {
-  display: contents;
-}
