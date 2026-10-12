@@ -68,6 +68,10 @@ function pinPalette(mode: RvThemeMode): MappingAlgorithm {
       colorErrorTextHover: p.danger,
       colorErrorTextActive: p.danger,
       colorBgMask: p.mask,
+      // The border of a disabled Button, Input, InputNumber or Select. Ant Design lightens the
+      // page background for it, and our dark page background is a deep blue, so it came out blue
+      // (#1f3b87); a disabled control keeps the neutral border of a field.
+      colorBorderDisabled: p.borderStrong,
     }
   }
 }
@@ -209,9 +213,17 @@ export function buildTheme(mode: RvThemeMode, options: BuildThemeOptions = {}): 
         activeBorderColor: p.link,
         activeShadow: `0 0 0 3px ${p.focusRing}`,
         inputFontSize: 12.5,
+        // The clear icon has 3:1 against the field at rest and brightens on hover (WCAG 1.4.11).
+        // Its 2px focus ring is a rule of `styles/antd.css`: `lineWidthFocus` here empties the
+        // CSS variable of the library's rule instead.
+        colorTextQuaternary: p.text3,
+        colorIcon: p.text2,
       },
       InputNumber: {
         colorBgContainer: p.bg,
+        // Text of a control, as on Input (§4); Ant Design derives the padding from it, so the
+        // field stays 32px.
+        inputFontSize: 12.5,
         hoverBg: p.bg,
         activeBg: p.bg,
         hoverBorderColor: p.text3,
@@ -223,10 +235,23 @@ export function buildTheme(mode: RvThemeMode, options: BuildThemeOptions = {}): 
         hoverBorderColor: p.text3,
         activeBorderColor: p.link,
         activeOutlineColor: p.focusRing,
+        // The focus halo is 3px, as on Input (§7).
+        controlOutlineWidth: 3,
         optionSelectedBg: p.selected,
+        // The option under the keyboard is hovered; a selected one stays selected, never blue.
+        optionActiveBg: p.hover,
+        controlItemBgActiveHover: p.selected,
         optionFontSize: 12.5,
+        // Value and chip text of a control, as on Input (§4); the line height keeps the 21px line,
+        // so a single Select stays 32px and a chip 24px.
+        fontSize: 12.5,
+        lineHeight: 21 / 12.5,
         // A multiple Select's chip lies on the selected surface, not on Ant Design's grey fill.
         multipleItemBg: p.surface3,
+        // The clear icon and the arrow have 3:1 against the field (WCAG 1.4.11); the clear icon
+        // brightens on hover to the secondary text colour, the rest colour of a chip's remove icon.
+        colorTextQuaternary: p.text3,
+        colorIcon: p.text2,
       },
       Segmented: {
         trackBg: p.bg,
