@@ -60,6 +60,47 @@ describe('mockRunSessions', () => {
   })
 })
 
+describe('mockRunSessions run origin', () => {
+  const runs = [...mockRunSessions, mockSummaryOnlyRun]
+
+  it('marks only the queued session as a rerun, created two minutes before MOCK_NOW', () => {
+    const queued = mockRunSessions.find((r) => r.status === 'queued')
+    if (queued === undefined) {
+      throw new Error('queued session missing from mockRunSessions')
+    }
+    expect(queued.trigger).toBe('rerun')
+    expect(queued.createdAt).toBe('2026-09-18T11:58:00.000Z')
+    expect(queued.startedAt).toBeNull()
+    expect(queued.attempt).toBe(1)
+
+    const others = runs.filter((r) => r.id !== queued.id)
+    expect(others.map((r) => r.trigger)).toEqual(others.map(() => 'webhook'))
+  })
+
+  it.each([
+    ['running', '2026-09-18T11:19:00.000Z'],
+    ['publishing', '2026-09-18T11:55:00.000Z'],
+    ['succeeded', '2026-09-18T11:49:00.000Z'],
+    ['failed', '2026-09-18T10:29:00.000Z'],
+    ['cancelled', '2026-09-18T08:59:00.000Z'],
+    ['skipped', '2026-09-18T07:59:00.000Z'],
+  ])('creates the %s session one minute before it started', (status, createdAt) => {
+    const run = mockRunSessions.find((r) => r.status === status)
+    expect(run?.createdAt).toBe(createdAt)
+  })
+
+  it('creates the summary-only run one minute before it started', () => {
+    expect(mockSummaryOnlyRun.createdAt).toBe('2026-09-18T06:59:00.000Z')
+  })
+
+  it('never starts a run before it was created', () => {
+    const inverted = runs.filter(
+      (r) => r.startedAt !== null && Date.parse(r.createdAt) > Date.parse(r.startedAt),
+    )
+    expect(inverted).toEqual([])
+  })
+})
+
 describe('mockFileDiffs', () => {
   it('validates and matches the sample patch fixtures', () => {
     const result = z.array(FileDiffSchema).safeParse(mockFileDiffs)

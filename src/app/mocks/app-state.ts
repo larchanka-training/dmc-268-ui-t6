@@ -34,8 +34,8 @@ export const mockRunSessions: RunSession[] = [
     finishedAt: null,
     attempt: 1,
     cancelRequested: false,
-    trigger: 'webhook',
-    createdAt: '2026-09-18T11:00:00.000Z',
+    trigger: 'rerun',
+    createdAt: '2026-09-18T11:58:00.000Z',
     summaryOnly: false,
     pullRequest: {
       repo: REPO,
@@ -57,7 +57,7 @@ export const mockRunSessions: RunSession[] = [
     attempt: 1,
     cancelRequested: false,
     trigger: 'webhook',
-    createdAt: '2026-09-18T11:00:00.000Z',
+    createdAt: '2026-09-18T11:19:00.000Z',
     summaryOnly: false,
     pullRequest: {
       repo: REPO,
@@ -79,7 +79,7 @@ export const mockRunSessions: RunSession[] = [
     attempt: 1,
     cancelRequested: false,
     trigger: 'webhook',
-    createdAt: '2026-09-18T11:00:00.000Z',
+    createdAt: '2026-09-18T11:55:00.000Z',
     summaryOnly: false,
     pullRequest: {
       repo: REPO,
@@ -101,7 +101,7 @@ export const mockRunSessions: RunSession[] = [
     attempt: 1,
     cancelRequested: false,
     trigger: 'webhook',
-    createdAt: '2026-09-18T11:00:00.000Z',
+    createdAt: '2026-09-18T11:49:00.000Z',
     summaryOnly: false,
     pullRequest: {
       repo: REPO,
@@ -126,7 +126,7 @@ export const mockRunSessions: RunSession[] = [
     attempt: 3,
     cancelRequested: false,
     trigger: 'webhook',
-    createdAt: '2026-09-18T11:00:00.000Z',
+    createdAt: '2026-09-18T10:29:00.000Z',
     summaryOnly: false,
     pullRequest: {
       repo: REPO,
@@ -148,7 +148,7 @@ export const mockRunSessions: RunSession[] = [
     attempt: 1,
     cancelRequested: true,
     trigger: 'webhook',
-    createdAt: '2026-09-18T11:00:00.000Z',
+    createdAt: '2026-09-18T08:59:00.000Z',
     summaryOnly: false,
     pullRequest: {
       repo: REPO,
@@ -170,7 +170,7 @@ export const mockRunSessions: RunSession[] = [
     attempt: 1,
     cancelRequested: false,
     trigger: 'webhook',
-    createdAt: '2026-09-18T11:00:00.000Z',
+    createdAt: '2026-09-18T07:59:00.000Z',
     summaryOnly: false,
     pullRequest: {
       repo: REPO,
@@ -194,7 +194,7 @@ export const mockSummaryOnlyRun: RunSession = {
   attempt: 1,
   cancelRequested: false,
   trigger: 'webhook',
-  createdAt: '2026-09-18T11:00:00.000Z',
+  createdAt: '2026-09-18T06:59:00.000Z',
   summaryOnly: true,
   pullRequest: {
     repo: REPO,
