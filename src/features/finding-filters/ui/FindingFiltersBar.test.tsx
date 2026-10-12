@@ -97,15 +97,26 @@ function resetButton(): HTMLElement {
   return screen.getByRole('button', { name: 'Сбросить фильтры' })
 }
 
-/** The chips of a select, without the hidden «+ N ...» chip of `maxTagCount="responsive"`. */
+/** The shown chips of a select: neither the «+N» chip nor the chips folded into it. */
 function chips(name: string): Element[] {
   const selector = screen.getByRole('combobox', { name }).closest('.ant-select')
   expect(selector).not.toBeNull()
   return [
-    ...(selector?.querySelectorAll(
-      '.ant-select-content-item:not(.ant-select-content-item-rest) .ant-select-selection-item',
+    ...(selector?.querySelectorAll<HTMLElement>(
+      '.ant-select-content-item:not(.ant-select-content-item-rest)',
     ) ?? []),
   ]
+    .filter((item) => item.style.opacity !== '0')
+    .flatMap((item) => [...item.querySelectorAll('.ant-select-selection-item')])
+}
+
+/** The text of the «+N» chip of a select, or `null` while every chip fits. */
+function restChip(name: string): string | null {
+  const rest = screen
+    .getByRole('combobox', { name })
+    .closest('.ant-select')
+    ?.querySelector<HTMLElement>('.ant-select-content-item-rest')
+  return rest === undefined || rest === null || rest.style.opacity === '0' ? null : rest.textContent
 }
 
 beforeEach(() => {
@@ -136,8 +147,12 @@ describe('FindingFiltersBar', () => {
     expect(screen.getByPlaceholderText('Текст, правило')).toBeTruthy()
   })
 
-  it('labels each field with visible text tied to its control', () => {
+  it('labels each field with visible text tied to its control, in an inline form', () => {
     renderBar()
+
+    expect(screen.getByTestId('finding-filters-bar').classList.contains('ant-form-inline')).toBe(
+      true,
+    )
 
     const fields = [
       screen.getByRole('combobox', { name: 'Файлы' }),
@@ -214,12 +229,12 @@ describe('FindingFiltersBar', () => {
   it('shows a selected file by its name, the whole path in the tooltip and in the list', async () => {
     renderBar({ filters: { ...EMPTY_FINDING_FILTERS, files: ['src/utils/retry.ts'] } })
 
+    // Every read of a chip inside the wait: the stubbed observer may re-measure in between.
     await waitFor(() => {
-      expect(chips('Файлы')).toHaveLength(1)
+      const shown = chips('Файлы')
+      expect(shown.map((chip) => chip.textContent)).toEqual(['retry.ts'])
+      expect(shown[0]?.getAttribute('title')).toBe('src/utils/retry.ts')
     })
-    const [chip] = chips('Файлы')
-    expect(chip?.textContent).toBe('retry.ts')
-    expect(chip?.getAttribute('title')).toBe('src/utils/retry.ts')
     openSelect('Файлы')
     expect(optionTexts()).toEqual(['src/a.ts (6)', 'README.md (1)', 'src/utils/retry.ts (0)'])
   })
@@ -234,6 +249,24 @@ describe('FindingFiltersBar', () => {
 
     await waitFor(() => {
       expect(chips('Файлы').map((chip) => chip.textContent)).toEqual(['useFindingF...'])
+    })
+  })
+
+  it('folds the chips that do not fit into a short «+N» chip in both selects', async () => {
+    stubResponsiveSelectLayout(35)
+    renderBar({
+      filters: {
+        ...EMPTY_FINDING_FILTERS,
+        files: ['src/a.ts', 'README.md', 'src/utils/retry.ts'],
+        severities: ['critical', 'warning', 'info'],
+      },
+    })
+
+    await waitFor(() => {
+      expect(restChip('Файлы')).toBe('+2')
+      expect(chips('Файлы').map((chip) => chip.textContent)).toEqual(['a.ts'])
+      expect(restChip('Критичность')).toBe('+2')
+      expect(chips('Критичность').map((chip) => chip.textContent)).toEqual(['Critical'])
     })
   })
 

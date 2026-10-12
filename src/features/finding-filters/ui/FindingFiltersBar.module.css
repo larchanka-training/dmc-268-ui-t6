@@ -6,9 +6,10 @@
 }
 
 /* An inline form item is as wide as its content and spaces itself with an end margin. Here each
-   field grows from a basis (its label and a control that still shows the first chip), the bases
-   fit the whole bar on one row of a wide column, and no field gets wider than the bar. The
-   selectors are one class heavier than Ant Design's, otherwise the library wins. */
+   field grows from a basis (its label and a control that still shows one chip and the «+N» chip)
+   and no field gets wider than the bar. The selectors are one class heavier than Ant Design's,
+   otherwise the library wins. How a label sits by its control is the design system's
+   (`shared/ui/styles/antd.css`). */
 .bar:global(.ant-form-inline) :global(.ant-form-item) {
   max-width: 100%;
   margin-inline-end: 0;
@@ -19,25 +20,11 @@
 }
 
 .bar:global(.ant-form-inline) :global(.ant-form-item).severity {
-  flex: 1 1 211px;
+  flex: 1 1 252px;
 }
 
 .bar:global(.ant-form-inline) :global(.ant-form-item).search {
   flex: 1 1 200px;
-}
-
-/* Label and control stay on one line and only the control narrows, as in the horizontal form of
-   Ant Design; the inline form would drop the control under its label instead. */
-.bar :global(.ant-form-item-row) {
-  flex-wrap: nowrap;
-}
-
-.bar :global(.ant-form-item-label) {
-  flex-shrink: 0;
-}
-
-.bar :global(.ant-form-item-control) {
-  min-width: 0;
 }
 
 /* Never wider than the bar: on a narrow column the counter wraps next to the button. */
