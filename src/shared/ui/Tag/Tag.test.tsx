@@ -48,4 +48,16 @@ describe('Tag', () => {
     const dot = screen.getByText('running').querySelector('[aria-hidden="true"]')
     expect(dot?.getAttribute('data-pulse')).toBe('true')
   })
+
+  it('leaves the dot still unless a pulse is asked for', () => {
+    render(<Tag tone="info">queued</Tag>)
+    const dot = screen.getByText('queued').querySelector('[aria-hidden="true"]')
+    expect(dot).not.toBeNull()
+    expect(dot?.getAttribute('data-pulse')).not.toBe('true')
+  })
+
+  it('falls back to the neutral tone', () => {
+    render(<Tag>draft</Tag>)
+    expect(screen.getByText('draft').dataset.tone).toBe('neutral')
+  })
 })

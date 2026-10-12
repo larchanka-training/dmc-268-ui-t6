@@ -44,7 +44,9 @@
   padding: 0 8px;
   border-color: transparent;
   background: color-mix(in srgb, var(--tone) var(--rv-tint), transparent);
-  color: var(--tone);
+
+  /* A step towards the text colour keeps the label at 4.5:1 on its own tint in both themes. */
+  color: color-mix(in srgb, var(--tone) 85%, var(--rv-text));
 }
 
 .tag[data-variant='solid'][data-tone='critical'] {

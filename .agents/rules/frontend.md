@@ -77,7 +77,11 @@ for a new component are in `docs/DESIGN_SYSTEM.md`; the showcase is `pnpm storyb
 3. A base component that is missing or looks wrong is fixed in the design system first
    (`docs/DESIGN_SYSTEM.md` §9) and gets a story, and only then is used on a screen.
 4. No raw colours, sizes, radii or spacing in screen code: use the theme and the `--rv-*` tokens.
-5. `.ant-*` classes are overridden for the whole app only in `src/shared/ui/styles/antd.css`.
+5. The look of an Ant Design component (colour, font, size, radius, border, inner spacing) is
+   changed only inside `src/shared/ui`: a token in `theme/buildTheme.ts`, a rule in
+   `styles/antd.css` or the CSS Module of a wrapper component. In the CSS Module of a screen
+   `:global(.ant-…)` is allowed only to place a component in the layout of that screen (outer
+   margin, width, grid position).
 6. `Tag` and `Spinner` come from `src/shared/ui`, not from Ant Design.
 
 ## 4. Language rules

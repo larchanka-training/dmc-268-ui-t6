@@ -1,4 +1,5 @@
 .spinner {
+  position: relative;
   display: inline-block;
   flex: none;
   width: 16px;
@@ -22,6 +23,16 @@
 .spinner[data-size='inherit'] {
   width: 1em;
   height: 1em;
+}
+
+/* Read by assistive tech, not shown: a live region announces its text content. */
+.label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 @keyframes spin {

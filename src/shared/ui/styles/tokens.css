@@ -1,8 +1,10 @@
 /* Reviewer design tokens (Flat Console) as CSS custom properties. They mirror
    `theme/palette.ts`, which feeds the Ant Design theme; this file serves our own components and
-   plain CSS. Custom properties only: nothing here styles a tag. Dark is the default,
-   `data-rv-theme="light"` on the root element switches the palette. */
-:root {
+   plain CSS. Custom properties only: nothing here styles a tag. Dark is the default;
+   `data-rv-theme` switches the palette on the root element and on any subtree, so one screen
+   can stay dark while the rest of the app is light. */
+:root,
+[data-rv-theme='dark'] {
   --rv-bg: #090d18;
   --rv-bg-raised: #0c1121;
   --rv-surface: #0f1526;
@@ -12,9 +14,9 @@
   --rv-border-strong: rgb(148 163 184 / 20%);
   --rv-text: #f8fafc;
   --rv-text-2: #94a3b8;
-  --rv-text-3: #6b7a90;
+  --rv-text-3: #7786a0;
   --rv-accent: #2563eb;
-  --rv-accent-hover: #3b74f0;
+  --rv-accent-hover: #356eee;
   --rv-accent-fg: #fff;
   --rv-link: #60a5fa;
   --rv-success: #4ade80;
@@ -35,6 +37,7 @@
   --rv-fs: 13px;
   --rv-fs-sm: 12.5px;
   --rv-fs-xs: 12px;
+  --rv-fs-title: 24px;
   --rv-radius-xs: 4px;
   --rv-radius-ctl: 6px;
   --rv-radius-md: 8px;
@@ -45,7 +48,7 @@
   --rv-ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-:root[data-rv-theme='light'] {
+[data-rv-theme='light'] {
   --rv-bg: #fff;
   --rv-bg-raised: #fff;
   --rv-surface: #fff;
@@ -55,7 +58,7 @@
   --rv-border-strong: rgb(15 23 42 / 16%);
   --rv-text: #0b1220;
   --rv-text-2: #475569;
-  --rv-text-3: #64748b;
+  --rv-text-3: #627289;
   --rv-link: #1d4ed8;
   --rv-success: #15803d;
   --rv-warning: #a16207;

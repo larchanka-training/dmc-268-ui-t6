@@ -15,13 +15,17 @@ export interface PageHeaderProps {
 /** Title of a page. It sits directly on the page: no card around it. */
 export function PageHeader(props: PageHeaderProps): JSX.Element {
   const { title, description, actions, className } = props
+  const isEmpty = (node: ReactNode): boolean =>
+    node === undefined || node === null || node === false || node === ''
+  const hasDescription = !isEmpty(description)
+  const hasActions = !isEmpty(actions)
   return (
     <header className={cx(styles.header, className)}>
       <div className={styles.text}>
         <h1 className={styles.title}>{title}</h1>
-        {description !== undefined ? <p className={styles.description}>{description}</p> : null}
+        {hasDescription ? <p className={styles.description}>{description}</p> : null}
       </div>
-      {actions !== undefined ? <div className={styles.actions}>{actions}</div> : null}
+      {hasActions ? <div className={styles.actions}>{actions}</div> : null}
     </header>
   )
 }

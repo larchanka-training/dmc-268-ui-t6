@@ -39,3 +39,25 @@ export const Small: Story = {
     </div>
   ),
 }
+
+export const Disabled: Story = {
+  render: () => (
+    <div style={row}>
+      <Segmented
+        defaultValue="all"
+        disabled
+        options={[
+          { value: 'all', label: 'Все' },
+          { value: 'active', label: 'Активные' },
+        ]}
+      />
+      <Segmented
+        defaultValue="all"
+        options={[
+          { value: 'all', label: 'Все' },
+          { value: 'active', label: 'Активные', disabled: true },
+        ]}
+      />
+    </div>
+  ),
+}

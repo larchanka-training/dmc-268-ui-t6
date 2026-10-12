@@ -14,7 +14,7 @@
 .title {
   margin: 0;
   color: var(--rv-text);
-  font-size: 24px;
+  font-size: var(--rv-fs-title);
   font-weight: 600;
   line-height: 1.2;
   letter-spacing: -0.015em;

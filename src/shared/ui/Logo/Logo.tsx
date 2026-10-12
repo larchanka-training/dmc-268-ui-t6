@@ -10,15 +10,16 @@ export interface LogoProps {
 /** The Reviewer mark: a circle cut by a narrow slit shifted to the right. Inherits `currentColor`. */
 export function Logo(props: LogoProps): JSX.Element {
   const { size = 24, title, className } = props
+  const named = title !== undefined && title !== ''
   return (
     <svg
-      aria-hidden={title === undefined ? true : undefined}
-      aria-label={title}
+      aria-hidden={named ? undefined : true}
+      aria-label={named ? title : undefined}
       className={className}
       fill="currentColor"
       focusable="false"
       height={size}
-      role={title === undefined ? undefined : 'img'}
+      role={named ? 'img' : undefined}
       viewBox="0 0 24 24"
       width={size}
     >

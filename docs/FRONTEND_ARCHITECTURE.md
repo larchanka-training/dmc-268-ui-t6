@@ -405,12 +405,14 @@ sequenceDiagram
 `src/test/setup.ts` и цвета `Tag` в `entities/run/lib/status.ts`.
 
 **Ф-20.** Вид всех экранов задаёт дизайн-система Flat Console в `src/shared/ui`: тема antd
-(`theme/buildTheme.ts`), CSS-токены (`styles/tokens.css`), правки поверх antd (`styles/antd.css`,
-единственное место, где переопределяются классы `.ant-*` для всего приложения) и свои компоненты
+(`theme/buildTheme.ts`), CSS-токены (`styles/tokens.css`), правки поверх antd (`styles/antd.css`)
+и свои компоненты
 (`Tag`, `Spinner`, `PageHeader`, `DataTable`, `Logo`). Всё включается одним `DesignSystemProvider`.
 Числа, правила и чеклист для нового компонента antd: [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md).
 Витрина: `pnpm storybook`. Правило: базовые компоненты берутся только из antd в нашей теме и из
-`src/shared/ui`; на экране их не перекрашивают.
+`src/shared/ui`; на экране их не перекрашивают. Вид компонента antd меняется только внутри
+`src/shared/ui`; `:global(.ant-…)` в CSS-модуле экрана (Ф-13) остаётся только для раскладки:
+внешний отступ, ширина, место в сетке.
 
 **Ф-13.** Стилевая парадигма — **antd tokens для темизации + CSS Modules для layout**-контейнеров
 (список/сетка/шапка); решение техлида 2026-09-24 ([комментарий в #46][tl-2026-09-24-46]).

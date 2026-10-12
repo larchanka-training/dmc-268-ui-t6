@@ -64,3 +64,43 @@ export const Settings: Story = {
     )
   },
 }
+
+/** While saving, the primary button shows the ring and the window stays open. A field error
+ * is shown under its field. */
+export const SavingWithError: Story = {
+  render: function SavingModal() {
+    const [open, setOpen] = useState(false)
+    return (
+      <>
+        <Button
+          onClick={() => {
+            setOpen(true)
+          }}
+        >
+          Открыть
+        </Button>
+        <Modal
+          cancelText="Отмена"
+          confirmLoading
+          okText="Сохранить"
+          onCancel={() => {
+            setOpen(false)
+          }}
+          open={open}
+          title="Настройки репозитория"
+          width={520}
+        >
+          <Form layout="vertical">
+            <Form.Item
+              help="Укажите число от 1 до 10"
+              label="Лимит замечаний (1..10)"
+              validateStatus="error"
+            >
+              <InputNumber defaultValue={42} status="error" style={{ width: '100%' }} />
+            </Form.Item>
+          </Form>
+        </Modal>
+      </>
+    )
+  },
+}

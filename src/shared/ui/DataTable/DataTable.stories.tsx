@@ -70,3 +70,9 @@ export const WithPagination: Story = { args: { pagination: { pageSize: 2 } } }
 export const Empty: Story = {
   args: { dataSource: [], locale: { emptyText: 'Нет прогонов ревью' } },
 }
+
+/** Loading keeps the rows in place and puts the ring over them. */
+export const Loading: Story = { args: { loading: true } }
+
+/** The first load, when there are no rows yet. */
+export const LoadingEmpty: Story = { args: { dataSource: [], loading: true } }

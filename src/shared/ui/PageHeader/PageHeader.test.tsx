@@ -25,4 +25,21 @@ describe('PageHeader', () => {
     expect(screen.getByText('Подключено: 3')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Обновить' })).toBeTruthy()
   })
+
+  it('renders only the heading when there is nothing else to show', () => {
+    const { container } = render(<PageHeader title="Прогоны" />)
+    expect(container.querySelector('p')).toBeNull()
+    expect(container.querySelectorAll('header > *')).toHaveLength(1)
+  })
+
+  it('treats an empty description and empty actions as absent', () => {
+    for (const empty of [null, '', false] as const) {
+      const { container, unmount } = render(
+        <PageHeader actions={empty} description={empty} title="Прогоны" />,
+      )
+      expect(container.querySelector('p')).toBeNull()
+      expect(container.querySelectorAll('header > *')).toHaveLength(1)
+      unmount()
+    }
+  })
 })
