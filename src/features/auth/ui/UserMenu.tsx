@@ -57,10 +57,14 @@ export const UserMenu: FC<UserMenuProps> = ({ extraItems, compact = false }) => 
     <Dropdown
       menu={{
         items,
-        // The menu closes on a choice; the focus goes back to the button that opened it.
+        // The menu closes on a choice and the focus goes back to the button that opened it,
+        // but only after the key press is over: focused right away, the button would receive
+        // the rest of the same Enter and open the menu again.
         onClick: () => {
           setOpen(false)
-          triggerRef.current?.focus()
+          window.setTimeout(() => {
+            triggerRef.current?.focus()
+          }, 0)
         },
       }}
       onOpenChange={setOpen}

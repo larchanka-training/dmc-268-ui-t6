@@ -38,7 +38,6 @@ export function InlineComment(props: InlineCommentProps): JSX.Element {
     <div className="inline-comment" data-testid="inline-comment">
       <RowButton
         aria-expanded={expanded}
-        className="inline-comment-header"
         onClick={() => {
           setExpanded((value) => !value)
         }}

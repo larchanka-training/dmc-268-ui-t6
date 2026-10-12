@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -36,7 +36,7 @@ function renderPage(initialEntry = '/runs') {
     ],
     { initialEntries: [initialEntry] },
   )
-  return render(<RouterProvider router={router} />)
+  return { router, ...render(<RouterProvider router={router} />) }
 }
 
 afterEach(() => {
@@ -111,15 +111,28 @@ describe('RunsPage', () => {
     if (!demoRun) {
       throw new Error('fixture must include a succeeded run')
     }
-    renderPage()
+    const { router } = renderPage()
 
     const links = await screen.findAllByRole('link')
     expect(links).toHaveLength(mockRunsListPage.items.length)
     const link = links.find((item) => item.getAttribute('href') === `/runs/${demoRun.id}`)
     expect(link?.textContent).toBe(`#${String(demoRun.pullRequest.number)}`)
 
-    // A click on the link is one navigation, not two: the row leaves it to the link.
-    fireEvent.click(link ?? document.body)
+    if (!link) {
+      throw new Error('the run has no link')
+    }
+
+    // A click with a modifier belongs to the browser (a new tab): this tab stays on the list.
+    fireEvent.click(link, { ctrlKey: true })
+    expect(router.state.location.pathname).toBe('/runs')
+
+    // A plain click is one navigation, not two: the row leaves it to the link, so one step
+    // back returns to the list.
+    fireEvent.click(link)
     expect(await screen.findByTestId('run-detail-route')).toBeTruthy()
+    await act(async () => {
+      await router.navigate(-1)
+    })
+    expect(router.state.location.pathname).toBe('/runs')
   })
 })
