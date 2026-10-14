@@ -49,6 +49,15 @@ describe('mockRunsList.fixture', () => {
     ).toBe(false)
   })
 
+  it('runs the api repository only on the fast engine', () => {
+    // The product is fast-only since PR #71: the added history has no `deep` run.
+    const engines = mockRunsListPage.items
+      .filter((run) => run.pullRequest.repo === 'larchanka-training/dmc-268-api-t6')
+      .map((run) => run.engine)
+    expect(engines).toHaveLength(25)
+    expect(new Set(engines)).toEqual(new Set(['fast']))
+  })
+
   it('gives every listed run its own id', () => {
     const ids = mockRunsListPage.items.map((run) => run.id)
     expect(new Set(ids).size).toBe(ids.length)

@@ -22,6 +22,9 @@ import styles from './RepositorySettingsForm.module.css'
 
 const { Text } = Typography
 
+// The first editable field: where focus goes when a button the user used turns disabled.
+const FIRST_FIELD: SettingsFieldName = 'waitForCi'
+
 // deep (SandboxEngine) is phase 3; the api returns only fast until then.
 const ENGINE_LABEL: Record<RepositoryEngine, string> = {
   fast: 'DiffEngine (быстрый синтаксический анализ)',
@@ -82,6 +85,8 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
     try {
       const saved = await onSave(patch)
       setBaseline(toFormValues(saved))
+      // «Сохранить» is disabled again now: keep the keyboard user in the form.
+      form.focusField(FIRST_FIELD)
     } catch (error) {
       // The entered values stay in the fields; only messages appear: under the fields the
       // server named, above the form for the rest.
@@ -102,6 +107,8 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
     setValues(baseline)
     setSaveError(null)
     setServerErrors({})
+    // The button just used is disabled now: keep the keyboard user in the form.
+    form.focusField(FIRST_FIELD)
   }
 
   return (
@@ -111,12 +118,14 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
       initialValues={initialValues}
       layout="vertical"
       onFinish={(submitted) => void handleFinish(submitted)}
-      onValuesChange={(changed, all) => {
+      onValuesChange={(changedValues, all) => {
         setValues(all)
         // What the user edits is no longer what the server refused.
         setServerErrors((previous) =>
-          Object.keys(changed).some((name) => name in previous)
-            ? Object.fromEntries(Object.entries(previous).filter(([name]) => !(name in changed)))
+          Object.keys(changedValues).some((name) => name in previous)
+            ? Object.fromEntries(
+                Object.entries(previous).filter(([name]) => !(name in changedValues)),
+              )
             : previous,
         )
       }}

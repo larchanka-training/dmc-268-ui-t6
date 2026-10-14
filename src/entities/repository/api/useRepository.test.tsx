@@ -81,6 +81,25 @@ describe('useRepository', () => {
     expect(client.getQueryCache().findAll({ queryKey: REPOSITORIES_QUERY_KEY })).toHaveLength(1)
   })
 
+  it('asks again on mount even when the cached list is still fresh', async () => {
+    const fetchMock = stubList()
+    // The app's staleTime: a fresh list is not refetched on mount by default.
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
+    })
+    client.setQueryData(REPOSITORIES_QUERY_KEY, [{ ...FIRST, maxComments: 3 }, SECOND])
+
+    const { result } = renderHook(() => useRepository(FIRST.id), { wrapper: wrapper(client) })
+
+    // The cached value is there at once, and so is the request for the current one.
+    expect(result.current.data?.maxComments).toBe(3)
+    expect(result.current.isFetching).toBe(true)
+    await waitFor(() => {
+      expect(result.current.data?.maxComments).toBe(10)
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
   it('stays undefined, not pending, when the list has no such repository', async () => {
     stubList()
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })

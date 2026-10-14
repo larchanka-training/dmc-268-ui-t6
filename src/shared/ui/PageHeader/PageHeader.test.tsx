@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react'
+import { createRef } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { PageHeader } from './PageHeader'
@@ -41,5 +42,22 @@ describe('PageHeader', () => {
       expect(container.querySelectorAll('header > *')).toHaveLength(1)
       unmount()
     }
+  })
+
+  it('leaves the heading out of the focus order by default', () => {
+    render(<PageHeader title="Прогоны" />)
+    expect(screen.getByRole('heading', { name: 'Прогоны' }).hasAttribute('tabindex')).toBe(false)
+  })
+
+  it('exposes the heading to a ref and lets a script focus it', () => {
+    const titleRef = createRef<HTMLHeadingElement>()
+    render(<PageHeader title="Прогоны" titleRef={titleRef} />)
+
+    const heading = screen.getByRole('heading', { name: 'Прогоны' })
+    expect(titleRef.current).toBe(heading)
+    // Focusable by `focus()`, but not a stop of the Tab key.
+    expect(heading.getAttribute('tabindex')).toBe('-1')
+    titleRef.current?.focus()
+    expect(document.activeElement).toBe(heading)
   })
 })
