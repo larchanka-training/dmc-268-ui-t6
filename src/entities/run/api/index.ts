@@ -1,8 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 
 import { ApiError, apiClient } from '../../../shared/api/client'
-import { endpoints } from '../../../shared/api/endpoints'
+import { endpoints, type Endpoint } from '../../../shared/api/endpoints'
 import {
   RunActionSchema,
   RunDetailSchema,
@@ -11,14 +11,23 @@ import {
   RunSessionSchema,
   RunUpdatedEventSchema,
 } from '../model/schemas'
-import type { RunAction, RunDetail, RunListPage, RunSession, RunStatus } from '../model/schemas'
+import type {
+  RunAction,
+  RunDetail,
+  RunListPage,
+  RunListQuery,
+  RunSession,
+  RunStatus,
+} from '../model/schemas'
 import { isActive } from '../lib/status'
 // Run detail parses `findings[]` with `FindingViewSchema` from `entities/review`
 // (allowed cross-entity import; see FRONTEND_ARCHITECTURE §1 and `.agents/rules/frontend.md`).
 import { FindingViewSchema } from '../../review'
 
 export const runQueryKeys = {
+  /** Prefix of every runs list, filtered or not: `invalidateQueries` with it reaches them all. */
   list: () => ['runs', 'list'] as const,
+  listFiltered: ({ repo }: { repo?: string }) => ['runs', 'list', { repo: repo ?? null }] as const,
   detailDisabled: () => ['runs', 'detail', null] as const,
   detail: (id: string) => ['runs', id] as const,
   actions: (id: string) => ['runs', id, 'actions'] as const,
@@ -58,15 +67,43 @@ export function runMutationErrorMessage(error: unknown, action: 'rerun' | 'cance
 
 export { parseRunUpdatedEvent, parseSseBuffer } from './runStreamParse'
 
-export async function fetchRunList(): Promise<RunListPage> {
-  const data = await apiClient<unknown>(endpoints.runs.list())
+/** The list path with its query. `endpoints.runs.list()` stays path-only; empty params are left out. */
+export function runListEndpoint(query: RunListQuery = {}): Endpoint {
+  const parsed = RunListQuerySchema.parse(query)
+  const params = new URLSearchParams()
+  if (parsed.status !== undefined) {
+    params.set('status', parsed.status)
+  }
+  if (parsed.repo !== undefined) {
+    params.set('repo', parsed.repo)
+  }
+  if (parsed.cursor !== undefined) {
+    params.set('cursor', parsed.cursor)
+  }
+  if (parsed.limit !== undefined) {
+    params.set('limit', String(parsed.limit))
+  }
+  const search = params.toString()
+  const { method, path } = endpoints.runs.list()
+  return { method, path: search === '' ? path : `${path}?${search}` }
+}
+
+export async function fetchRunList(query: RunListQuery = {}): Promise<RunListPage> {
+  const data = await apiClient<unknown>(runListEndpoint(query))
   return RunListPageSchema.parse(data)
 }
 
-export function useRunList() {
-  return useQuery({
-    queryKey: runQueryKeys.list(),
-    queryFn: fetchRunList,
+/** Runs per request of the list; sent explicitly, the api default is larger. */
+export const RUN_LIST_PAGE_SIZE = 20
+
+/** The runs list, one page per request. `repo` limits it to one repository. */
+export function useRunList({ repo }: { repo?: string } = {}) {
+  return useInfiniteQuery({
+    queryKey: runQueryKeys.listFiltered({ repo }),
+    queryFn: ({ pageParam }) =>
+      fetchRunList({ repo, cursor: pageParam ?? undefined, limit: RUN_LIST_PAGE_SIZE }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (page) => page.nextCursor,
   })
 }
 

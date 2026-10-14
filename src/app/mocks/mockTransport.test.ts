@@ -10,6 +10,7 @@ vi.mock('../../shared/config/env', () => ({
 }))
 
 import type { Repository } from '../../entities/repository'
+import type { RunListPage } from '../../entities/run'
 import { apiClient } from '../../shared/api/client'
 import { endpoints } from '../../shared/api/endpoints'
 import { mockRepositories } from './app-state'
@@ -21,6 +22,62 @@ describe('initMockTransport', () => {
     const page = await apiClient<{ items: unknown[] }>(endpoints.runs.list())
     expect(Array.isArray(page.items)).toBe(true)
     expect(page.items.length).toBeGreaterThan(0)
+  })
+
+  describe('GET /runs', () => {
+    const API_REPO = 'larchanka-training/dmc-268-api-t6'
+    const INFRA_REPO = 'larchanka-training/dmc-268-infra-t6'
+
+    function list(query: Record<string, string>): Promise<RunListPage> {
+      const search = new URLSearchParams(query).toString()
+      return apiClient<RunListPage>({ method: 'GET', path: `/runs?${search}` })
+    }
+
+    beforeEach(() => {
+      initMockTransport()
+    })
+
+    it('filters GET /runs by repo', async () => {
+      const page = await list({ repo: API_REPO })
+
+      expect(page.items).toHaveLength(25)
+      expect(page.items.every((run) => run.pullRequest.repo === API_REPO)).toBe(true)
+      expect(page.nextCursor).toBeNull()
+
+      const none = await list({ repo: INFRA_REPO })
+      expect(none).toEqual({ items: [], nextCursor: null })
+
+      const unknown = await list({ repo: 'someone/else' })
+      expect(unknown.items).toEqual([])
+    })
+
+    it('lists the runs of every repo when no repo is given', async () => {
+      const page = await apiClient<RunListPage>(endpoints.runs.list())
+
+      const repos = new Set(page.items.map((run) => run.pullRequest.repo))
+      expect(repos).toEqual(new Set(['larchanka-training/dmc-268-ui-t6', API_REPO]))
+      expect(page.nextCursor).toBeNull()
+    })
+
+    it('paginates with an opaque cursor', async () => {
+      const first = await list({ repo: API_REPO, limit: '20' })
+      expect(first.items).toHaveLength(20)
+      const cursor = first.nextCursor
+      if (cursor === null) {
+        throw new Error('the first page of 25 runs at limit 20 must have a next cursor')
+      }
+
+      const second = await list({ repo: API_REPO, limit: '20', cursor })
+      expect(second.items).toHaveLength(5)
+      expect(second.nextCursor).toBeNull()
+
+      const ids = [...first.items, ...second.items].map((run) => run.id)
+      expect(new Set(ids).size).toBe(25)
+    })
+
+    it('answers an unreadable cursor with 422', async () => {
+      await expect(list({ cursor: 'not-a-cursor' })).rejects.toMatchObject({ status: 422 })
+    })
   })
 
   describe('PATCH /repos/{id}', () => {
