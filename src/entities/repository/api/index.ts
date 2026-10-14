@@ -48,6 +48,21 @@ export function useRepositories() {
   })
 }
 
+/**
+ * One repository of the list. It reads the list cache (the same key as `useRepositories`), so
+ * the optimistic update and the rollback of `useUpdateRepository` reach it; a query of its own
+ * would show stale values after a save. `data` is `undefined` while loading and when the list
+ * has no such repository: tell them apart by `isPending`.
+ */
+export function useRepository(id: string) {
+  return useQuery({
+    queryKey: REPOSITORIES_QUERY_KEY,
+    queryFn: ({ signal }) => fetchRepositories(signal),
+    refetchOnWindowFocus: 'always',
+    select: (repositories) => repositories.find((repo) => repo.id === id),
+  })
+}
+
 export interface UpdateRepositoryVariables {
   id: string
   patch: UpdateRepositoryInput

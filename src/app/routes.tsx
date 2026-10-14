@@ -9,6 +9,7 @@ import {
   RoutedCallbackPage,
   RoutedLoginPage,
   RoutedRepositoriesPage,
+  RoutedRepositorySettingsPage,
   RoutedReviewRedirectPage,
   RoutedRunDetailPage,
   RoutedRunsPage,
@@ -48,6 +49,10 @@ export function createRoutes() {
                 {
                   path: '/repositories',
                   element: <RoutedRepositoriesPage />,
+                },
+                {
+                  path: '/repositories/:repoId/settings',
+                  element: <RoutedRepositorySettingsPage />,
                 },
                 {
                   path: '/runs',

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { StrictMode } from 'react'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { createMemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -33,6 +33,7 @@ import {
 import { setAccessToken, setMockTransport } from './shared/api/client'
 
 const RUN_PATH = '/runs/11111111-1111-4111-8111-000000000004'
+const SETTINGS_PATH = '/repositories/22222222-2222-4222-8222-000000000001/settings'
 
 function resetSession(): void {
   sessionStorage.clear()
@@ -107,6 +108,24 @@ describe('return to the original route after login (StrictMode)', () => {
       expect(router.state.location.pathname).not.toBe('/login')
     })
     expect(router.state.location.pathname).toBe(RUN_PATH)
+  })
+
+  it('opens the repository settings route after the mock «Демо-вход»', async () => {
+    const router = renderRouted(SETTINGS_PATH)
+
+    const demoLogin = await screen.findByRole('button', { name: /войти как демо-пользователь/i })
+    expect(sessionStorage.getItem(AUTH_RETURN_TO_KEY)).toBe(SETTINGS_PATH)
+
+    fireEvent.click(demoLogin)
+
+    expect(await screen.findByRole('heading', { name: 'Настройки репозитория' })).toBeTruthy()
+    expect(router.state.location.pathname).toBe(SETTINGS_PATH)
+    // The sidebar keeps «Репозитории» as the current section on the nested route.
+    expect(
+      within(screen.getByRole('navigation', { name: 'Разделы' }))
+        .getByRole('link', { name: 'Репозитории' })
+        .getAttribute('aria-current'),
+    ).toBe('page')
   })
 
   it('opens the saved route after the OAuth callback', async () => {
