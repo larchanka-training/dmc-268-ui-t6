@@ -38,6 +38,13 @@ const API_REPO: Repository = {
   installationAvailable: true,
 }
 
+// A repository whose branch filter is set.
+const FULL_REPO: Repository = {
+  ...UI_REPO,
+  branchFilter: ['main', 'release/*'],
+  severityThreshold: 'all',
+}
+
 // A valid uuid that no list contains.
 const UNKNOWN_ID = 'c3d4e5f6-a7b8-4901-8def-123456789012'
 
@@ -45,6 +52,12 @@ const LIMIT_LABEL = 'Лимит замечаний (1..10)'
 const CI_LABEL = 'Ожидание CI'
 const VERDICT_LABEL = 'Публикация вердикта'
 const SERVER_500_TEXT = 'Внутренняя ошибка сервера (500). Повторите попытку позже.'
+const BRANCH_FILTER_LABEL = 'Фильтр веток'
+const AUTO_REVIEW_LABEL = 'Автоматическое ревью'
+const ENGLISH_422_MSG = 'String should match pattern'
+const RADIO_ALL = 'All — critical, high, medium, low, info'
+const RADIO_WARN = 'Warn & Crit — critical, high, medium, low'
+const RADIO_CRIT = 'Only Critical — critical, high'
 
 interface Backend {
   /** What the next GET /api/repos answers. */
@@ -52,6 +65,8 @@ interface Backend {
   /** Makes GET /api/repos answer 500 and PATCH answer 500. */
   failList: boolean
   failPatch: boolean
+  /** Overrides the answer to every PATCH (a 422, for one). */
+  patchResponse: (() => Response) | null
   gets: number
   patches: { id: string; body: unknown }[]
   fetchMock: ReturnType<typeof vi.fn<typeof fetch>>
@@ -68,6 +83,7 @@ function stubBackend(repos: Repository[]): Backend {
     repos,
     failList: false,
     failPatch: false,
+    patchResponse: null,
     gets: 0,
     patches: [],
     fetchMock: vi.fn<typeof fetch>((input, init) => {
@@ -79,6 +95,9 @@ function stubBackend(repos: Repository[]): Backend {
           unknown
         >
         backend.patches.push({ id, body })
+        if (backend.patchResponse !== null) {
+          return Promise.resolve(backend.patchResponse())
+        }
         if (backend.failPatch) {
           return Promise.resolve(new Response('Server Error', { status: 500 }))
         }
@@ -131,6 +150,33 @@ function inputValue(label: string): string {
 function selectedText(label: string): string | null | undefined {
   return screen.getByLabelText(label).closest('.ant-select')?.querySelector('.ant-select-content')
     ?.textContent
+}
+
+function unprocessable(detail: unknown[]): () => Response {
+  return () => new Response(JSON.stringify({ detail }), { status: 422 })
+}
+
+function branchFilterField(): HTMLTextAreaElement {
+  return screen.getByLabelText<HTMLTextAreaElement>(BRANCH_FILTER_LABEL)
+}
+
+function autoReviewSwitch(): HTMLElement {
+  return screen.getByRole('switch', { name: AUTO_REVIEW_LABEL })
+}
+
+/** Clicks a threshold radio, saves, and waits until the save is over. */
+async function saveThreshold(radioName: string, backend: Backend, saves: number): Promise<void> {
+  fireEvent.click(screen.getByRole('radio', { name: radioName }))
+  await waitFor(() => {
+    expect(saveButton().disabled).toBe(false)
+  })
+  fireEvent.click(saveButton())
+  await waitFor(() => {
+    expect(backend.patches).toHaveLength(saves)
+  })
+  await waitFor(() => {
+    expect(saveButton().disabled).toBe(true)
+  })
 }
 
 function saveButton(): HTMLButtonElement {
@@ -370,5 +416,257 @@ describe('RepositorySettingsPage', () => {
     expect(await screen.findByTestId('runs-route')).toBeTruthy()
     expect(router.state.location.pathname).toBe('/runs')
     expect(router.state.location.search).toBe('?repo=larchanka-training%2Fdmc-268-ui-t6')
+  })
+})
+
+describe('RepositorySettingsPage: auto-review', () => {
+  it('toggles auto-review immediately with PATCH {enabled} only', async () => {
+    const backend = stubBackend([UI_REPO, API_REPO])
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+    expect(autoReviewSwitch().getAttribute('aria-checked')).toBe('true')
+
+    // An unsaved edit of the form must not travel with the switch.
+    fireEvent.change(screen.getByLabelText(LIMIT_LABEL), { target: { value: '5' } })
+    fireEvent.click(autoReviewSwitch())
+
+    await screen.findByText('Автоматическое ревью выключено')
+    expect(backend.patches).toEqual([{ id: UI_REPO.id, body: { enabled: false } }])
+    expect(autoReviewSwitch().getAttribute('aria-checked')).toBe('false')
+    expect(inputValue(LIMIT_LABEL)).toBe('5')
+    expect(saveButton().disabled).toBe(false)
+
+    fireEvent.click(autoReviewSwitch())
+    await waitFor(() => {
+      expect(backend.patches).toHaveLength(2)
+    })
+    expect(backend.patches[1]).toEqual({ id: UI_REPO.id, body: { enabled: true } })
+  })
+
+  it('shows the error under the switch and rolls the switch back when PATCH fails', async () => {
+    const backend = stubBackend([UI_REPO])
+    backend.failPatch = true
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    fireEvent.click(autoReviewSwitch())
+
+    expect(await screen.findByText(SERVER_500_TEXT)).toBeTruthy()
+    expect(backend.patches).toEqual([{ id: UI_REPO.id, body: { enabled: false } }])
+    await waitFor(() => {
+      expect(autoReviewSwitch().getAttribute('aria-checked')).toBe('true')
+    })
+  })
+
+  it('explains why auto-review will not run when installationAvailable is false', async () => {
+    const backend = stubBackend([{ ...UI_REPO, installationAvailable: false }])
+    renderPage(settingsPath(UI_REPO.id))
+
+    expect(await screen.findByText(/у GitHub App нет доступа к этому репозиторию/i)).toBeTruthy()
+    expect(screen.getByText(/автоматическое ревью не запустится/i)).toBeTruthy()
+    expect(screen.getByText(/переключатель сохраняет только настройку/i)).toBeTruthy()
+
+    // The switch still saves the preference.
+    fireEvent.click(autoReviewSwitch())
+    await waitFor(() => {
+      expect(backend.patches).toEqual([{ id: UI_REPO.id, body: { enabled: false } }])
+    })
+  })
+
+  it('does not warn about the installation when installationAvailable is true', async () => {
+    stubBackend([{ ...UI_REPO, installationAvailable: true }])
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    expect(screen.queryByText(/у GitHub App нет доступа/i)).toBeNull()
+  })
+})
+
+describe('RepositorySettingsPage: branch filter and severity threshold', () => {
+  it('shows the saved masks one per line and the saved threshold', async () => {
+    stubBackend([{ ...FULL_REPO, severityThreshold: 'warning' }])
+    renderPage(settingsPath(UI_REPO.id))
+
+    await screen.findByLabelText(LIMIT_LABEL)
+    expect(branchFilterField().value).toBe('main\nrelease/*')
+    expect(screen.getByText(/Пусто — все ветки/)).toBeTruthy()
+    expect(screen.getByRole<HTMLInputElement>('radio', { name: RADIO_WARN }).checked).toBe(true)
+    expect(screen.getByRole<HTMLInputElement>('radio', { name: RADIO_ALL }).checked).toBe(false)
+  })
+
+  it('offers All / Warn & Crit / Only Critical and saves each wire value', async () => {
+    const backend = stubBackend([FULL_REPO])
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    // Each option names the levels it keeps.
+    expect(screen.getByRole('radiogroup', { name: 'Порог важности замечаний' })).toBeTruthy()
+    expect(screen.getAllByRole('radio').map((radio) => radio.getAttribute('value'))).toEqual([
+      'all',
+      'warning',
+      'critical',
+    ])
+    expect(screen.getByRole<HTMLInputElement>('radio', { name: RADIO_ALL }).checked).toBe(true)
+    expect(screen.getByRole('radio', { name: RADIO_WARN })).toBeTruthy()
+    expect(screen.getByRole('radio', { name: RADIO_CRIT })).toBeTruthy()
+
+    await saveThreshold(RADIO_WARN, backend, 1)
+    await saveThreshold(RADIO_CRIT, backend, 2)
+    await saveThreshold(RADIO_ALL, backend, 3)
+
+    expect(backend.patches).toEqual([
+      { id: UI_REPO.id, body: { severityThreshold: 'warning' } },
+      { id: UI_REPO.id, body: { severityThreshold: 'critical' } },
+      { id: UI_REPO.id, body: { severityThreshold: 'all' } },
+    ])
+  })
+
+  it('sends the masks one per line, trimmed and without duplicates', async () => {
+    const backend = stubBackend([FULL_REPO])
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    fireEvent.change(branchFilterField(), {
+      target: { value: 'main\n\n  release/* \nmain\nhotfix/*\n' },
+    })
+    fireEvent.click(saveButton())
+
+    await screen.findByText('Настройки репозитория успешно сохранены')
+    expect(backend.patches).toEqual([
+      { id: UI_REPO.id, body: { branchFilter: ['main', 'release/*', 'hotfix/*'] } },
+    ])
+  })
+
+  it('sends an empty filter as []', async () => {
+    const backend = stubBackend([FULL_REPO])
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    fireEvent.change(branchFilterField(), { target: { value: '  \n ' } })
+    expect(saveButton().disabled).toBe(false)
+    fireEvent.click(saveButton())
+
+    await screen.findByText('Настройки репозитория успешно сохранены')
+    expect(backend.patches).toEqual([{ id: UI_REPO.id, body: { branchFilter: [] } }])
+    await waitFor(() => {
+      expect(saveButton().disabled).toBe(true)
+    })
+  })
+
+  it('refuses a list over the size limits before any request', async () => {
+    const backend = stubBackend([FULL_REPO])
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    fireEvent.change(branchFilterField(), {
+      target: { value: Array.from({ length: 21 }, (_, i) => `b${String(i)}`).join('\n') },
+    })
+    fireEvent.click(saveButton())
+
+    expect(await screen.findByText('Не больше 20 масок')).toBeTruthy()
+    expect(backend.patches).toEqual([])
+  })
+
+  it('shows the 422 under the branch filter with the line number and keeps the masks', async () => {
+    const backend = stubBackend([FULL_REPO])
+    backend.patchResponse = unprocessable([
+      { loc: ['body', 'branchFilter', 1], msg: ENGLISH_422_MSG, type: 'value_error' },
+    ])
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    fireEvent.change(branchFilterField(), { target: { value: 'main\n[oops' } })
+    fireEvent.click(saveButton())
+
+    expect(await screen.findByText('Маска в строке 2 не принята сервером')).toBeTruthy()
+    expect(backend.patches).toEqual([{ id: UI_REPO.id, body: { branchFilter: ['main', '[oops'] } }])
+    // The server's English text is never shown and nothing is reported above the form.
+    expect(screen.queryByText(ENGLISH_422_MSG)).toBeNull()
+    expect(screen.queryByText('Не удалось сохранить настройки')).toBeNull()
+    expect(branchFilterField().value).toBe('main\n[oops')
+    expect(saveButton().disabled).toBe(false)
+
+    // Editing the field takes the server's complaint away; the other fields never had one.
+    fireEvent.change(branchFilterField(), { target: { value: 'main\n[oops]' } })
+    await waitFor(() => {
+      expect(screen.queryByText('Маска в строке 2 не принята сервером')).toBeNull()
+    })
+  })
+
+  it('names the visible line of the refused mask when the text has a blank line and a duplicate', async () => {
+    const backend = stubBackend([FULL_REPO])
+    // The cleaned list is ['main', '[oops']: the server refuses its second mask.
+    backend.patchResponse = unprocessable([
+      { loc: ['body', 'branchFilter', 1], msg: ENGLISH_422_MSG, type: 'value_error' },
+    ])
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    fireEvent.change(branchFilterField(), { target: { value: '\nmain\nmain\n[oops' } })
+    fireEvent.click(saveButton())
+
+    // The mask sits on line 4 of the textarea, not at place 2 of the cleaned list.
+    expect(await screen.findByText('Маска в строке 4 не принята сервером')).toBeTruthy()
+    expect(screen.queryByText('Маска в строке 2 не принята сервером')).toBeNull()
+    expect(backend.patches).toEqual([{ id: UI_REPO.id, body: { branchFilter: ['main', '[oops'] } }])
+    expect(branchFilterField().value).toBe('\nmain\nmain\n[oops')
+  })
+
+  it('shows the 422 under the threshold', async () => {
+    // The UI offers only valid values: the refusal comes from an overlay on the transport.
+    const backend = stubBackend([FULL_REPO])
+    backend.patchResponse = unprocessable([
+      { loc: ['body', 'severityThreshold'], msg: ENGLISH_422_MSG, type: 'enum' },
+    ])
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    fireEvent.click(screen.getByRole('radio', { name: RADIO_CRIT }))
+    fireEvent.click(saveButton())
+
+    expect(await screen.findByText('Сервер не принял порог')).toBeTruthy()
+    expect(screen.queryByText(ENGLISH_422_MSG)).toBeNull()
+    expect(screen.queryByText('Не удалось сохранить настройки')).toBeNull()
+    expect(screen.getByRole<HTMLInputElement>('radio', { name: RADIO_CRIT }).checked).toBe(true)
+
+    fireEvent.click(screen.getByRole('radio', { name: RADIO_WARN }))
+    await waitFor(() => {
+      expect(screen.queryByText('Сервер не принял порог')).toBeNull()
+    })
+  })
+
+  it('shows a 422 that names no field in the alert above the form', async () => {
+    const backend = stubBackend([FULL_REPO])
+    backend.patchResponse = unprocessable([
+      { loc: ['body', 'branchFilter', 0], msg: ENGLISH_422_MSG, type: 'value_error' },
+      { loc: ['body', 'somethingNew'], msg: ENGLISH_422_MSG, type: 'value_error' },
+    ])
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    fireEvent.change(branchFilterField(), { target: { value: 'main' } })
+    fireEvent.click(saveButton())
+
+    expect(await screen.findByText('Не удалось сохранить настройки')).toBeTruthy()
+    expect(screen.getByText('Некорректные параметры запроса (422).')).toBeTruthy()
+    expect(screen.getByText('Маска в строке 1 не принята сервером')).toBeTruthy()
+    expect(screen.queryByText(ENGLISH_422_MSG)).toBeNull()
+  })
+
+  it('restores the branch filter and the threshold on «Отменить изменения»', async () => {
+    const backend = stubBackend([FULL_REPO])
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    fireEvent.change(branchFilterField(), { target: { value: 'develop' } })
+    fireEvent.click(screen.getByRole('radio', { name: RADIO_CRIT }))
+    fireEvent.click(screen.getByRole('button', { name: 'Отменить изменения' }))
+
+    await waitFor(() => {
+      expect(saveButton().disabled).toBe(true)
+    })
+    expect(branchFilterField().value).toBe('main\nrelease/*')
+    expect(screen.getByRole<HTMLInputElement>('radio', { name: RADIO_ALL }).checked).toBe(true)
+    expect(backend.patches).toEqual([])
   })
 })

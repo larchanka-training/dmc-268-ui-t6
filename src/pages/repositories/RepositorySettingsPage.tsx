@@ -11,7 +11,7 @@ import {
   type UpdateRepositoryInput,
 } from '../../entities/repository'
 import { runListHref } from '../../features/run-list-filter'
-import { RepositorySettingsForm } from '../../features/repository-settings'
+import { AutoReviewSwitch, RepositorySettingsForm } from '../../features/repository-settings'
 import { PageHeader } from '../../shared/ui'
 import { formatErrorMessage } from './lib/formatError'
 
@@ -46,6 +46,13 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
       return saved
     }
 
+    const handleToggleAutoReview = async (enabled: boolean): Promise<void> => {
+      await updateMutation.mutateAsync({ id: repository.id, patch: { enabled } })
+      void message.success(
+        enabled ? 'Автоматическое ревью включено' : 'Автоматическое ревью выключено',
+      )
+    }
+
     return (
       <Flex gap="middle" vertical>
         <Breadcrumb
@@ -60,6 +67,14 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
           }
           description={repository.fullName}
           title="Настройки репозитория"
+        />
+        <AutoReviewSwitch
+          describeError={(err) =>
+            formatErrorMessage(err, 'Не удалось изменить автоматическое ревью')
+          }
+          enabled={repository.enabled}
+          installationAvailable={repository.installationAvailable}
+          onChange={handleToggleAutoReview}
         />
         <RepositorySettingsForm
           describeError={(err) => formatErrorMessage(err, 'Не удалось сохранить настройки')}
