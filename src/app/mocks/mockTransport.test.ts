@@ -275,28 +275,21 @@ describe('initMockTransport', () => {
         throw new Error('the PATCH was expected to be rejected')
       }
 
-      it('answers 422 with the mask index for an invalid branch mask', async () => {
+      // api PR #156 validates the whole list in one validator: one refusal, no mask index.
+      it('answers 422 with one item at the field for several invalid branch masks', async () => {
         const error = await rejection({ branchFilter: ['main', 'release 1', 'ok/*', 'feat/a..b'] })
 
         expect(error.status).toBe(422)
         expect(error.data).toEqual({
           detail: [
             {
-              loc: ['body', 'branchFilter', 1],
-              msg: expect.any(String) as string,
-              type: 'value_error',
-            },
-            {
-              loc: ['body', 'branchFilter', 3],
+              loc: ['body', 'branchFilter'],
               msg: expect.any(String) as string,
               type: 'value_error',
             },
           ],
         })
-        expect(validationErrorLocations(error.data)).toEqual([
-          { path: ['body', 'branchFilter', 1] },
-          { path: ['body', 'branchFilter', 3] },
-        ])
+        expect(validationErrorLocations(error.data)).toEqual([{ path: ['body', 'branchFilter'] }])
       })
 
       // The masks api PR #156 refuses (`branch_patterns._pattern_error`), one reason each.
@@ -329,9 +322,7 @@ describe('initMockTransport', () => {
         const error = await rejection({ branchFilter: [mask] })
 
         expect(error.status).toBe(422)
-        expect(validationErrorLocations(error.data)).toEqual([
-          { path: ['body', 'branchFilter', 0] },
-        ])
+        expect(validationErrorLocations(error.data)).toEqual([{ path: ['body', 'branchFilter'] }])
       })
 
       it.each(['main', 'release/*', 'feat/**', '*', '**', 'hotfix/v1.2', 'feature/a-b_c', 'a@b'])(
@@ -345,23 +336,17 @@ describe('initMockTransport', () => {
         },
       )
 
-      it('rejects a repeated mask at the index of the repeat', async () => {
+      it('rejects a repeated mask at the field, once', async () => {
         const error = await rejection({ branchFilter: ['main', 'release/*', 'main', 'release/*'] })
 
         expect(error.status).toBe(422)
-        expect(validationErrorLocations(error.data)).toEqual([
-          { path: ['body', 'branchFilter', 2] },
-          { path: ['body', 'branchFilter', 3] },
-        ])
+        expect(validationErrorLocations(error.data)).toEqual([{ path: ['body', 'branchFilter'] }])
       })
 
-      it('gives a malformed repeated mask one entry per index', async () => {
+      it('gives a malformed repeated mask one entry, not one per index', async () => {
         const error = await rejection({ branchFilter: ['a..b', 'a..b'] })
 
-        expect(validationErrorLocations(error.data)).toEqual([
-          { path: ['body', 'branchFilter', 0] },
-          { path: ['body', 'branchFilter', 1] },
-        ])
+        expect(validationErrorLocations(error.data)).toEqual([{ path: ['body', 'branchFilter'] }])
       })
 
       it('answers 422 for a schema violation with its location', async () => {
@@ -373,13 +358,19 @@ describe('initMockTransport', () => {
         ])
       })
 
-      it('answers 422 for an empty mask with its index', async () => {
-        const error = await rejection({ branchFilter: ['main', ''] })
+      // api PR #156 checks the length of a mask in the same list validator: no mask index either.
+      it('answers 422 at the field for an empty mask, a mask over 255 characters and a long list', async () => {
+        for (const branchFilter of [
+          ['main', ''],
+          ['main', 'a'.repeat(256)],
+          ['', 'a'.repeat(256)],
+          Array.from({ length: 21 }, (_item, index) => `release/${String(index)}`),
+        ]) {
+          const error = await rejection({ branchFilter })
 
-        expect(error.status).toBe(422)
-        expect(validationErrorLocations(error.data)).toEqual([
-          { path: ['body', 'branchFilter', 1] },
-        ])
+          expect(error.status).toBe(422)
+          expect(validationErrorLocations(error.data)).toEqual([{ path: ['body', 'branchFilter'] }])
+        }
       })
 
       it('answers 422 for an empty patch', async () => {
