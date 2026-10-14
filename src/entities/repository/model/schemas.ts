@@ -10,11 +10,13 @@ export type WaitForCi = z.infer<typeof WaitForCiSchema>
 export const ReviewEventSchema = z.enum(['COMMENT', 'REQUEST_CHANGES'])
 export type ReviewEvent = z.infer<typeof ReviewEventSchema>
 
+export const RepositoryIdSchema = z.uuid()
+
 export const SeverityThresholdSchema = z.enum(['all', 'warning', 'critical'])
 export type SeverityThreshold = z.infer<typeof SeverityThresholdSchema>
 
 export const RepositorySchema = z.object({
-  id: z.uuid(),
+  id: RepositoryIdSchema,
   fullName: z.string().min(1),
   url: z.url(),
   defaultBranch: z.string().min(1),
