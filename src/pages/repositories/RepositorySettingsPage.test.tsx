@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { App } from 'antd'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -668,5 +668,26 @@ describe('RepositorySettingsPage: branch filter and severity threshold', () => {
     expect(branchFilterField().value).toBe('main\nrelease/*')
     expect(screen.getByRole<HTMLInputElement>('radio', { name: RADIO_ALL }).checked).toBe(true)
     expect(backend.patches).toEqual([])
+  })
+})
+
+// The test build has no mocks, so the rules status is gated off here (the gated-on page is
+// RepositorySettingsPage.rules.test.tsx).
+describe('RepositorySettingsPage: rules status off mocks', () => {
+  it('sends no request when the rules API is gated off', async () => {
+    const backend = stubBackend([UI_REPO])
+    renderPage(settingsPath(UI_REPO.id))
+
+    const block = await screen.findByRole('region', { name: 'Правила ревью' })
+    expect(
+      within(block).getByText('Статус правил появится, когда сервер начнёт его отдавать'),
+    ).toBeTruthy()
+
+    // Give a request the time it would need to start.
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    const paths = backend.fetchMock.mock.calls.map(([input]) => urlOf(input).pathname)
+    expect(paths.every((path) => !path.includes('rules-status'))).toBe(true)
+    expect(paths).toEqual(['/api/repos'])
+    expect(within(block).queryByRole('button')).toBeNull()
   })
 })
