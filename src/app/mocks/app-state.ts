@@ -299,6 +299,9 @@ export const mockRepositories: Repository[] = [
     waitForCi: 'auto',
     maxComments: 10,
     reviewEvent: 'COMMENT',
+    branchFilter: [],
+    severityThreshold: 'all',
+    installationAvailable: true,
   },
   {
     id: '22222222-2222-4222-8222-000000000002',
@@ -310,6 +313,9 @@ export const mockRepositories: Repository[] = [
     waitForCi: 'always',
     maxComments: 8,
     reviewEvent: 'REQUEST_CHANGES',
+    branchFilter: ['main', 'release/*'],
+    severityThreshold: 'warning',
+    installationAvailable: true,
   },
   {
     id: '22222222-2222-4222-8222-000000000003',
@@ -321,5 +327,8 @@ export const mockRepositories: Repository[] = [
     waitForCi: 'never',
     maxComments: 5,
     reviewEvent: 'COMMENT',
+    branchFilter: [],
+    severityThreshold: 'all',
+    installationAvailable: true,
   },
 ]
