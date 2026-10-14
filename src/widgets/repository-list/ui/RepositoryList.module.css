@@ -27,10 +27,6 @@
   max-width: 320px;
 }
 
-.fullWidth {
-  width: 100%;
-}
-
 .root {
   display: grid;
   gap: 18px;
