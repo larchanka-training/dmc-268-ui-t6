@@ -146,32 +146,42 @@ function isMockBranchMaskValid(mask: string): boolean {
   return !refused
 }
 
-/** The 422 for a PATCH body the api would not take, with the index of every bad or repeated mask. */
+/**
+ * The 422 for a PATCH body the api would not take. A schema violation keeps its Zod location,
+ * except in `branchFilter`: a refused mask, a repeated one, an empty or a long one and a list
+ * that is too long are all a single item at the field, `['body', 'branchFilter']`, with no mask
+ * index. api PR #156 validates the whole list in one validator, so it cannot say which mask it
+ * refused.
+ */
 function validatePatchBody(body: object): UpdateRepositoryInput {
   const parsed = UpdateRepositorySchema.safeParse(body)
   if (!parsed.success) {
-    throw unprocessable(
-      parsed.error.issues.map((issue) => ({
-        loc: [
-          'body',
-          ...issue.path.map((segment) => (typeof segment === 'symbol' ? String(segment) : segment)),
-        ],
+    const detail: ValidationDetailItem[] = []
+    for (const issue of parsed.error.issues) {
+      const path = issue.path.map((segment) =>
+        typeof segment === 'symbol' ? String(segment) : segment,
+      )
+      const atBranchFilter = path[0] === 'branchFilter'
+      if (atBranchFilter && detail.some((item) => item.loc[1] === 'branchFilter')) {
+        continue
+      }
+      detail.push({
+        loc: atBranchFilter ? ['body', 'branchFilter'] : ['body', ...path],
         msg: issue.message,
         type: 'value_error',
-      })),
-    )
+      })
+    }
+    throw unprocessable(detail)
   }
-  // A repeat is refused at its own index: the first occurrence is the one that stays.
-  const seen = new Set<string>()
-  const badMasks = (parsed.data.branchFilter ?? []).flatMap((mask, index) => {
-    const repeated = seen.has(mask)
-    seen.add(mask)
-    return repeated || !isMockBranchMaskValid(mask)
-      ? [{ loc: ['body', 'branchFilter', index], msg: 'Invalid branch mask', type: 'value_error' }]
-      : []
-  })
-  if (badMasks.length > 0) {
-    throw unprocessable(badMasks)
+  const masks = parsed.data.branchFilter ?? []
+  if (new Set(masks).size !== masks.length || !masks.every(isMockBranchMaskValid)) {
+    throw unprocessable([
+      {
+        loc: ['body', 'branchFilter'],
+        msg: 'Value error, invalid branch filter',
+        type: 'value_error',
+      },
+    ])
   }
   return parsed.data
 }
