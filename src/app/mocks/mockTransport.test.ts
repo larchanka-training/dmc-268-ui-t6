@@ -86,5 +86,24 @@ describe('initMockTransport', () => {
       const second = await apiClient<Repository[]>(endpoints.repos.list())
       expect(second.find((item) => item.id === repo.id)?.maxComments).toBe(repo.maxComments)
     })
+
+    it('hands out copies of the branchFilter array', async () => {
+      const updated = await apiClient<Repository>(endpoints.repos.update(repo.id), {
+        body: { branchFilter: ['main'] },
+      })
+      updated.branchFilter.push('from-patch')
+
+      const one = await apiClient<Repository>(endpoints.repos.detail(repo.id))
+      expect(one.branchFilter).toEqual(['main'])
+      one.branchFilter.push('from-detail')
+
+      const list = await apiClient<Repository[]>(endpoints.repos.list())
+      const row = list.find((item) => item.id === repo.id)
+      expect(row?.branchFilter).toEqual(['main'])
+      row?.branchFilter.push('from-list')
+
+      const again = await apiClient<Repository>(endpoints.repos.detail(repo.id))
+      expect(again.branchFilter).toEqual(['main'])
+    })
   })
 })

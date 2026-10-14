@@ -45,6 +45,9 @@ const mockRepos: Repository[] = [
     waitForCi: 'auto',
     maxComments: 10,
     reviewEvent: 'COMMENT',
+    branchFilter: [],
+    severityThreshold: 'all',
+    installationAvailable: true,
   },
   {
     id: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
@@ -56,6 +59,9 @@ const mockRepos: Repository[] = [
     waitForCi: 'never',
     maxComments: 5,
     reviewEvent: 'REQUEST_CHANGES',
+    branchFilter: [],
+    severityThreshold: 'all',
+    installationAvailable: true,
   },
 ]
 
@@ -148,6 +154,9 @@ describe('RepositoryList', () => {
       waitForCi: 'auto',
       maxComments: 10,
       reviewEvent: 'COMMENT',
+      branchFilter: [],
+      severityThreshold: 'all',
+      installationAvailable: true,
     }
     const { container } = render(
       <RepositoryList onSyncAccess={vi.fn()} repositories={[unsafeRepo]} />,
