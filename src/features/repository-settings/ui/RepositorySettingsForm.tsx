@@ -1,12 +1,23 @@
-import { Alert, Button, Flex, Form, InputNumber, Select, Typography } from 'antd'
-import { useState, type FC } from 'react'
+import { Alert, Button, Flex, Form, Input, InputNumber, Radio, Select, Typography } from 'antd'
+import { useState, type FC, type ReactNode } from 'react'
 
 import type {
   Repository,
   RepositoryEngine,
   UpdateRepositoryInput,
 } from '../../../entities/repository'
-import { buildSettingsPatch, toFormValues, type SettingsFormValues } from '../lib/settingsPatch'
+import {
+  splitServerError,
+  type ServerFieldErrors,
+  type SettingsFieldName,
+} from '../lib/serverFieldErrors'
+import { SEVERITY_THRESHOLD_OPTIONS } from '../lib/severityThreshold'
+import {
+  buildSettingsPatch,
+  toFormValues,
+  validateBranchFilterText,
+  type SettingsFormValues,
+} from '../lib/settingsPatch'
 import styles from './RepositorySettingsForm.module.css'
 
 const { Text } = Typography
@@ -14,6 +25,21 @@ const { Text } = Typography
 // deep (SandboxEngine) is phase 3; the api returns only fast until then.
 const ENGINE_LABEL: Record<RepositoryEngine, string> = {
   fast: 'DiffEngine (быстрый синтаксический анализ)',
+}
+
+/** Props that put the server's complaint under a field, or none when it had no complaint. */
+function serverErrorProps(
+  errors: ServerFieldErrors,
+  name: SettingsFieldName,
+): { validateStatus?: 'error'; help?: ReactNode } {
+  const messages = errors[name]
+  if (messages === undefined) {
+    return {}
+  }
+  return {
+    validateStatus: 'error',
+    help: messages.map((message) => <div key={message}>{message}</div>),
+  }
 }
 
 export interface RepositorySettingsFormProps {
@@ -41,6 +67,7 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
   const [values, setValues] = useState(initialValues)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<{ error: unknown } | null>(null)
+  const [serverErrors, setServerErrors] = useState<ServerFieldErrors>({})
 
   const changed = Object.keys(buildSettingsPatch(baseline, values)).length > 0
 
@@ -50,13 +77,20 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
       return
     }
     setSaveError(null)
+    setServerErrors({})
     setSaving(true)
     try {
       const saved = await onSave(patch)
       setBaseline(toFormValues(saved))
     } catch (error) {
-      // The entered values stay in the fields; only the message appears.
-      setSaveError({ error })
+      // The entered values stay in the fields; only messages appear: under the fields the
+      // server named, above the form for the rest.
+      const split = splitServerError(
+        error,
+        patch.branchFilter === undefined ? undefined : submitted.branchFilter,
+      )
+      setServerErrors(split.fields)
+      setSaveError(split.general ? { error } : null)
     } finally {
       setSaving(false)
     }
@@ -67,6 +101,7 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
     // setFieldsValue does not fire onValuesChange.
     setValues(baseline)
     setSaveError(null)
+    setServerErrors({})
   }
 
   return (
@@ -76,8 +111,14 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
       initialValues={initialValues}
       layout="vertical"
       onFinish={(submitted) => void handleFinish(submitted)}
-      onValuesChange={(_, all) => {
+      onValuesChange={(changed, all) => {
         setValues(all)
+        // What the user edits is no longer what the server refused.
+        setServerErrors((previous) =>
+          Object.keys(changed).some((name) => name in previous)
+            ? Object.fromEntries(Object.entries(previous).filter(([name]) => !(name in changed)))
+            : previous,
+        )
       }}
     >
       {saveError !== null ? (
@@ -97,7 +138,12 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
         <Text>{ENGINE_LABEL[repository.defaultEngine]}</Text>
       </Form.Item>
 
-      <Form.Item label="Ожидание CI" name="waitForCi" rules={[{ required: true }]}>
+      <Form.Item
+        label="Ожидание CI"
+        name="waitForCi"
+        rules={[{ required: true }]}
+        {...serverErrorProps(serverErrors, 'waitForCi')}
+      >
         <Select
           options={[
             { value: 'auto', label: 'Авто (ожидать CI при наличии проверок)' },
@@ -114,17 +160,55 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
           { required: true, message: 'Укажите лимит' },
           { type: 'number', min: 1, max: 10, message: 'Число от 1 до 10' },
         ]}
+        {...serverErrorProps(serverErrors, 'maxComments')}
       >
         <InputNumber className={styles.fullWidth} max={10} min={1} precision={0} />
       </Form.Item>
 
-      <Form.Item label="Публикация вердикта" name="reviewEvent" rules={[{ required: true }]}>
+      <Form.Item
+        label="Публикация вердикта"
+        name="reviewEvent"
+        rules={[{ required: true }]}
+        {...serverErrorProps(serverErrors, 'reviewEvent')}
+      >
         <Select
           options={[
             { value: 'COMMENT', label: 'Комментарий (при любых замечаниях)' },
             { value: 'REQUEST_CHANGES', label: 'Запрос изменений (при блокирующих)' },
           ]}
         />
+      </Form.Item>
+
+      <Form.Item
+        extra="Маски целевой ветки pull request, по одной в строке (например, main или release/*). Пусто — все ветки."
+        label="Фильтр веток"
+        name="branchFilter"
+        rules={[
+          {
+            validator: (_, value: string | undefined) => {
+              const message = validateBranchFilterText(value ?? '')
+              return message === null ? Promise.resolve() : Promise.reject(new Error(message))
+            },
+          },
+        ]}
+        {...serverErrorProps(serverErrors, 'branchFilter')}
+      >
+        <Input.TextArea rows={4} spellCheck={false} />
+      </Form.Item>
+
+      <Form.Item
+        extra="Публиковать замечания не ниже выбранного уровня."
+        label="Порог важности замечаний"
+        name="severityThreshold"
+        {...serverErrorProps(serverErrors, 'severityThreshold')}
+      >
+        <Radio.Group aria-label="Порог важности замечаний" orientation="vertical">
+          {SEVERITY_THRESHOLD_OPTIONS.map((option) => (
+            <Radio key={option.value} value={option.value}>
+              {option.label} <Text type="secondary">{`— ${option.levels.join(', ')}`}</Text>
+            </Radio>
+          ))}
+        </Radio.Group>
       </Form.Item>
 
       <Flex className={styles.actions} gap={8}>
