@@ -58,7 +58,10 @@ function findRunSession(id: string) {
   return session ? structuredClone(session) : undefined
 }
 
-/** The api default and cap are not mirrored: the list is small, 50 keeps it on one page. */
+/**
+ * The api default of `limit` (50) is mirrored, and so is its cap, through `RunListQuerySchema`
+ * (`limit` 1..100, else 422).
+ */
 const MOCK_RUN_LIST_DEFAULT_LIMIT = 50
 const MOCK_RUN_CURSOR = /^mock:(\d+)$/
 
@@ -121,34 +124,29 @@ function unprocessable(detail: ValidationDetailItem[]): ApiError {
 }
 
 /**
- * Whether a branch mask is one the mock accepts: no whitespace, no backslash, balanced `[...]` and
- * `{...}`. The api judges the real grammar (git-ref-safe globs, api PR #156); this is only enough
- * to make its 422 reachable on mocks.
+ * Whether a branch mask is one the mock accepts: the checks of the api's `_pattern_error`
+ * (api PR #156) after the length checks Zod already makes. `*` and `**` stay valid; `*` three
+ * times in a row does not. The api judges the real grammar; the mock keeps the 422 reachable and
+ * its refusals the same.
  */
 function isMockBranchMaskValid(mask: string): boolean {
-  if (/[\s\\]/.test(mask)) {
-    return false
-  }
-  let brackets = 0
-  let braces = 0
-  for (const char of mask) {
-    if (char === '[') {
-      brackets += 1
-    } else if (char === ']') {
-      brackets -= 1
-    } else if (char === '{') {
-      braces += 1
-    } else if (char === '}') {
-      braces -= 1
-    }
-    if (brackets < 0 || braces < 0) {
-      return false
-    }
-  }
-  return brackets === 0 && braces === 0
+  const refused =
+    /[\s\p{Cc}\p{Cs}]/u.test(mask) ||
+    mask.includes('***') ||
+    /[?[\]{}!\\~^:]/.test(mask) ||
+    mask.includes('..') ||
+    mask.includes('//') ||
+    mask.split('/').some((segment) => segment.startsWith('.')) ||
+    mask.startsWith('/') ||
+    mask.startsWith('-') ||
+    mask.endsWith('/') ||
+    mask.endsWith('.') ||
+    mask.endsWith('.lock') ||
+    mask === '@'
+  return !refused
 }
 
-/** The 422 for a PATCH body the api would not take, with the position of every bad mask. */
+/** The 422 for a PATCH body the api would not take, with the index of every bad or repeated mask. */
 function validatePatchBody(body: object): UpdateRepositoryInput {
   const parsed = UpdateRepositorySchema.safeParse(body)
   if (!parsed.success) {
@@ -163,11 +161,15 @@ function validatePatchBody(body: object): UpdateRepositoryInput {
       })),
     )
   }
-  const badMasks = (parsed.data.branchFilter ?? []).flatMap((mask, index) =>
-    isMockBranchMaskValid(mask)
-      ? []
-      : [{ loc: ['body', 'branchFilter', index], msg: 'Invalid branch mask', type: 'value_error' }],
-  )
+  // A repeat is refused at its own index: the first occurrence is the one that stays.
+  const seen = new Set<string>()
+  const badMasks = (parsed.data.branchFilter ?? []).flatMap((mask, index) => {
+    const repeated = seen.has(mask)
+    seen.add(mask)
+    return repeated || !isMockBranchMaskValid(mask)
+      ? [{ loc: ['body', 'branchFilter', index], msg: 'Invalid branch mask', type: 'value_error' }]
+      : []
+  })
   if (badMasks.length > 0) {
     throw unprocessable(badMasks)
   }
