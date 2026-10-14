@@ -55,7 +55,7 @@ function handleMockTransport(
   options: Parameters<MockTransportHandler>[1],
 ): unknown {
   if (endpoint.path === '/repos' && endpoint.method === 'GET') {
-    return repositories.map((r) => ({ ...r }))
+    return repositories.map((r) => structuredClone(r))
   }
 
   if (endpoint.path === '/runs' && endpoint.method === 'GET') {
@@ -74,7 +74,7 @@ function handleMockTransport(
     if (!repo) {
       throw new ApiError(404, 'Not Found', { message: 'Repository not found' })
     }
-    return { ...repo }
+    return structuredClone(repo)
   }
 
   if (endpoint.path.startsWith('/repos/') && endpoint.method === 'PATCH') {
@@ -90,7 +90,7 @@ function handleMockTransport(
         ...patch,
       })
     }
-    return { ...repositories[index] }
+    return structuredClone(repositories[index])
   }
 
   const runDetailMatch = /^\/runs\/([^/]+)$/.exec(endpoint.path)

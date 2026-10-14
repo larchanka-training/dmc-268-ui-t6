@@ -31,6 +31,9 @@ describe('repository API client methods', () => {
     waitForCi: 'auto' as const,
     maxComments: 10,
     reviewEvent: 'COMMENT' as const,
+    branchFilter: [],
+    severityThreshold: 'all' as const,
+    installationAvailable: true,
   }
 
   it('fetchRepositories returns validated repositories', async () => {
