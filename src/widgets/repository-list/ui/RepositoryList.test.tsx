@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { ConfigProvider } from 'antd'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { Repository } from '../../../entities/repository'
@@ -33,6 +32,26 @@ afterEach(() => {
   mockMode.enabled = false
   useAuthStore.setState({ loginWithGitHub: originalLoginWithGitHub })
 })
+
+function settingsHref(repository: Repository): string {
+  return `/repositories/${repository.id}/settings`
+}
+
+/**
+ * Clicks and tells whether the app took the click over (`preventDefault`). The listener on the
+ * document runs after React's and then cancels the navigation jsdom cannot perform.
+ */
+function clickIsTakenOver(element: Element, init?: MouseEventInit): boolean {
+  let prevented = false
+  const listener = (event: Event): void => {
+    prevented = event.defaultPrevented
+    event.preventDefault()
+  }
+  document.addEventListener('click', listener)
+  fireEvent.click(element, init)
+  document.removeEventListener('click', listener)
+  return prevented
+}
 
 const mockRepos: Repository[] = [
   {
@@ -71,6 +90,7 @@ describe('RepositoryList', () => {
 
     render(
       <RepositoryList
+        settingsHref={settingsHref}
         onSyncAccess={vi.fn()}
         onToggleEnabled={handleToggle}
         repositories={mockRepos}
@@ -97,6 +117,7 @@ describe('RepositoryList', () => {
     const updatingRepoIds = new Set(['a1b2c3d4-e5f6-7890-abcd-ef1234567890'])
     render(
       <RepositoryList
+        settingsHref={settingsHref}
         onSyncAccess={vi.fn()}
         repositories={mockRepos}
         updatingRepoIds={updatingRepoIds}
@@ -114,18 +135,14 @@ describe('RepositoryList', () => {
     expect(switch2.hasAttribute('disabled')).toBe(false)
   })
 
-  it('renders settings button with unique per-row aria-label', () => {
-    render(<RepositoryList onSyncAccess={vi.fn()} repositories={mockRepos} />)
-    expect(
-      screen.getByRole('button', { name: 'Настройки larchanka-training/dmc-268-ui-t6' }),
-    ).toBeDefined()
-    expect(
-      screen.getByRole('button', { name: 'Настройки larchanka-training/dmc-268-api-t6' }),
-    ).toBeDefined()
-  })
-
   it('filters repositories by search input matching full and short name', () => {
-    render(<RepositoryList onSyncAccess={vi.fn()} repositories={mockRepos} />)
+    render(
+      <RepositoryList
+        settingsHref={settingsHref}
+        onSyncAccess={vi.fn()}
+        repositories={mockRepos}
+      />,
+    )
 
     const searchInput = screen.getByPlaceholderText('Поиск по названию...')
     fireEvent.change(searchInput, { target: { value: 'ui-t6' } })
@@ -135,7 +152,13 @@ describe('RepositoryList', () => {
   })
 
   it('links the repository name to its http(s) url', () => {
-    render(<RepositoryList onSyncAccess={vi.fn()} repositories={mockRepos} />)
+    render(
+      <RepositoryList
+        settingsHref={settingsHref}
+        onSyncAccess={vi.fn()}
+        repositories={mockRepos}
+      />,
+    )
 
     const link = screen.getByRole('link', { name: 'larchanka-training/dmc-268-ui-t6' })
     expect(link.getAttribute('href')).toBe('https://github.com/larchanka-training/dmc-268-ui-t6')
@@ -159,7 +182,11 @@ describe('RepositoryList', () => {
       installationAvailable: true,
     }
     const { container } = render(
-      <RepositoryList onSyncAccess={vi.fn()} repositories={[unsafeRepo]} />,
+      <RepositoryList
+        settingsHref={settingsHref}
+        onSyncAccess={vi.fn()}
+        repositories={[unsafeRepo]}
+      />,
     )
 
     // React rewrites a javascript: href instead of dropping it, so match on the scheme.
@@ -170,7 +197,7 @@ describe('RepositoryList', () => {
 
   it('renders installation link with correct href when GITHUB_APP_SLUG is configured', () => {
     mockSlug = 'test-bot'
-    render(<RepositoryList onSyncAccess={vi.fn()} repositories={[]} />)
+    render(<RepositoryList settingsHref={settingsHref} onSyncAccess={vi.fn()} repositories={[]} />)
     expect(screen.getByText(/Репозитории ещё не подключены/i)).toBeDefined()
     const link = screen.getByRole('link', { name: /установить github app/i })
     expect(link.getAttribute('href')).toBe('https://github.com/apps/test-bot/installations/new')
@@ -179,7 +206,7 @@ describe('RepositoryList', () => {
   it('renders disabled button with no href when GITHUB_APP_SLUG is not configured', () => {
     mockSlug = ''
     mockClientId = 'test-client'
-    render(<RepositoryList onSyncAccess={vi.fn()} repositories={[]} />)
+    render(<RepositoryList settingsHref={settingsHref} onSyncAccess={vi.fn()} repositories={[]} />)
     expect(screen.getByText(/Репозитории ещё не подключены/i)).toBeDefined()
     const button = screen.getByRole('button', { name: /установить github app/i })
     expect(button.hasAttribute('disabled')).toBe(true)
@@ -187,96 +214,86 @@ describe('RepositoryList', () => {
     expect(screen.queryByRole('link', { name: /установить github app/i })).toBeNull()
   })
 
-  it('keeps settings modal open if onUpdateRepository rejects', async () => {
-    const onUpdate = vi.fn().mockRejectedValue(new Error('Update failed'))
-    // motion: false makes a closing modal leave the accessibility tree at once, so the
-    // role query below tells an open modal from a closed one
-    render(
-      <ConfigProvider theme={{ token: { motion: false } }}>
-        <RepositoryList
-          onSyncAccess={vi.fn()}
-          onUpdateRepository={onUpdate}
-          repositories={mockRepos}
-        />
-      </ConfigProvider>,
-    )
-
-    const settingsBtn = screen.getByLabelText(/настройки larchanka-training\/dmc-268-ui-t6/i)
-    fireEvent.click(settingsBtn)
-
-    await waitFor(() => {
-      expect(
-        screen.getByText('Настройки репозитория larchanka-training/dmc-268-ui-t6'),
-      ).toBeDefined()
-    })
-
-    const maxCommentsInput = document.getElementById('maxComments') as HTMLInputElement
-    expect(maxCommentsInput).not.toBeNull()
-    fireEvent.change(maxCommentsInput, { target: { value: '5' } })
-
-    const saveBtn = screen.getByRole('button', { name: /сохранить/i })
-    fireEvent.click(saveBtn)
-
-    const targetRepo = mockRepos[0]
-    expect(targetRepo).toBeDefined()
-    if (!targetRepo) {
-      throw new Error('mockRepos[0] is undefined')
-    }
-
-    await waitFor(() => {
-      expect(onUpdate).toHaveBeenCalledWith(targetRepo.id, { maxComments: 5 })
-    })
-
-    // Modal dialog is still present in DOM and open
-    expect(
-      screen.getByRole('dialog', {
-        name: 'Настройки репозитория larchanka-training/dmc-268-ui-t6',
-      }),
-    ).toBeDefined()
-    expect(screen.getByText('Настройки репозитория larchanka-training/dmc-268-ui-t6')).toBeDefined()
-  })
-
-  it('offers only DiffEngine and never sends the engine in the settings patch', async () => {
-    const onUpdate = vi.fn().mockResolvedValue(undefined)
+  it('links «Настроить» to the settings page with a unique per-row aria-label', () => {
     render(
       <RepositoryList
+        settingsHref={settingsHref}
         onSyncAccess={vi.fn()}
-        onUpdateRepository={onUpdate}
         repositories={mockRepos}
       />,
     )
 
-    fireEvent.click(screen.getByLabelText(/настройки larchanka-training\/dmc-268-ui-t6/i))
-    await waitFor(() => {
-      expect(screen.getByText('Движок анализа')).toBeDefined()
-    })
+    expect(
+      screen
+        .getByRole('link', { name: 'Настройки larchanka-training/dmc-268-ui-t6' })
+        .getAttribute('href'),
+    ).toBe('/repositories/a1b2c3d4-e5f6-7890-abcd-ef1234567890/settings')
+    expect(
+      screen
+        .getByRole('link', { name: 'Настройки larchanka-training/dmc-268-api-t6' })
+        .getAttribute('href'),
+    ).toBe('/repositories/b2c3d4e5-f6a7-8901-bcde-f12345678901/settings')
+  })
 
-    const engineSelect = document.getElementById('defaultEngine') as HTMLInputElement
-    expect(engineSelect).not.toBeNull()
-    fireEvent.mouseDown(engineSelect)
-    await waitFor(() => {
-      expect(document.querySelectorAll('.ant-select-item-option').length).toBeGreaterThan(0)
-    })
-    const engineOptions = [...document.querySelectorAll('.ant-select-item-option')].map(
-      (option) => option.textContent,
+  it('opens the settings through onOpenSettings and keeps the page from loading', () => {
+    const onOpenSettings = vi.fn()
+    render(
+      <RepositoryList
+        onOpenSettings={onOpenSettings}
+        onSyncAccess={vi.fn()}
+        repositories={mockRepos}
+        settingsHref={settingsHref}
+      />,
     )
-    expect(engineOptions).toEqual(['DiffEngine (быстрый синтаксический анализ)'])
-    expect(screen.queryByText('SandboxEngine (глубокий анализ в песочнице)')).toBeNull()
 
-    const maxCommentsInput = document.getElementById('maxComments') as HTMLInputElement
-    fireEvent.change(maxCommentsInput, { target: { value: '5' } })
-    fireEvent.click(screen.getByRole('button', { name: /сохранить/i }))
+    const link = screen.getByRole('link', { name: 'Настройки larchanka-training/dmc-268-api-t6' })
+    expect(clickIsTakenOver(link)).toBe(true)
 
-    await waitFor(() => {
-      expect(onUpdate).toHaveBeenCalledWith('a1b2c3d4-e5f6-7890-abcd-ef1234567890', {
-        maxComments: 5,
-      })
-    })
+    expect(onOpenSettings).toHaveBeenCalledTimes(1)
+    expect(onOpenSettings).toHaveBeenCalledWith(mockRepos[1])
+  })
+
+  it('leaves a click with a modifier key to the browser', () => {
+    const onOpenSettings = vi.fn()
+    render(
+      <RepositoryList
+        onOpenSettings={onOpenSettings}
+        onSyncAccess={vi.fn()}
+        repositories={mockRepos}
+        settingsHref={settingsHref}
+      />,
+    )
+
+    const link = screen.getByRole('link', { name: 'Настройки larchanka-training/dmc-268-ui-t6' })
+    expect(clickIsTakenOver(link, { ctrlKey: true })).toBe(false)
+    expect(clickIsTakenOver(link, { metaKey: true })).toBe(false)
+    expect(clickIsTakenOver(link, { shiftKey: true })).toBe(false)
+
+    expect(onOpenSettings).not.toHaveBeenCalled()
+  })
+
+  it('leaves the click to the browser when nobody handles navigation', () => {
+    render(
+      <RepositoryList
+        onSyncAccess={vi.fn()}
+        repositories={mockRepos}
+        settingsHref={settingsHref}
+      />,
+    )
+
+    const link = screen.getByRole('link', { name: 'Настройки larchanka-training/dmc-268-ui-t6' })
+    expect(clickIsTakenOver(link)).toBe(false)
   })
 
   it('calls onSyncAccess when "Обновить доступ" button is clicked in header', () => {
     const handleSyncAccess = vi.fn()
-    render(<RepositoryList onSyncAccess={handleSyncAccess} repositories={mockRepos} />)
+    render(
+      <RepositoryList
+        settingsHref={settingsHref}
+        onSyncAccess={handleSyncAccess}
+        repositories={mockRepos}
+      />,
+    )
 
     const syncBtn = screen.getByRole('button', { name: /обновить доступ/i })
     fireEvent.click(syncBtn)
@@ -286,7 +303,13 @@ describe('RepositoryList', () => {
 
   it('renders "Обновить доступ" button in empty state and triggers callback', () => {
     const handleSyncAccess = vi.fn()
-    render(<RepositoryList onSyncAccess={handleSyncAccess} repositories={[]} />)
+    render(
+      <RepositoryList
+        settingsHref={settingsHref}
+        onSyncAccess={handleSyncAccess}
+        repositories={[]}
+      />,
+    )
 
     const syncButtons = screen.getAllByRole('button', { name: /обновить доступ/i })
     expect(syncButtons.length).toBe(1)
@@ -304,7 +327,9 @@ describe('RepositoryList', () => {
     const loginWithGitHub = vi.fn()
     const onSyncAccess = vi.fn()
     useAuthStore.setState({ loginWithGitHub })
-    render(<RepositoryList onSyncAccess={onSyncAccess} repositories={[]} />)
+    render(
+      <RepositoryList settingsHref={settingsHref} onSyncAccess={onSyncAccess} repositories={[]} />,
+    )
     fireEvent.click(screen.getByRole('button', { name: 'Обновить доступ' }))
     expect(onSyncAccess).toHaveBeenCalledOnce()
     expect(loginWithGitHub).not.toHaveBeenCalled()
@@ -315,7 +340,13 @@ describe('RepositoryList', () => {
     async ({ repositories }) => {
       mockClientId = ''
       const onSyncAccess = vi.fn()
-      render(<RepositoryList onSyncAccess={onSyncAccess} repositories={repositories} />)
+      render(
+        <RepositoryList
+          settingsHref={settingsHref}
+          onSyncAccess={onSyncAccess}
+          repositories={repositories}
+        />,
+      )
 
       const button = screen.getByRole('button', { name: 'Обновить доступ' })
       expect(button.hasAttribute('disabled')).toBe(true)
@@ -336,7 +367,13 @@ describe('RepositoryList', () => {
       mockClientId = ''
       mockMode.enabled = true
       const onSyncAccess = vi.fn()
-      render(<RepositoryList onSyncAccess={onSyncAccess} repositories={repositories} />)
+      render(
+        <RepositoryList
+          settingsHref={settingsHref}
+          onSyncAccess={onSyncAccess}
+          repositories={repositories}
+        />,
+      )
 
       const button = screen.getByRole('button', { name: 'Обновить доступ' })
       expect(button.hasAttribute('disabled')).toBe(false)
@@ -346,7 +383,7 @@ describe('RepositoryList', () => {
   )
 
   it('renders empty state description explaining both installation scenarios', () => {
-    render(<RepositoryList onSyncAccess={vi.fn()} repositories={[]} />)
+    render(<RepositoryList settingsHref={settingsHref} onSyncAccess={vi.fn()} repositories={[]} />)
     expect(
       screen.getByText(
         'Репозитории ещё не подключены. После установки GitHub App на новый аккаунт или добавления репозиториев в уже подключённую установку нажмите «Обновить доступ»: откроется GitHub, затем вы вернётесь сюда. Репозиторий может появиться с задержкой до нескольких минут.',
@@ -355,7 +392,13 @@ describe('RepositoryList', () => {
   })
 
   it('displays tooltip on hover over "Обновить доступ"', async () => {
-    render(<RepositoryList onSyncAccess={vi.fn()} repositories={mockRepos} />)
+    render(
+      <RepositoryList
+        settingsHref={settingsHref}
+        onSyncAccess={vi.fn()}
+        repositories={mockRepos}
+      />,
+    )
     const syncBtn = screen.getByRole('button', { name: /обновить доступ/i })
     fireEvent.mouseEnter(syncBtn)
     expect(
@@ -366,7 +409,13 @@ describe('RepositoryList', () => {
   })
 
   it('displays tooltip on hover over "Обновить"', async () => {
-    render(<RepositoryList onSyncAccess={vi.fn()} repositories={mockRepos} />)
+    render(
+      <RepositoryList
+        settingsHref={settingsHref}
+        onSyncAccess={vi.fn()}
+        repositories={mockRepos}
+      />,
+    )
     const refreshBtn = screen.getByRole('button', { name: /обновить$/i })
     fireEvent.mouseEnter(refreshBtn)
     expect(
@@ -378,7 +427,13 @@ describe('RepositoryList', () => {
 
   it('displays install tooltip on hover over connect button when app is configured', async () => {
     mockSlug = 'my-github-app'
-    render(<RepositoryList onSyncAccess={vi.fn()} repositories={mockRepos} />)
+    render(
+      <RepositoryList
+        settingsHref={settingsHref}
+        onSyncAccess={vi.fn()}
+        repositories={mockRepos}
+      />,
+    )
     const connectBtn = screen.getByRole('link', { name: /подключить репозиторий/i })
     fireEvent.mouseEnter(connectBtn)
     expect(

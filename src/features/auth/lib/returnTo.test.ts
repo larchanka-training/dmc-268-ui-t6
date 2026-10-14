@@ -27,6 +27,13 @@ describe('auth returnTo', () => {
     expect(consumeAuthReturnTo('/repositories')).toBe('/repositories')
   })
 
+  it('accepts the repository settings path', () => {
+    const path = '/repositories/22222222-2222-4222-8222-000000000001/settings'
+    expect(isSafeAuthReturnPath(path)).toBe(true)
+    saveAuthReturnTo(path)
+    expect(consumeAuthReturnTo('/runs')).toBe(path)
+  })
+
   it('ignores login and callback paths', () => {
     saveAuthReturnTo('/login')
     expect(consumeAuthReturnTo('/runs')).toBe('/runs')
