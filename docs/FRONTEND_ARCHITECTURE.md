@@ -37,15 +37,16 @@ antd, TanStack Query и jsdom — патчи от 2026-09-24.
 | Ф-9  | Новый эндпоинт `GET /api/runs/{id}/files?path&offset&limit`                                                                                                          | дочитывание контекста порциями; путь внесён в [SD §12][sd-12] (§5, п. 7).                                                                                                                                                  |
 | Ф-10 | JSON на проводе — camelCase                                                                                                                                          | Zod-схемы фронта — источник истины — [SD §12][sd-12]; иначе трансформер на каждом ответе.                                                                                                                                  |
 | Ф-11 | Самые свежие стабильные версии (React 19.3, Vite 8.3, Vitest 5.0, TS 7.0.2, линтер — 6.0.3) — решение роли 5 при отсутствии ответа команды; уточнено 2026-09-24      | peer-совместимость проверена по npm registry; у TS 7.0 нет JS API — typescript-eslint (peer `typescript >=4.8.4 <6.1.0`) на 6.0.x, рядом с 7.0 — #47; расхождения с PR #26/#33 — предложениями в их тредах.                |
-| Ф-12 | react-router 8 установлен (^8.4.0) для декларативной маршрутизации; Mantine 9 — не установлен                                                                        | SPA-роутер App Shell (/login, /auth/callback, /repositories, /runs, /review); React 19.3 выполняет peer-требование (≥ 19.2.7).                                                                                             |
+| Ф-12 | react-router 8 установлен (^8.4.0) для декларативной маршрутизации; Mantine 9 — не установлен                                                                        | SPA-роутер App Shell (/login, /auth/callback, /repositories, /repositories/:repoId/settings, /runs, /review); React 19.3 выполняет peer-требование (≥ 19.2.7).                                                             |
 | Ф-13 | Стили: antd tokens для темизации + CSS Modules для layout-контейнеров; Tailwind — нет                                                                                | один источник цветов/отступов, layout без рантайма; stylelint-override для `*.module.css` — [решение техлида][tl-2026-09-24-46] (§3).                                                                                      |
 | Ф-14 | SSE — `fetch`-стрим с `Authorization: Bearer`, а не `EventSource`                                                                                                    | `EventSource` не отправляет заголовки, а `/api/stream` требует Bearer ([решение техлида][tl-2026-09-27-api20], api#20 D4); `401` → refresh → переподключение (§2).                                                         |
 | Ф-15 | Авторизация — GitHub App user authorization; access-токен только в памяти, refresh — httpOnly-cookie; fail closed                                                    | [решение техлида][tl-2026-09-27-api20], api#20 D4; токен в памяти — дефолт плана api#20; fail closed, общий refresh, старт refresh → `/me` — правила клиента (§11).                                                        |
 | Ф-16 | Вердикт (`blocking`/`attention`/`clean`) и `severityCounts` считает сервер; Critical/Warning/Info — группировка в UI                                                 | [решение техлида][tl-2026-09-27-api20], api#20 D3: UI вердикт сам не выводит, API отдаёт пять уровней severity (§4).                                                                                                       |
-| Ф-17 | Репозиторий подключается установкой GitHub App; настройки — `PATCH /api/repos/{id}`                                                                                  | [решение техлида][tl-2026-09-27-api20], api#20 D10: `POST /api/repos` нет; поля настроек — дефолт, утверждённый с планом api#20 (§11).                                                                                     |
+| Ф-17 | Репозиторий подключается установкой GitHub App; настройки — `PATCH /api/repos/{id}`; уточнено 2026-10-14 (ui#93)                                                     | [решение техлида][tl-2026-09-27-api20], api#20 D10: `POST /api/repos` нет; поля настроек — `enabled`, `defaultEngine`, `waitForCi`, `maxComments`, `reviewEvent` (§11) и поля api#149 из api PR #156 (ниже, §5).           |
 | Ф-18 | Синхронная подсветка диффа — бюджет ~1000 строк на файл и на весь дифф; выше — без `tokenize` (worker — follow-up)                                                   | AC ui#65 ч. 1; API `summary_only` >3000 строк; замеры в `docs/plans/65-plan.md` (Refs ui#65).                                                                                                                              |
 | Ф-19 | Список PR репозитория (`GET /repos/{id}/pulls`) в UI **не** входит в scope #65; навигация — со страницы репозиториев / внешняя ссылка на GitHub                      | Открытый вопрос плана закрыт: follow-up issue при появлении API в продукте (Refs ui#65).                                                                                                                                   |
 | Ф-20 | Дизайн-система Flat Console поверх antd: тема, свои компоненты и правила в `src/shared/ui`, витрина в Storybook; спецификация [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) | Единый вид всех экранов без смены UI-кита: Ф-2 и Ф-13 остаются в силе, antd получает нашу тему, а то, что токенами не выражается, собрано в одном файле. Базовые компоненты берутся только из дизайн-системы (Refs ui#98). |
+| Ф-21 | Настройки репозитория — страница `/repositories/:repoId/settings`, не модальное окно; история — `/runs?repo=` по курсору; поля — api PR #156, правила — provisional  | ui#93: у настроек свой адрес (ссылка, возврат после входа) и место для блока правил; поля — контракт api#149 (§5); `rules-status` в api нет — его объявил UI, блок правил только на моках (§2, §8, §9).                    |
 | Ф-22 | Обновление доступа: опрос 5 с / 120 с, резерв статуса вне idle и постоянный live region на странице (§2)                                                             | Запаздывающий репозиторий появляется без блокировки действий строки; поиск и таблица не сдвигаются, status сохраняется между GET и при ошибке без данных (Refs ui#92, ui#120).                                             |
 
 Ф-11 уточнено 2026-09-24 (#49): TypeScript поднят 5.9.3 → 6.0.3. Потолок — именно 6.0.x, а не
@@ -89,6 +90,13 @@ Zustand или `useState` нельзя — получится два источ�
 с действием `setViewType`; фильтр файлов по-прежнему живёт в URL. Неиспользуемое состояние
 выбора файла и недостижимая страница ревью удалены (§11).
 
+Ф-17 уточнено 2026-10-14 (ui#93): настройки правятся на странице `/repositories/:repoId/settings`,
+а не в модальном окне списка (Ф-21). Поля страницы: `enabled` — переключатель «Автоматическое
+ревью», отдельный `PATCH { enabled }`, сохранённая настройка (§5); `waitForCi`, `maxComments`,
+`reviewEvent` — форма; `defaultEngine` — только текст, не отправляется. Поля api#149 (контракт
+api PR #156, §5): `branchFilter`, `severityThreshold` — форма; обязательное, только для чтения
+`installationAvailable` — предупреждение у переключателя.
+
 ---
 
 ## 1. Слои
@@ -125,11 +133,25 @@ flowchart TD
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
 | Карточка прогона с диффом и инлайн-комментариями | `entities/{diff,review}`, `features/finding-filters`, `widgets/diff-viewer`, `pages/runs/RunDetailPage` |
 | Инспектор трейса (`RunSession → RunAction`)      | `entities/run`, `widgets/run-inspector`, `pages/runs`                                                   |
+| История прогонов (`/runs?repo=`)                 | `entities/run`, `features/run-list-filter`, `pages/runs/RunsPage`                                       |
 | Аутентификация и App Shell                       | `entities/user`, `features/auth`, `features/theme`, `widgets/app-layout`, `pages/{login,auth}`          |
-| Репозитории                                      | `entities/repository`, `widgets/repository-list`, `pages/repositories`                                  |
-| Правила и метрики                                | не заведено — вне спринта (non-goal)                                                                    |
+| Репозитории и их настройки                       | `entities/repository`, `features/repository-settings`, `widgets/repository-list`, `pages/repositories`  |
+| Правила: статус `.review/rules.md` (мок)         | `entities/repository`, `widgets/repository-rules`, `pages/repositories/RepositorySettingsPage`          |
+| Метрики                                          | не заведено — вне спринта (non-goal)                                                                    |
 
-Дерево `src/` (`find src -type f | sort`):
+Границы срезов ui#93:
+
+- карта «порог → уровни, которые он публикует» (`features/repository-settings/lib/severityThreshold.ts`)
+  живёт в фиче, а не в `entities/repository`: ей нужен `severityBadgeGroup` из `entities/review`, а
+  второго пересечения сущностей, кроме run→review, нет. Фича берёт публичные индексы обеих
+  сущностей — это импорт вниз;
+- `pages/repositories` (ссылка «История проверок») и `pages/runs` (чтение фильтра) берут
+  `runListHref` / `useRunListFilterParams` из `features/run-list-filter` и друг друга не импортируют;
+- `widgets/repository-list` не знает о роутере: адрес «Настроить» приходит пропом
+  `settingsHref(repo)`, переход без перезагрузки — `onOpenSettings(repo)` (как у `NavMenu` /
+  `AppSidebar`); путь собирает страница (`pages/repositories/lib/settingsPath.ts`).
+
+Дерево `src/` (`find src -type f | LC_ALL=C sort`):
 
 ```
 src/App.returnTo.test.tsx
@@ -138,10 +160,13 @@ src/App.tsx
 src/app/layouts/ProtectedLayout.returnTo.test.tsx
 src/app/layouts/RouteLayouts.module.css
 src/app/layouts/RouteLayouts.tsx
+src/app/layouts/RoutePages.test.tsx
 src/app/layouts/RoutePages.tsx
 src/app/layouts/index.ts
 src/app/mocks/app-state.test.ts
 src/app/mocks/app-state.ts
+src/app/mocks/mockRulesStatus.test.ts
+src/app/mocks/mockRulesStatus.ts
 src/app/mocks/mockRunReview.test.ts
 src/app/mocks/mockRunReview.ts
 src/app/mocks/mockRunTimeline.test.ts
@@ -181,7 +206,10 @@ src/entities/diff/model/schemas.test.ts
 src/entities/diff/model/schemas.ts
 src/entities/repository/api/index.test.ts
 src/entities/repository/api/index.ts
+src/entities/repository/api/useRepository.test.tsx
+src/entities/repository/api/useRepositoryRulesStatus.test.tsx
 src/entities/repository/index.ts
+src/entities/repository/model/schemas.rulesStatus.test.ts
 src/entities/repository/model/schemas.test.ts
 src/entities/repository/model/schemas.ts
 src/entities/review/api/index.test.ts
@@ -201,6 +229,7 @@ src/entities/run/api/index.test.ts
 src/entities/run/api/index.ts
 src/entities/run/api/runStreamParse.test.ts
 src/entities/run/api/runStreamParse.ts
+src/entities/run/api/useRunList.test.tsx
 src/entities/run/index.ts
 src/entities/run/lib/duoActions.fixture.ts
 src/entities/run/lib/groupActions.test.ts
@@ -239,6 +268,22 @@ src/features/finding-filters/model/useQueryText.ts
 src/features/finding-filters/ui/FindingFiltersBar.module.css
 src/features/finding-filters/ui/FindingFiltersBar.test.tsx
 src/features/finding-filters/ui/FindingFiltersBar.tsx
+src/features/repository-settings/index.ts
+src/features/repository-settings/lib/serverFieldErrors.test.ts
+src/features/repository-settings/lib/serverFieldErrors.ts
+src/features/repository-settings/lib/settingsPatch.test.ts
+src/features/repository-settings/lib/settingsPatch.ts
+src/features/repository-settings/lib/severityThreshold.test.ts
+src/features/repository-settings/lib/severityThreshold.ts
+src/features/repository-settings/ui/AutoReviewSwitch.module.css
+src/features/repository-settings/ui/AutoReviewSwitch.tsx
+src/features/repository-settings/ui/RepositorySettingsForm.module.css
+src/features/repository-settings/ui/RepositorySettingsForm.tsx
+src/features/run-list-filter/index.ts
+src/features/run-list-filter/model/runListFilter.test.ts
+src/features/run-list-filter/model/runListFilter.ts
+src/features/run-list-filter/model/useRunListFilterParams.test.tsx
+src/features/run-list-filter/model/useRunListFilterParams.ts
 src/features/theme/index.ts
 src/features/theme/model/store.test.ts
 src/features/theme/model/store.ts
@@ -249,20 +294,27 @@ src/pages/auth/CallbackPage.test.tsx
 src/pages/auth/CallbackPage.tsx
 src/pages/auth/oauthErrors.test.ts
 src/pages/auth/oauthErrors.ts
+src/pages/login/HeroGlass.module.css
+src/pages/login/HeroGlass.tsx
 src/pages/login/LoginPage.module.css
 src/pages/login/LoginPage.test.tsx
 src/pages/login/LoginPage.tsx
 src/pages/repositories/RepositoriesPage.module.css
 src/pages/repositories/RepositoriesPage.test.tsx
 src/pages/repositories/RepositoriesPage.tsx
+src/pages/repositories/RepositorySettingsPage.rules.test.tsx
+src/pages/repositories/RepositorySettingsPage.test.tsx
+src/pages/repositories/RepositorySettingsPage.tsx
 src/pages/repositories/lib/formatError.test.ts
 src/pages/repositories/lib/formatError.ts
+src/pages/repositories/lib/settingsPath.ts
 src/pages/repositories/lib/useRepositoryAccessRefresh.ts
 src/pages/review/.gitkeep
 src/pages/review/ReviewRedirect.test.tsx
 src/pages/review/ReviewRedirect.tsx
 src/pages/runs/.gitkeep
 src/pages/runs/RunDetailPage.filters.test.tsx
+src/pages/runs/RunDetailPage.module.css
 src/pages/runs/RunDetailPage.progress.test.tsx
 src/pages/runs/RunDetailPage.search.test.tsx
 src/pages/runs/RunDetailPage.test.tsx
@@ -279,6 +331,8 @@ src/shared/api/client.ts
 src/shared/api/endpoints.test.ts
 src/shared/api/endpoints.ts
 src/shared/api/schemas.ts
+src/shared/api/validationError.test.ts
+src/shared/api/validationError.ts
 src/shared/config/buildFlags.ts
 src/shared/config/demoRun.ts
 src/shared/config/env.test.ts
@@ -289,6 +343,77 @@ src/shared/fixtures/highlight.patch.ts
 src/shared/fixtures/sample.patch.ts
 src/shared/lib/safeHttpUrl.test.ts
 src/shared/lib/safeHttpUrl.ts
+src/shared/ui/CodeBlock/CodeBlock.module.css
+src/shared/ui/CodeBlock/CodeBlock.stories.tsx
+src/shared/ui/CodeBlock/CodeBlock.test.tsx
+src/shared/ui/CodeBlock/CodeBlock.tsx
+src/shared/ui/DataTable/DataTable.module.css
+src/shared/ui/DataTable/DataTable.stories.tsx
+src/shared/ui/DataTable/DataTable.test.tsx
+src/shared/ui/DataTable/DataTable.tsx
+src/shared/ui/Logo/Logo.stories.tsx
+src/shared/ui/Logo/Logo.test.tsx
+src/shared/ui/Logo/Logo.tsx
+src/shared/ui/NavMenu/NavMenu.module.css
+src/shared/ui/NavMenu/NavMenu.stories.tsx
+src/shared/ui/NavMenu/NavMenu.test.tsx
+src/shared/ui/NavMenu/NavMenu.tsx
+src/shared/ui/PageHeader/PageHeader.module.css
+src/shared/ui/PageHeader/PageHeader.stories.tsx
+src/shared/ui/PageHeader/PageHeader.test.tsx
+src/shared/ui/PageHeader/PageHeader.tsx
+src/shared/ui/ProgressSteps/ProgressSteps.module.css
+src/shared/ui/ProgressSteps/ProgressSteps.stories.tsx
+src/shared/ui/ProgressSteps/ProgressSteps.test.tsx
+src/shared/ui/ProgressSteps/ProgressSteps.tsx
+src/shared/ui/RowButton/RowButton.module.css
+src/shared/ui/RowButton/RowButton.stories.tsx
+src/shared/ui/RowButton/RowButton.test.tsx
+src/shared/ui/RowButton/RowButton.tsx
+src/shared/ui/Spinner/Spinner.module.css
+src/shared/ui/Spinner/Spinner.stories.tsx
+src/shared/ui/Spinner/Spinner.test.tsx
+src/shared/ui/Spinner/Spinner.tsx
+src/shared/ui/Tag/Tag.module.css
+src/shared/ui/Tag/Tag.stories.tsx
+src/shared/ui/Tag/Tag.test.tsx
+src/shared/ui/Tag/Tag.tsx
+src/shared/ui/TraceTree/TraceTree.module.css
+src/shared/ui/TraceTree/TraceTree.stories.tsx
+src/shared/ui/TraceTree/TraceTree.test.tsx
+src/shared/ui/TraceTree/TraceTree.tsx
+src/shared/ui/docs/Overview.module.css
+src/shared/ui/docs/Overview.stories.tsx
+src/shared/ui/docs/Spec.mdx
+src/shared/ui/docs/specText.ts
+src/shared/ui/icons/icons.stories.tsx
+src/shared/ui/icons/icons.tsx
+src/shared/ui/index.ts
+src/shared/ui/lib/cx.ts
+src/shared/ui/stories/Button.stories.tsx
+src/shared/ui/stories/Checkbox.stories.tsx
+src/shared/ui/stories/Content.stories.tsx
+src/shared/ui/stories/Data.stories.tsx
+src/shared/ui/stories/Dropdown.stories.tsx
+src/shared/ui/stories/Feedback.stories.tsx
+src/shared/ui/stories/Form.stories.tsx
+src/shared/ui/stories/Input.stories.tsx
+src/shared/ui/stories/Layout.stories.tsx
+src/shared/ui/stories/Modal.stories.tsx
+src/shared/ui/stories/Segmented.stories.tsx
+src/shared/ui/stories/Select.stories.tsx
+src/shared/ui/stories/Switch.stories.tsx
+src/shared/ui/styles/antd.css
+src/shared/ui/styles/antd.form.test.tsx
+src/shared/ui/styles/antd.input.test.tsx
+src/shared/ui/styles/antd.select.test.tsx
+src/shared/ui/styles/antd.steps.test.tsx
+src/shared/ui/styles/tokens.css
+src/shared/ui/theme/DesignSystemProvider.test.tsx
+src/shared/ui/theme/DesignSystemProvider.tsx
+src/shared/ui/theme/buildTheme.test.ts
+src/shared/ui/theme/buildTheme.ts
+src/shared/ui/theme/palette.ts
 src/test/responsiveSelectLayout.ts
 src/test/setup.ts
 src/vite-env.d.ts
@@ -323,6 +448,7 @@ src/widgets/diff-viewer/ui/LoadMoreContext.tsx
 src/widgets/diff-viewer/ui/RunDiff.filters.test.tsx
 src/widgets/diff-viewer/ui/RunDiff.test.tsx
 src/widgets/diff-viewer/ui/RunDiff.tsx
+src/widgets/diff-viewer/ui/diff-layout.css
 src/widgets/diff-viewer/ui/diff-theme.css
 src/widgets/repository-list/index.ts
 src/widgets/repository-list/lib/accessRefreshPresentation.test.ts
@@ -330,14 +456,23 @@ src/widgets/repository-list/lib/accessRefreshPresentation.ts
 src/widgets/repository-list/ui/RepositoryList.module.css
 src/widgets/repository-list/ui/RepositoryList.test.tsx
 src/widgets/repository-list/ui/RepositoryList.tsx
+src/widgets/repository-rules/index.ts
+src/widgets/repository-rules/lib/rulesStatusView.test.ts
+src/widgets/repository-rules/lib/rulesStatusView.ts
+src/widgets/repository-rules/ui/RulesStatusDetails.tsx
+src/widgets/repository-rules/ui/RulesStatusPanel.module.css
+src/widgets/repository-rules/ui/RulesStatusPanel.test.tsx
+src/widgets/repository-rules/ui/RulesStatusPanel.tsx
 src/widgets/run-inspector/index.ts
 src/widgets/run-inspector/lib/format.ts
 src/widgets/run-inspector/model/store.ts
+src/widgets/run-inspector/ui/ActionTree.module.css
 src/widgets/run-inspector/ui/ActionTree.tsx
 src/widgets/run-inspector/ui/RunControls.test.tsx
 src/widgets/run-inspector/ui/RunControls.tsx
 src/widgets/run-inspector/ui/RunHeader.test.tsx
 src/widgets/run-inspector/ui/RunHeader.tsx
+src/widgets/run-inspector/ui/RunInspector.module.css
 src/widgets/run-inspector/ui/RunInspector.test.tsx
 src/widgets/run-inspector/ui/RunInspector.tsx
 src/widgets/run-inspector/ui/RunProgressBar.test.tsx
@@ -359,20 +494,23 @@ src/widgets/run-inspector/ui/RunProgressBar.tsx
 
 ## 2. Состояние
 
-| Данное                                | Где живёт                                                                                                                  | Инвалидация                                                                                                                                                                     |
-| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Список репозиториев                   | TanStack Query, ключ `['repos']` (`useRepositories`)                                                                       | «Обновить доступ»: сразу + 5 с / 120 с; тик пропускается при незавершённом PATCH (`UPDATE_REPOSITORY_MUTATION_KEY`); GET отменяется при уходе последнего наблюдателя (см. ниже) |
-| Список прогонов                       | TanStack Query, ключ `['runs', 'list']` (дефолтный query)                                                                  | по времени (`staleTime: 30s`) + `run.updated`                                                                                                                                   |
-| Прогон (детали)                       | TanStack Query, ключ `['runs', id]`                                                                                        | `run.updated` для этого `runId`                                                                                                                                                 |
-| Действия прогона                      | TanStack Query, ключ `['runs', id, 'actions']`                                                                             | `run.updated` + опрос 3 с, пока прогон активен                                                                                                                                  |
-| Дифф прогона                          | TanStack Query, ключ `['runs', id, 'diff']`                                                                                | `run.updated` / SSE (Refs ui#65)                                                                                                                                                |
-| Комментарии ревью                     | TanStack Query, ключ `['runs', id, 'comments']`                                                                            | вместе с прогоном                                                                                                                                                               |
-| Событие шага пайплайна                | нет: события шага в api пока нет (api#97); ход прогона виден по опросу `/actions`                                          | —                                                                                                                                                                               |
-| Дочитанные срезы файла                | `useState` на `RunDetailPage` (слияние в `FileDiff`); ключ Query `diffQueryKeys.fileSlice` зарезервирован, не используется | не инвалидируется (append-only, живёт с страницей)                                                                                                                              |
-| `viewType` (unified/split)            | Zustand, `widgets/diff-viewer/model/store.ts`                                                                              | — (UI-состояние, не сервер)                                                                                                                                                     |
-| `expandedKeys`, `selectedActionIndex` | Zustand, `widgets/run-inspector/model/store.ts`                                                                            | —                                                                                                                                                                               |
-| Фильтры замечаний                     | URL search params `file`, `severity` (повторяются), `q`; хук `useFindingFiltersParams` (`features/finding-filters`)        | — (источник — URL; другой прогон начинает чисто)                                                                                                                                |
-| Черновики комментариев                | —                                                                                                                          | future (не реализовано в этом спринте)                                                                                                                                          |
+| Данное                                | Где живёт                                                                                                                  | Инвалидация                                                                                                                                                                                                                      |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Репозитории                           | TanStack Query, ключ `['repos']` (`useRepositories`; `useRepository(id)` — тот же ключ + `select`)                         | фокус окна (`'always'`) + `useUpdateRepository`; «Обновить доступ»: сразу + 5 с / 120 с; тик пропускается при незавершённом PATCH (`UPDATE_REPOSITORY_MUTATION_KEY`); GET отменяется при уходе последнего наблюдателя (см. ниже) |
+| Список прогонов                       | TanStack Query, `useInfiniteQuery`, ключ `['runs', 'list', { repo }]`, страница — 20 (`RUN_LIST_PAGE_SIZE`)                | `staleTime: 30s` + `run.updated` (по префиксу)                                                                                                                                                                                   |
+| Прогон (детали)                       | TanStack Query, ключ `['runs', id]`                                                                                        | `run.updated` для этого `runId`                                                                                                                                                                                                  |
+| Действия прогона                      | TanStack Query, ключ `['runs', id, 'actions']`                                                                             | `run.updated` + опрос 3 с, пока прогон активен                                                                                                                                                                                   |
+| Дифф прогона                          | TanStack Query, ключ `['runs', id, 'diff']`                                                                                | `run.updated` / SSE (Refs ui#65)                                                                                                                                                                                                 |
+| Комментарии ревью                     | TanStack Query, ключ `['runs', id, 'comments']`                                                                            | вместе с прогоном                                                                                                                                                                                                                |
+| Событие шага пайплайна                | нет: события шага в api пока нет (api#97); ход прогона виден по опросу `/actions`                                          | —                                                                                                                                                                                                                                |
+| Дочитанные срезы файла                | `useState` на `RunDetailPage` (слияние в `FileDiff`); ключ Query `diffQueryKeys.fileSlice` зарезервирован, не используется | не инвалидируется (append-only, живёт с страницей)                                                                                                                                                                               |
+| `viewType` (unified/split)            | Zustand, `widgets/diff-viewer/model/store.ts`                                                                              | — (UI-состояние, не сервер)                                                                                                                                                                                                      |
+| `expandedKeys`, `selectedActionIndex` | Zustand, `widgets/run-inspector/model/store.ts`                                                                            | —                                                                                                                                                                                                                                |
+| Фильтры замечаний                     | URL search params `file`, `severity` (повторяются), `q`; хук `useFindingFiltersParams` (`features/finding-filters`)        | — (источник — URL; другой прогон начинает чисто)                                                                                                                                                                                 |
+| Фильтр истории прогонов               | URL search param `repo` (одно значение); хук `useRunListFilterParams` (`features/run-list-filter`)                         | — (источник — URL)                                                                                                                                                                                                               |
+| Статус `.review/rules.md`             | TanStack Query, ключ `['repoRulesStatus', id]` — вне `['repos']` (ниже); запрос только на моках                            | `refetchOnMount: 'always'` + «Обновить»                                                                                                                                                                                          |
+| Черновик настроек репозитория         | `useState` в `RepositorySettingsForm`: снимок на открытии (baseline) и правки пользователя, не копия кэша                  | — (живёт с формой; `key={repoId}`)                                                                                                                                                                                               |
+| Черновики комментариев                | —                                                                                                                          | future (не реализовано в этом спринте)                                                                                                                                                                                           |
 
 **Обновление доступа к репозиториям (Ф-22, ui#92, ui#120).** Данные остаются в Query,
 не копируются в Zustand. Страница после успешного «Обновить доступ» запускает немедленный
@@ -420,7 +558,8 @@ GET может снова добавить сообщение — примерн
 
 **Состояние в URL.** Вид, которым делятся ссылкой, живёт в `location.search`, а не в сторе. Сейчас
 это фильтры замечаний страницы прогона (§6): `file` (повторяется), `severity` (повторяется;
-`critical` / `warning` / `info` — группы D3) и `q` (один). Правила:
+`critical` / `warning` / `info` — группы D3) и `q` (один), — и фильтр истории прогонов `repo` на
+`/runs` (ниже, «Фильтр истории прогонов»). Правила фильтров замечаний:
 
 - Zod на входе. `parseFindingFilters(params)` (`features/finding-filters/model/findingFilters.ts`)
   проверяет каждое значение отдельно и молча отбрасывает негодное: `file` — непустая строка до 1024
@@ -482,6 +621,76 @@ Upgrade canary в `routerLocationAdapter.test.tsx` проверяет досту
 перевести тесты в fallback. `queryNavigation.test.tsx` удерживает коммит ручным Suspense promise
 и проверяет фактический URL при ещё видимом старом поле: переход на другой прогон, POP и ввод,
 а также отмену старого pending текста на внешних POP / PUSH / REPLACE (Refs #86).
+
+**Фильтр истории прогонов (Refs ui#93).** `/runs?repo=<owner/name>` показывает прогоны одного
+репозитория; ссылку «История проверок» на странице настроек строит
+`runListHref({ repo: repository.fullName })` (§9). Правила те же, что у фильтров замечаний, в меньшем
+объёме:
+
+- Zod на входе. `parseRunListFilter(params)` (`features/run-list-filter/model/runListFilter.ts`)
+  берёт первое значение `repo` и проверяет его `z.string().min(1).max(512)` — теми же границами, что
+  `RunListQuerySchema.repo`, поэтому принятое значение всегда уходит в запрос. Пустое, слишком
+  длинное или отсутствующее значение — «без фильтра»; парсер не бросает.
+- Санитайзинг только при чтении, адрес не переписывается. `writeRunListFilter(prev, next)` меняет
+  только `repo`, остальные параметры сохраняются. «Сбросить фильтр» и «Показать все прогоны» —
+  навигация `push` (`resetFilter` из `useRunListFilterParams`): «назад» возвращает фильтр.
+- Запрос. `useRunList({ repo })` — `useInfiniteQuery` с ключом `runQueryKeys.listFiltered({ repo })`
+  = `['runs', 'list', { repo: repo ?? null }]`, `initialPageParam: null`,
+  `getNextPageParam: (page) => page.nextCursor`, `limit` = `RUN_LIST_PAGE_SIZE` (20) в каждом
+  запросе, `maxPages` нет. Путь с query собирает `runListEndpoint(query)` в `entities/run/api` после
+  `RunListQuerySchema.parse` (пустые параметры опускаются); `endpoints.runs.list()` остаётся путём
+  без query.
+- Инвалидация. `runQueryKeys.list()` = `['runs', 'list']` остаётся префиксом всех списков:
+  `invalidateQueries` из `applyRunUpdated`, `useCancelRun` и `useRerunRun` достаёт и отфильтрованные
+  списки. Бесконечный список при инвалидации перезапрашивает все загруженные страницы по очереди,
+  с первой (поведение `useInfiniteQuery` в TanStack Query 5): две загруженные страницы — два запроса
+  на одно `run.updated`. Повторная инвалидация после переподключения SSE ключи списков по-прежнему
+  пропускает: `cachedRunIds` не считает сегмент `'list'` id прогона.
+- `RunsPage`. Строки — все загруженные страницы без повторов по `id` (`useMemo`; прогон может
+  прийти дважды, если список сдвинулся между запросами). Активный фильтр — в описании страницы и
+  outline-`Tag` с кнопкой «Сбросить фильтр». Пусто под фильтром — «Для репозитория X прогонов ещё
+  нет» и «Показать все прогоны», без фильтра — по-прежнему «Нет прогонов ревью». «Показать ещё»
+  видна, пока `hasNextPage`. Ошибка следующей страницы (`isFetchNextPageError`) оставляет
+  загруженные строки и показывает `Alert` с «Повторить»; ошибкой загрузки списка она не считается.
+
+**Настройки репозитория и статус правил (Refs ui#93).** Страница `/repositories/:repoId/settings`
+(§9) заменила модальное окно настроек в `RepositoryList`.
+
+- Данные — `useRepository(id)` (`entities/repository/api`): `useQuery` с ключом списка `['repos']`,
+  тем же `queryFn` и `refetchOnWindowFocus: 'always'`, что у `useRepositories`, и
+  `select: (list) => list.find(…)`. Своего ключа `['repos', id]` нет: `useUpdateRepository` пишет
+  точный ключ `['repos']` (оптимистичное обновление, откат, ответ сервера), и запрос по отдельному
+  ключу после сохранения показывал бы старые значения. `data === undefined` — это и «грузится», и
+  «в списке такого нет»; различает их `isPending`.
+- Форма монтируется только после загрузки репозитория и берёт значения один раз
+  (`useState(() => toFormValues(repository))`): фоновые перезапросы, оптимистичное обновление и
+  откат до полей не доходят. Содержимое страницы ключуется `repoId` (как `RunDetailPage`), поэтому
+  другой репозиторий — новая форма и чистое локальное состояние.
+- Patch. `buildSettingsPatch(baseline, values)` (`features/repository-settings/lib/settingsPatch.ts`)
+  сравнивает поля с baseline — тем, с чем форма открылась, а после успешного сохранения — с ответом
+  сервера; маски веток — поэлементно, после очистки текста. Уходят только изменённые поля;
+  `defaultEngine` — текст с подсказкой о фазе 3 и в PATCH не попадает. «Сохранить» (единственная
+  primary-кнопка страницы) неактивна, пока изменений нет; «Отменить изменения» —
+  `setFieldsValue(baseline)`. Любая ошибка сохранения оставляет введённые значения.
+- Автоматическое ревью — `AutoReviewSwitch` над формой: применяется сразу отдельным
+  `PATCH { enabled }` ([`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) §8: `Switch` применяется сразу),
+  ошибка — `Alert` под переключателем; оптимистичное обновление и откат — в `useUpdateRepository`.
+  Форма `enabled` не отправляет. При `installationAvailable === false` рядом — предупреждение: у
+  GitHub App нет доступа, переключатель сохраняет только настройку.
+- Ошибка сохранения раскладывается `splitServerError`
+  (`features/repository-settings/lib/serverFieldErrors.ts`): 422 с `detail[].loc` на поле формы —
+  текст под этим полем, остальное — `Alert` над формой (§5, «Контракт api#149 (api PR #156)»). Ошибка
+  поля снимается, когда пользователь меняет это поле (`onValuesChange`).
+- Статус правил — `useRepositoryRulesStatus(repoId, { enabled })`, ключ
+  `['repoRulesStatus', repoId]` (`repoRulesStatusQueryKey`). Ключ **не** под `['repos']`: мутация
+  настроек делает `cancelQueries` и `invalidateQueries` по префиксу `['repos']` и отменяла бы и
+  перезапрашивала статус правил на каждом сохранении. `refetchOnMount: 'always'` — каждое открытие
+  страницы спрашивает заново; при повторном открытии, пока свежий ответ не пришёл, виден ответ из
+  кэша (`gcTime` по умолчанию) и крутится «Обновить». У каждого `repoId` свой ключ и нет
+  `placeholderData`, поэтому ответ другого репозитория, в том числе запоздавший, не показывается.
+  «Обновить» — `refetch` (обычная кнопка, не primary). Запрос
+  включён только на моках: `enabled = mocksEnabledAtRuntime(isMockMode)` — тот же гейт, что у пункта
+  `/review` в `AppSidebar`; вне моков блок показывает одну строку и в сеть не ходит (§5).
 
 TanStack Query — не замена Zustand, а дополнение: серверный кэш и клиентский UI-стейт разнесены
 по разным сторонам (issue AC явно требует эту формулировку). Стор Zustand живёт в виджете, а не в
@@ -620,7 +829,7 @@ sequenceDiagram
 
 Источник истины для путей и форм HTTP — [`contracts/openapi.yaml`][openapi] в api (Ф-10, уточнено
 2026-09-28). На клиенте тот же контракт проверяют Zod-схемы в
-`src/entities/{run,diff,review}/model/schemas.ts`; совпадение ответов API с ними проверяет
+`src/entities/{run,diff,review,repository}/model/schemas.ts`; совпадение ответов API с ними проверяет
 `tests/test_ui_zod_contracts.py` в api. Ниже — состав полей Zod (не полный код); объекты не
 strict — `z.object` в Zod 4 по умолчанию отбрасывает неизвестные ключи, а не падает на них.
 
@@ -643,6 +852,20 @@ RawFileDiff = { filename, patch: string|null }      // провод: GET /api/ru
 ReviewComment = { id, file, oldLine, newLine, endLine, body, ruleName,
   severity: critical|high|medium|low|info, category: security|correctness|performance|readability,
   title, createdAt }
+
+// entities/repository — Repository, RepositoryUpdate (api#149, api PR #156), RulesStatus
+// (provisional — ui#93, api#150); §5
+RepositoryId = uuid                     // RepositoryIdSchema: Repository.id и :repoId в адресе
+Repository = { id, fullName, url, defaultBranch, enabled, defaultEngine: fast,
+  waitForCi: auto|always|never, maxComments: 1..10, reviewEvent: COMMENT|REQUEST_CHANGES,
+  branchFilter: string(1..255)[≤20],
+  severityThreshold: all|warning|critical,
+  installationAvailable: boolean }      // только чтение
+RepositoryUpdate = { enabled?, defaultEngine?, waitForCi?, maxComments?, reviewEvent?,
+  branchFilter?, severityThreshold? }   // хотя бы одно поле; installationAvailable нет
+RulesStatus = present | missing | invalid | unavailable   // provisional, discriminatedUnion('status')
+RulesDiagnostic = { code, message, line: int|null, column: int|null, retryable,
+  limit?, actual?, patternIndex? }
 ```
 
 Инварианты (проверены тестами схем):
@@ -653,6 +876,22 @@ ReviewComment = { id, file, oldLine, newLine, endLine, body, ruleName,
 - `RunSession`: `finishedAt ≠ null` ⇒ `status` — терминальный (`succeeded|failed|cancelled|skipped`).
 - `RunSession`: `trigger` и `createdAt` обязательны; `createdAt` не бывает `null`, в отличие от
   `startedAt` (Run в `queued` ещё не начат). Значения и диагностика — api PIPELINE_SPEC §1.1.
+- `Repository` (api#149, api PR #156): `branchFilter`, `severityThreshold` и `installationAvailable`
+  обязательны — ответ без любого из них не разбирается (§5). `severityThreshold` — строгий enum:
+  неизвестное значение — ошибка разбора. `branchFilter: []` — все ветки, `null` не принимается, масок
+  не больше 20; синтаксис маски Zod не проверяет: его судит сервер, а `updateRepository` разбирает
+  ввод `UpdateRepositorySchema` перед PATCH, и проверка синтаксиса на клиенте сделала бы 422
+  недостижимым.
+- `RepositoryUpdate`: `.refine` — хотя бы одно поле. `installationAvailable` в схеме нет: объект не
+  strict, и разбор отбрасывает это поле из ввода.
+- В схемах репозитория нет `.transform()`: генератор снимка в api строит JSON Schema
+  (`z.toJSONSchema`) из `RepositorySchema` и `UpdateRepositorySchema`. `RulesStatusSchema` и
+  `RulesDiagnosticSchema` генератор пока не знает; локальный тест `stays representable as JSON Schema`
+  держит все четыре схемы готовыми к снимку.
+- `RulesStatus`: общие члены — `branch` (непустой), `path`, `checkedAt` (`z.iso.datetime()`), `sha`
+  (40 hex); `sha: null` — только у `unavailable`, `text: null` — только у `invalid`, `diagnostics`
+  непуст у `invalid` и `unavailable`.
+- `RunListQuery` (в снимок api не входит): `repo` — 1..512 символов, `limit` — целое 1..100.
 
 Summary-only прогон (дифф больше 3 000 строк, Р-15 в [SD §1][sd-1], контракт — [SD §12][sd-12],
 решение 10 техлида [от 2026-09-24][tl-2026-09-24-10]): снимок диффа хранит только список файлов,
@@ -752,6 +991,103 @@ newLine` (`RIGHT→newLine`, `LEFT→oldLine`), `line_end → endLine`. — ро
 off; }` для SSE, либо в документе фиксируется cross-origin вариант с CORS на бэкенде — **решено**
   (api#20, 28.09): один origin, хост UI проксирует `/api/*` в API (`proxy_buffering off` для SSE),
   CORS не нужен; настройка — larchanka-training/dmc-268-api-t6#35.
+
+### Контракт api#149 (api PR #156)
+
+**Статус.** Поля настроек репозитория — контракт
+[api PR #156](https://github.com/larchanka-training/dmc-268-api-t6/pull/156) (api#149). Zod-схемы
+`Repository` / `RepositoryUpdate` с этими полями пришли в UI из PR #106; снимок UI-Zod в api
+сгенерирован из его коммита `3d3071e`. Пометок `// provisional (ui#93)` у этих членов нет. UI
+разбирает новые поля как обязательные, поэтому UI PR мержится только после деплоя #156.
+
+**1. `Repository` (`GET /api/repos`, `GET /api/repos/{id}`)** — три обязательных члена.
+
+- `installationAvailable: boolean` — обязательный, только чтение: есть ли у GitHub App доступ к
+  репозиторию. В PATCH не уходит (api отвечает на него `422`).
+- `branchFilter: string[]` — glob-маски целевой (base) ветки PR; `[]` — все ветки (по умолчанию),
+  `null` не бывает. `*` — в пределах одного сегмента, `**` — через `/`. Маска 1..255 символов, не
+  больше 20 масок. Синтаксис проверяет только сервер: `422` на git-ref-небезопасную маску
+  (недопустимые символы, `..`, `//`, `/` в начале или в конце, `.lock`, пробелы, управляющие
+  символы) и на повтор; на клиенте — только размеры, повторы форма убирает до отправки.
+- `severityThreshold: 'all' | 'warning' | 'critical'` — порог публикации над тремя группами D3, по
+  умолчанию `all`. Подписи и уровни — по общей карте `severityBadgeGroup` (`entities/review`):
+
+  | Значение   | Подпись в UI  | Публикуются                       |
+  | ---------- | ------------- | --------------------------------- |
+  | `all`      | All           | critical, high, medium, low, info |
+  | `warning`  | Warn & Crit   | critical, high, medium, low       |
+  | `critical` | Only Critical | critical, high                    |
+
+- `enabled` — сохранённая **настройка** пользователя, а не итог: авто-ревью действует при
+  `enabled && installationAvailable`. UI так и читает поле (AC4 ui#93), моки так и отвечают.
+  api PR #156 сейчас отдаёт в `GET` `enabled AND installationAvailable` (как после
+  [api PR #132](https://github.com/larchanka-training/dmc-268-api-t6/pull/132)), и
+  `PATCH enabled=true` для недоступного репозитория вернёт `false`. UI ждёт, что #156 будет отдавать
+  настройку как есть (решение по ui#93 от 14.10), и под текущее поведение не подстраивается.
+
+**2. `RepositoryUpdate` (`PATCH /api/repos/{id}`)** — плюс необязательные `branchFilter` и
+`severityThreshold` (те же правила). `installationAvailable` не отправляется; пустой объект
+по-прежнему отклоняется. UI шлёт только изменённые поля, `enabled` — отдельным PATCH с переключателя.
+
+**3. `422`** — FastAPI `HTTPValidationError`:
+`{ detail: [{ loc: (string|number)[], msg: string, type: string, input?, ctx? }] }`. Схема —
+`src/shared/api/validationError.ts`, без домена (`HttpValidationErrorSchema` и
+`validationErrorLocations(data)` → `{ path }[]`); раскладка по полям формы —
+`features/repository-settings/lib/serverFieldErrors.ts`.
+
+- `['body', 'branchFilter', i]`: `i` — индекс в отправленном списке масок, уже очищенном (обрезка,
+  без пустых строк и повторов). Под фильтром — «Маска в строке N не принята сервером», где N —
+  первая строка поля (с 1), чей текст после обрезки равен `submitted[i]` (`visibleLineNumber`); не
+  нашлась — `i + 1`. Пустые строки и повторы делают индекс списка и номер строки разными числами.
+- `['body', 'severityThreshold']` — «Сервер не принял порог»; другое известное поле формы — «Сервер
+  не принял значение».
+- `msg` сервера (английский текст) не показывается никогда. `loc` без поля формы, `detail` не
+  массивом, не-422 — `Alert` над формой с текстом `formatErrorMessage`.
+- До отправки клиент проверяет только размеры (`validateBranchFilterText`: маска длиннее 255
+  символов, больше 20 масок), чтобы сохранение не падало на Zod в `updateRepository`.
+
+**Решения api#149** (техлид, 14.10; записаны в api `SYSTEM_DESIGN.md` / `PIPELINE_SPEC.md`, api PR
+#156):
+
+- (а) авто-ревью — существующая настройка `enabled`, нового флага нет; `installationAvailable`
+  отличает паузу авто-ревью от недоступной установки. Лейбл `ai-review` по-прежнему нужен;
+- (б) фильтр веток — glob по целевой ветке PR, применяется при каждом claim, в том числе на rerun:
+  неподходящий прогон завершается `skipped` / `rule_not_matched`, check-run называет причину;
+- (в) порог — находки ниже порога отбрасываются (в тело ревью не уходят), вердикт считается после
+  порога: при `critical` `attention` может стать `clean`, `blocking` и `REQUEST_CHANGES` не меняются.
+  UI вердикт сам не выводит и не пересчитывает: показывает тот, что отдал сервер (Ф-16).
+
+### Требования UI к api#150 (provisional)
+
+**Статус.** Форму статуса правил UI объявил сам (ui#93), в api её ещё нет: её ждёт
+[api#150](https://github.com/larchanka-training/dmc-268-api-t6/issues/150). UI построен на ней на
+моках; каждый её член Zod-схемы помечен `// provisional (ui#93)` (`entities/repository/model/schemas.ts`,
+`shared/api/endpoints.ts`). Текст подраздела уходит комментарием в api#150.
+
+**1. Статус правил — `GET /api/repos/{repo_id}/rules-status`** (имя — предложение UI;
+`endpoints.repos.rulesStatus(id)`). Ответ — `RulesStatusSchema`, `discriminatedUnion('status')`. У
+каждого варианта: `branch` — ветка, из которой прочитан файл (UI показывает её, а не
+`defaultBranch`), `path` (`.review/rules.md`), `checkedAt` (ISO date-time), `sha` (40 hex; `null` —
+только в `unavailable`).
+
+| `status`      | Свои члены                                                                               | Что показывает UI                                                                                                                                                     |
+| ------------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `present`     | `text: string` (может быть пустым), `ignoreMasks: string[]`, `diagnostics: Diagnostic[]` | `Tag` «Файл найден», ветка, короткий sha (полный — в `Tooltip`), время проверки; текст в `CodeBlock` простым текстом, не Markdown; маски или «Масок нет»; диагностика |
+| `missing`     | `defaultsVersion: string`                                                                | предупреждение «Используются дефолтные правила, создайте .review/rules.md» и версия дефолтов                                                                          |
+| `invalid`     | `text: string \| null` (`null` — файл слишком большой или не UTF-8), `diagnostics` (≥ 1) | ошибка «Файл правил содержит ошибки»: диагностика (код, строка:столбец, сообщение) и текст файла                                                                      |
+| `unavailable` | `diagnostics` (≥ 1)                                                                      | ошибка «Не удалось прочитать файл правил»: причина по `code`; «Повторить», если у диагностики `retryable`                                                             |
+
+`Diagnostic = { code, message, line: int|null, column: int|null, retryable, limit?, actual?,
+patternIndex? }` — RULES_FORMAT_SPEC §9 в camelCase.
+
+Любой сбой HTTP-уровня — сеть, 5xx, 401, 404 (чужой workspace или эндпоинта ещё нет), ответ не по
+схеме — пятое состояние: «Не удалось загрузить статус правил» и «Повторить». Предупреждение о
+дефолтных правилах — только на `200` со `status: 'missing'`: сломанный запрос не читается как «файла
+нет».
+
+**2. Стейджинг.** Блок правил запрашивает статус только на моках
+(`mocksEnabledAtRuntime(isMockMode)`); вне моков — строка «Статус правил появится, когда сервер
+начнёт его отдавать», запроса нет (`enabled: false`).
 
 ---
 
@@ -1345,7 +1681,9 @@ checkpoint или ошибка до входа в `traced_step` могут ос�
 - `mockRunActions` — 34 действия в Duo-подобной последовательности (`makeDuoActions`,
   `src/entities/run/lib/duoActions.fixture.ts`: `get_pull_request`, `get_diff`, 19× `get_tree`,
   11× `get_blob`, `get_pull_request`, `post_review`), 2 действия с `responseRef` вместо `response`;
-- `mockUiState` — состояние виджетов (выбранный прогон/файл, раскрытые узлы дерева).
+- `mockUiState` — состояние виджетов (выбранный прогон/файл, раскрытые узлы дерева);
+- `mockRepositories` — 4 репозитория с полями настроек api#149 (ниже, «Репозитории, правила и
+  история»).
 
 Фрагмент одного `RunSession`:
 
@@ -1409,9 +1747,49 @@ checkpoint или ошибка до входа в `traced_step` могут ос�
   `verify:prod-bundle` ловит префиксы фикстурных id и чанк `mockTransport-*.js`; в `dist/assets` нет ни
   `000000000011`, ни `startMockRunEvents`.
 
+### Репозитории, правила и история (Refs ui#93)
+
+- **Репозитории** (`mockRepositories`, `app-state.ts`) — по одному на каждый случай страницы настроек:
+
+  | Репозиторий (id `22222222-2222-4222-8222-…`) | `branchFilter`          | `severityThreshold` | Особенность                                                                             |
+  | -------------------------------------------- | ----------------------- | ------------------- | --------------------------------------------------------------------------------------- |
+  | `dmc-268-ui-t6` (`…0001`)                    | `['main', 'release/*']` | `all`               | статус правил `present`                                                                 |
+  | `dmc-268-api-t6` (`…0002`)                   | `[]`                    | `critical`          | статус правил `invalid`; 25 прогонов в истории                                          |
+  | `dmc-268-infra-t6` (`…0003`)                 | `[]`                    | `warning`           | `installationAvailable: false` при `enabled: true`; правила `unavailable`; прогонов нет |
+  | `dmc-268-docs-t6` (`…0004`)                  | `[]`                    | `all`               | правила `missing`                                                                       |
+
+  `enabled` в моке — сохранённая настройка, не `enabled AND installationAvailable` (§5). `GET` и
+  `PATCH` отдают копии (`structuredClone`), экспорт `mockRepositories` не меняется.
+
+- **Статус правил** — `mockRulesStatuses` (`src/app/mocks/mockRulesStatus.ts`), по id репозитория:
+  ui-t6 — `present`, текст с блоком `review-ignore` и три маски, ветка `release/2.1` (не
+  `defaultBranch`); api-t6 — `invalid`, `policy_ignore_pattern_invalid` на строке 14 текста; infra-t6
+  — `unavailable`, `policy_access_denied`, `retryable: false`, `sha: null`; docs-t6 — `missing`,
+  `defaultsVersion`. «Файл изменился» (другой sha при втором запросе), временные сбои и `404`
+  моделируют тесты через `withMockTransportOverlay`, а не мок.
+- **Маршруты транспорта.** `GET /repos/{id}/rules-status` сверяется регуляркой раньше
+  `GET /repos/{id}` (тот теперь тоже регулярка `^/repos/([^/]+)$`, а не `startsWith`), иначе
+  `…/rules-status` читался бы как id; репозиторий не из мока — `404`.
+- **`GET /runs`** (`listMockRuns`): путь режется по `?`, query разбирает `RunListQuerySchema`
+  (негодный параметр — `422` с `loc: ['query', <поле>]`); фильтр по `pullRequest.repo`, `limit` по
+  умолчанию 50 (умолчание и потолок api мок не повторяет: список маленький), курсор — непрозрачный
+  `mock:<offset>`, чужой курсор — `422`. Режется полный `mockRunsListPage`, поэтому тесты фикстуры
+  (`nextCursor: null`) остаются верны; идущий прогон по-прежнему подменяется текущим состоянием.
+- **История api-t6** — 25 завершённых прогонов `larchanka-training/dmc-268-api-t6` в
+  `mockRunsListPage` (`mockRunsList.fixture.ts`, `apiRepoRun`): PR #140…#116, id
+  `11111111-1111-4111-8111-000000000100`…`…0124`, новые первыми, статусы `succeeded` / `failed` /
+  `cancelled` / `skipped`, активных нет. Под фильтром это две страницы (20 и 5); у infra-t6 прогонов
+  нет — пустой отфильтрованный список.
+- **`PATCH /repos/{id}`** (`validatePatchBody`): `UpdateRepositorySchema.safeParse` вместо `parse`;
+  нарушение схемы — `422` с `loc: ['body', …путь Zod]`, затем мок-проверка масок (пробелы, `\`,
+  несбалансированные `[` / `{`) — `422` с `loc: ['body', 'branchFilter', i]` на каждую плохую маску.
+  Настоящую грамматику судит api; проверки мока хватает, чтобы путь 422 был виден на моках. После
+  `422` сохранённый репозиторий не меняется.
+
 Валидация — тестом: `src/app/mocks/app-state.test.ts` прогоняет весь мок через Zod-схемы
-(`RunSessionSchema`, `FileDiffSchema`, `ReviewCommentSchema`, `RunActionSchema`) и проверяет, что
-`parse` не бросает исключение.
+(`RunSessionSchema`, `FileDiffSchema`, `ReviewCommentSchema`, `RunActionSchema`, `RepositorySchema`)
+и проверяет, что `parse` не бросает исключение; статусы правил — `RulesStatusSchema` в
+`mockRulesStatus.test.ts`.
 
 ---
 
@@ -1429,6 +1807,17 @@ issue прямо выносит подключение логирования з
 
 **Роутер.** Установлен **react-router 8** (^8.4.0, peer react ≥ 19.2.7 — выполняется), настроен в `src/app/routes.tsx`. Лэйауты (`AppLayoutRoute`, `ProtectedLayout`, `PageFallback`, `RouteErrorFallback`) и обёртки страниц (`RoutedRepositoriesPage` и др.) вынесены в `src/app/layouts/`, чтобы файл роутера оставался чистой конфигурацией маршрутов без отключения правил Fast Refresh (`react-refresh/only-export-components`).
 `PageFallback` ничего не рисует: это метка ожидания `PageLoading` из дизайн-системы (ею же отмечена проверка сессии в `ProtectedLayout`). Кольцо одно на приложение, его показывает `PageLoaderHost` в `UiProvider`: по центру окна, не раньше чем через 300 мс ожидания, с плавным появлением и исчезновением (`docs/DESIGN_SYSTEM.md` §7).
+
+**Маршрут настроек репозитория (Refs ui#93).** `/repositories/:repoId/settings` — дочерний маршрут
+`AppLayoutRoute` за `ProtectedLayout`; ленивая страница `RepositorySettingsPage` подключена обёрткой
+`RoutedRepositorySettingsPage` (`src/app/layouts/RoutePages.tsx`). `repoId` — внешний ввод:
+`RepositoryIdSchema` (`z.uuid()`) разбирает его до любого запроса. Не uuid — `Empty` «Некорректная
+ссылка на репозиторий» с кнопкой-ссылкой «К списку репозиториев», запроса нет; валидный id, которого
+нет в списке, — «Репозиторий не найден или недоступен». Содержимое страницы ключуется `repoId` (§2).
+Боковое меню оставляет текущим раздел «Репозитории» (`AppSidebar` сравнивает адрес через
+`startsWith`), `isSafeAuthReturnPath` адрес принимает, и вход возвращает на него
+(`App.returnTo.test.tsx`). На страницу ведут «Настроить» в `RepositoryList` и прямой адрес; кнопка
+«История проверок» в шапке ведёт на `/runs?repo=<fullName>` (§2, «Фильтр истории прогонов»).
 
 **Сборка и чанки.** `vite.config.ts`: `build.rolldownOptions.output.codeSplitting`
 (`vendor-react`, `vendor-query`, `vendor-zod`, `includeDependenciesRecursively: false`);
@@ -1543,12 +1932,25 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
   - список — `GET /api/repos` → `Repository[]` (массив без обёртки);
   - настройки — `PATCH /api/repos/{id}` (`RepositoryUpdate`, все поля необязательны): `enabled`,
     `defaultEngine`, `waitForCi: auto | always | never`, `maxComments` 1..10,
-    `reviewEvent: COMMENT | REQUEST_CHANGES`;
+    `reviewEvent: COMMENT | REQUEST_CHANGES`; с ui#93 они правятся на странице
+    `/repositories/:repoId/settings` (§2, §9), а не в модальном окне списка; `defaultEngine` UI
+    показывает текстом и не отправляет;
+  - настройки ревью (api#149, контракт api PR #156; §5, «Контракт api#149 (api PR #156)»):
+    обязательные `branchFilter`, `severityThreshold` и только для чтения `installationAvailable` в
+    `Repository`, первые два — в `RepositoryUpdate`; Zod-схемы — из PR #106;
+  - provisional (ui#93; §5, «Требования UI к api#150»): `GET /api/repos/{id}/rules-status`. Пока api
+    его не отдаёт, блок правил вместо запроса показывает строку;
+  - история репозитория — `GET /api/runs?repo&cursor&limit` (`repo` = `fullName`): UI листает по
+    `nextCursor`, по 20 за запрос (§2);
+  - follow-up ui#93: после ответа api#150 сверить схему статуса правил с сервером и снять пометки
+    `// provisional (ui#93)`, включить блок правил вне моков (гейт `mocksEnabledAtRuntime` в
+    `RepositorySettingsPage`); решения (а)–(в) api#149 — в §5;
   - PR репозитория — `GET /api/repos/{id}/pulls?state&cursor` → `{ items, nextCursor }`, у
     элемента `latestRun { id, status, verdict } | null` (в клиенте пока не реализовано, открытый follow-up).
-- **Экраны 4–5** (правила, метрики) — области [SD §2][sd-2], не реализованные в этом
-  спринте; `src/pages/` содержит экраны входа, коллбэка, репозиториев и прогонов, а также redirect
-  с `/review` на прогоны.
+- **Экраны 4–5** (правила, метрики) — области [SD §2][sd-2]. Правила — частично (ui#93): статус
+  `.review/rules.md` на странице настроек репозитория, на моках до api#150 (§2, §5); редактора
+  правил и экрана метрик нет. `src/pages/` содержит экраны для реализованных областей (вход, коллбэк,
+  репозитории и их настройки, прогоны), а также redirect с `/review` на прогоны.
 - **Summary-only прогоны** (diff > 3000 строк, [SD §12][sd-12]) — схемы, адаптер и `RunDiff` поддерживают
   с #42 (§4, §6); страница `/runs/:runId` (`RunDetailPage`) передаёт `run.summaryOnly` и findings в `RunDiff`.
 - **Фильтры замечаний** (ui#84, часть про фильтры) — реализованы: файлы, критичность D3 и поиск над
