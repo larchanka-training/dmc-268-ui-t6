@@ -548,6 +548,11 @@ describe('runStreamUntilAborted reconnect state', () => {
     queryClient.setQueryData(runQueryKeys.comments(RUN_B), [])
     // Never a run id: the list, the disabled-query placeholders and a foreign key.
     queryClient.setQueryData(runQueryKeys.list(), [])
+    queryClient.setQueryData(runQueryKeys.listFiltered({}), { pages: [], pageParams: [] })
+    queryClient.setQueryData(runQueryKeys.listFiltered({ repo: 'org/repo' }), {
+      pages: [],
+      pageParams: [],
+    })
     queryClient.setQueryData(runQueryKeys.detailDisabled(), {})
     queryClient.setQueryData(['runs', 'actions', null], [])
     queryClient.setQueryData(['runs', 'actions', 'response', null], {})

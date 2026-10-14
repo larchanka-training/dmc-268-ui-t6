@@ -104,8 +104,9 @@ export type RunUpdatedEvent = z.infer<typeof RunUpdatedEventSchema>
 
 export const RunListQuerySchema = z.object({
   status: RunStatusSchema.optional(),
-  repo: z.string().optional(),
+  repo: z.string().min(1).max(512).optional(),
   cursor: z.string().optional(),
+  limit: z.int().min(1).max(100).optional(),
 })
 export type RunListQuery = z.infer<typeof RunListQuerySchema>
 
