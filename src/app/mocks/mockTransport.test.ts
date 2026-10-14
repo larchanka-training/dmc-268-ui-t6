@@ -11,8 +11,9 @@ vi.mock('../../shared/config/env', () => ({
 
 import type { Repository } from '../../entities/repository'
 import type { RunListPage } from '../../entities/run'
-import { apiClient } from '../../shared/api/client'
+import { ApiError, apiClient } from '../../shared/api/client'
 import { endpoints } from '../../shared/api/endpoints'
+import { validationErrorLocations } from '../../shared/api/validationError'
 import { mockRepositories } from './app-state'
 import { initMockTransport } from './mockTransport'
 
@@ -161,6 +162,141 @@ describe('initMockTransport', () => {
 
       const again = await apiClient<Repository>(endpoints.repos.detail(repo.id))
       expect(again.branchFilter).toEqual(['main'])
+    })
+
+    it('saves branchFilter and severityThreshold and serves them back', async () => {
+      const updated = await apiClient<Repository>(endpoints.repos.update(repo.id), {
+        body: { branchFilter: ['develop', 'hotfix/**'], severityThreshold: 'warning' },
+      })
+
+      expect(updated.branchFilter).toEqual(['develop', 'hotfix/**'])
+      expect(updated.severityThreshold).toBe('warning')
+      const one = await apiClient<Repository>(endpoints.repos.detail(repo.id))
+      expect(one.branchFilter).toEqual(['develop', 'hotfix/**'])
+      expect(one.severityThreshold).toBe('warning')
+    })
+
+    it('saves an empty branchFilter as all branches', async () => {
+      const updated = await apiClient<Repository>(endpoints.repos.update(repo.id), {
+        body: { branchFilter: [] },
+      })
+
+      expect(updated.branchFilter).toEqual([])
+    })
+
+    it('never writes the read-only installationAvailable', async () => {
+      const [, , unreachable] = mockRepositories
+      if (unreachable?.installationAvailable !== false) {
+        throw new Error('the third mock repository must be unreachable for the GitHub App')
+      }
+
+      const updated = await apiClient<Repository>(endpoints.repos.update(unreachable.id), {
+        body: { maxComments: 4, installationAvailable: true },
+      })
+
+      expect(updated.maxComments).toBe(4)
+      expect(updated.installationAvailable).toBe(false)
+    })
+
+    describe('422', () => {
+      const repoId = repo.id
+
+      async function rejection(body: unknown): Promise<ApiError> {
+        try {
+          await apiClient<Repository>(endpoints.repos.update(repoId), { body })
+        } catch (error) {
+          if (error instanceof ApiError) {
+            return error
+          }
+          throw error
+        }
+        throw new Error('the PATCH was expected to be rejected')
+      }
+
+      it('answers 422 with the mask index for an invalid branch mask', async () => {
+        const error = await rejection({ branchFilter: ['main', 'release 1', 'ok/*', 'feat/{a,b'] })
+
+        expect(error.status).toBe(422)
+        expect(error.data).toEqual({
+          detail: [
+            {
+              loc: ['body', 'branchFilter', 1],
+              msg: expect.any(String) as string,
+              type: 'value_error',
+            },
+            {
+              loc: ['body', 'branchFilter', 3],
+              msg: expect.any(String) as string,
+              type: 'value_error',
+            },
+          ],
+        })
+        expect(validationErrorLocations(error.data)).toEqual([
+          { path: ['body', 'branchFilter', 1] },
+          { path: ['body', 'branchFilter', 3] },
+        ])
+      })
+
+      it.each([
+        ['whitespace inside', 'release 1'],
+        ['leading whitespace', ' main'],
+        ['a backslash', 'feat\\x'],
+        ['an unclosed bracket', 'feat/[ab'],
+        ['a stray closing bracket', 'feat/ab]'],
+        ['an unclosed brace', 'feat/{a,b'],
+        ['a stray closing brace', 'feat/a}'],
+      ])('rejects a mask with %s', async (_name, mask) => {
+        const error = await rejection({ branchFilter: [mask] })
+
+        expect(error.status).toBe(422)
+        expect(validationErrorLocations(error.data)).toEqual([
+          { path: ['body', 'branchFilter', 0] },
+        ])
+      })
+
+      it.each(['main', 'release/*', 'feat/**', 'v[0-9]*', '{main,develop}', '*'])(
+        'accepts the mask %s',
+        async (mask) => {
+          const updated = await apiClient<Repository>(endpoints.repos.update(repo.id), {
+            body: { branchFilter: [mask] },
+          })
+
+          expect(updated.branchFilter).toEqual([mask])
+        },
+      )
+
+      it('answers 422 for a schema violation with its location', async () => {
+        const error = await rejection({ severityThreshold: 'info' })
+
+        expect(error.status).toBe(422)
+        expect(validationErrorLocations(error.data)).toEqual([
+          { path: ['body', 'severityThreshold'] },
+        ])
+      })
+
+      it('answers 422 for an empty mask with its index', async () => {
+        const error = await rejection({ branchFilter: ['main', ''] })
+
+        expect(error.status).toBe(422)
+        expect(validationErrorLocations(error.data)).toEqual([
+          { path: ['body', 'branchFilter', 1] },
+        ])
+      })
+
+      it('answers 422 for an empty patch', async () => {
+        const error = await rejection({})
+
+        expect(error.status).toBe(422)
+        expect(validationErrorLocations(error.data)).toEqual([{ path: ['body'] }])
+      })
+
+      it('leaves the stored repository untouched after a 422', async () => {
+        await rejection({ branchFilter: ['bad mask'], maxComments: 2 })
+
+        const one = await apiClient<Repository>(endpoints.repos.detail(repo.id))
+        expect(one.branchFilter).toEqual(repo.branchFilter)
+        expect(one.maxComments).toBe(repo.maxComments)
+      })
     })
   })
 })

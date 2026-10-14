@@ -7,6 +7,7 @@ import {
   RepositorySchema,
   UpdateRepositorySchema,
   type Repository,
+  type UpdateRepositoryInput,
 } from '../../entities/repository'
 import { setMockAuthAdapter, useAuthStore } from '../../features/auth'
 import {
@@ -101,6 +102,70 @@ function listMockRuns(search: string): RunListPage {
   }
 }
 
+interface ValidationDetailItem {
+  loc: (string | number)[]
+  msg: string
+  type: string
+}
+
+function unprocessable(detail: ValidationDetailItem[]): ApiError {
+  return new ApiError(422, 'Unprocessable Entity', { detail })
+}
+
+/**
+ * Whether a branch mask is one the mock accepts: no whitespace, no backslash, balanced `[...]` and
+ * `{...}`. The api judges the real grammar (git-ref-safe globs, api PR #156); this is only enough
+ * to make its 422 reachable on mocks.
+ */
+function isMockBranchMaskValid(mask: string): boolean {
+  if (/[\s\\]/.test(mask)) {
+    return false
+  }
+  let brackets = 0
+  let braces = 0
+  for (const char of mask) {
+    if (char === '[') {
+      brackets += 1
+    } else if (char === ']') {
+      brackets -= 1
+    } else if (char === '{') {
+      braces += 1
+    } else if (char === '}') {
+      braces -= 1
+    }
+    if (brackets < 0 || braces < 0) {
+      return false
+    }
+  }
+  return brackets === 0 && braces === 0
+}
+
+/** The 422 for a PATCH body the api would not take, with the position of every bad mask. */
+function validatePatchBody(body: object): UpdateRepositoryInput {
+  const parsed = UpdateRepositorySchema.safeParse(body)
+  if (!parsed.success) {
+    throw unprocessable(
+      parsed.error.issues.map((issue) => ({
+        loc: [
+          'body',
+          ...issue.path.map((segment) => (typeof segment === 'symbol' ? String(segment) : segment)),
+        ],
+        msg: issue.message,
+        type: 'value_error',
+      })),
+    )
+  }
+  const badMasks = (parsed.data.branchFilter ?? []).flatMap((mask, index) =>
+    isMockBranchMaskValid(mask)
+      ? []
+      : [{ loc: ['body', 'branchFilter', index], msg: 'Invalid branch mask', type: 'value_error' }],
+  )
+  if (badMasks.length > 0) {
+    throw unprocessable(badMasks)
+  }
+  return parsed.data
+}
+
 function handleMockTransport(
   endpoint: Parameters<MockTransportHandler>[0],
   options: Parameters<MockTransportHandler>[1],
@@ -131,7 +196,7 @@ function handleMockTransport(
       throw new ApiError(404, 'Not Found', { message: 'Repository not found' })
     }
     if (options.body && typeof options.body === 'object') {
-      const patch = UpdateRepositorySchema.parse(options.body)
+      const patch = validatePatchBody(options.body)
       repositories[index] = RepositorySchema.parse({
         ...repositories[index],
         ...patch,
