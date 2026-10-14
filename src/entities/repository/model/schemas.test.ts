@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
-import { RepositorySchema, SeverityThresholdSchema, UpdateRepositorySchema } from './schemas'
+import {
+  RepositoryIdSchema,
+  RepositorySchema,
+  SeverityThresholdSchema,
+  UpdateRepositorySchema,
+} from './schemas'
 
 describe('SeverityThresholdSchema', () => {
   it('accepts all, warning and critical', () => {
@@ -127,6 +133,37 @@ describe('RepositorySchema', () => {
       RepositorySchema.safeParse({ ...validRepo, installationAvailable: 'true' }).success,
     ).toBe(false)
   })
+
+  it('treats an empty branchFilter as all branches and rejects null', () => {
+    expect(RepositorySchema.parse({ ...validRepo, branchFilter: [] }).branchFilter).toEqual([])
+    expect(() => RepositorySchema.parse({ ...validRepo, branchFilter: null })).toThrow()
+  })
+
+  it('leaves the glob syntax of a mask to the server', () => {
+    const parsed = RepositorySchema.parse({ ...validRepo, branchFilter: ['[unbalanced', 'a b\\c'] })
+
+    expect(parsed.branchFilter).toEqual(['[unbalanced', 'a b\\c'])
+  })
+
+  it('keeps the object non-strict: unknown members are stripped, not rejected', () => {
+    expect(RepositorySchema.parse({ ...validRepo, somethingNew: 1 })).toEqual(validRepo)
+  })
+
+  it('stays representable as JSON Schema', () => {
+    expect(() => z.toJSONSchema(RepositorySchema)).not.toThrow()
+  })
+})
+
+describe('RepositoryIdSchema', () => {
+  it('accepts a uuid and rejects anything else', () => {
+    expect(RepositoryIdSchema.safeParse('a1b2c3d4-e5f6-7890-abcd-ef1234567890').success).toBe(true)
+    expect(RepositoryIdSchema.safeParse('not-a-uuid').success).toBe(false)
+    expect(RepositoryIdSchema.safeParse('').success).toBe(false)
+  })
+
+  it('is the id of a repository', () => {
+    expect(RepositorySchema.shape.id).toBe(RepositoryIdSchema)
+  })
 })
 
 describe('UpdateRepositorySchema', () => {
@@ -184,5 +221,19 @@ describe('UpdateRepositorySchema', () => {
   it('does not carry installationAvailable into the patch', () => {
     const parsed = UpdateRepositorySchema.parse({ enabled: true, installationAvailable: false })
     expect(parsed).toEqual({ enabled: true })
+  })
+
+  it('leaves the glob syntax of a mask to the server', () => {
+    expect(UpdateRepositorySchema.parse({ branchFilter: ['{unbalanced'] })).toEqual({
+      branchFilter: ['{unbalanced'],
+    })
+  })
+
+  it('still rejects an update that carries only the read-only installationAvailable', () => {
+    expect(() => UpdateRepositorySchema.parse({ installationAvailable: true })).toThrow()
+  })
+
+  it('stays representable as JSON Schema', () => {
+    expect(() => z.toJSONSchema(UpdateRepositorySchema)).not.toThrow()
   })
 })
