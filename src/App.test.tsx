@@ -106,6 +106,9 @@ describe('App root integration and protected routes', () => {
       waitForCi: 'auto',
       maxComments: 10,
       reviewEvent: 'COMMENT',
+      branchFilter: [],
+      severityThreshold: 'all',
+      installationAvailable: true,
     }
     let meCalls = 0
 
@@ -176,6 +179,9 @@ describe('App root integration and protected routes', () => {
       waitForCi: 'auto',
       maxComments: 10,
       reviewEvent: 'COMMENT',
+      branchFilter: [],
+      severityThreshold: 'all',
+      installationAvailable: true,
     }
 
     // First: refresh returns 200, me returns 200, repos returns 200
@@ -266,6 +272,9 @@ describe('App root integration and protected routes', () => {
       waitForCi: 'auto',
       maxComments: 10,
       reviewEvent: 'COMMENT',
+      branchFilter: [],
+      severityThreshold: 'all',
+      installationAvailable: true,
     }
 
     let reposCallCount = 0
@@ -361,6 +370,9 @@ describe('App root integration and protected routes', () => {
       waitForCi: 'auto',
       maxComments: 10,
       reviewEvent: 'COMMENT',
+      branchFilter: [],
+      severityThreshold: 'all',
+      installationAvailable: true,
     }
 
     globalThis.fetch = vi.fn().mockImplementation((url: RequestInfo | URL) => {
@@ -480,6 +492,9 @@ describe('App root integration and protected routes', () => {
       waitForCi: 'auto',
       maxComments: 10,
       reviewEvent: 'COMMENT',
+      branchFilter: [],
+      severityThreshold: 'all',
+      installationAvailable: true,
     }
 
     let refreshCallCount = 0
@@ -565,6 +580,9 @@ describe('App root integration and protected routes', () => {
       waitForCi: 'auto',
       maxComments: 10,
       reviewEvent: 'COMMENT',
+      branchFilter: [],
+      severityThreshold: 'all',
+      installationAvailable: true,
     }
 
     globalThis.fetch = vi.fn().mockImplementation((url: RequestInfo | URL) => {
@@ -728,6 +746,9 @@ describe('App root integration and protected routes', () => {
       waitForCi: 'auto',
       maxComments: 10,
       reviewEvent: 'COMMENT',
+      branchFilter: [],
+      severityThreshold: 'all',
+      installationAvailable: true,
     }
 
     globalThis.fetch = vi.fn().mockImplementation((url: RequestInfo | URL) => {

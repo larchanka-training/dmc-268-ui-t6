@@ -10,6 +10,9 @@ export type WaitForCi = z.infer<typeof WaitForCiSchema>
 export const ReviewEventSchema = z.enum(['COMMENT', 'REQUEST_CHANGES'])
 export type ReviewEvent = z.infer<typeof ReviewEventSchema>
 
+export const SeverityThresholdSchema = z.enum(['all', 'warning', 'critical'])
+export type SeverityThreshold = z.infer<typeof SeverityThresholdSchema>
+
 export const RepositorySchema = z.object({
   id: z.uuid(),
   fullName: z.string().min(1),
@@ -20,6 +23,9 @@ export const RepositorySchema = z.object({
   waitForCi: WaitForCiSchema,
   maxComments: z.number().int().min(1).max(10),
   reviewEvent: ReviewEventSchema,
+  branchFilter: z.array(z.string().min(1).max(255)).max(20),
+  severityThreshold: SeverityThresholdSchema,
+  installationAvailable: z.boolean(),
 })
 export type Repository = z.infer<typeof RepositorySchema>
 
@@ -30,6 +36,8 @@ export const UpdateRepositorySchema = z
     waitForCi: WaitForCiSchema.optional(),
     maxComments: z.number().int().min(1).max(10).optional(),
     reviewEvent: ReviewEventSchema.optional(),
+    branchFilter: z.array(z.string().min(1).max(255)).max(20).optional(),
+    severityThreshold: SeverityThresholdSchema.optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: 'At least one property must be provided',

@@ -79,6 +79,9 @@ describe('RepositoriesPage', () => {
         waitForCi: 'auto',
         maxComments: 10,
         reviewEvent: 'COMMENT',
+        branchFilter: [],
+        severityThreshold: 'all',
+        installationAvailable: true,
       }
       const newRepository: Repository = {
         ...repository,
@@ -150,6 +153,9 @@ describe('RepositoriesPage', () => {
       waitForCi: 'auto',
       maxComments: 10,
       reviewEvent: 'COMMENT',
+      branchFilter: [],
+      severityThreshold: 'all',
+      installationAvailable: true,
     }
     const newRepo: Repository = {
       ...oldRepo,
@@ -469,6 +475,9 @@ describe('RepositoriesPage', () => {
       waitForCi: 'auto',
       maxComments: 10,
       reviewEvent: 'COMMENT',
+      branchFilter: [],
+      severityThreshold: 'all',
+      installationAvailable: true,
     }
     let requests = 0
     globalThis.fetch = vi.fn(() => {
@@ -540,6 +549,9 @@ describe('RepositoriesPage', () => {
       waitForCi: 'auto',
       maxComments: 10,
       reviewEvent: 'COMMENT',
+      branchFilter: [],
+      severityThreshold: 'all',
+      installationAvailable: true,
     }
     let gets = 0
     globalThis.fetch = vi.fn((_url, options?: RequestInit) => {
@@ -583,6 +595,9 @@ describe('RepositoriesPage', () => {
       waitForCi: 'auto',
       maxComments: 10,
       reviewEvent: 'COMMENT',
+      branchFilter: [],
+      severityThreshold: 'all',
+      installationAvailable: true,
     }
     let resolvePatch!: (response: Response) => void
     const patch = new Promise<Response>((resolve) => {
@@ -644,6 +659,9 @@ describe('RepositoriesPage', () => {
       waitForCi: 'auto',
       maxComments: 10,
       reviewEvent: 'COMMENT',
+      branchFilter: [],
+      severityThreshold: 'all',
+      installationAvailable: true,
     }
     const second: Repository = {
       ...first,
@@ -754,6 +772,9 @@ describe('RepositoriesPage', () => {
       waitForCi: 'auto',
       maxComments: 10,
       reviewEvent: 'COMMENT',
+      branchFilter: [],
+      severityThreshold: 'all',
+      installationAvailable: true,
     }
     client.setQueryData(REPOSITORIES_QUERY_KEY, [repository])
     let gets = 0
@@ -795,6 +816,9 @@ describe('RepositoriesPage', () => {
       waitForCi: 'auto',
       maxComments: 10,
       reviewEvent: 'COMMENT',
+      branchFilter: [],
+      severityThreshold: 'all',
+      installationAvailable: true,
     }
 
     globalThis.fetch = vi.fn().mockResolvedValue(
@@ -855,6 +879,9 @@ describe('RepositoriesPage', () => {
       waitForCi: 'auto',
       maxComments: 10,
       reviewEvent: 'COMMENT',
+      branchFilter: [],
+      severityThreshold: 'all',
+      installationAvailable: true,
     }
 
     let resolvePatch: (res: Response) => void = vi.fn()
@@ -921,6 +948,9 @@ describe('RepositoriesPage', () => {
       waitForCi: 'auto',
       maxComments: 10,
       reviewEvent: 'COMMENT',
+      branchFilter: [],
+      severityThreshold: 'all',
+      installationAvailable: true,
     }
     const repo2 = {
       id: '22222222-2222-4222-8222-222222222222',
@@ -932,6 +962,9 @@ describe('RepositoriesPage', () => {
       waitForCi: 'auto',
       maxComments: 10,
       reviewEvent: 'COMMENT',
+      branchFilter: [],
+      severityThreshold: 'all',
+      installationAvailable: true,
     }
 
     let resolvePatch1!: (res: Response) => void
@@ -1034,6 +1067,9 @@ describe('RepositoriesPage', () => {
       waitForCi: 'auto',
       maxComments: 10,
       reviewEvent: 'COMMENT',
+      branchFilter: [],
+      severityThreshold: 'all',
+      installationAvailable: true,
     }
 
     const patchSpy = vi.fn()
