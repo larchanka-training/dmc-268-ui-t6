@@ -9,24 +9,19 @@ import {
   Button,
   Empty,
   Flex,
-  Form,
   Input,
-  InputNumber,
-  Modal,
-  Select,
   Spin,
   Switch,
   Tooltip,
   Typography,
   type TableColumnsType,
 } from 'antd'
-import { useMemo, useState, type FC } from 'react'
+import { useMemo, useState, type FC, type MouseEvent } from 'react'
 
 import type {
   Repository,
   RepositoryEngine,
   ReviewEvent,
-  UpdateRepositoryInput,
   WaitForCi,
 } from '../../../entities/repository'
 import { GITHUB_APP_SLUG, GITHUB_CLIENT_ID, isMockMode } from '../../../shared/config/env'
@@ -60,7 +55,13 @@ export interface RepositoryListProps {
   accessRefreshStatus?: 'idle' | 'waiting' | 'timedOut'
   updatingRepoIds?: string[] | ReadonlySet<string>
   onToggleEnabled?: (id: string, enabled: boolean) => Promise<void> | void
-  onUpdateRepository?: (id: string, patch: UpdateRepositoryInput) => Promise<void> | void
+  /** Address of the settings page of a repository; «Настроить» is a link to it. */
+  settingsHref: (repository: Repository) => string
+  /**
+   * Opens the settings page without a page load. When nobody handles navigation, or the click
+   * carries a modifier key, the link simply works (new tab, copy address).
+   */
+  onOpenSettings?: (repository: Repository) => void
   onRefresh?: () => void
   onSyncAccess: () => void
 }
@@ -72,7 +73,8 @@ export const RepositoryList: FC<RepositoryListProps> = ({
   accessRefreshStatus = 'idle',
   updatingRepoIds,
   onToggleEnabled,
-  onUpdateRepository,
+  settingsHref,
+  onOpenSettings,
   onRefresh,
   onSyncAccess,
 }) => {
@@ -82,9 +84,6 @@ export const RepositoryList: FC<RepositoryListProps> = ({
   )
   const [search, setSearch] = useState('')
   const [filterActive, setFilterActive] = useState<'all' | 'active'>('all')
-  const [editingRepo, setEditingRepo] = useState<Repository | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [form] = Form.useForm<UpdateRepositoryInput>()
 
   const isAppConfigured = Boolean(GITHUB_APP_SLUG)
   const isSyncConfigured = Boolean(GITHUB_CLIENT_ID || isMockMode())
@@ -103,45 +102,14 @@ export const RepositoryList: FC<RepositoryListProps> = ({
     })
   }, [repositories, search, filterActive])
 
-  const openSettings = (repo: Repository) => {
-    setEditingRepo(repo)
-    form.setFieldsValue({
-      enabled: repo.enabled,
-      defaultEngine: repo.defaultEngine,
-      waitForCi: repo.waitForCi,
-      maxComments: repo.maxComments,
-      reviewEvent: repo.reviewEvent,
-    })
-  }
-
-  const handleSaveSettings = async () => {
-    if (!editingRepo) return
-    try {
-      const values = await form.validateFields()
-      const patch: UpdateRepositoryInput = {}
-      if (values.enabled !== undefined && values.enabled !== editingRepo.enabled) {
-        patch.enabled = values.enabled
-      }
-      if (values.waitForCi !== undefined && values.waitForCi !== editingRepo.waitForCi) {
-        patch.waitForCi = values.waitForCi
-      }
-      if (values.maxComments !== undefined && values.maxComments !== editingRepo.maxComments) {
-        patch.maxComments = values.maxComments
-      }
-      if (values.reviewEvent !== undefined && values.reviewEvent !== editingRepo.reviewEvent) {
-        patch.reviewEvent = values.reviewEvent
-      }
-
-      if (Object.keys(patch).length > 0) {
-        setSaving(true)
-        await onUpdateRepository?.(editingRepo.id, patch)
-      }
-      setEditingRepo(null)
-    } catch {
-      // Keep modal open if validation or update fails
-    } finally {
-      setSaving(false)
+  const goToSettings = (event: MouseEvent, repo: Repository): void => {
+    // A click with a modifier belongs to the browser: it opens the link in a new tab.
+    // So does any click when nobody handles navigation: the link then simply works.
+    if (onOpenSettings === undefined || event.metaKey || event.ctrlKey || event.shiftKey) {
+      return
     }
+    event.preventDefault()
+    onOpenSettings(repo)
   }
 
   const connectButton = (
@@ -281,9 +249,10 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       render: (_: unknown, record: Repository) => (
         <Button
           aria-label={`Настройки ${record.fullName}`}
+          href={settingsHref(record)}
           icon={<IconSettings height={14} width={14} />}
-          onClick={() => {
-            openSettings(record)
+          onClick={(event) => {
+            goToSettings(event, record)
           }}
           size="small"
         >
@@ -402,68 +371,6 @@ export const RepositoryList: FC<RepositoryListProps> = ({
           />
         </>
       )}
-
-      <Modal
-        cancelText="Отмена"
-        confirmLoading={saving}
-        okText="Сохранить"
-        onCancel={() => {
-          setEditingRepo(null)
-        }}
-        onOk={() => void handleSaveSettings()}
-        open={Boolean(editingRepo)}
-        title={`Настройки репозитория ${editingRepo?.fullName ?? ''}`}
-        width={520}
-      >
-        <Form form={form} layout="vertical">
-          <Form.Item label="Активность ревью" name="enabled" valuePropName="checked">
-            <Switch checkedChildren="Активен" unCheckedChildren="Пауза" />
-          </Form.Item>
-
-          <Form.Item
-            extra="SandboxEngine (глубокий анализ в песочнице) появится в фазе 3"
-            label="Движок анализа"
-            name="defaultEngine"
-          >
-            <Select
-              options={[{ value: 'fast', label: 'DiffEngine (быстрый синтаксический анализ)' }]}
-            />
-          </Form.Item>
-
-          <Form.Item label="Ожидание CI" name="waitForCi" rules={[{ required: true }]}>
-            <Select
-              options={[
-                { value: 'auto', label: 'Авто (ожидать CI при наличии проверок)' },
-                { value: 'always', label: 'Всегда (всегда ждать успешного CI)' },
-                { value: 'never', label: 'Никогда (запускать ревью без ожидания CI)' },
-              ]}
-            />
-          </Form.Item>
-
-          <Form.Item
-            label="Лимит замечаний (1..10)"
-            name="maxComments"
-            rules={[
-              { required: true, message: 'Укажите лимит' },
-              { type: 'number', min: 1, max: 10, message: 'Число от 1 до 10' },
-            ]}
-          >
-            <InputNumber className={styles.fullWidth} max={10} min={1} precision={0} />
-          </Form.Item>
-
-          <Form.Item label="Публикация вердикта" name="reviewEvent" rules={[{ required: true }]}>
-            <Select
-              options={[
-                { value: 'COMMENT', label: 'Комментарий (при любых замечаниях)' },
-                {
-                  value: 'REQUEST_CHANGES',
-                  label: 'Запрос изменений (при блокирующих)',
-                },
-              ]}
-            />
-          </Form.Item>
-        </Form>
-      </Modal>
     </div>
   )
 }
