@@ -43,7 +43,20 @@ describe('fetchRunList', () => {
 
     const page = await fetchRunList()
     expect(apiClient).toHaveBeenCalledTimes(1)
+    expect(apiClient).toHaveBeenLastCalledWith({ method: 'GET', path: '/runs' })
     expect(page.items).toHaveLength(1)
     expect(page.items[0]?.pullRequest.number).toBe(34)
+  })
+
+  it('sends the repo, cursor and limit of the query and parses the page', async () => {
+    vi.mocked(apiClient).mockResolvedValueOnce({ items: [], nextCursor: 'mock:20' })
+
+    const page = await fetchRunList({ repo: 'org/repo', cursor: 'mock:0', limit: 20 })
+
+    expect(apiClient).toHaveBeenLastCalledWith({
+      method: 'GET',
+      path: '/runs?repo=org%2Frepo&cursor=mock%3A0&limit=20',
+    })
+    expect(page.nextCursor).toBe('mock:20')
   })
 })
