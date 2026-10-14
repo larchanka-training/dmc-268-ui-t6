@@ -12,6 +12,7 @@ import {
 } from '@testing-library/react'
 import { App, ConfigProvider } from 'antd'
 import { StrictMode } from 'react'
+import { MemoryRouter, Route, Routes } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
@@ -39,10 +40,13 @@ function renderWithClient(
       },
     },
   }),
+  initialEntry = '/',
 ) {
   return render(
     <QueryClientProvider client={queryClient}>
-      <App>{ui}</App>
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <App>{ui}</App>
+      </MemoryRouter>
     </QueryClientProvider>,
   )
 }
@@ -116,8 +120,10 @@ describe('RepositoriesPage', () => {
       if (initialList === 'populated') {
         expect(screen.getByText('org/old-repo')).toBeDefined()
         expect(
-          screen.getByRole('button', { name: 'Настройки org/old-repo' }).hasAttribute('disabled'),
-        ).toBe(false)
+          screen
+            .getByRole('link', { name: 'Настройки org/old-repo' })
+            .getAttribute('aria-disabled'),
+        ).not.toBe('true')
       } else {
         expect(screen.getByText(/Репозитории ещё не подключены/)).toBeDefined()
       }
@@ -190,8 +196,8 @@ describe('RepositoriesPage', () => {
     })
     expect(within(status).queryByText('Загрузка репозиториев')).toBeNull()
     expect(
-      screen.getByRole('button', { name: 'Настройки org/old-repo' }).hasAttribute('disabled'),
-    ).toBe(false)
+      screen.getByRole('link', { name: 'Настройки org/old-repo' }).getAttribute('aria-disabled'),
+    ).not.toBe('true')
     expect(requests).toBe(1)
     expect(screen.getByText('org/old-repo')).toBeDefined()
     expect(screen.queryByText('org/new-repo')).toBeNull()
@@ -427,9 +433,11 @@ describe('RepositoriesPage', () => {
         <QueryClientProvider
           client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
         >
-          <App>
-            <RepositoriesPage />
-          </App>
+          <MemoryRouter>
+            <App>
+              <RepositoriesPage />
+            </App>
+          </MemoryRouter>
         </QueryClientProvider>
       </StrictMode>,
     )
@@ -1056,7 +1064,7 @@ describe('RepositoriesPage', () => {
     })
   })
 
-  it('keeps settings modal open with entered values when PATCH fails with 500', async () => {
+  it('navigates to the settings page', async () => {
     const mockRepo = {
       id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
       fullName: 'larchanka-training/dmc-268-ui-t6',
@@ -1071,64 +1079,30 @@ describe('RepositoriesPage', () => {
       severityThreshold: 'all',
       installationAvailable: true,
     }
-
-    const patchSpy = vi.fn()
-    globalThis.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
-      const urlStr = typeof url === 'string' ? url : ''
-      if (urlStr.includes('/api/repos') && init?.method === 'PATCH') {
-        patchSpy(typeof init.body === 'string' ? JSON.parse(init.body) : undefined)
-        return Promise.resolve(new Response('Server Error', { status: 500 }))
-      }
-      return Promise.resolve(
-        new Response(JSON.stringify([mockRepo]), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }),
-      )
-    })
-
-    // motion: false makes a closing modal leave the accessibility tree at once, so the
-    // role query below tells an open modal from a closed one
-    renderWithClient(
-      <ConfigProvider theme={{ token: { motion: false } }}>
-        <RepositoriesPage />
-      </ConfigProvider>,
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify([mockRepo]), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
     )
 
-    await waitFor(() => {
-      expect(screen.getByText('larchanka-training/dmc-268-ui-t6')).toBeDefined()
+    renderWithClient(
+      <Routes>
+        <Route element={<RepositoriesPage />} path="/repositories" />
+        <Route element={<div>settings route</div>} path="/repositories/:repoId/settings" />
+      </Routes>,
+      undefined,
+      '/repositories',
+    )
+
+    const link = await screen.findByRole('link', {
+      name: 'Настройки larchanka-training/dmc-268-ui-t6',
     })
+    expect(link.getAttribute('href')).toBe(
+      '/repositories/a1b2c3d4-e5f6-7890-abcd-ef1234567890/settings',
+    )
+    fireEvent.click(link)
 
-    const settingsBtn = screen.getByLabelText(/настройки larchanka-training\/dmc-268-ui-t6/i)
-    fireEvent.click(settingsBtn)
-
-    await waitFor(() => {
-      expect(
-        screen.getByText('Настройки репозитория larchanka-training/dmc-268-ui-t6'),
-      ).toBeDefined()
-    })
-
-    const maxCommentsInput = document.getElementById('maxComments') as HTMLInputElement
-    expect(maxCommentsInput).not.toBeNull()
-    fireEvent.change(maxCommentsInput, { target: { value: '5' } })
-    expect(maxCommentsInput.value).toBe('5')
-
-    const saveBtn = screen.getByRole('button', { name: /сохранить/i })
-    fireEvent.click(saveBtn)
-
-    // Wait until PATCH request has actually been executed and message error is shown
-    await screen.findByText('Внутренняя ошибка сервера (500). Повторите попытку позже.')
-    expect(patchSpy).toHaveBeenCalledTimes(1)
-    expect(patchSpy).toHaveBeenCalledWith(expect.objectContaining({ maxComments: 5 }))
-
-    // After PATCH failure, modal must stay open with values intact
-    expect(
-      screen.getByRole('dialog', {
-        name: 'Настройки репозитория larchanka-training/dmc-268-ui-t6',
-      }),
-    ).toBeDefined()
-    expect(screen.getByText('Настройки репозитория larchanka-training/dmc-268-ui-t6')).toBeDefined()
-    const currentInput = document.getElementById('maxComments') as HTMLInputElement
-    expect(currentInput.value).toBe('5')
+    expect(await screen.findByText('settings route')).toBeTruthy()
   })
 })
