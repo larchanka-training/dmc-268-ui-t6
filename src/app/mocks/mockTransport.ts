@@ -1,7 +1,13 @@
 import { z } from 'zod'
 
 import { RawFileDiffSchema } from '../../entities/diff'
-import { ACTIVE_RUN_STATUSES, type RunSession, type RunStatus } from '../../entities/run'
+import {
+  ACTIVE_RUN_STATUSES,
+  RunListQuerySchema,
+  type RunListPage,
+  type RunSession,
+  type RunStatus,
+} from '../../entities/run'
 import { makeDuoActions } from '../../entities/run/lib/duoActions.fixture'
 import {
   RepositorySchema,
@@ -50,6 +56,58 @@ function findRunSession(id: string) {
   return session ? structuredClone(session) : undefined
 }
 
+/** The api default and cap are not mirrored: the list is small, 50 keeps it on one page. */
+const MOCK_RUN_LIST_DEFAULT_LIMIT = 50
+const MOCK_RUN_CURSOR = /^mock:(\d+)$/
+
+function invalidRunListQuery(field: 'cursor' | 'limit' | 'repo' | 'status'): ApiError {
+  return new ApiError(422, 'Unprocessable Entity', {
+    detail: [{ loc: ['query', field], msg: 'invalid value', type: 'value_error' }],
+  })
+}
+
+/**
+ * `GET /runs` as the api serves it: filtered by `repo`, cut at `limit` (default 50), continued by
+ * an opaque cursor. The cursor here is `mock:<offset>`; a client must not read it.
+ */
+function listMockRuns(search: string): RunListPage {
+  const params = new URLSearchParams(search)
+  const rawLimit = params.get('limit')
+  const parsed = RunListQuerySchema.safeParse({
+    status: params.get('status') ?? undefined,
+    repo: params.get('repo') ?? undefined,
+    cursor: params.get('cursor') ?? undefined,
+    limit: rawLimit === null ? undefined : Number(rawLimit),
+  })
+  if (!parsed.success) {
+    const field = parsed.error.issues[0]?.path[0]
+    throw invalidRunListQuery(
+      field === 'cursor' || field === 'limit' || field === 'status' ? field : 'repo',
+    )
+  }
+  const { repo, cursor, limit = MOCK_RUN_LIST_DEFAULT_LIMIT } = parsed.data
+  let offset = 0
+  if (cursor !== undefined) {
+    const match = MOCK_RUN_CURSOR.exec(cursor)
+    if (!match) {
+      throw invalidRunListQuery('cursor')
+    }
+    offset = Number(match[1])
+  }
+
+  const matching = runSessions.filter(
+    (item) => repo === undefined || item.pullRequest.repo === repo,
+  )
+  const end = offset + limit
+  return {
+    items: matching.slice(offset, end).map((item) => {
+      const run = item.id === WALKING_RUN_ID ? currentWalkingRun().session : item
+      return { ...run, pullRequest: { ...run.pullRequest } }
+    }),
+    nextCursor: end < matching.length ? `mock:${String(end)}` : null,
+  }
+}
+
 function handleMockTransport(
   endpoint: Parameters<MockTransportHandler>[0],
   options: Parameters<MockTransportHandler>[1],
@@ -58,14 +116,10 @@ function handleMockTransport(
     return repositories.map((r) => structuredClone(r))
   }
 
-  if (endpoint.path === '/runs' && endpoint.method === 'GET') {
-    return {
-      items: runSessions.map((item) => {
-        const run = item.id === WALKING_RUN_ID ? currentWalkingRun().session : item
-        return { ...run, pullRequest: { ...run.pullRequest } }
-      }),
-      nextCursor: mockRunsListPage.nextCursor,
-    }
+  const queryStart = endpoint.path.indexOf('?')
+  const pathname = queryStart === -1 ? endpoint.path : endpoint.path.slice(0, queryStart)
+  if (pathname === '/runs' && endpoint.method === 'GET') {
+    return listMockRuns(queryStart === -1 ? '' : endpoint.path.slice(queryStart + 1))
   }
 
   if (endpoint.path.startsWith('/repos/') && endpoint.method === 'GET') {

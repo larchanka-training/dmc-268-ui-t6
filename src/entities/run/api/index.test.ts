@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import { runApi } from './index'
+import { QueryClient } from '@tanstack/react-query'
+
+import { runApi, runListEndpoint, runQueryKeys } from './index'
 
 const UUID = '0f3b2c1e-6a1d-4c8b-9e2f-1a2b3c4d5e6f'
 
@@ -24,5 +26,58 @@ describe('runApi', () => {
 
   it('builds the rerun endpoint path', () => {
     expect(runApi.rerun.endpoint('id-1').path).toBe('/runs/id-1/rerun')
+  })
+
+  it('builds the list path with repo, cursor and limit', () => {
+    expect(runListEndpoint({ repo: 'org/repo', cursor: 'mock:20', limit: 20 })).toEqual({
+      method: 'GET',
+      path: '/runs?repo=org%2Frepo&cursor=mock%3A20&limit=20',
+    })
+  })
+
+  it('omits empty query params', () => {
+    expect(runListEndpoint({}).path).toBe('/runs')
+    expect(runListEndpoint({ repo: undefined, cursor: undefined, limit: undefined }).path).toBe(
+      '/runs',
+    )
+    expect(runListEndpoint({ limit: 20 }).path).toBe('/runs?limit=20')
+  })
+
+  it('rejects an empty, overlong or out-of-range list query before it is sent', () => {
+    expect(() => runListEndpoint({ repo: '' })).toThrow()
+    expect(() => runListEndpoint({ repo: 'a'.repeat(513) })).toThrow()
+    expect(() => runListEndpoint({ limit: 0 })).toThrow()
+    expect(() => runListEndpoint({ limit: 101 })).toThrow()
+  })
+
+  it('keys the list by repo', () => {
+    expect(runQueryKeys.list()).toEqual(['runs', 'list'])
+    expect(runQueryKeys.listFiltered({})).toEqual(['runs', 'list', { repo: null }])
+    expect(runQueryKeys.listFiltered({ repo: 'org/repo' })).toEqual([
+      'runs',
+      'list',
+      { repo: 'org/repo' },
+    ])
+    expect(runQueryKeys.listFiltered({ repo: 'org/a' })).not.toEqual(
+      runQueryKeys.listFiltered({ repo: 'org/b' }),
+    )
+  })
+
+  it('invalidates every filtered list through the list prefix', async () => {
+    const client = new QueryClient()
+    client.setQueryData(runQueryKeys.listFiltered({}), { pages: [], pageParams: [] })
+    client.setQueryData(runQueryKeys.listFiltered({ repo: 'org/repo' }), {
+      pages: [],
+      pageParams: [],
+    })
+    client.setQueryData(runQueryKeys.detail('run-1'), {})
+
+    await client.invalidateQueries({ queryKey: runQueryKeys.list(), refetchType: 'none' })
+
+    expect(client.getQueryState(runQueryKeys.listFiltered({}))?.isInvalidated).toBe(true)
+    expect(
+      client.getQueryState(runQueryKeys.listFiltered({ repo: 'org/repo' }))?.isInvalidated,
+    ).toBe(true)
+    expect(client.getQueryState(runQueryKeys.detail('run-1'))?.isInvalidated).toBe(false)
   })
 })
