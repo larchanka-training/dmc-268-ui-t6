@@ -1,5 +1,10 @@
 // @vitest-environment jsdom
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  defaultScheduler,
+  notifyManager,
+  QueryClient,
+  QueryClientProvider,
+} from '@tanstack/react-query'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -333,6 +338,63 @@ describe('RunsPage', () => {
       await waitFor(() => {
         expect(document.activeElement).toBe(runLink(listedRun(2)))
       })
+    })
+
+    it('moves focus to the first new row when React gets the page before fetchNextPage settles', async () => {
+      // The default notifier tells React about a page on a later tick than `fetchNextPage`
+      // settles. A synchronous one reverses that: the rows are drawn first, and the focus must
+      // not depend on which of the two comes first.
+      notifyManager.setScheduler((callback) => {
+        callback()
+      })
+      try {
+        stubFetch((url) =>
+          url.searchParams.get('cursor') === 'cursor-a'
+            ? { items: [listedRun(2), listedRun(3)], nextCursor: null }
+            : { items: [listedRun(0), listedRun(1)], nextCursor: 'cursor-a' },
+        )
+        renderPage()
+        await screen.findByText(listedRun(0).pullRequest.title)
+
+        const more = screen.getByRole('button', { name: 'Показать ещё' })
+        more.focus()
+        fireEvent.click(more)
+
+        await screen.findByText(listedRun(3).pullRequest.title)
+        await waitFor(() => {
+          expect(document.activeElement).toBe(runLink(listedRun(2)))
+        })
+      } finally {
+        notifyManager.setScheduler(defaultScheduler)
+      }
+    })
+
+    it('moves no focus for a page of runs that are all shown already, nor on a later refresh', async () => {
+      stubFetch((url, call) => {
+        if (url.searchParams.get('cursor') === 'cursor-a') {
+          return { items: [listedRun(0), listedRun(1)], nextCursor: null }
+        }
+        return {
+          items:
+            call > 2 ? [listedRun(4), listedRun(0), listedRun(1)] : [listedRun(0), listedRun(1)],
+          nextCursor: 'cursor-a',
+        }
+      })
+      renderPage()
+      await screen.findByText(listedRun(0).pullRequest.title)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Показать ещё' }))
+      await waitFor(() => {
+        expect(screen.queryByRole('button', { name: 'Показать ещё' })).toBeNull()
+      })
+      expect(screen.getAllByRole('link', { name: /^#/ })).toHaveLength(2)
+
+      // A refresh brings a row the user has not seen. It is not the answer to «Показать ещё».
+      heading().focus()
+      fireEvent.click(screen.getByRole('button', { name: /Обновить/ }))
+      await screen.findByText(listedRun(4).pullRequest.title)
+
+      expect(document.activeElement).toBe(heading())
     })
 
     it('moves focus to the first new row while more pages are left', async () => {

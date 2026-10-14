@@ -420,6 +420,35 @@ describe('RepositorySettingsPage', () => {
     expect(saveButton().disabled).toBe(true)
   })
 
+  it('waits for the request on open when the cached list lacks the repository', async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
+    })
+    // The cache has data (so the query is not pending) but not this repository.
+    client.setQueryData(REPOSITORIES_QUERY_KEY, [API_REPO])
+    const backend = stubBackend([UI_REPO, API_REPO])
+    let release: () => void = () => undefined
+    backend.listGate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+
+    const { container } = renderPage(settingsPath(UI_REPO.id), client)
+
+    // The answer to come may have the repository: a Skeleton, never «не найден».
+    await waitFor(() => {
+      expect(backend.gets).toBe(1)
+    })
+    expect(container.querySelector('.ant-skeleton')).not.toBeNull()
+    expect(screen.queryByText('Репозиторий не найден или недоступен')).toBeNull()
+    expect(screen.queryByLabelText(LIMIT_LABEL)).toBeNull()
+
+    release()
+    expect(await screen.findByLabelText(LIMIT_LABEL)).toBeTruthy()
+    expect(inputValue(LIMIT_LABEL)).toBe('10')
+    expect(screen.queryByText('Репозиторий не найден или недоступен')).toBeNull()
+    expect(container.querySelector('.ant-skeleton')).toBeNull()
+  })
+
   it('opens with the cached values when the refetch on open fails', async () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
@@ -643,6 +672,47 @@ describe('RepositorySettingsPage: branch filter and severity threshold', () => {
     expect(backend.patches).toEqual([])
   })
 
+  it('shows the 422 of api PR #156 under the branch filter and keeps the masks', async () => {
+    const backend = stubBackend([FULL_REPO])
+    // The body as FastAPI renders a ValueError of the list validator: the whole field is the
+    // location, there is no mask index, and `msg` is English.
+    backend.patchResponse = unprocessable([
+      {
+        type: 'value_error',
+        loc: ['body', 'branchFilter'],
+        msg: "Value error, branch pattern 'a..b' must not contain '..' or '//'",
+        input: ['main', 'a..b'],
+        ctx: { error: {} },
+      },
+    ])
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    fireEvent.change(branchFilterField(), { target: { value: 'main\na..b' } })
+    fireEvent.click(saveButton())
+
+    const field = branchFilterField().closest<HTMLElement>('.ant-form-item')
+    if (field === null) {
+      throw new Error('the branch filter has no form item')
+    }
+    expect(await within(field).findByText('Сервер не принял значение')).toBeTruthy()
+    expect(backend.patches).toEqual([{ id: UI_REPO.id, body: { branchFilter: ['main', 'a..b'] } }])
+    // The server's English text is never shown and nothing is reported above the form.
+    expect(screen.queryByText(/Value error/)).toBeNull()
+    expect(screen.queryByText('Не удалось сохранить настройки')).toBeNull()
+    expect(screen.queryByText(/Маска в строке/)).toBeNull()
+    expect(branchFilterField().value).toBe('main\na..b')
+    expect(saveButton().disabled).toBe(false)
+
+    // Editing the field takes the server's complaint away.
+    fireEvent.change(branchFilterField(), { target: { value: 'main\na.b' } })
+    await waitFor(() => {
+      expect(screen.queryByText('Сервер не принял значение')).toBeNull()
+    })
+  })
+
+  // api PR #156 names no mask index today. The mapping of an indexed location to the line stays as
+  // forward compatibility, so the stubs below answer with an index.
   it('shows the 422 under the branch filter with the line number and keeps the masks', async () => {
     const backend = stubBackend([FULL_REPO])
     backend.patchResponse = unprocessable([

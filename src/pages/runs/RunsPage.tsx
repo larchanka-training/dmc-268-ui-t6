@@ -52,8 +52,10 @@ export const RunsPage: FC = () => {
   // run a page brought takes it after «Показать ещё».
   const titleRef = useRef<HTMLHeadingElement>(null)
   const runLinks = useRef(new Map<string, HTMLAnchorElement>())
-  // The first run of a page just loaded, until its link is in the DOM.
-  const focusRunId = useRef<string | null>(null)
+  // The runs on screen when a page was asked for, until the first new row of the answer is
+  // focused. The page and the end of `fetchNextPage` reach React in no fixed order, so the focus
+  // looks for the first run it has not seen, whenever the rows change.
+  const knownRunIds = useRef<ReadonlySet<string> | null>(null)
 
   const resetFilterAndFocus = useCallback(() => {
     resetFilter()
@@ -62,23 +64,24 @@ export const RunsPage: FC = () => {
 
   const loadMore = async (): Promise<void> => {
     const known = new Set(runSessions.map((run) => run.id))
+    knownRunIds.current = known
     const result = await fetchNextPage()
-    const firstNew = uniqueRuns(result.data?.pages ?? []).find((run) => !known.has(run.id))
-    if (result.isError || firstNew === undefined) {
-      return
+    // The mark stays while a new row may still be on its way to the DOM. With nothing new in the
+    // answer (a failed page, a page of runs already shown) it goes, so that a later refresh of the
+    // pages does not take the focus.
+    if (result.isError || !uniqueRuns(result.data?.pages ?? []).some((run) => !known.has(run.id))) {
+      knownRunIds.current = null
     }
-    // The rows are drawn after this: TanStack Query tells React about the new page on a later
-    // tick than it settles `fetchNextPage`. The effect below focuses the link once it is there.
-    focusRunId.current = firstNew.id
   }
 
   useEffect(() => {
-    const id = focusRunId.current
-    if (id === null) {
+    const known = knownRunIds.current
+    const firstNew = known === null ? undefined : runSessions.find((run) => !known.has(run.id))
+    if (firstNew === undefined) {
       return
     }
-    focusRunId.current = null
-    runLinks.current.get(id)?.focus()
+    knownRunIds.current = null
+    runLinks.current.get(firstNew.id)?.focus()
   }, [runSessions])
 
   // A failed next page keeps the rows already loaded; only the other failures replace the list.
