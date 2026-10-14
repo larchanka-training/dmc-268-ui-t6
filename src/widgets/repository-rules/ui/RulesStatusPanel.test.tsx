@@ -174,6 +174,19 @@ describe('RulesStatusPanel', () => {
     expect(view.queryByText('Масок нет')).toBeNull()
   })
 
+  it('lists a mask that the file repeats once per line, without a key warning', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    stubBackend({ [REPO_A]: [json(present({ ignoreMasks: ['dist/**', 'dist/**'] }))] })
+
+    renderPanel()
+
+    await within(panel()).findByText('Файл найден')
+    const warnings = consoleError.mock.calls.length
+    consoleError.mockRestore()
+    expect(within(panel()).getAllByText('dist/**')).toHaveLength(2)
+    expect(warnings).toBe(0)
+  })
+
   it('says there are no masks, and no diagnostics, when the file has none', async () => {
     stubBackend({ [REPO_A]: [json(present({ ignoreMasks: [] }))] })
 
@@ -421,6 +434,36 @@ describe('RulesStatusPanel', () => {
 
     expect(await within(panel()).findByText('2222222')).toBeTruthy()
     expect(backend.requests).toEqual([REPO_A, REPO_A])
+  })
+
+  it('reopening shows no old sha before the fresh answer', async () => {
+    let releaseSecond: (response: Response) => void = () => undefined
+    stubBackend({
+      [REPO_A]: [
+        json(present()),
+        new Promise<Response>((resolve) => {
+          releaseSecond = resolve
+        }),
+      ],
+    })
+    const client = newClient()
+
+    const first = renderPanel({}, client)
+    await within(panel()).findByText('1111111')
+    first.unmount()
+    // Some time passes before the page is opened again.
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    const second = renderPanel({}, client)
+
+    // The second request is under way, and the first answer is nowhere on screen.
+    expect(within(panel()).queryByText('1111111')).toBeNull()
+    expect(within(panel()).queryByText('Файл найден')).toBeNull()
+    expect(second.container.querySelector('.ant-skeleton')).not.toBeNull()
+
+    releaseSecond(json(present({ sha: SHA_2 })))
+    expect(await within(panel()).findByText('2222222')).toBeTruthy()
+    expect(within(panel()).queryByText('1111111')).toBeNull()
   })
 
   it('never renders the late response of the previous repository', async () => {

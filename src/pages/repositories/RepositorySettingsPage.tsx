@@ -1,6 +1,6 @@
 import { RightOutlined } from '@ant-design/icons'
 import { Alert, App, Breadcrumb, Button, Empty, Flex, Skeleton } from 'antd'
-import type { FC, ReactNode } from 'react'
+import { useState, type FC, type ReactNode } from 'react'
 import { Link, useHref, useLinkClickHandler, useParams } from 'react-router'
 
 import {
@@ -40,9 +40,18 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
   const { data: repository, isPending, isError, isFetching, error, refetch } = useRepository(repoId)
   const updateMutation = useUpdateRepository()
 
+  // The form is built once from the repository, so it waits for the request that opening the
+  // page sends: the cached list may be old. The wait ends once and stays ended: later refetches
+  // (a save invalidates the list) must not take the form away. A request that fails or is
+  // paused ends it too, and the form opens with what the cache holds.
+  const [openingRequestDone, setOpeningRequestDone] = useState(false)
+  if (!openingRequestDone && !isFetching) {
+    setOpeningRequestDone(true)
+  }
+
   // A repository that is on screen stays on screen: a failed background refetch keeps `data`
   // and must not unmount the form with the typed values.
-  if (repository !== undefined) {
+  if (repository !== undefined && openingRequestDone) {
     const handleSave = async (patch: UpdateRepositoryInput): Promise<Repository> => {
       const saved = await updateMutation.mutateAsync({ id: repository.id, patch })
       void message.success('Настройки репозитория успешно сохранены')
@@ -91,7 +100,8 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
     )
   }
 
-  if (isPending) {
+  // Also the case of a cached list that lacks the repository: the answer to come may have it.
+  if (isPending || !openingRequestDone) {
     return <Skeleton active />
   }
 

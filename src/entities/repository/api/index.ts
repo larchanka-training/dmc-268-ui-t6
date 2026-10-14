@@ -69,12 +69,17 @@ export function useRepositories() {
  * the optimistic update and the rollback of `useUpdateRepository` reach it; a query of its own
  * would show stale values after a save. `data` is `undefined` while loading and when the list
  * has no such repository: tell them apart by `isPending`.
+ *
+ * Opening the page always asks again (`refetchOnMount`), even when the cached list is still
+ * fresh: a settings form is built once from this value, so it must be the current one. While
+ * that request runs `isFetching` is true on the first render.
  */
 export function useRepository(id: string) {
   return useQuery({
     queryKey: REPOSITORIES_QUERY_KEY,
     queryFn: ({ signal }) => fetchRepositories(signal),
     refetchOnWindowFocus: 'always',
+    refetchOnMount: 'always',
     select: (repositories) => repositories.find((repo) => repo.id === id),
   })
 }
@@ -85,10 +90,12 @@ export interface RepositoryRulesStatusOptions {
 }
 
 /**
- * Status of `.review/rules.md` of one repository. A visit always asks again (`refetchOnMount`),
- * and there is no placeholder: the answer for another repository, or an older one, is never shown
- * as the current one. `data` is `undefined` while loading and while disabled — check `enabled`
- * before `isPending`, which stays true for a disabled query.
+ * Status of `.review/rules.md` of one repository. The answer is kept only while someone shows it
+ * (`gcTime: 0`): reopening the page starts empty, so an old sha never stands for the current one
+ * while the new request runs. A visit also always asks again (`refetchOnMount`), and there is no
+ * placeholder, so the answer for another repository is never shown either. `data` is `undefined`
+ * while loading and while disabled — check `enabled` before `isPending`, which stays true for a
+ * disabled query.
  */
 export function useRepositoryRulesStatus(id: string, { enabled }: RepositoryRulesStatusOptions) {
   return useQuery({
@@ -96,6 +103,7 @@ export function useRepositoryRulesStatus(id: string, { enabled }: RepositoryRule
     queryFn: ({ signal }) => fetchRepositoryRulesStatus(id, signal),
     enabled,
     refetchOnMount: 'always',
+    gcTime: 0,
   })
 }
 

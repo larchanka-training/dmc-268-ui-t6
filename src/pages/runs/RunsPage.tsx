@@ -1,6 +1,6 @@
 import { ReloadOutlined } from '@ant-design/icons'
 import { Alert, Button, Empty, Flex, Spin, Typography, type TableColumnsType } from 'antd'
-import { useMemo, type FC } from 'react'
+import { useCallback, useEffect, useMemo, useRef, type FC } from 'react'
 import { Link, useNavigate } from 'react-router'
 
 import {
@@ -46,6 +46,41 @@ export const RunsPage: FC = () => {
     fetchNextPage,
   } = useRunList({ repo: filter.repo })
   const runSessions = useMemo(() => uniqueRuns(data?.pages ?? []), [data])
+
+  // Focus follows the action. A control that is gone (the filter reset, the last page loaded)
+  // would drop focus to <body>: the heading takes it after a reset, and the link of the first
+  // run a page brought takes it after «Показать ещё».
+  const titleRef = useRef<HTMLHeadingElement>(null)
+  const runLinks = useRef(new Map<string, HTMLAnchorElement>())
+  // The first run of a page just loaded, until its link is in the DOM.
+  const focusRunId = useRef<string | null>(null)
+
+  const resetFilterAndFocus = useCallback(() => {
+    resetFilter()
+    titleRef.current?.focus()
+  }, [resetFilter])
+
+  const loadMore = async (): Promise<void> => {
+    const known = new Set(runSessions.map((run) => run.id))
+    const result = await fetchNextPage()
+    const firstNew = uniqueRuns(result.data?.pages ?? []).find((run) => !known.has(run.id))
+    if (result.isError || firstNew === undefined) {
+      return
+    }
+    // The rows are drawn after this: TanStack Query tells React about the new page on a later
+    // tick than it settles `fetchNextPage`. The effect below focuses the link once it is there.
+    focusRunId.current = firstNew.id
+  }
+
+  useEffect(() => {
+    const id = focusRunId.current
+    if (id === null) {
+      return
+    }
+    focusRunId.current = null
+    runLinks.current.get(id)?.focus()
+  }, [runSessions])
+
   // A failed next page keeps the rows already loaded; only the other failures replace the list.
   const loadError = isError && !isFetchNextPageError
 
@@ -55,7 +90,17 @@ export const RunsPage: FC = () => {
       key: 'pr',
       render: (_, run) => (
         <div className={styles.pullRequest}>
-          <Link className={styles.runLink} to={`/runs/${run.id}`}>
+          <Link
+            className={styles.runLink}
+            ref={(node) => {
+              if (node === null) {
+                runLinks.current.delete(run.id)
+              } else {
+                runLinks.current.set(run.id, node)
+              }
+            }}
+            to={`/runs/${run.id}`}
+          >
             {`#${String(run.pullRequest.number)}`}
           </Link>
           <Text type="secondary">{run.pullRequest.title}</Text>
@@ -96,7 +141,7 @@ export const RunsPage: FC = () => {
             {filter.repo !== undefined ? (
               <>
                 <Tag variant="outline">{filter.repo}</Tag>
-                <Button onClick={resetFilter}>Сбросить фильтр</Button>
+                <Button onClick={resetFilterAndFocus}>Сбросить фильтр</Button>
               </>
             ) : null}
             <Button
@@ -115,6 +160,7 @@ export const RunsPage: FC = () => {
             : "Pull request'ы, по которым выполнялось или выполняется ревью"
         }
         title="Прогоны"
+        titleRef={titleRef}
       />
 
       {isLoading ? (
@@ -143,7 +189,7 @@ export const RunsPage: FC = () => {
                   description={`Для репозитория ${filter.repo} прогонов ещё нет`}
                   image={Empty.PRESENTED_IMAGE_SIMPLE}
                 >
-                  <Button onClick={resetFilter}>Показать все прогоны</Button>
+                  <Button onClick={resetFilterAndFocus}>Показать все прогоны</Button>
                 </Empty>
               ) : (
                 'Нет прогонов ревью'
@@ -170,7 +216,7 @@ export const RunsPage: FC = () => {
             <Button
               loading={isFetchingNextPage}
               onClick={() => {
-                void fetchNextPage()
+                void loadMore()
               }}
               size="small"
             >
@@ -189,7 +235,7 @@ export const RunsPage: FC = () => {
           <Button
             loading={isFetchingNextPage}
             onClick={() => {
-              void fetchNextPage()
+              void loadMore()
             }}
           >
             Показать ещё
