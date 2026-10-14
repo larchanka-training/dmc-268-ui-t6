@@ -20,6 +20,14 @@
   letter-spacing: -0.015em;
 }
 
+/* A page moves focus here from code (`titleRef`). The reset of Ant Design takes the outline off
+   `[tabindex='-1']:focus`; the attribute makes this rule the more specific one, so the ring shows
+   whichever stylesheet comes last. An outline takes no room: the heading does not move. */
+.title[tabindex]:focus-visible {
+  outline: 2px solid var(--rv-link);
+  outline-offset: 2px;
+}
+
 .description {
   margin: 4px 0 0;
   color: var(--rv-text-2);
