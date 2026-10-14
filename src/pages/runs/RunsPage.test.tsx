@@ -370,31 +370,41 @@ describe('RunsPage', () => {
     })
 
     it('moves no focus for a page of runs that are all shown already, nor on a later refresh', async () => {
-      stubFetch((url, call) => {
-        if (url.searchParams.get('cursor') === 'cursor-a') {
-          return { items: [listedRun(0), listedRun(1)], nextCursor: null }
-        }
-        return {
-          items:
-            call > 2 ? [listedRun(4), listedRun(0), listedRun(1)] : [listedRun(0), listedRun(1)],
-          nextCursor: 'cursor-a',
-        }
+      // React gets the page before `fetchNextPage` settles, so the effect sees the mark a page
+      // asked for with nothing new in the rows: it must leave the focus where it is.
+      notifyManager.setScheduler((callback) => {
+        callback()
       })
-      renderPage()
-      await screen.findByText(listedRun(0).pullRequest.title)
+      try {
+        stubFetch((url, call) => {
+          if (url.searchParams.get('cursor') === 'cursor-a') {
+            return { items: [listedRun(0), listedRun(1)], nextCursor: null }
+          }
+          return {
+            items:
+              call > 2 ? [listedRun(4), listedRun(0), listedRun(1)] : [listedRun(0), listedRun(1)],
+            nextCursor: 'cursor-a',
+          }
+        })
+        renderPage()
+        await screen.findByText(listedRun(0).pullRequest.title)
 
-      fireEvent.click(screen.getByRole('button', { name: 'Показать ещё' }))
-      await waitFor(() => {
-        expect(screen.queryByRole('button', { name: 'Показать ещё' })).toBeNull()
-      })
-      expect(screen.getAllByRole('link', { name: /^#/ })).toHaveLength(2)
+        fireEvent.click(screen.getByRole('button', { name: 'Показать ещё' }))
+        await waitFor(() => {
+          expect(screen.queryByRole('button', { name: 'Показать ещё' })).toBeNull()
+        })
+        expect(screen.getAllByRole('link', { name: /^#/ })).toHaveLength(2)
+        expect(document.activeElement).toBe(document.body)
 
-      // A refresh brings a row the user has not seen. It is not the answer to «Показать ещё».
-      heading().focus()
-      fireEvent.click(screen.getByRole('button', { name: /Обновить/ }))
-      await screen.findByText(listedRun(4).pullRequest.title)
+        // A refresh brings a row the user has not seen. It is not the answer to «Показать ещё».
+        heading().focus()
+        fireEvent.click(screen.getByRole('button', { name: /Обновить/ }))
+        await screen.findByText(listedRun(4).pullRequest.title)
 
-      expect(document.activeElement).toBe(heading())
+        expect(document.activeElement).toBe(heading())
+      } finally {
+        notifyManager.setScheduler(defaultScheduler)
+      }
     })
 
     it('moves focus to the first new row while more pages are left', async () => {
@@ -485,6 +495,57 @@ describe('RunsPage', () => {
       })
       await waitFor(() => {
         expect(screen.queryByRole('button', { name: 'Сбросить фильтр' })).toBeNull()
+      })
+      expect(document.activeElement).toBe(heading())
+    })
+
+    it('keeps focus on the heading when the filter is reset while a page is still loading', async () => {
+      let releaseNextPage: () => void = () => undefined
+      const respond = (page: RunListPage): Response =>
+        new Response(JSON.stringify(page), { status: 200 })
+      const fetchMock = vi.fn<typeof fetch>((input) => {
+        const url = urlOf(input)
+        if (url.searchParams.get('cursor') === 'cursor-a') {
+          // The page «Показать ещё» asked for is held until the test lets it go.
+          return new Promise<Response>((resolve) => {
+            releaseNextPage = () => {
+              resolve(respond({ items: [listedRun(2)], nextCursor: null }))
+            }
+          })
+        }
+        return Promise.resolve(
+          respond(
+            url.searchParams.has('repo')
+              ? { items: [listedRun(0), listedRun(1)], nextCursor: 'cursor-a' }
+              : { items: [listedRun(0), listedRun(3)], nextCursor: null },
+          ),
+        )
+      })
+      vi.stubGlobal('fetch', fetchMock)
+      renderPage(`/runs${API_REPO_SEARCH}`)
+      await screen.findByText(listedRun(0).pullRequest.title)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Показать ещё' }))
+      await waitFor(() => {
+        expect(requestedUrls(fetchMock).map((url) => url.searchParams.get('cursor'))).toEqual([
+          null,
+          'cursor-a',
+        ])
+      })
+
+      // The user gives up on the filtered list before its next page came; the unfiltered list
+      // arrives with a run the filtered one did not have. It is not the answer to the held request.
+      fireEvent.click(screen.getByRole('button', { name: 'Сбросить фильтр' }))
+      await screen.findByText(listedRun(3).pullRequest.title)
+      await act(async () => {
+        await Promise.resolve()
+      })
+      expect(document.activeElement).toBe(heading())
+
+      // The held page of the filtered list is no reason to take the focus either.
+      releaseNextPage()
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 20))
       })
       expect(document.activeElement).toBe(heading())
     })

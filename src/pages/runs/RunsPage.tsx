@@ -59,6 +59,9 @@ export const RunsPage: FC = () => {
 
   const resetFilterAndFocus = useCallback(() => {
     resetFilter()
+    // A «Показать ещё» still on its way belongs to the filter that is gone: its rows must not
+    // take the focus off the heading.
+    knownRunIds.current = null
     titleRef.current?.focus()
   }, [resetFilter])
 
