@@ -66,6 +66,21 @@ function renderPage(initialEntry = '/runs') {
   return { router, ...render(<RouterProvider router={router} />) }
 }
 
+/** The link to the run in the first cell of its row. */
+function runLink(run: RunSession): HTMLElement {
+  const link = screen
+    .getAllByRole('link')
+    .find((item) => item.getAttribute('href') === `/runs/${run.id}`)
+  if (!link) {
+    throw new Error(`the page has no link to the run ${run.id}`)
+  }
+  return link
+}
+
+function heading(): HTMLElement {
+  return screen.getByRole('heading', { name: 'Прогоны' })
+}
+
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
@@ -298,5 +313,136 @@ describe('RunsPage', () => {
 
     expect(await screen.findByText('Ошибка загрузки')).toBeTruthy()
     expect(screen.queryByRole('table')).toBeNull()
+  })
+
+  describe('focus survives the action', () => {
+    it('moves focus to the link of the first new row after «Показать ещё»', async () => {
+      stubFetch((url) =>
+        url.searchParams.get('cursor') === 'cursor-a'
+          ? { items: [listedRun(2), listedRun(3)], nextCursor: null }
+          : { items: [listedRun(0), listedRun(1)], nextCursor: 'cursor-a' },
+      )
+      renderPage()
+      await screen.findByText(listedRun(0).pullRequest.title)
+
+      const more = screen.getByRole('button', { name: 'Показать ещё' })
+      more.focus()
+      fireEvent.click(more)
+
+      await screen.findByText(listedRun(3).pullRequest.title)
+      await waitFor(() => {
+        expect(document.activeElement).toBe(runLink(listedRun(2)))
+      })
+    })
+
+    it('moves focus to the first new row while more pages are left', async () => {
+      stubFetch((url) => {
+        const cursor = url.searchParams.get('cursor')
+        if (cursor === 'cursor-b') {
+          return { items: [listedRun(4)], nextCursor: null }
+        }
+        return cursor === 'cursor-a'
+          ? { items: [listedRun(2), listedRun(3)], nextCursor: 'cursor-b' }
+          : { items: [listedRun(0), listedRun(1)], nextCursor: 'cursor-a' }
+      })
+      renderPage()
+      await screen.findByText(listedRun(0).pullRequest.title)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Показать ещё' }))
+      await waitFor(() => {
+        expect(document.activeElement).toBe(runLink(listedRun(2)))
+      })
+
+      // The button is still there, and the next page moves focus again.
+      fireEvent.click(screen.getByRole('button', { name: 'Показать ещё' }))
+      await waitFor(() => {
+        expect(document.activeElement).toBe(runLink(listedRun(4)))
+      })
+    })
+
+    it('moves focus to the first new row when the retry of a failed page succeeds', async () => {
+      stubFetch((url, call) => {
+        if (url.searchParams.get('cursor') === null) {
+          return { items: [listedRun(0), listedRun(1)], nextCursor: 'cursor-a' }
+        }
+        return call === 2
+          ? new Response('{}', { status: 500, statusText: 'Internal Server Error' })
+          : { items: [listedRun(2)], nextCursor: null }
+      })
+      renderPage()
+      await screen.findByText(listedRun(0).pullRequest.title)
+      fireEvent.click(screen.getByRole('button', { name: 'Показать ещё' }))
+      const retry = await screen.findByRole('button', { name: 'Повторить' })
+
+      retry.focus()
+      fireEvent.click(retry)
+
+      await screen.findByText(listedRun(2).pullRequest.title)
+      await waitFor(() => {
+        expect(document.activeElement).toBe(runLink(listedRun(2)))
+      })
+    })
+
+    it('does not pull focus back to a row when the loaded pages are refreshed later', async () => {
+      stubFetch((url, call) => {
+        const refreshed = call > 2
+        const first = refreshed
+          ? { ...listedRun(0), pullRequest: { ...listedRun(0).pullRequest, title: 'renamed' } }
+          : listedRun(0)
+        return url.searchParams.get('cursor') === 'cursor-a'
+          ? { items: [listedRun(2)], nextCursor: null }
+          : { items: [first, listedRun(1)], nextCursor: 'cursor-a' }
+      })
+      renderPage()
+      await screen.findByText(listedRun(0).pullRequest.title)
+      fireEvent.click(screen.getByRole('button', { name: 'Показать ещё' }))
+      await waitFor(() => {
+        expect(document.activeElement).toBe(runLink(listedRun(2)))
+      })
+
+      // The user moves on; a refresh of the pages (an SSE event does the same) changes rows.
+      heading().focus()
+      // The icon's name leaks into the button's: «reload Обновить».
+      fireEvent.click(screen.getByRole('button', { name: /Обновить/ }))
+      await screen.findByText('renamed')
+
+      expect(document.activeElement).toBe(heading())
+    })
+
+    it('moves focus to the heading after «Сбросить фильтр»', async () => {
+      stubFetch(() => ({ items: [listedRun(0)], nextCursor: null }))
+      const { router } = renderPage(`/runs${API_REPO_SEARCH}`)
+      await screen.findByText(listedRun(0).pullRequest.title)
+
+      const reset = screen.getByRole('button', { name: 'Сбросить фильтр' })
+      reset.focus()
+      fireEvent.click(reset)
+
+      await waitFor(() => {
+        expect(router.state.location.search).toBe('')
+      })
+      await waitFor(() => {
+        expect(screen.queryByRole('button', { name: 'Сбросить фильтр' })).toBeNull()
+      })
+      expect(document.activeElement).toBe(heading())
+    })
+
+    it('moves focus to the heading after «Показать все прогоны»', async () => {
+      stubFetch(() => ({ items: [], nextCursor: null }))
+      const { router } = renderPage('/runs?repo=larchanka-training%2Fdmc-268-infra-t6')
+      await screen.findByText(`Для репозитория ${INFRA_REPO} прогонов ещё нет`)
+
+      const showAll = screen.getByRole('button', { name: 'Показать все прогоны' })
+      showAll.focus()
+      fireEvent.click(showAll)
+
+      await waitFor(() => {
+        expect(router.state.location.search).toBe('')
+      })
+      await waitFor(() => {
+        expect(screen.queryByRole('button', { name: 'Показать все прогоны' })).toBeNull()
+      })
+      expect(document.activeElement).toBe(heading())
+    })
   })
 })

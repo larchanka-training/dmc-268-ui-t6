@@ -79,6 +79,12 @@ describe('initMockTransport', () => {
     it('answers an unreadable cursor with 422', async () => {
       await expect(list({ cursor: 'not-a-cursor' })).rejects.toMatchObject({ status: 422 })
     })
+
+    it('answers a limit over the api cap with 422 and takes the cap itself', async () => {
+      await expect(list({ limit: '101' })).rejects.toMatchObject({ status: 422 })
+      await expect(list({ limit: '0' })).rejects.toMatchObject({ status: 422 })
+      await expect(list({ limit: '100' })).resolves.toMatchObject({ nextCursor: null })
+    })
   })
 
   describe('GET /repos/{id}/rules-status', () => {
@@ -270,7 +276,7 @@ describe('initMockTransport', () => {
       }
 
       it('answers 422 with the mask index for an invalid branch mask', async () => {
-        const error = await rejection({ branchFilter: ['main', 'release 1', 'ok/*', 'feat/{a,b'] })
+        const error = await rejection({ branchFilter: ['main', 'release 1', 'ok/*', 'feat/a..b'] })
 
         expect(error.status).toBe(422)
         expect(error.data).toEqual({
@@ -293,14 +299,32 @@ describe('initMockTransport', () => {
         ])
       })
 
+      // The masks api PR #156 refuses (`branch_patterns._pattern_error`), one reason each.
       it.each([
         ['whitespace inside', 'release 1'],
         ['leading whitespace', ' main'],
+        ['a tab', 'feat\tx'],
+        ['a control character', 'feat\u0001x'],
         ['a backslash', 'feat\\x'],
-        ['an unclosed bracket', 'feat/[ab'],
-        ['a stray closing bracket', 'feat/ab]'],
-        ['an unclosed brace', 'feat/{a,b'],
-        ['a stray closing brace', 'feat/a}'],
+        ['two dots', 'feat/a..b'],
+        ['a double slash', 'feat//x'],
+        ['a leading slash', '/main'],
+        ['a trailing slash', 'feat/'],
+        ['a .lock suffix', 'feat/x.lock'],
+        ['a tilde', 'feat~1'],
+        ['a caret', 'feat^'],
+        ['a colon', 'feat:x'],
+        ['a question mark', 'feat/?'],
+        ['an opening bracket', 'v[0-9]*'],
+        ['a closing bracket', 'feat/ab]'],
+        ['an opening brace', 'feat/{a,b'],
+        ['a closing brace', 'feat/a}'],
+        ['an exclamation mark', '!main'],
+        ['three stars in a row', 'feat/***'],
+        ['a segment starting with a dot', 'feat/.hidden'],
+        ['a leading dash', '-main'],
+        ['a trailing dot', 'feat.'],
+        ['a lone @', '@'],
       ])('rejects a mask with %s', async (_name, mask) => {
         const error = await rejection({ branchFilter: [mask] })
 
@@ -310,7 +334,7 @@ describe('initMockTransport', () => {
         ])
       })
 
-      it.each(['main', 'release/*', 'feat/**', 'v[0-9]*', '{main,develop}', '*'])(
+      it.each(['main', 'release/*', 'feat/**', '*', '**', 'hotfix/v1.2', 'feature/a-b_c', 'a@b'])(
         'accepts the mask %s',
         async (mask) => {
           const updated = await apiClient<Repository>(endpoints.repos.update(repo.id), {
@@ -320,6 +344,25 @@ describe('initMockTransport', () => {
           expect(updated.branchFilter).toEqual([mask])
         },
       )
+
+      it('rejects a repeated mask at the index of the repeat', async () => {
+        const error = await rejection({ branchFilter: ['main', 'release/*', 'main', 'release/*'] })
+
+        expect(error.status).toBe(422)
+        expect(validationErrorLocations(error.data)).toEqual([
+          { path: ['body', 'branchFilter', 2] },
+          { path: ['body', 'branchFilter', 3] },
+        ])
+      })
+
+      it('gives a malformed repeated mask one entry per index', async () => {
+        const error = await rejection({ branchFilter: ['a..b', 'a..b'] })
+
+        expect(validationErrorLocations(error.data)).toEqual([
+          { path: ['body', 'branchFilter', 0] },
+          { path: ['body', 'branchFilter', 1] },
+        ])
+      })
 
       it('answers 422 for a schema violation with its location', async () => {
         const error = await rejection({ severityThreshold: 'info' })

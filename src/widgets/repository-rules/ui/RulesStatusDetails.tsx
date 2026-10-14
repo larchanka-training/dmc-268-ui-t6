@@ -18,7 +18,7 @@ const { Text } = Typography
 const MISSING_WARNING = 'Используются дефолтные правила, создайте .review/rules.md'
 
 const Section: FC<{ title: string; children: ReactNode }> = ({ title, children }) => (
-  <div className={styles.section}>
+  <div>
     <h3 className={styles.sublabel}>{title}</h3>
     {children}
   </div>
@@ -99,8 +99,8 @@ export const RulesStatusDetails: FC<RulesStatusDetailsProps> = ({ status, onRetr
           <Section title="Игнорируемые пути">
             {status.ignoreMasks.length > 0 ? (
               <ul className={styles.list}>
-                {status.ignoreMasks.map((mask) => (
-                  <li key={mask}>
+                {status.ignoreMasks.map((mask, index) => (
+                  <li key={`${mask}-${String(index)}`}>
                     <code>{mask}</code>
                   </li>
                 ))}

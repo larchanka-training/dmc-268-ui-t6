@@ -183,6 +183,22 @@ describe('useRepositoryRulesStatus', () => {
     })
   })
 
+  it('drops the answer when its last viewer leaves, so a reopen starts empty', async () => {
+    stubBackend()
+    const client = appLikeClient()
+
+    const first = renderHook(() => useRepositoryRulesStatus(FIRST_ID, { enabled: true }), {
+      wrapper: wrapper(client),
+    })
+    await waitFor(() => {
+      expect(first.result.current.isSuccess).toBe(true)
+    })
+    first.unmount()
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(client.getQueryData(repoRulesStatusQueryKey(FIRST_ID))).toBeUndefined()
+  })
+
   it('does not hand the answer for one repository to another', async () => {
     let releaseSecond: (response: Response) => void = () => undefined
     stubBackend((id) =>
