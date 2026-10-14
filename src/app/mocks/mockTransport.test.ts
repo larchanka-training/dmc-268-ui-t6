@@ -9,7 +9,7 @@ vi.mock('../../shared/config/env', () => ({
   GITHUB_APP_SLUG: '',
 }))
 
-import type { Repository } from '../../entities/repository'
+import { RulesStatusSchema, type Repository } from '../../entities/repository'
 import {
   RunDetailSchema,
   RunListPageSchema,
@@ -327,6 +327,62 @@ describe('initMockTransport', () => {
 
     it('answers an unreadable cursor with 422', async () => {
       await expect(list({ cursor: 'not-a-cursor' })).rejects.toMatchObject({ status: 422 })
+    })
+  })
+
+  describe('GET /repos/{id}/rules-status', () => {
+    beforeEach(() => {
+      initMockTransport()
+    })
+
+    it('serves the rules status of each mock repository', async () => {
+      const statuses = await Promise.all(
+        mockRepositories.map((repo) =>
+          apiClient<unknown>(endpoints.repos.rulesStatus(repo.id)).then((data) =>
+            RulesStatusSchema.parse(data),
+          ),
+        ),
+      )
+
+      expect(statuses.map((status) => status.status)).toEqual([
+        'present',
+        'invalid',
+        'unavailable',
+        'missing',
+      ])
+    })
+
+    it('answers 404 for a repository it does not know', async () => {
+      await expect(
+        apiClient<unknown>(endpoints.repos.rulesStatus('22222222-2222-4222-8222-0000000000ff')),
+      ).rejects.toMatchObject({ status: 404 })
+    })
+
+    it('is matched before the repository itself', async () => {
+      const [repo] = mockRepositories
+      if (!repo) {
+        throw new Error('mock repositories are empty')
+      }
+
+      const one = await apiClient<Repository>(endpoints.repos.detail(repo.id))
+      const rules = await apiClient<{ status: string }>(endpoints.repos.rulesStatus(repo.id))
+
+      expect(one.id).toBe(repo.id)
+      expect(rules.status).toBe('present')
+      expect(rules).not.toHaveProperty('fullName')
+    })
+
+    it('hands out copies of the rules status', async () => {
+      const [repo] = mockRepositories
+      if (!repo) {
+        throw new Error('mock repositories are empty')
+      }
+      const first = await apiClient<{ branch: string }>(endpoints.repos.rulesStatus(repo.id))
+      first.branch = 'changed'
+
+      const second = await apiClient<{ branch: string }>(endpoints.repos.rulesStatus(repo.id))
+
+      expect(second.branch).not.toBe('changed')
     })
   })
 
