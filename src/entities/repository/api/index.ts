@@ -3,11 +3,18 @@ import { z } from 'zod'
 
 import { apiClient } from '../../../shared/api/client'
 import { endpoints } from '../../../shared/api/endpoints'
-import { RepositorySchema, UpdateRepositorySchema } from '../model/schemas'
-import type { Repository, UpdateRepositoryInput } from '../model/schemas'
+import { RepositorySchema, RulesStatusSchema, UpdateRepositorySchema } from '../model/schemas'
+import type { Repository, RulesStatus, UpdateRepositoryInput } from '../model/schemas'
 
 export const REPOSITORIES_QUERY_KEY = ['repos'] as const
 export const UPDATE_REPOSITORY_MUTATION_KEY = ['updateRepo'] as const
+// Deliberately not under `['repos']`: the update mutation cancels and invalidates that prefix, and
+// would cancel and refetch the rules status on every settings save.
+export const REPO_RULES_STATUS_QUERY_KEY = ['repoRulesStatus'] as const
+
+export function repoRulesStatusQueryKey(id: string) {
+  return [...REPO_RULES_STATUS_QUERY_KEY, id] as const
+}
 
 export const repoApi = {
   list: { endpoint: endpoints.repos.list, response: z.array(RepositorySchema) },
@@ -17,6 +24,7 @@ export const repoApi = {
     input: UpdateRepositorySchema,
     response: RepositorySchema,
   },
+  rulesStatus: { endpoint: endpoints.repos.rulesStatus, response: RulesStatusSchema },
 } as const
 
 export async function fetchRepositories(signal?: AbortSignal): Promise<Repository[]> {
@@ -27,6 +35,14 @@ export async function fetchRepositories(signal?: AbortSignal): Promise<Repositor
 export async function fetchRepository(id: string): Promise<Repository> {
   const data = await apiClient<unknown>(endpoints.repos.detail(id))
   return RepositorySchema.parse(data)
+}
+
+export async function fetchRepositoryRulesStatus(
+  id: string,
+  signal?: AbortSignal,
+): Promise<RulesStatus> {
+  const data = await apiClient<unknown>(endpoints.repos.rulesStatus(id), { signal })
+  return RulesStatusSchema.parse(data)
 }
 
 export async function updateRepository(
@@ -60,6 +76,26 @@ export function useRepository(id: string) {
     queryFn: ({ signal }) => fetchRepositories(signal),
     refetchOnWindowFocus: 'always',
     select: (repositories) => repositories.find((repo) => repo.id === id),
+  })
+}
+
+export interface RepositoryRulesStatusOptions {
+  /** `false` sends no request at all (the rules API is not served yet). */
+  enabled: boolean
+}
+
+/**
+ * Status of `.review/rules.md` of one repository. A visit always asks again (`refetchOnMount`),
+ * and there is no placeholder: the answer for another repository, or an older one, is never shown
+ * as the current one. `data` is `undefined` while loading and while disabled — check `enabled`
+ * before `isPending`, which stays true for a disabled query.
+ */
+export function useRepositoryRulesStatus(id: string, { enabled }: RepositoryRulesStatusOptions) {
+  return useQuery({
+    queryKey: repoRulesStatusQueryKey(id),
+    queryFn: ({ signal }) => fetchRepositoryRulesStatus(id, signal),
+    enabled,
+    refetchOnMount: 'always',
   })
 }
 

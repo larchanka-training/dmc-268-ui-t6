@@ -12,7 +12,10 @@ import {
 } from '../../entities/repository'
 import { runListHref } from '../../features/run-list-filter'
 import { AutoReviewSwitch, RepositorySettingsForm } from '../../features/repository-settings'
+import { mocksEnabledAtRuntime } from '../../shared/config/buildFlags'
+import { isMockMode } from '../../shared/config/env'
 import { PageHeader } from '../../shared/ui'
+import { RulesStatusPanel } from '../../widgets/repository-rules'
 import { formatErrorMessage } from './lib/formatError'
 
 /** A button that is a real link: it opens in a new tab and navigates without a page load. */
@@ -81,6 +84,9 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
           onSave={handleSave}
           repository={repository}
         />
+        {/* Mock-only until the server serves the rules status (ui#93): off mocks the block says so
+            and sends no request. */}
+        <RulesStatusPanel enabled={mocksEnabledAtRuntime(isMockMode)} repoId={repository.id} />
       </Flex>
     )
   }

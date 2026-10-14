@@ -55,6 +55,13 @@ describe('endpoints', () => {
     })
   })
 
+  it('builds the rules status endpoint', () => {
+    expect(endpoints.repos.rulesStatus('repo-123')).toEqual({
+      method: 'GET',
+      path: '/repos/repo-123/rules-status',
+    })
+  })
+
   it('resolves a URL against a base with a trailing slash', () => {
     expect(resolveUrl('/api/', endpoints.stream())).toBe('/api/stream')
   })

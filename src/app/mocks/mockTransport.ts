@@ -31,6 +31,7 @@ import {
   mockReviewComments,
   mockSummaryOnlyDiff,
 } from './app-state'
+import { mockRulesStatuses } from './mockRulesStatus'
 import { mockRunsListPage } from './mockRunsList.fixture'
 import { buildMockRunDetail, mockRawDiffForRun, REVIEW_DEMO_RUN_ID } from './mockRunReview'
 import {
@@ -187,9 +188,20 @@ function handleMockTransport(
     return listMockRuns(queryStart === -1 ? '' : endpoint.path.slice(queryStart + 1))
   }
 
-  if (endpoint.path.startsWith('/repos/') && endpoint.method === 'GET') {
-    const id = endpoint.path.replace('/repos/', '')
-    const repo = repositories.find((r) => r.id === id)
+  // Before the repository itself: `/repos/{id}/rules-status` must not be read as an id.
+  const rulesStatusMatch = /^\/repos\/([^/]+)\/rules-status$/.exec(endpoint.path)
+  if (rulesStatusMatch && endpoint.method === 'GET') {
+    const id = rulesStatusMatch[1]
+    const status = id === undefined ? undefined : mockRulesStatuses[id]
+    if (!status || !repositories.some((r) => r.id === id)) {
+      throw new ApiError(404, 'Not Found', { message: 'Repository not found' })
+    }
+    return structuredClone(status)
+  }
+
+  const repoDetailMatch = /^\/repos\/([^/]+)$/.exec(endpoint.path)
+  if (repoDetailMatch && endpoint.method === 'GET') {
+    const repo = repositories.find((r) => r.id === repoDetailMatch[1])
     if (!repo) {
       throw new ApiError(404, 'Not Found', { message: 'Repository not found' })
     }
