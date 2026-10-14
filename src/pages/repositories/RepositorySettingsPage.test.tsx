@@ -67,6 +67,8 @@ interface Backend {
   failPatch: boolean
   /** Overrides the answer to every PATCH (a 422, for one). */
   patchResponse: (() => Response) | null
+  /** While set, GET /api/repos answers only after this promise resolves. */
+  listGate: Promise<void> | null
   gets: number
   patches: { id: string; body: unknown }[]
   fetchMock: ReturnType<typeof vi.fn<typeof fetch>>
@@ -84,6 +86,7 @@ function stubBackend(repos: Repository[]): Backend {
     failList: false,
     failPatch: false,
     patchResponse: null,
+    listGate: null,
     gets: 0,
     patches: [],
     fetchMock: vi.fn<typeof fetch>((input, init) => {
@@ -106,18 +109,22 @@ function stubBackend(repos: Repository[]): Backend {
         return Promise.resolve(new Response(JSON.stringify(saved), { status: 200 }))
       }
       backend.gets += 1
-      if (backend.failList) {
-        return Promise.resolve(new Response('Server Error', { status: 500 }))
-      }
-      return Promise.resolve(new Response(JSON.stringify(backend.repos), { status: 200 }))
+      const answer = backend.failList
+        ? new Response('Server Error', { status: 500 })
+        : new Response(JSON.stringify(backend.repos), { status: 200 })
+      return backend.listGate === null
+        ? Promise.resolve(answer)
+        : backend.listGate.then(() => answer)
     }),
   }
   vi.stubGlobal('fetch', backend.fetchMock)
   return backend
 }
 
-function renderPage(entry: string) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+function renderPage(
+  entry: string,
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+) {
   const router = createMemoryRouter(
     [
       {
@@ -384,6 +391,75 @@ describe('RepositorySettingsPage', () => {
     expect(backend.gets).toBe(2)
     expect(client.getQueryState(REPOSITORIES_QUERY_KEY)?.status).toBe('error')
     expect(inputValue(LIMIT_LABEL)).toBe('5')
+  })
+
+  it('shows the fresh values, never the cached ones, when the settings open', async () => {
+    // The app's staleTime: the cached list is fresh, yet opening the page asks again.
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
+    })
+    client.setQueryData(REPOSITORIES_QUERY_KEY, [{ ...UI_REPO, maxComments: 3 }])
+    const backend = stubBackend([{ ...UI_REPO, maxComments: 7 }])
+    let release: () => void = () => undefined
+    backend.listGate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+
+    renderPage(settingsPath(UI_REPO.id), client)
+
+    // The request is under way; the cached 3 is not offered as the current value.
+    await waitFor(() => {
+      expect(backend.gets).toBe(1)
+    })
+    expect(screen.queryByLabelText(LIMIT_LABEL)).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Настройки репозитория' })).toBeNull()
+
+    release()
+    expect(await screen.findByLabelText(LIMIT_LABEL)).toBeTruthy()
+    expect(inputValue(LIMIT_LABEL)).toBe('7')
+    expect(saveButton().disabled).toBe(true)
+  })
+
+  it('opens with the cached values when the refetch on open fails', async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
+    })
+    client.setQueryData(REPOSITORIES_QUERY_KEY, [{ ...UI_REPO, maxComments: 3 }])
+    const backend = stubBackend([UI_REPO])
+    backend.failList = true
+
+    renderPage(settingsPath(UI_REPO.id), client)
+
+    expect(await screen.findByLabelText(LIMIT_LABEL)).toBeTruthy()
+    expect(backend.gets).toBe(1)
+    expect(client.getQueryState(REPOSITORIES_QUERY_KEY)?.status).toBe('error')
+    expect(inputValue(LIMIT_LABEL)).toBe('3')
+    expect(screen.queryByText(SERVER_500_TEXT)).toBeNull()
+  })
+
+  it('keeps the form while the list is refetched after a save', async () => {
+    // A save invalidates the list: the refetch that follows must not unmount the form.
+    const backend = stubBackend([UI_REPO])
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    fireEvent.change(screen.getByLabelText(LIMIT_LABEL), { target: { value: '5' } })
+    // The refetch after the save stays pending.
+    let release: () => void = () => undefined
+    backend.listGate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    fireEvent.click(saveButton())
+    await waitFor(() => {
+      expect(backend.patches).toHaveLength(1)
+    })
+    await waitFor(() => {
+      expect(backend.gets).toBe(2)
+    })
+
+    expect(screen.queryByLabelText(LIMIT_LABEL)).not.toBeNull()
+    expect(inputValue(LIMIT_LABEL)).toBe('5')
+    release()
   })
 
   it('resets the form when another repository opens', async () => {
@@ -668,6 +744,93 @@ describe('RepositorySettingsPage: branch filter and severity threshold', () => {
     expect(branchFilterField().value).toBe('main\nrelease/*')
     expect(screen.getByRole<HTMLInputElement>('radio', { name: RADIO_ALL }).checked).toBe(true)
     expect(backend.patches).toEqual([])
+  })
+
+  it('takes the 422 under the branch filter away on «Отменить изменения»', async () => {
+    const backend = stubBackend([FULL_REPO])
+    backend.patchResponse = unprocessable([
+      { loc: ['body', 'branchFilter', 1], msg: ENGLISH_422_MSG, type: 'value_error' },
+    ])
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    fireEvent.change(branchFilterField(), { target: { value: 'main\n[oops' } })
+    fireEvent.click(saveButton())
+    expect(await screen.findByText('Маска в строке 2 не принята сервером')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Отменить изменения' }))
+
+    await waitFor(() => {
+      expect(screen.queryByText('Маска в строке 2 не принята сервером')).toBeNull()
+    })
+    expect(branchFilterField().value).toBe('main\nrelease/*')
+  })
+
+  it('takes the alert above the form away on «Отменить изменения»', async () => {
+    const backend = stubBackend([FULL_REPO])
+    backend.failPatch = true
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    fireEvent.change(branchFilterField(), { target: { value: 'develop' } })
+    fireEvent.click(saveButton())
+    expect(await screen.findByText('Не удалось сохранить настройки')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Отменить изменения' }))
+
+    await waitFor(() => {
+      expect(screen.queryByText('Не удалось сохранить настройки')).toBeNull()
+    })
+    expect(screen.queryByText(SERVER_500_TEXT)).toBeNull()
+  })
+})
+
+describe('RepositorySettingsPage: focus', () => {
+  it('moves focus to the first field after a successful save', async () => {
+    const backend = stubBackend([UI_REPO])
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    fireEvent.change(screen.getByLabelText(LIMIT_LABEL), { target: { value: '5' } })
+    saveButton().focus()
+    fireEvent.click(saveButton())
+
+    await screen.findByText('Настройки репозитория успешно сохранены')
+    expect(backend.patches).toHaveLength(1)
+    await waitFor(() => {
+      expect(document.activeElement).toBe(screen.getByLabelText(CI_LABEL))
+    })
+  })
+
+  it('moves focus to the first field after «Отменить изменения»', async () => {
+    stubBackend([UI_REPO])
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    fireEvent.change(screen.getByLabelText(LIMIT_LABEL), { target: { value: '5' } })
+    const cancel = screen.getByRole('button', { name: 'Отменить изменения' })
+    cancel.focus()
+    fireEvent.click(cancel)
+
+    await waitFor(() => {
+      expect(saveButton().disabled).toBe(true)
+    })
+    expect(inputValue(LIMIT_LABEL)).toBe('10')
+    expect(document.activeElement).toBe(screen.getByLabelText(CI_LABEL))
+  })
+
+  it('keeps focus on «Сохранить» when the save fails', async () => {
+    const backend = stubBackend([UI_REPO])
+    backend.failPatch = true
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    fireEvent.change(screen.getByLabelText(LIMIT_LABEL), { target: { value: '5' } })
+    saveButton().focus()
+    fireEvent.click(saveButton())
+
+    expect(await screen.findByText(SERVER_500_TEXT)).toBeTruthy()
+    expect(document.activeElement).toBe(saveButton())
   })
 })
 

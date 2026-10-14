@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 // FastAPI HTTPValidationError: the body of a 422.
-export const ValidationErrorItemSchema = z.object({
+const ValidationErrorItemSchema = z.object({
   loc: z.array(z.union([z.string(), z.number().int()])),
   msg: z.string(),
   type: z.string(),
@@ -12,7 +12,6 @@ export const ValidationErrorItemSchema = z.object({
 export const HttpValidationErrorSchema = z.object({
   detail: z.array(ValidationErrorItemSchema),
 })
-export type HttpValidationError = z.infer<typeof HttpValidationErrorSchema>
 
 export interface ValidationErrorLocation {
   path: (string | number)[]

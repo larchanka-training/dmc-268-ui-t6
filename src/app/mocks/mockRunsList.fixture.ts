@@ -41,7 +41,7 @@ function apiRepoRun(i: number): RunSession {
   return {
     // `…0100` and up: the ids below it belong to the other fixture runs, `…0099` to the rerun mock.
     id: `11111111-1111-4111-8111-${String(100 + i).padStart(12, '0')}`,
-    engine: i % 2 === 0 ? 'fast' : 'deep',
+    engine: 'fast',
     model: outcome === 'skipped' ? null : 'claude-sonnet-5',
     status: outcome,
     startedAt: new Date(startedAt).toISOString(),
