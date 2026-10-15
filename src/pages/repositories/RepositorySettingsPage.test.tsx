@@ -45,6 +45,9 @@ const FULL_REPO: Repository = {
   severityThreshold: 'all',
 }
 
+// The GitHub App lost access: the api serves the stored preference as `enabled: false` (api PR #156).
+const UNREACHABLE_REPO: Repository = { ...UI_REPO, enabled: false, installationAvailable: false }
+
 // A valid uuid that no list contains.
 const UNKNOWN_ID = 'c3d4e5f6-a7b8-4901-8def-123456789012'
 
@@ -54,6 +57,9 @@ const VERDICT_LABEL = 'Публикация вердикта'
 const SERVER_500_TEXT = 'Внутренняя ошибка сервера (500). Повторите попытку позже.'
 const BRANCH_FILTER_LABEL = 'Фильтр веток'
 const AUTO_REVIEW_LABEL = 'Автоматическое ревью'
+const SAVED_FOR_LATER_TEXT =
+  'Выбор сохранён. Авто-ревью включится, когда доступ к GitHub App восстановится.'
+const AUTO_REVIEW_ERROR_TITLE = 'Не удалось изменить автоматическое ревью'
 const ENGLISH_422_MSG = 'String should match pattern'
 const STALE_NOTICE = 'Не удалось обновить настройки. Показаны значения, загруженные ранее.'
 const RETRY_LABEL = /Повторить попытку/
@@ -71,6 +77,8 @@ interface Backend {
   patchResponse: (() => Response) | null
   /** While set, GET /api/repos answers only after this promise resolves. */
   listGate: Promise<void> | null
+  /** While set, every PATCH answers only after this promise resolves. */
+  patchGate: Promise<void> | null
   gets: number
   patches: { id: string; body: unknown }[]
   fetchMock: ReturnType<typeof vi.fn<typeof fetch>>
@@ -89,6 +97,7 @@ function stubBackend(repos: Repository[]): Backend {
     failPatch: false,
     patchResponse: null,
     listGate: null,
+    patchGate: null,
     gets: 0,
     patches: [],
     fetchMock: vi.fn<typeof fetch>((input, init) => {
@@ -100,15 +109,22 @@ function stubBackend(repos: Repository[]): Backend {
           unknown
         >
         backend.patches.push({ id, body })
-        if (backend.patchResponse !== null) {
-          return Promise.resolve(backend.patchResponse())
-        }
-        if (backend.failPatch) {
-          return Promise.resolve(new Response('Server Error', { status: 500 }))
-        }
-        const saved = { ...backend.repos.find((repo) => repo.id === id), ...body }
-        backend.repos = backend.repos.map((repo) => (repo.id === id ? (saved as Repository) : repo))
-        return Promise.resolve(new Response(JSON.stringify(saved), { status: 200 }))
+        const answer = ((): Response => {
+          if (backend.patchResponse !== null) {
+            return backend.patchResponse()
+          }
+          if (backend.failPatch) {
+            return new Response('Server Error', { status: 500 })
+          }
+          const merged = { ...backend.repos.find((repo) => repo.id === id), ...body } as Repository
+          // The api serves `enabled AND installationAvailable` (api PR #156, SD §6.9).
+          const saved = { ...merged, enabled: merged.enabled && merged.installationAvailable }
+          backend.repos = backend.repos.map((repo) => (repo.id === id ? saved : repo))
+          return new Response(JSON.stringify(saved), { status: 200 })
+        })()
+        return backend.patchGate === null
+          ? Promise.resolve(answer)
+          : backend.patchGate.then(() => answer)
       }
       backend.gets += 1
       const answer = backend.failList
@@ -171,6 +187,28 @@ function branchFilterField(): HTMLTextAreaElement {
 
 function autoReviewSwitch(): HTMLElement {
   return screen.getByRole('switch', { name: AUTO_REVIEW_LABEL })
+}
+
+/**
+ * Browsers hand the focus of a button that turns disabled to <body> (Chrome does, after the
+ * render); jsdom keeps it where it was, and cannot blur a disabled element. This does what the
+ * browsers do, so a test can tell a component that gives the focus back from one that never
+ * loses it.
+ */
+function dropFocusWhenDisabled(element: HTMLElement): MutationObserver {
+  const observer = new MutationObserver(() => {
+    if (element.hasAttribute('disabled') && document.activeElement === element) {
+      // `blur()` is a no-op on a disabled element in jsdom: move the focus away and drop it.
+      const sentinel = document.createElement('div')
+      sentinel.tabIndex = -1
+      document.body.append(sentinel)
+      sentinel.focus()
+      sentinel.blur()
+      sentinel.remove()
+    }
+  })
+  observer.observe(element, { attributes: true, attributeFilter: ['disabled'] })
+  return observer
 }
 
 /** Clicks a threshold radio, saves, and waits until the save is over. */
@@ -719,19 +757,125 @@ describe('RepositorySettingsPage: auto-review', () => {
     })
   })
 
-  it('explains why auto-review will not run when installationAvailable is false', async () => {
-    const backend = stubBackend([{ ...UI_REPO, installationAvailable: false }])
+  it('explains why auto-review will not run and what the switch does when installationAvailable is false', async () => {
+    const backend = stubBackend([UNREACHABLE_REPO])
     renderPage(settingsPath(UI_REPO.id))
 
     expect(await screen.findByText(/у GitHub App нет доступа к этому репозиторию/i)).toBeTruthy()
     expect(screen.getByText(/автоматическое ревью не запустится/i)).toBeTruthy()
-    expect(screen.getByText(/переключатель сохраняет только настройку/i)).toBeTruthy()
+    expect(
+      screen.getByText(/переключатель сохраняет выбор.*вступит в силу.*доступ к GitHub App/i),
+    ).toBeTruthy()
+    expect(screen.queryByText(/сохраняет только настройку/i)).toBeNull()
 
-    // The switch still saves the preference.
+    // The switch shows what the server says and still saves the choice.
+    expect(autoReviewSwitch().getAttribute('aria-checked')).toBe('false')
     fireEvent.click(autoReviewSwitch())
     await waitFor(() => {
-      expect(backend.patches).toEqual([{ id: UI_REPO.id, body: { enabled: false } }])
+      expect(backend.patches).toEqual([{ id: UI_REPO.id, body: { enabled: true } }])
     })
+  })
+
+  it('tells that the choice is saved, not applied, when it is turned on without GitHub App access', async () => {
+    const backend = stubBackend([UNREACHABLE_REPO])
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    fireEvent.click(autoReviewSwitch())
+
+    const message = await screen.findByText(SAVED_FOR_LATER_TEXT)
+    expect(message.closest('.ant-message-info')).not.toBeNull()
+    expect(backend.patches).toEqual([{ id: UI_REPO.id, body: { enabled: true } }])
+    // The switch shows the server value: off. It is no error and not the usual toast.
+    await waitFor(() => {
+      expect(autoReviewSwitch().getAttribute('aria-checked')).toBe('false')
+    })
+    expect(screen.queryByText(AUTO_REVIEW_ERROR_TITLE)).toBeNull()
+    expect(screen.queryByText('Автоматическое ревью включено')).toBeNull()
+    // Still one warning, and the next load agrees with the answer.
+    expect(screen.getAllByText(/у GitHub App нет доступа к этому репозиторию/i)).toHaveLength(1)
+    expect(backend.repos[0]?.enabled).toBe(false)
+  })
+
+  it('keeps the usual toasts for a repository the GitHub App can reach', async () => {
+    stubBackend([{ ...UI_REPO, enabled: false }])
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    fireEvent.click(autoReviewSwitch())
+
+    await screen.findByText('Автоматическое ревью включено')
+    expect(screen.queryByText(SAVED_FOR_LATER_TEXT)).toBeNull()
+    expect(autoReviewSwitch().getAttribute('aria-checked')).toBe('true')
+  })
+
+  it('keeps the focus on the switch when the choice is saved without GitHub App access', async () => {
+    const backend = stubBackend([UNREACHABLE_REPO])
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+    const toggle = autoReviewSwitch()
+    const observer = dropFocusWhenDisabled(toggle)
+    try {
+      toggle.focus()
+
+      fireEvent.click(toggle)
+      await screen.findByText(SAVED_FOR_LATER_TEXT)
+
+      expect(backend.patches).toHaveLength(1)
+      await waitFor(() => {
+        expect(document.activeElement).toBe(toggle)
+      })
+    } finally {
+      observer.disconnect()
+    }
+  })
+
+  it('keeps the focus on the switch after the usual save', async () => {
+    stubBackend([UI_REPO])
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+    const toggle = autoReviewSwitch()
+    const observer = dropFocusWhenDisabled(toggle)
+    try {
+      toggle.focus()
+
+      fireEvent.click(toggle)
+      await screen.findByText('Автоматическое ревью выключено')
+
+      await waitFor(() => {
+        expect(document.activeElement).toBe(toggle)
+      })
+    } finally {
+      observer.disconnect()
+    }
+  })
+
+  it('does not take the focus from a field the user moved to while the choice was saving', async () => {
+    const backend = stubBackend([UI_REPO])
+    let release = (): void => undefined
+    backend.patchGate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+    const toggle = autoReviewSwitch()
+    const observer = dropFocusWhenDisabled(toggle)
+    try {
+      toggle.focus()
+      fireEvent.click(toggle)
+      await waitFor(() => {
+        expect(backend.patches).toHaveLength(1)
+      })
+      const limit = screen.getByLabelText(LIMIT_LABEL)
+      limit.focus()
+
+      release()
+      await screen.findByText('Автоматическое ревью выключено')
+
+      expect(document.activeElement).toBe(limit)
+    } finally {
+      observer.disconnect()
+    }
   })
 
   it('does not warn about the installation when installationAvailable is true', async () => {
