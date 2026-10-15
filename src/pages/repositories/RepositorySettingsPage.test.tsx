@@ -946,7 +946,8 @@ describe('RepositorySettingsPage: auto-review', () => {
   })
 
   it('keeps the switch off, not loading and disabled while the choice is being saved', async () => {
-    // The optimistic update writes the choice into the cache at once; the switch must not show it.
+    // The optimistic update keeps the served `enabled` (off) for this repository; the switch must
+    // not show the choice either way.
     const backend = stubBackend([UNREACHABLE_REPO])
     let release = (): void => undefined
     backend.patchGate = new Promise<void>((resolve) => {
