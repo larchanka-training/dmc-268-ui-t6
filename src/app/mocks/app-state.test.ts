@@ -214,7 +214,7 @@ describe('mockRepositories', () => {
     ])
   })
 
-  it('keeps auto-review on for a repository the GitHub App cannot reach', () => {
+  it('stores auto-review on for a repository the GitHub App cannot reach', () => {
     const unreachable = mockRepositories.filter((repo) => !repo.installationAvailable)
 
     expect(unreachable.map((repo) => repo.fullName)).toEqual([

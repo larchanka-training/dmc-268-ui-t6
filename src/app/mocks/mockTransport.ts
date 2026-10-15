@@ -47,10 +47,24 @@ import {
 export const MOCK_TOKEN = 'mock_jwt_token_skvertl_dmc'
 export const MOCK_OAUTH_CODE = 'mock_code_123'
 
-// Working copy of the fixture: PATCH edits stay here, `mockRepositories` is never written.
+// Working copy of the fixture: PATCH edits stay here, `mockRepositories` is never written. Its
+// `enabled` is the stored preference; what the transport serves is `serveRepository` of it.
 let repositories: Repository[] = structuredClone(mockRepositories)
 let runSessions: RunSession[] = structuredClone(mockRunsListPage.items)
 const createdRunIds = new Set<string>()
+
+/**
+ * A copy of a stored repository as the api serves it: `enabled` is the effective
+ * `enabled AND installationAvailable` (api `repository_settings.py:27`, SD §6.9), so a
+ * repository the GitHub App cannot reach reads `enabled: false` whatever was stored, and the
+ * stored preference is write-only there.
+ */
+function serveRepository(repository: Repository): Repository {
+  return {
+    ...structuredClone(repository),
+    enabled: repository.enabled && repository.installationAvailable,
+  }
+}
 
 function findRunSession(id: string) {
   const session =
@@ -124,10 +138,10 @@ function unprocessable(detail: ValidationDetailItem[]): ApiError {
 }
 
 /**
- * Whether a branch mask is one the mock accepts: the checks of the api's `_pattern_error`
- * (api PR #156) after the length checks Zod already makes. `*` and `**` stay valid; `*` three
- * times in a row does not. The api judges the real grammar; the mock keeps the 422 reachable and
- * its refusals the same.
+ * Whether a branch mask is one the mock accepts: the refusals listed by the merged api
+ * (`contracts/openapi.yaml:1465-1469`, `_pattern_error` in api PR #156) after the length checks
+ * Zod already makes. `*` and `**` stay valid; `*` three times in a row does not. The api judges
+ * the real grammar; the mock keeps the 422 reachable and its refusals the same.
  */
 function isMockBranchMaskValid(mask: string): boolean {
   const refused =
@@ -191,7 +205,7 @@ function handleMockTransport(
   options: Parameters<MockTransportHandler>[1],
 ): unknown {
   if (endpoint.path === '/repos' && endpoint.method === 'GET') {
-    return repositories.map((r) => structuredClone(r))
+    return repositories.map(serveRepository)
   }
 
   const queryStart = endpoint.path.indexOf('?')
@@ -217,23 +231,23 @@ function handleMockTransport(
     if (!repo) {
       throw new ApiError(404, 'Not Found', { message: 'Repository not found' })
     }
-    return structuredClone(repo)
+    return serveRepository(repo)
   }
 
   if (endpoint.path.startsWith('/repos/') && endpoint.method === 'PATCH') {
     const id = endpoint.path.replace('/repos/', '')
     const index = repositories.findIndex((r) => r.id === id)
-    if (index === -1) {
+    let stored = repositories[index]
+    if (stored === undefined) {
       throw new ApiError(404, 'Not Found', { message: 'Repository not found' })
     }
     if (options.body && typeof options.body === 'object') {
       const patch = validatePatchBody(options.body)
-      repositories[index] = RepositorySchema.parse({
-        ...repositories[index],
-        ...patch,
-      })
+      // The patch is stored as sent: `enabled` is the preference, served through `serveRepository`.
+      stored = RepositorySchema.parse({ ...stored, ...patch })
+      repositories[index] = stored
     }
-    return structuredClone(repositories[index])
+    return serveRepository(stored)
   }
 
   const runDetailMatch = /^\/runs\/([^/]+)$/.exec(endpoint.path)

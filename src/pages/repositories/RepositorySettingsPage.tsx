@@ -35,6 +35,8 @@ const LinkButton: FC<{ to: string; children: ReactNode }> = ({ to, children }) =
 }
 
 const STALE_NOTICE = 'Не удалось обновить настройки. Показаны значения, загруженные ранее.'
+const CHOICE_SAVED_NOTICE =
+  'Выбор сохранён. Авто-ревью включится, когда доступ к GitHub App восстановится.'
 
 const NotAvailable: FC<{ description: string }> = ({ description }) => (
   <Empty description={description}>
@@ -99,7 +101,13 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
     }
 
     const handleToggleAutoReview = async (enabled: boolean): Promise<void> => {
-      await updateMutation.mutateAsync({ id: repository.id, patch: { enabled } })
+      const saved = await updateMutation.mutateAsync({ id: repository.id, patch: { enabled } })
+      // The server serves `enabled AND installationAvailable`: turned on without GitHub App
+      // access the choice is kept but reads off, and saying «включено» would be wrong.
+      if (enabled && !saved.installationAvailable) {
+        void message.info(CHOICE_SAVED_NOTICE)
+        return
+      }
       void message.success(
         enabled ? 'Автоматическое ревью включено' : 'Автоматическое ревью выключено',
       )
