@@ -1339,7 +1339,8 @@ describe('RepositoriesPage', () => {
       return backend
     }
 
-    const triggerName = (name: string): string => `Авто-ревью для ${name}, когда доступ вернётся`
+    const triggerName = (name: string): string =>
+      `Выбрать авто-ревью для ${name}, когда доступ вернётся`
 
     async function chooseFor(name: string, label: string): Promise<void> {
       fireEvent.click(await screen.findByRole('button', { name: triggerName(name) }))
@@ -1389,7 +1390,7 @@ describe('RepositoriesPage', () => {
     })
 
     it('keeps the switch off and without a spinner, and the trigger loading, while the PATCH is open', async () => {
-      // The optimistic update writes `enabled: true` into the cache when the request starts.
+      // The optimistic update keeps `enabled` off for this repository when the request starts.
       const backend = stubBackend([INFRA_REPO])
       let release = (): void => undefined
       backend.patchGate = new Promise<void>((resolve) => {
@@ -1416,6 +1417,35 @@ describe('RepositoriesPage', () => {
       await screen.findByText(SAVED_ON_TEXT)
       await waitUntilIdle(INFRA_NAME)
       expect(infraSwitch().getAttribute('aria-checked')).toBe('false')
+    })
+
+    it('does not count the repository in the counter or the «Активные» filter while the PATCH is open', async () => {
+      // The optimistic update must not write the unconfirmed `enabled: true` into the cache: it is a
+      // stored choice nobody can read (review r6, P3-2).
+      const backend = stubBackend([UI_REPO, INFRA_REPO])
+      let release = (): void => undefined
+      backend.patchGate = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      renderWithClient(<RepositoriesPage />)
+      expect(await screen.findByText('Подключено: 2, ревью включено в 1')).toBeTruthy()
+
+      await chooseFor(INFRA_NAME, 'Включить авто-ревью')
+      // `mutationFn` runs after `onMutate`: the optimistic write has landed once the PATCH is out.
+      await waitFor(() => {
+        expect(backend.patches).toHaveLength(1)
+      })
+
+      expect(screen.getByText('Подключено: 2, ревью включено в 1')).toBeTruthy()
+      expect(screen.getByText('Активные (1)')).toBeTruthy()
+      fireEvent.click(screen.getByText('Активные (1)'))
+      await waitFor(() => {
+        expect(screen.queryByText(INFRA_NAME)).toBeNull()
+      })
+      expect(screen.getByText(UI_NAME)).toBeTruthy()
+
+      release()
+      await screen.findByText(SAVED_ON_TEXT)
     })
 
     it('still reads the served enabled in the counter and the «Активные» filter after a choice', async () => {

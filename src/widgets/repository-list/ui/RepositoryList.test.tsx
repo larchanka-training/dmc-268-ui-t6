@@ -547,7 +547,8 @@ const UNREACHABLE_REPO: Repository = {
   severityThreshold: 'all',
   installationAvailable: false,
 }
-const CHOICE_TRIGGER_NAME = `Авто-ревью для ${UNREACHABLE_NAME}, когда доступ вернётся`
+// The visible text «Выбрать» starts the accessible name (WCAG 2.5.3, label in name).
+const CHOICE_TRIGGER_NAME = `Выбрать авто-ревью для ${UNREACHABLE_NAME}, когда доступ вернётся`
 const ENABLE_CHOICE = 'Включить авто-ревью'
 const KEEP_OFF_CHOICE = 'Оставить выключенным'
 
@@ -577,6 +578,30 @@ function dropFocusToBody(): void {
   })
 }
 
+/**
+ * Opens the menu and picks an item the way a person does: the item holds the focus (a click or the
+ * keys put it there), then the click lands. Returns the item.
+ */
+async function pickFromMenu(label: string): Promise<HTMLElement> {
+  fireEvent.click(choiceTrigger())
+  const item = await screen.findByRole('menuitem', { name: label })
+  item.focus()
+  expect(document.activeElement).toBe(item)
+  fireEvent.click(item)
+  return item
+}
+
+/**
+ * The closing menu keeps the focus on its item for the length of its motion (about 250 ms), then
+ * the item leaves and the browser hands the focus to <body>. This is that moment for `item`; unlike
+ * `dropFocusToBody` it leaves the focus alone when something else holds it.
+ */
+function itemLeaves(item: HTMLElement): void {
+  act(() => {
+    item.blur()
+  })
+}
+
 describe('RepositoryList while the GitHub App has no access', () => {
   function unreachableList(
     props: Partial<Parameters<typeof RepositoryList>[0]> = {},
@@ -601,7 +626,11 @@ describe('RepositoryList while the GitHub App has no access', () => {
     expect(screen.getByText('Активен')).toBeTruthy()
     expect(screen.queryByText('Пауза')).toBeNull()
     const trigger = choiceTrigger()
-    expect(trigger.textContent).toBe('Когда доступ вернётся')
+    // The visible text is short, so the Status column stays narrow (browser round 5, 3f); the caret
+    // says the button opens a menu.
+    expect(trigger.textContent).toBe('Выбрать')
+    expect(trigger.querySelector('.anticon-down')).not.toBeNull()
+    expect(trigger.getAttribute('aria-label')?.startsWith(trigger.textContent)).toBe(true)
     expect(screen.getAllByRole('button', { name: /когда доступ вернётся/ })).toHaveLength(1)
   })
 
@@ -650,7 +679,8 @@ describe('RepositoryList while the GitHub App has no access', () => {
   })
 
   it('keeps the switch off and without a spinner, and the trigger loading, while a choice saves', () => {
-    // The optimistic update of the mutation writes `enabled: true` into the cache at once.
+    // The optimistic update keeps `enabled` off for such a repository too; the row does not rely
+    // on it.
     render(
       unreachableList({
         repositories: [{ ...UNREACHABLE_REPO, enabled: true }],
@@ -718,5 +748,104 @@ describe('RepositoryList while the GitHub App has no access', () => {
     view.rerender(unreachableList({ onToggleEnabled: vi.fn(), updatingRepoIds: new Set() }))
 
     expect(document.activeElement).toBe(search)
+  })
+
+  it.each([
+    ['at once: the row is never seen saving (0 ms)', 'instant'],
+    ['while the closing menu item still holds the focus (a fast save, 100 ms)', 'fast'],
+    ['after the closing menu is gone (a slow save, 600 ms)', 'slow'],
+  ] as const)('ends with the focus on the trigger when the answer comes %s', async (_, answer) => {
+    const onToggleEnabled = vi.fn()
+    const view = render(unreachableList({ onToggleEnabled }))
+    const trigger = choiceTrigger()
+    trigger.focus()
+
+    const item = await pickFromMenu(ENABLE_CHOICE)
+    if (answer !== 'instant') {
+      view.rerender(
+        unreachableList({ onToggleEnabled, updatingRepoIds: new Set([UNREACHABLE_ID]) }),
+      )
+    }
+    if (answer === 'slow') {
+      itemLeaves(item)
+    }
+    if (answer !== 'instant') {
+      view.rerender(unreachableList({ onToggleEnabled, updatingRepoIds: new Set() }))
+    }
+    itemLeaves(item)
+
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('does not pull the focus to the trigger when it did not hold it before the menu opened', async () => {
+    render(unreachableList({ onToggleEnabled: vi.fn() }))
+
+    const item = await pickFromMenu(KEEP_OFF_CHOICE)
+    itemLeaves(item)
+
+    expect(document.activeElement).toBe(document.body)
+  })
+})
+
+describe('RepositoryList when the access comes back during a refetch', () => {
+  // A refetch (the window refocus asks again) can say the GitHub App reaches the repository now:
+  // the row turns to the usual switch and the trigger leaves the page (review r6, P3-3).
+  const reachableRepo: Repository = { ...UNREACHABLE_REPO, installationAvailable: true }
+
+  function list(repo: Repository): React.ReactElement {
+    return (
+      <RepositoryList
+        onSyncAccess={vi.fn()}
+        onToggleEnabled={vi.fn()}
+        repositories={[repo, ...mockRepos.filter((other) => other.enabled)]}
+        settingsHref={settingsHref}
+      />
+    )
+  }
+
+  it('moves the focus to the switch of the row when the trigger held it', () => {
+    const view = render(list(UNREACHABLE_REPO))
+    choiceTrigger().focus()
+    expect(document.activeElement).toBe(choiceTrigger())
+
+    view.rerender(list(reachableRepo))
+
+    expect(screen.queryByRole('button', { name: CHOICE_TRIGGER_NAME })).toBeNull()
+    expect(unreachableSwitch().hasAttribute('disabled')).toBe(false)
+    expect(document.activeElement).toBe(unreachableSwitch())
+  })
+
+  it('moves nothing when the focus is on another control', () => {
+    const view = render(list(UNREACHABLE_REPO))
+    const search = screen.getByPlaceholderText('Поиск по названию...')
+    search.focus()
+
+    view.rerender(list(reachableRepo))
+
+    expect(document.activeElement).toBe(search)
+  })
+
+  it('moves nothing when the trigger held the focus earlier and the user has left it since', () => {
+    const view = render(list(UNREACHABLE_REPO))
+    choiceTrigger().focus()
+    // A refetch that changes nothing re-renders the row with the trigger focused.
+    view.rerender(list({ ...UNREACHABLE_REPO }))
+    act(() => {
+      choiceTrigger().blur()
+    })
+    expect(document.activeElement).toBe(document.body)
+
+    view.rerender(list(reachableRepo))
+
+    expect(document.activeElement).toBe(document.body)
+  })
+
+  it('moves nothing when the focus was nowhere', () => {
+    const view = render(list(UNREACHABLE_REPO))
+    expect(document.activeElement).toBe(document.body)
+
+    view.rerender(list(reachableRepo))
+
+    expect(document.activeElement).toBe(document.body)
   })
 })
