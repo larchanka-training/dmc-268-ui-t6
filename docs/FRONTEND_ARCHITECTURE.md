@@ -203,6 +203,7 @@ src/entities/repository/api/index.test.ts
 src/entities/repository/api/index.ts
 src/entities/repository/api/useRepository.test.tsx
 src/entities/repository/api/useRepositoryRulesStatus.test.tsx
+src/entities/repository/api/useUpdateRepository.test.tsx
 src/entities/repository/index.ts
 src/entities/repository/model/schemas.rulesStatus.test.ts
 src/entities/repository/model/schemas.test.ts
@@ -678,8 +679,9 @@ lazy-страницы), отложенная запись `q` (до 250 мс п�
   `enabled AND installationAvailable` (§5). Пока у GitHub App нет доступа
   (`installationAvailable === false`), сохранённую настройку `GET` не возвращает, и UI её не
   показывает (решение D9): переключатель выключен и недоступен (`disabled`), а выбор делают две
-  кнопки в предупреждении «Автоматическое ревью недоступно» (у GitHub App нет доступа, поэтому ревью
-  не запустится): «Включить авто-ревью» — `PATCH { enabled: true }`, «Оставить выключенным» —
+  кнопки под текстом предупреждения «Автоматическое ревью недоступно» (у GitHub App нет доступа,
+  поэтому ревью не запустится; не в слоте `action` у `Alert`: рядом с кнопками заголовок и текст
+  схлопываются): «Включить авто-ревью» — `PATCH { enabled: true }`, «Оставить выключенным» —
   `PATCH { enabled: false }`. Подписи и тексты сообщений — в
   `features/repository-settings/lib/autoReviewChoice.ts`. Ответ на такой `PATCH` с
   `installationAvailable: false` (при любом значении `enabled`) — `message.info` «Выбор сохранён.
@@ -692,8 +694,11 @@ lazy-страницы), отложенная запись `q` (до 250 мс п�
   выбора, предупреждение исчезает, и фокус получает переключатель.
   Список репозиториев (`widgets/repository-list`) делает то же для строки без доступа (решение D10):
   переключатель выключен и недоступен, вместо «Пауза» — «Нет доступа», а два выбора лежат в меню
-  кнопки «Когда доступ вернётся» (`Dropdown`, пока строка сохраняется, кнопка в `loading`, и фокус
-  возвращается на неё по тому же правилу); `RepositoriesPage` отвечает тем же `message.info`.
+  кнопки «Выбрать» с `DownOutlined` (`Dropdown`; короткий текст держит колонку «Статус» узкой, а
+  `aria-label` начинается с него), пока строка сохраняется, кнопка в `loading`. Если фокус был у
+  кнопки до открытия меню, при выборе пункта он сразу переходит на неё (пункт держит его, пока меню
+  закрывается, и быстрый ответ успел бы кончиться раньше). Если рефетч вернул доступ, а фокус был у
+  кнопки, его получает переключатель строки. `RepositoriesPage` отвечает тем же `message.info`.
 - Ошибка сохранения раскладывается `splitServerError`
   (`features/repository-settings/lib/serverFieldErrors.ts`): 422 с `detail[].loc` на поле формы —
   текст под этим полем, остальное — `Alert` над формой (§5, «Контракт api#149 (api PR #156)»). Ошибка
@@ -1046,9 +1051,10 @@ off; }` для SSE, либо в документе фиксируется cross-
   [техлид, 14.10.2026, #149]»). `PATCH { enabled }` сохраняет только настройку, и пока у GitHub App
   нет доступа (`installationAvailable: false`), `GET` её не вернёт: она только для записи, а ответ
   всегда `enabled: false`. `enabled: false` при `installationAvailable: true` — пауза пользователя.
-  UI показывает значение сервера как есть (переключатель выключен) и не выводит настройку сам;
-  оба выбора без доступа («Включить авто-ревью» и «Оставить выключенным») подтверждаются сообщением,
-  что выбор сохранён (§2, «Автоматическое ревью»). Моки отвечают так же (§8).
+  UI показывает значение сервера как есть (переключатель выключен) и не выводит настройку сам:
+  оптимистичное обновление `useUpdateRepository` тоже оставляет `enabled: false` у репозитория без
+  доступа; оба выбора без доступа («Включить авто-ревью» и «Оставить выключенным») подтверждаются
+  сообщением, что выбор сохранён (§2, «Автоматическое ревью»). Моки отвечают так же (§8).
 
 **2. `RepositoryUpdate` (`PATCH /api/repos/{id}`)** — плюс необязательные `branchFilter` и
 `severityThreshold` (те же правила). `installationAvailable` не отправляется; пустой объект
@@ -1712,8 +1718,8 @@ React, без `innerHTML`.
 
   Рабочая копия мока хранит настройку `enabled` как есть (infra-t6 — `true`), а `GET` и ответ
   `PATCH` отдают итог `enabled AND installationAvailable` (`serveRepository`, как api `repository_settings.py:27`), поэтому
-  infra-t6 читается с `enabled: false`, а `PATCH { enabled: true }` для неё отвечает `false` и
-  сохраняет настройку (снаружи её не видно: она только для записи). У доступного репозитория ответ —
+  infra-t6 читается с `enabled: false`, а `PATCH { enabled: true | false }` для неё отвечает
+  `false` и сохраняет настройку (снаружи её не видно: она только для записи). У доступного репозитория ответ —
   настройка. `GET` и `PATCH` отдают копии (`structuredClone`), экспорт `mockRepositories` не
   меняется.
 

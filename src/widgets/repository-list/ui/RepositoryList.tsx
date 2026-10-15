@@ -1,5 +1,6 @@
 import {
   BranchesOutlined,
+  DownOutlined,
   GithubOutlined,
   PlusOutlined,
   ReloadOutlined,
@@ -19,7 +20,7 @@ import {
   type MenuProps,
   type TableColumnsType,
 } from 'antd'
-import { useEffect, useMemo, useRef, useState, type FC, type MouseEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FC, type MouseEvent } from 'react'
 
 import type {
   Repository,
@@ -87,14 +88,28 @@ interface StatusCellProps {
 const StatusCell: FC<StatusCellProps> = ({ repository, updating, onToggleEnabled }) => {
   const { id, fullName, enabled, installationAvailable } = repository
   const [menuOpen, setMenuOpen] = useState(false)
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  // Whether the trigger held the focus when the menu opened, and whether the focus is to go back
-  // to it once the choice is saved.
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
+  const switchRef = useRef<HTMLButtonElement>(null)
+  // Whether the trigger held the focus when the menu opened, and whether the focus is to be put
+  // back on it once the choice is saved.
   const triggerHadFocus = useRef(false)
   const returnFocus = useRef(false)
+  // The trigger leaves the page when a refetch says the access is back. It is marked as it leaves,
+  // while it is still in the document and `activeElement` tells whether it held the focus. A node
+  // that attaches again (the ref is composed by `Dropdown`) cancels the mark.
+  const switchTakesFocus = useRef(false)
+  const trackTrigger = useCallback((node: HTMLButtonElement | null) => {
+    if (node !== null) {
+      switchTakesFocus.current = false
+    } else if (document.activeElement === triggerRef.current) {
+      switchTakesFocus.current = true
+    }
+    triggerRef.current = node
+  }, [])
 
-  // The menu closes on a choice and takes the focus with it. Once the save is over, the focus goes
-  // back to the trigger, if it held it before the menu opened and the user has not moved on.
+  // The menu closes on a choice and takes the focus with it. The pick itself moves the focus to the
+  // trigger (below); this is the second guard: once the save is over, the focus goes back to the
+  // trigger if it was to return and the user has not moved on.
   useEffect(() => {
     if (updating || !returnFocus.current) {
       return
@@ -105,6 +120,18 @@ const StatusCell: FC<StatusCellProps> = ({ repository, updating, onToggleEnabled
     }
   }, [updating])
 
+  // Access is back while the trigger held the focus: the switch of the row takes it, unless the
+  // user has moved on (the focus is not on <body>).
+  useEffect(() => {
+    if (!installationAvailable || !switchTakesFocus.current) {
+      return
+    }
+    switchTakesFocus.current = false
+    if (document.activeElement === document.body) {
+      switchRef.current?.focus()
+    }
+  }, [installationAvailable])
+
   if (installationAvailable) {
     return (
       <Flex align="center" gap={10}>
@@ -114,6 +141,7 @@ const StatusCell: FC<StatusCellProps> = ({ repository, updating, onToggleEnabled
           disabled={updating}
           loading={updating}
           onChange={(checked) => void onToggleEnabled?.(id, checked)}
+          ref={switchRef}
         />
         <Text className={styles.switchLabel} type="secondary">
           {enabled ? 'Активен' : 'Пауза'}
@@ -124,8 +152,8 @@ const StatusCell: FC<StatusCellProps> = ({ repository, updating, onToggleEnabled
 
   return (
     <Flex align="center" gap={10} wrap>
-      {/* Off like the served `enabled`, also while the optimistic update of a saving choice holds
-          `enabled: true` in the cache; the spinner is the trigger's. */}
+      {/* Off like the served `enabled`, whatever the cache holds (the optimistic update keeps it off
+          too, this is the second guard); the spinner of a saving choice is the trigger's. */}
       <Switch aria-label={`Ревью для ${fullName}`} checked={false} disabled />
       <Text className={styles.switchLabel} type="secondary">
         Нет доступа
@@ -136,6 +164,11 @@ const StatusCell: FC<StatusCellProps> = ({ repository, updating, onToggleEnabled
           onClick: ({ key }) => {
             setMenuOpen(false)
             returnFocus.current = triggerHadFocus.current
+            // The item keeps the focus until the closing motion ends (about 250 ms), and a save
+            // can be over sooner: the focus moves to the trigger now, not when the save is done.
+            if (triggerHadFocus.current) {
+              triggerRef.current?.focus()
+            }
             void onToggleEnabled?.(id, key === 'enable')
           },
         }}
@@ -151,12 +184,14 @@ const StatusCell: FC<StatusCellProps> = ({ repository, updating, onToggleEnabled
         <Button
           aria-expanded={menuOpen}
           aria-haspopup="menu"
-          aria-label={`Авто-ревью для ${fullName}, когда доступ вернётся`}
+          aria-label={`Выбрать авто-ревью для ${fullName}, когда доступ вернётся`}
+          icon={<DownOutlined />}
+          iconPlacement="end"
           loading={updating}
-          ref={triggerRef}
+          ref={trackTrigger}
           size="small"
         >
-          Когда доступ вернётся
+          Выбрать
         </Button>
       </Dropdown>
     </Flex>

@@ -125,11 +125,21 @@ export function useUpdateRepository() {
       // 2. Snapshot current repositories
       const previous = queryClient.getQueryData<Repository[]>(REPOSITORIES_QUERY_KEY)
 
-      // 3. Optimistically update targeted repository
+      // 3. Optimistically update targeted repository. The cached `enabled` is the served value,
+      //    `enabled AND installationAvailable` (api PR #156): where the GitHub App has no access
+      //    a stored choice is write-only and never shown, so the merge keeps it off there.
       if (previous) {
         queryClient.setQueryData<Repository[]>(
           REPOSITORIES_QUERY_KEY,
-          previous.map((repo) => (repo.id === id ? { ...repo, ...patch } : repo)),
+          previous.map((repo) =>
+            repo.id === id
+              ? {
+                  ...repo,
+                  ...patch,
+                  enabled: (patch.enabled ?? repo.enabled) && repo.installationAvailable,
+                }
+              : repo,
+          ),
         )
       }
 
