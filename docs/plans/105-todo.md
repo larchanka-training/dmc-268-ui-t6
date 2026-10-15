@@ -50,7 +50,7 @@ findings, then publish the focused change as a pull request.
 
 - [x] All frontend gates run; repository checks pass with preexisting local-store formatting limitation reported exactly, without modifying unrelated files.
 - [x] Fresh Standards and Spec reviews report zero findings; resolve findings and repeat review when needed.
-- [ ] Publisher rechecks ownership/current main, rebases if needed, commits with normal hooks, pushes and opens a PR using `What` / `Why` / `How to verify` / `Refs` and `Refs #105`, without closing the issue or linking the Development panel.
+- [x] Publisher rechecks ownership/current main, rebases if needed, commits with normal hooks, pushes and opens a PR using `What` / `Why` / `How to verify` / `Refs` and `Refs #105`, without closing the issue or linking the Development panel.
 
 **Verification:** Execute commands below, inspect final diff/status, preserve
 `.pnpm-store/`, record RED/GREEN and gate evidence here, return and attach the PR
@@ -76,9 +76,9 @@ contrast, no horizontal overflow and reduced motion.
 - [x] Update plan/todo to reflect actual implementation and validation.
 - [x] Recheck current main and ownership; rebase before requesting review.
 - [x] Readiness/reviewer checkpoint: user chose ready PR and will assign reviewer later; create ready PR without `--reviewer`.
-- [ ] Commit/push/PR complete with hooks, issue references and no unrelated files.
-- [ ] PR URL attached and returned to user.
-- [ ] Task 2 complete.
+- [x] Commit/push/PR complete with hooks, issue references and no unrelated files.
+- [x] PR URL attached and returned to the coordinating agent for the user.
+- [x] Task 2 complete.
 
 ## Evidence
 
@@ -130,3 +130,9 @@ Development on 2026-10-15:
 - Before publication, remote main remains
   `24af7b75e6c20a6526a9cf31955aa220c1fde87b`, the branch base. Ownership is
   unchanged: only PR #107 overlaps the mapper, covered by the comment above.
+- Published ready-for-review [PR #108](https://github.com/larchanka-training/dmc-268-ui-t6/pull/108)
+  from `fix/105-rerun-conflict-message`; attached to the chat. The user will
+  assign the reviewer. Implementation commit `8337433` passed normal
+  pre-commit (ESLint and Prettier) and pre-push (types and lint) hooks. The
+  approved source hashes are unchanged. The preexisting `.pnpm-store/`
+  remains untracked; no unrelated files or dependencies were committed.
