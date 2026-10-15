@@ -1,5 +1,5 @@
 import { Alert, Button, Flex, Form, Input, InputNumber, Radio, Select, Typography } from 'antd'
-import { useState, type FC, type ReactNode } from 'react'
+import { useImperativeHandle, useState, type FC, type ReactNode, type Ref } from 'react'
 
 import type {
   Repository,
@@ -45,24 +45,36 @@ function serverErrorProps(
   }
 }
 
+/** What the page that mounts the form can ask of it. */
+export interface RepositorySettingsFormHandle {
+  /** Moves the focus to the first editable field. */
+  focusFirstField: () => void
+  /** `true` while a field differs from what the form opened with, or last saved. */
+  hasUnsavedChanges: () => boolean
+}
+
 export interface RepositorySettingsFormProps {
   repository: Repository
   /** Sends the patch and resolves with the saved repository; rejects when the server refuses. */
   onSave: (patch: UpdateRepositoryInput) => Promise<Repository>
   /** Text of an error the form shows above itself. */
   describeError: (error: unknown) => string
+  ref?: Ref<RepositorySettingsFormHandle>
 }
 
 /**
  * The form is built once per opened repository: the page mounts it with a `key` and only after
  * the repository has loaded. Later props (a background refetch, the optimistic update of a save
- * and its rollback) never reach the fields. The baseline is what the form opened with, and after
- * a successful save what the server confirmed; only fields that differ from it are sent.
+ * and its rollback) never reach the fields; the page remounts the form when it wants fresh
+ * values to, and asks through `ref` (`hasUnsavedChanges`) whether that would lose any. The
+ * baseline is what the form opened with, and after a successful save what the server confirmed;
+ * only fields that differ from it are sent.
  */
 export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
   repository,
   onSave,
   describeError,
+  ref,
 }) => {
   const [form] = Form.useForm<SettingsFormValues>()
   const [initialValues] = useState(() => toFormValues(repository))
@@ -73,6 +85,17 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
   const [serverErrors, setServerErrors] = useState<ServerFieldErrors>({})
 
   const changed = Object.keys(buildSettingsPatch(baseline, values)).length > 0
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      focusFirstField: () => {
+        form.focusField(FIRST_FIELD)
+      },
+      hasUnsavedChanges: () => changed,
+    }),
+    [form, changed],
+  )
 
   const handleFinish = async (submitted: SettingsFormValues): Promise<void> => {
     const patch = buildSettingsPatch(baseline, submitted)
