@@ -16,9 +16,9 @@ export interface AutoReviewSwitchProps {
   enabled: boolean
   /**
    * `false`: the GitHub App cannot reach the repository. The switch is disabled then and reads
-   * off, even while the optimistic update of a save holds `enabled: true` in the cache; the
-   * warning carries the two choices instead (D9): the stored preference cannot be read, so it is
-   * never shown.
+   * off, whatever `enabled` says (the optimistic update of `useUpdateRepository` keeps it off
+   * too, this is the second guard); the warning carries the two choices instead (D9): the stored
+   * preference cannot be read, so it is never shown.
    */
   installationAvailable: boolean
   /** Saves the choice alone; rejects when the server refuses. */
@@ -134,29 +134,38 @@ export const AutoReviewSwitch: FC<AutoReviewSwitchProps> = ({
 
       {!installationAvailable ? (
         <Alert
-          action={
-            <Flex gap={8} wrap>
-              <Button
-                disabled={pending !== null}
-                loading={pending === true}
-                onClick={() => void handleChange(true, enableRef)}
-                ref={trackEnable}
-                size="small"
-              >
-                {ENABLE_AUTO_REVIEW_LABEL}
-              </Button>
-              <Button
-                disabled={pending !== null}
-                loading={pending === false}
-                onClick={() => void handleChange(false, keepOffRef)}
-                ref={trackKeepOff}
-                size="small"
-              >
-                {KEEP_AUTO_REVIEW_OFF_LABEL}
-              </Button>
+          // The buttons are not in the `action` slot: antd lays an Alert out as a row (icon, text,
+          // actions), and beside two buttons the title and the text collapse (at 390px to one
+          // letter per line). Under the text they wrap and take the width they need.
+          description={
+            <Flex gap={8} vertical>
+              <span>
+                У GitHub App нет доступа к этому репозиторию, поэтому автоматическое ревью не
+                запустится. Выберите, что сделать, когда доступ к GitHub App будет восстановлен:
+                сохранённый выбор здесь не показывается, пока доступа нет.
+              </span>
+              <Flex gap={8} wrap>
+                <Button
+                  disabled={pending !== null}
+                  loading={pending === true}
+                  onClick={() => void handleChange(true, enableRef)}
+                  ref={trackEnable}
+                  size="small"
+                >
+                  {ENABLE_AUTO_REVIEW_LABEL}
+                </Button>
+                <Button
+                  disabled={pending !== null}
+                  loading={pending === false}
+                  onClick={() => void handleChange(false, keepOffRef)}
+                  ref={trackKeepOff}
+                  size="small"
+                >
+                  {KEEP_AUTO_REVIEW_OFF_LABEL}
+                </Button>
+              </Flex>
             </Flex>
           }
-          description="У GitHub App нет доступа к этому репозиторию, поэтому автоматическое ревью не запустится. Выберите, что сделать, когда доступ к GitHub App будет восстановлен: сохранённый выбор здесь не показывается, пока доступа нет."
           showIcon
           title="Автоматическое ревью недоступно"
           type="warning"
