@@ -694,6 +694,21 @@ describe('RunsPage', () => {
           })
           expect(document.activeElement).toBe(elsewhere)
         })
+
+        it('moves no focus when the retry did not hold it at the click', async () => {
+          const retry = await focusRetryOfFailedPage()
+          // A click with the mouse: Safari does not focus a button for it.
+          retry.blur()
+          expect(document.activeElement).toBe(document.body)
+
+          fireEvent.click(retry)
+
+          await screen.findByRole('button', { name: 'Показать ещё' })
+          await act(async () => {
+            await new Promise((resolve) => setTimeout(resolve, 20))
+          })
+          expect(document.activeElement).toBe(document.body)
+        })
       })
 
       it('leaves the focus where the user moved it when the next page fails', async () => {
