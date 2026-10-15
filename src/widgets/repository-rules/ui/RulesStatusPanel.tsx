@@ -1,5 +1,5 @@
 import { Alert, Button, Skeleton, Typography } from 'antd'
-import { useEffect, useRef, type FC, type MouseEvent } from 'react'
+import { useCallback, useEffect, useRef, type FC, type MouseEvent } from 'react'
 
 import { useRepositoryRulesStatus } from '../../../entities/repository'
 import { RulesStatusDetails } from './RulesStatusDetails'
@@ -30,6 +30,21 @@ export const RulesStatusPanel: FC<RulesStatusPanelProps> = ({ repoId, enabled })
   // then. A retry that fails again keeps its button, and the focus stays on it.
   const refreshRef = useRef<HTMLButtonElement>(null)
   const refocusAfterRetry = useRef(false)
+
+  // The retry of the load error can also go away because of a refetch it did not start (a
+  // refocused window, an invalidation). It is marked as it leaves the page, while it is still in
+  // the document and `activeElement` tells whether it held the focus.
+  const errorRetryRef = useRef<HTMLButtonElement | null>(null)
+  const trackErrorRetry = useCallback((node: HTMLButtonElement | null) => {
+    if (node !== null) {
+      errorRetryRef.current = node
+      return
+    }
+    if (document.activeElement === errorRetryRef.current) {
+      refocusAfterRetry.current = true
+    }
+    errorRetryRef.current = null
+  }, [])
 
   const refresh = (): void => {
     void query.refetch()
@@ -62,7 +77,7 @@ export const RulesStatusPanel: FC<RulesStatusPanelProps> = ({ repoId, enabled })
       return (
         <Alert
           action={
-            <Button loading={query.isFetching} onClick={retry} size="small">
+            <Button loading={query.isFetching} onClick={retry} ref={trackErrorRetry} size="small">
               Повторить
             </Button>
           }
