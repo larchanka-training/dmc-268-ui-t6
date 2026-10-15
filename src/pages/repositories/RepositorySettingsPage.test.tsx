@@ -235,17 +235,19 @@ function retryButton(): HTMLElement {
 }
 
 /**
- * Opens the settings from a cached list (limit 3) while the refetch on open fails; the server
- * has moved on to limit 7 by the time anyone retries.
+ * Opens the settings of `repository` from a cached list (limit 3) while the refetch on open
+ * fails; the server has moved on to limit 7 by the time anyone retries.
  */
-async function openWithFailedRefresh(): Promise<{ backend: Backend; client: QueryClient }> {
+async function openWithFailedRefresh(
+  repository: Repository = UI_REPO,
+): Promise<{ backend: Backend; client: QueryClient }> {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
   })
-  client.setQueryData(REPOSITORIES_QUERY_KEY, [{ ...UI_REPO, maxComments: 3 }])
-  const backend = stubBackend([{ ...UI_REPO, maxComments: 7 }])
+  client.setQueryData(REPOSITORIES_QUERY_KEY, [{ ...repository, maxComments: 3 }])
+  const backend = stubBackend([{ ...repository, maxComments: 7 }])
   backend.failList = true
-  renderPage(settingsPath(UI_REPO.id), client)
+  renderPage(settingsPath(repository.id), client)
   await screen.findByLabelText(LIMIT_LABEL)
   await screen.findByText(STALE_NOTICE)
   return { backend, client }
@@ -665,6 +667,68 @@ describe('RepositorySettingsPage: a failed refresh on open', () => {
     expect(screen.getByLabelText(LIMIT_LABEL)).toBe(limit)
     expect(limit.value).toBe('5')
     expect(document.activeElement).toBe(limit)
+  })
+
+  it('keeps an emptied limit and its focus when the retry succeeds with a different limit', async () => {
+    const { backend } = await openWithFailedRefresh()
+    backend.failList = false
+    let release: () => void = () => undefined
+    backend.listGate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const retry = retryButton()
+    retry.focus()
+    fireEvent.click(retry)
+    await waitFor(() => {
+      expect(backend.gets).toBe(2)
+    })
+
+    // Emptying the limit is not a change a PATCH could carry, but it is the user's draft.
+    const limit = screen.getByLabelText<HTMLInputElement>(LIMIT_LABEL)
+    limit.focus()
+    fireEvent.change(limit, { target: { value: '' } })
+    expect(limit.value).toBe('')
+    expect(saveButton().disabled).toBe(true)
+    release()
+
+    await waitFor(() => {
+      expect(screen.queryByText(STALE_NOTICE)).toBeNull()
+    })
+    await settle()
+    expect(screen.getByLabelText(LIMIT_LABEL)).toBe(limit)
+    expect(limit.value).toBe('')
+    expect(document.activeElement).toBe(limit)
+  })
+
+  it('keeps a branch filter text that only reads as the same list when the retry succeeds', async () => {
+    const { backend } = await openWithFailedRefresh(FULL_REPO)
+    backend.failList = false
+    let release: () => void = () => undefined
+    backend.listGate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const retry = retryButton()
+    retry.focus()
+    fireEvent.click(retry)
+    await waitFor(() => {
+      expect(backend.gets).toBe(2)
+    })
+
+    // A blank line and trailing spaces: the same masks, so no PATCH, but the text is typed.
+    const filter = branchFilterField()
+    filter.focus()
+    fireEvent.change(filter, { target: { value: 'main\nrelease/*  \n' } })
+    expect(saveButton().disabled).toBe(true)
+    release()
+
+    await waitFor(() => {
+      expect(screen.queryByText(STALE_NOTICE)).toBeNull()
+    })
+    await settle()
+    expect(branchFilterField()).toBe(filter)
+    expect(filter.value).toBe('main\nrelease/*  \n')
+    expect(inputValue(LIMIT_LABEL)).toBe('3')
+    expect(document.activeElement).toBe(filter)
   })
 
   it('moves no focus when the retry did not have it', async () => {

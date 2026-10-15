@@ -14,6 +14,7 @@ import {
 import { SEVERITY_THRESHOLD_OPTIONS } from '../lib/severityThreshold'
 import {
   buildSettingsPatch,
+  hasDraftChanges,
   toFormValues,
   validateBranchFilterText,
   type SettingsFormValues,
@@ -49,7 +50,10 @@ function serverErrorProps(
 export interface RepositorySettingsFormHandle {
   /** Moves the focus to the first editable field. */
   focusFirstField: () => void
-  /** `true` while a field differs from what the form opened with, or last saved. */
+  /**
+   * `true` while a field holds anything other than what the form opened with, or last saved,
+   * as typed: an emptied limit counts though «Сохранить» stays disabled for it.
+   */
   hasUnsavedChanges: () => boolean
 }
 
@@ -92,9 +96,11 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
       focusFirstField: () => {
         form.focusField(FIRST_FIELD)
       },
-      hasUnsavedChanges: () => changed,
+      // Anything typed counts, even what no PATCH could carry (an emptied limit): asked of the
+      // store now, not of the `values` of the last render.
+      hasUnsavedChanges: () => hasDraftChanges(baseline, form.getFieldsValue()),
     }),
-    [form, changed],
+    [form, baseline],
   )
 
   const handleFinish = async (submitted: SettingsFormValues): Promise<void> => {

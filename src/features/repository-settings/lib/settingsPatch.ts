@@ -102,3 +102,19 @@ export function buildSettingsPatch(
   }
   return patch
 }
+
+/**
+ * Whether the form holds anything other than its baseline: every field compared as typed, with no
+ * parsing and no normalising. Unlike `buildSettingsPatch` this counts what a PATCH cannot or
+ * need not carry (a cleared limit, a branch filter text that reads as the same list), because
+ * that is still the user's draft.
+ */
+export function hasDraftChanges(baseline: SettingsFormValues, values: SettingsFormValues): boolean {
+  return (
+    values.waitForCi !== baseline.waitForCi ||
+    values.maxComments !== baseline.maxComments ||
+    values.reviewEvent !== baseline.reviewEvent ||
+    values.branchFilter !== baseline.branchFilter ||
+    values.severityThreshold !== baseline.severityThreshold
+  )
+}
