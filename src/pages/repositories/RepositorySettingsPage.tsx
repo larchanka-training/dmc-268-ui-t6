@@ -1,6 +1,14 @@
 import { RightOutlined } from '@ant-design/icons'
 import { Alert, App, Breadcrumb, Button, Empty, Flex, Skeleton } from 'antd'
-import { useRef, useState, type FC, type MouseEvent, type ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FC,
+  type MouseEvent,
+  type ReactNode,
+} from 'react'
 import { flushSync } from 'react-dom'
 import { Link, useHref, useLinkClickHandler, useParams } from 'react-router'
 
@@ -69,6 +77,33 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
   const formRef = useRef<RepositorySettingsFormHandle>(null)
   const [formEpoch, setFormEpoch] = useState(0)
 
+  // The notice also goes away because of a refetch the retry did not start (a refocused window,
+  // the refetch after a save). If the retry held the focus, the first field takes it, and the
+  // form stays as it is. The retry is marked as it leaves the page, while it is still in the
+  // document and `activeElement` tells whether it held the focus.
+  const noticeRetryRef = useRef<HTMLButtonElement | null>(null)
+  const fieldTakesFocus = useRef(false)
+  const trackNoticeRetry = useCallback((node: HTMLButtonElement | null) => {
+    if (node !== null) {
+      noticeRetryRef.current = node
+      return
+    }
+    if (document.activeElement === noticeRetryRef.current) {
+      fieldTakesFocus.current = true
+    }
+    noticeRetryRef.current = null
+  }, [])
+  useEffect(() => {
+    if (staleNotice || !fieldTakesFocus.current) {
+      return
+    }
+    fieldTakesFocus.current = false
+    // Not on <body>: the user has moved on, and keeps the focus where it is.
+    if (document.activeElement === document.body) {
+      formRef.current?.focusFirstField()
+    }
+  }, [staleNotice])
+
   const handleRetryRefresh = async (event: MouseEvent<HTMLElement>): Promise<void> => {
     const retry = event.currentTarget
     const hadFocus = document.activeElement === retry
@@ -134,6 +169,7 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
               <Button
                 loading={isFetching}
                 onClick={(event) => void handleRetryRefresh(event)}
+                ref={trackNoticeRetry}
                 size="small"
               >
                 Повторить попытку
