@@ -1,7 +1,8 @@
-import { Alert, Flex, Switch, Typography } from 'antd'
-import { useId, useRef, useState, type FC } from 'react'
+import { Alert, Button, Flex, Switch, Typography } from 'antd'
+import { useCallback, useEffect, useId, useRef, useState, type FC } from 'react'
 import { flushSync } from 'react-dom'
 
+import { ENABLE_AUTO_REVIEW_LABEL, KEEP_AUTO_REVIEW_OFF_LABEL } from '../lib/autoReviewChoice'
 import styles from './AutoReviewSwitch.module.css'
 
 const { Text } = Typography
@@ -13,12 +14,40 @@ export interface AutoReviewSwitchProps {
    * reads `false` whatever the user chose, and the choice is write-only.
    */
   enabled: boolean
-  /** `false`: the GitHub App cannot reach the repository. */
+  /**
+   * `false`: the GitHub App cannot reach the repository. The switch is disabled then and reads
+   * off, even while the optimistic update of a save holds `enabled: true` in the cache; the
+   * warning carries the two choices instead (D9): the stored preference cannot be read, so it is
+   * never shown.
+   */
   installationAvailable: boolean
   /** Saves the choice alone; rejects when the server refuses. */
   onChange: (enabled: boolean) => Promise<void>
   /** Text of an error shown under the switch. */
   describeError: (error: unknown) => string
+}
+
+interface ButtonSlot {
+  current: HTMLButtonElement | null
+}
+
+/**
+ * Keeps `slot` pointing at a choice button. The button is marked as it leaves the page, while it is
+ * still in the document and `activeElement` tells whether it held the focus.
+ */
+function trackChoiceButton(
+  slot: ButtonSlot,
+  switchTakesFocus: { current: boolean },
+  node: HTMLButtonElement | null,
+): void {
+  if (node !== null) {
+    slot.current = node
+    return
+  }
+  if (document.activeElement === slot.current) {
+    switchTakesFocus.current = true
+  }
+  slot.current = null
 }
 
 /**
@@ -28,7 +57,8 @@ export interface AutoReviewSwitchProps {
  *
  * The switch is disabled while it saves (`loading`), and a browser hands the focus of a button
  * that turns disabled to the page: once the request is over the focus goes back, if the switch
- * had it at the click and the user has not moved on.
+ * had it at the click and the user has not moved on. The same holds for the two choice buttons
+ * of the warning, which both turn disabled while one of them saves.
  */
 export const AutoReviewSwitch: FC<AutoReviewSwitchProps> = ({
   enabled,
@@ -38,24 +68,47 @@ export const AutoReviewSwitch: FC<AutoReviewSwitchProps> = ({
 }) => {
   const labelId = useId()
   const switchRef = useRef<HTMLButtonElement>(null)
-  const [pending, setPending] = useState(false)
+  const enableRef = useRef<HTMLButtonElement | null>(null)
+  const keepOffRef = useRef<HTMLButtonElement | null>(null)
+  // The value being saved, or `null` when nothing is.
+  const [pending, setPending] = useState<boolean | null>(null)
   const [error, setError] = useState<{ error: unknown } | null>(null)
 
-  const handleChange = async (checked: boolean): Promise<void> => {
-    const hadFocus = document.activeElement === switchRef.current
+  // The warning, and its buttons with it, also goes away because of a refetch that says the access
+  // is back. If a button held the focus, the switch takes it.
+  const switchTakesFocus = useRef(false)
+  const trackEnable = useCallback((node: HTMLButtonElement | null) => {
+    trackChoiceButton(enableRef, switchTakesFocus, node)
+  }, [])
+  const trackKeepOff = useCallback((node: HTMLButtonElement | null) => {
+    trackChoiceButton(keepOffRef, switchTakesFocus, node)
+  }, [])
+  useEffect(() => {
+    if (!installationAvailable || !switchTakesFocus.current) {
+      return
+    }
+    switchTakesFocus.current = false
+    // Not on <body>: the user has moved on, and keeps the focus where it is.
+    if (document.activeElement === document.body) {
+      switchRef.current?.focus()
+    }
+  }, [installationAvailable])
+
+  const handleChange = async (choice: boolean, control: ButtonSlot): Promise<void> => {
+    const hadFocus = document.activeElement === control.current
     setError(null)
-    setPending(true)
+    setPending(choice)
     try {
-      await onChange(checked)
+      await onChange(choice)
     } catch (err) {
       setError({ error: err })
     } finally {
-      // The switch is enabled again before it can take the focus back.
+      // The control is enabled again before it can take the focus back.
       flushSync(() => {
-        setPending(false)
+        setPending(null)
       })
       if (hadFocus && document.activeElement === document.body) {
-        switchRef.current?.focus()
+        control.current?.focus()
       }
     }
   }
@@ -65,9 +118,10 @@ export const AutoReviewSwitch: FC<AutoReviewSwitchProps> = ({
       <Flex align="center" gap={8}>
         <Switch
           aria-labelledby={labelId}
-          checked={enabled}
-          loading={pending}
-          onChange={(checked) => void handleChange(checked)}
+          checked={enabled && installationAvailable}
+          disabled={!installationAvailable}
+          loading={installationAvailable && pending !== null}
+          onChange={(checked) => void handleChange(checked, switchRef)}
           ref={switchRef}
         />
         <Text id={labelId} strong>
@@ -80,7 +134,29 @@ export const AutoReviewSwitch: FC<AutoReviewSwitchProps> = ({
 
       {!installationAvailable ? (
         <Alert
-          description="У GitHub App нет доступа к этому репозиторию, поэтому автоматическое ревью не запустится. Переключатель сохраняет выбор: он вступит в силу, когда доступ к GitHub App будет восстановлен."
+          action={
+            <Flex gap={8} wrap>
+              <Button
+                disabled={pending !== null}
+                loading={pending === true}
+                onClick={() => void handleChange(true, enableRef)}
+                ref={trackEnable}
+                size="small"
+              >
+                {ENABLE_AUTO_REVIEW_LABEL}
+              </Button>
+              <Button
+                disabled={pending !== null}
+                loading={pending === false}
+                onClick={() => void handleChange(false, keepOffRef)}
+                ref={trackKeepOff}
+                size="small"
+              >
+                {KEEP_AUTO_REVIEW_OFF_LABEL}
+              </Button>
+            </Flex>
+          }
+          description="У GitHub App нет доступа к этому репозиторию, поэтому автоматическое ревью не запустится. Выберите, что сделать, когда доступ к GitHub App будет восстановлен: сохранённый выбор здесь не показывается, пока доступа нет."
           showIcon
           title="Автоматическое ревью недоступно"
           type="warning"

@@ -269,6 +269,8 @@ src/features/finding-filters/ui/FindingFiltersBar.module.css
 src/features/finding-filters/ui/FindingFiltersBar.test.tsx
 src/features/finding-filters/ui/FindingFiltersBar.tsx
 src/features/repository-settings/index.ts
+src/features/repository-settings/lib/autoReviewChoice.test.ts
+src/features/repository-settings/lib/autoReviewChoice.ts
 src/features/repository-settings/lib/serverFieldErrors.test.ts
 src/features/repository-settings/lib/serverFieldErrors.ts
 src/features/repository-settings/lib/settingsPatch.test.ts
@@ -276,6 +278,7 @@ src/features/repository-settings/lib/settingsPatch.ts
 src/features/repository-settings/lib/severityThreshold.test.ts
 src/features/repository-settings/lib/severityThreshold.ts
 src/features/repository-settings/ui/AutoReviewSwitch.module.css
+src/features/repository-settings/ui/AutoReviewSwitch.test.tsx
 src/features/repository-settings/ui/AutoReviewSwitch.tsx
 src/features/repository-settings/ui/RepositorySettingsForm.module.css
 src/features/repository-settings/ui/RepositorySettingsForm.tsx
@@ -727,15 +730,21 @@ Upgrade canary в `routerLocationAdapter.test.tsx` проверяет досту
   `PATCH { enabled }` ([`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) §8: `Switch` применяется сразу),
   ошибка — `Alert` под переключателем; оптимистичное обновление и откат — в `useUpdateRepository`.
   Форма `enabled` не отправляет. Переключатель показывает значение сервера — итог
-  `enabled AND installationAvailable` (§5): без доступа GitHub App он выключен и остаётся
-  нажимаемым. При `installationAvailable === false` рядом — предупреждение: у GitHub App нет
-  доступа, поэтому ревью не запустится; переключатель сохраняет выбор, он вступит в силу, когда доступ
-  восстановят. Включение без доступа (ответ на `PATCH { enabled: true }` с
-  `installationAvailable: false`) — `message.info` «Выбор сохранён. Авто-ревью включится, когда
-  доступ к GitHub App восстановится.» вместо «Автоматическое ревью включено»; переключатель после
-  ответа выключен, ошибки нет. Остальные `PATCH` дают прежние сообщения. Пока `PATCH` идёт,
-  переключатель недоступен (`loading`) и браузер уводит с него фокус: после ответа фокус
-  возвращается, если он был у переключателя в момент клика и пользователь не ушёл дальше.
+  `enabled AND installationAvailable` (§5). Пока у GitHub App нет доступа
+  (`installationAvailable === false`), сохранённую настройку `GET` не возвращает, и UI её не
+  показывает (решение D9): переключатель выключен и недоступен (`disabled`), а выбор делают две
+  кнопки в предупреждении «Автоматическое ревью недоступно» (у GitHub App нет доступа, поэтому ревью
+  не запустится): «Включить авто-ревью» — `PATCH { enabled: true }`, «Оставить выключенным» —
+  `PATCH { enabled: false }`. Подписи и тексты сообщений — в
+  `features/repository-settings/lib/autoReviewChoice.ts`. Ответ на такой `PATCH` с
+  `installationAvailable: false` (при любом значении `enabled`) — `message.info` «Выбор сохранён.
+  Авто-ревью включится, когда доступ к GitHub App восстановится.» для `true` и «Выбор сохранён.
+  Авто-ревью останется выключенным, когда доступ к GitHub App восстановится.» для `false` вместо
+  «Автоматическое ревью включено» / «выключено»; ошибки нет. Остальные `PATCH` дают прежние
+  сообщения. Пока `PATCH` идёт, переключатель (или обе кнопки, нажатая в `loading`) недоступен и
+  браузер уводит с него фокус: после ответа фокус возвращается на нажатый элемент, если он был у него
+  в момент клика и пользователь не ушёл дальше. Если рефетч вернул доступ и фокус был у кнопки
+  выбора, предупреждение исчезает, и фокус получает переключатель.
 - Ошибка сохранения раскладывается `splitServerError`
   (`features/repository-settings/lib/serverFieldErrors.ts`): 422 с `detail[].loc` на поле формы —
   текст под этим полем, остальное — `Alert` над формой (§5, «Контракт api#149 (api PR #156)»). Ошибка
