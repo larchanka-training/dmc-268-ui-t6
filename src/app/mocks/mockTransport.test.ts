@@ -15,7 +15,7 @@ import { ApiError, apiClient } from '../../shared/api/client'
 import { endpoints } from '../../shared/api/endpoints'
 import { validationErrorLocations } from '../../shared/api/validationError'
 import { mockRepositories } from './app-state'
-import { initMockTransport } from './mockTransport'
+import { initMockTransport, readStoredMockRepository } from './mockTransport'
 
 describe('initMockTransport', () => {
   it('serves GET /runs from the mock handler', async () => {
@@ -189,6 +189,28 @@ describe('initMockTransport', () => {
       })
 
       expect(updated.enabled).toBe(false)
+    })
+
+    it('stores the preference of an unreachable repository both ways while serving enabled: false', async () => {
+      expect(readStoredMockRepository(unreachable.id)?.enabled).toBe(true)
+
+      const off = await apiClient<Repository>(endpoints.repos.update(unreachable.id), {
+        body: { enabled: false },
+      })
+      expect(off.enabled).toBe(false)
+      expect(readStoredMockRepository(unreachable.id)?.enabled).toBe(false)
+      expect((await apiClient<Repository>(endpoints.repos.detail(unreachable.id))).enabled).toBe(
+        false,
+      )
+
+      const on = await apiClient<Repository>(endpoints.repos.update(unreachable.id), {
+        body: { enabled: true },
+      })
+      expect(on.enabled).toBe(false)
+      expect(readStoredMockRepository(unreachable.id)?.enabled).toBe(true)
+      expect((await apiClient<Repository>(endpoints.repos.detail(unreachable.id))).enabled).toBe(
+        false,
+      )
     })
 
     it('answers PATCH of a reachable repository with the preference it stored', async () => {

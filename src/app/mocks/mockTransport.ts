@@ -58,6 +58,14 @@ function serveRepository(repository: Repository): Repository {
   }
 }
 
+/**
+ * The repository as stored, before `serveRepository`: its `enabled` is the user's preference, which
+ * the api never returns while the GitHub App has no access. For tests; the app does not call it.
+ */
+export function readStoredMockRepository(id: string): Repository | undefined {
+  return structuredClone(repositories.find((repo) => repo.id === id))
+}
+
 function findRunSession(id: string) {
   if (id === WALKING_RUN_ID) {
     return currentWalkingRun().session
