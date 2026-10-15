@@ -10,6 +10,7 @@ import {
   type UpdateRepositoryVariables,
 } from '../../entities/repository'
 import { saveAccessRefreshIntent, saveAuthReturnTo, useAuthStore } from '../../features/auth'
+import { autoReviewChoiceSaved } from '../../features/repository-settings'
 import { RepositoryList } from '../../widgets/repository-list'
 import { formatErrorMessage } from './lib/formatError'
 import { repositorySettingsPath } from './lib/settingsPath'
@@ -51,7 +52,13 @@ export const RepositoriesPage: FC = () => {
 
   const handleToggleEnabled = async (id: string, enabled: boolean) => {
     try {
-      await updateMutation.mutateAsync({ id, patch: { enabled } })
+      const saved = await updateMutation.mutateAsync({ id, patch: { enabled } })
+      // Without GitHub App access the server keeps the choice but serves `enabled: false` (api PR
+      // #156): «активен» or «на паузе» would be wrong, whichever way the choice went.
+      if (!saved.installationAvailable) {
+        void message.info(autoReviewChoiceSaved(enabled))
+        return
+      }
       void message.success(`Статус репозитория обновлен: ${enabled ? 'активен' : 'на паузе'}`)
     } catch (err) {
       void message.error(formatErrorMessage(err, 'Не удалось изменить статус репозитория'))

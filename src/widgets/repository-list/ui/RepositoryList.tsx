@@ -7,6 +7,7 @@ import {
 } from '@ant-design/icons'
 import {
   Button,
+  Dropdown,
   Empty,
   Flex,
   Input,
@@ -15,9 +16,10 @@ import {
   Switch,
   Tooltip,
   Typography,
+  type MenuProps,
   type TableColumnsType,
 } from 'antd'
-import { useMemo, useState, type FC, type MouseEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FC, type MouseEvent } from 'react'
 
 import type {
   Repository,
@@ -25,6 +27,10 @@ import type {
   ReviewEvent,
   WaitForCi,
 } from '../../../entities/repository'
+import {
+  ENABLE_AUTO_REVIEW_LABEL,
+  KEEP_AUTO_REVIEW_OFF_LABEL,
+} from '../../../features/repository-settings'
 import { GITHUB_APP_SLUG, GITHUB_CLIENT_ID, isMockMode } from '../../../shared/config/env'
 import { safeHttpUrl } from '../../../shared/lib/safeHttpUrl'
 import { DataTable, IconSettings, PageHeader, Tag } from '../../../shared/ui'
@@ -59,6 +65,102 @@ export interface RepositoryListProps {
   onOpenSettings?: (repository: Repository) => void
   onRefresh?: () => void
   onSyncAccess: () => void
+}
+
+const CHOICE_ITEMS: MenuProps['items'] = [
+  { key: 'enable', label: ENABLE_AUTO_REVIEW_LABEL },
+  { key: 'keepOff', label: KEEP_AUTO_REVIEW_OFF_LABEL },
+]
+
+interface StatusCellProps {
+  repository: Repository
+  updating: boolean
+  onToggleEnabled?: (id: string, enabled: boolean) => Promise<void> | void
+}
+
+/**
+ * The status of a row: a switch with its label. While the GitHub App has no access to the
+ * repository the api serves `enabled: false` whatever was stored (api PR #156, SD §6.9), so the
+ * switch is disabled and reads off, and the two choices (D10, as on the settings page) sit in a
+ * menu: the stored preference is write-only and never shown.
+ */
+const StatusCell: FC<StatusCellProps> = ({ repository, updating, onToggleEnabled }) => {
+  const { id, fullName, enabled, installationAvailable } = repository
+  const [menuOpen, setMenuOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  // Whether the trigger held the focus when the menu opened, and whether the focus is to go back
+  // to it once the choice is saved.
+  const triggerHadFocus = useRef(false)
+  const returnFocus = useRef(false)
+
+  // The menu closes on a choice and takes the focus with it. Once the save is over, the focus goes
+  // back to the trigger, if it held it before the menu opened and the user has not moved on.
+  useEffect(() => {
+    if (updating || !returnFocus.current) {
+      return
+    }
+    returnFocus.current = false
+    if (document.activeElement === document.body) {
+      triggerRef.current?.focus()
+    }
+  }, [updating])
+
+  if (installationAvailable) {
+    return (
+      <Flex align="center" gap={10}>
+        <Switch
+          aria-label={`Ревью для ${fullName}`}
+          checked={enabled}
+          disabled={updating}
+          loading={updating}
+          onChange={(checked) => void onToggleEnabled?.(id, checked)}
+        />
+        <Text className={styles.switchLabel} type="secondary">
+          {enabled ? 'Активен' : 'Пауза'}
+        </Text>
+      </Flex>
+    )
+  }
+
+  return (
+    <Flex align="center" gap={10} wrap>
+      {/* Off like the served `enabled`, also while the optimistic update of a saving choice holds
+          `enabled: true` in the cache; the spinner is the trigger's. */}
+      <Switch aria-label={`Ревью для ${fullName}`} checked={false} disabled />
+      <Text className={styles.switchLabel} type="secondary">
+        Нет доступа
+      </Text>
+      <Dropdown
+        menu={{
+          items: CHOICE_ITEMS,
+          onClick: ({ key }) => {
+            setMenuOpen(false)
+            returnFocus.current = triggerHadFocus.current
+            void onToggleEnabled?.(id, key === 'enable')
+          },
+        }}
+        onOpenChange={(open) => {
+          setMenuOpen(open)
+          if (open) {
+            triggerHadFocus.current = document.activeElement === triggerRef.current
+          }
+        }}
+        open={menuOpen}
+        trigger={['click']}
+      >
+        <Button
+          aria-expanded={menuOpen}
+          aria-haspopup="menu"
+          aria-label={`Авто-ревью для ${fullName}, когда доступ вернётся`}
+          loading={updating}
+          ref={triggerRef}
+          size="small"
+        >
+          Когда доступ вернётся
+        </Button>
+      </Dropdown>
+    </Flex>
+  )
 }
 
 export const RepositoryList: FC<RepositoryListProps> = ({
@@ -210,25 +312,14 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       title: 'Статус',
       dataIndex: 'enabled',
       key: 'enabled',
-      render: (enabled: boolean, record: Repository) => {
+      render: (_: boolean, record: Repository) => {
         const updating = updatingRepoIds
           ? Array.isArray(updatingRepoIds)
             ? updatingRepoIds.includes(record.id)
             : updatingRepoIds.has(record.id)
           : false
         return (
-          <Flex align="center" gap={10}>
-            <Switch
-              aria-label={`Ревью для ${record.fullName}`}
-              checked={enabled}
-              disabled={updating}
-              loading={updating}
-              onChange={(checked) => void onToggleEnabled?.(record.id, checked)}
-            />
-            <Text className={styles.switchLabel} type="secondary">
-              {enabled ? 'Активен' : 'Пауза'}
-            </Text>
-          </Flex>
+          <StatusCell onToggleEnabled={onToggleEnabled} repository={record} updating={updating} />
         )
       },
     },
