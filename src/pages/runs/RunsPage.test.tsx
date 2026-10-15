@@ -455,6 +455,191 @@ describe('RunsPage', () => {
       })
     })
 
+    describe('when the control that asked for a page had the focus', () => {
+      const firstPage: RunListPage = { items: [listedRun(0), listedRun(1)], nextCursor: 'cursor-a' }
+      const failure = (): Response =>
+        new Response('{}', { status: 500, statusText: 'Internal Server Error' })
+
+      /** The page after `firstPage` is held until the test answers it. */
+      function holdNextPage() {
+        let answer: (response: Response) => void = () => undefined
+        const fetchMock = vi.fn<typeof fetch>((input) => {
+          if (urlOf(input).searchParams.get('cursor') === 'cursor-a') {
+            return new Promise<Response>((resolve) => {
+              answer = resolve
+            })
+          }
+          return Promise.resolve(new Response(JSON.stringify(firstPage), { status: 200 }))
+        })
+        vi.stubGlobal('fetch', fetchMock)
+        return {
+          fail: () => {
+            answer(failure())
+          },
+          reply: (page: RunListPage) => {
+            answer(new Response(JSON.stringify(page), { status: 200 }))
+          },
+          nextPageAsked: () =>
+            waitFor(() => {
+              expect(fetchMock).toHaveBeenCalledTimes(2)
+            }),
+        }
+      }
+
+      /** Focuses «Показать ещё» and presses it, as the keyboard does. */
+      async function pressMore(): Promise<void> {
+        await screen.findByText(listedRun(0).pullRequest.title)
+        const more = screen.getByRole('button', { name: 'Показать ещё' })
+        more.focus()
+        fireEvent.click(more)
+      }
+
+      it('moves focus to «Повторить» when the next page fails', async () => {
+        stubFetch((url) => (url.searchParams.get('cursor') === null ? firstPage : failure()))
+        renderPage()
+
+        await pressMore()
+
+        const retry = await screen.findByRole('button', { name: 'Повторить' })
+        await waitFor(() => {
+          expect(document.activeElement).toBe(retry)
+        })
+      })
+
+      it('moves no focus to «Повторить» when «Показать ещё» did not have the focus', async () => {
+        const fetchMock = stubFetch((url) =>
+          url.searchParams.get('cursor') === null ? firstPage : failure(),
+        )
+        renderPage()
+        await screen.findByText(listedRun(0).pullRequest.title)
+
+        // A click with the mouse: Safari does not focus a button for it.
+        fireEvent.click(screen.getByRole('button', { name: 'Показать ещё' }))
+
+        await screen.findByRole('button', { name: 'Повторить' })
+        await act(async () => {
+          await new Promise((resolve) => setTimeout(resolve, 20))
+        })
+        expect(fetchMock).toHaveBeenCalledTimes(2)
+        expect(document.activeElement).toBe(document.body)
+      })
+
+      it('keeps focus on «Повторить» when the retry fails again', async () => {
+        const fetchMock = stubFetch((url) =>
+          url.searchParams.get('cursor') === null ? firstPage : failure(),
+        )
+        renderPage()
+        await pressMore()
+        const retry = await screen.findByRole('button', { name: 'Повторить' })
+        await waitFor(() => {
+          expect(document.activeElement).toBe(retry)
+        })
+
+        // The focus is on the button already: the keyboard user presses it as it is.
+        fireEvent.click(retry)
+        await waitFor(() => {
+          expect(fetchMock).toHaveBeenCalledTimes(3)
+        })
+        // Give the second failure the time to reach the page.
+        await act(async () => {
+          await new Promise((resolve) => setTimeout(resolve, 20))
+        })
+
+        expect(screen.getByRole('button', { name: 'Повторить' })).toBe(retry)
+        expect(document.activeElement).toBe(retry)
+      })
+
+      it('moves focus from «Повторить» to the first new row when the retry succeeds', async () => {
+        stubFetch((url, call) => {
+          if (url.searchParams.get('cursor') === null) {
+            return firstPage
+          }
+          return call === 2 ? failure() : { items: [listedRun(2), listedRun(3)], nextCursor: null }
+        })
+        renderPage()
+        await pressMore()
+        const retry = await screen.findByRole('button', { name: 'Повторить' })
+        await waitFor(() => {
+          expect(document.activeElement).toBe(retry)
+        })
+
+        fireEvent.click(retry)
+
+        await screen.findByText(listedRun(3).pullRequest.title)
+        await waitFor(() => {
+          expect(document.activeElement).toBe(runLink(listedRun(2)))
+        })
+      })
+
+      it('moves focus to the heading when the last page is empty', async () => {
+        stubFetch((url) =>
+          url.searchParams.get('cursor') === null ? firstPage : { items: [], nextCursor: null },
+        )
+        renderPage()
+
+        await pressMore()
+
+        await waitFor(() => {
+          expect(screen.queryByRole('button', { name: 'Показать ещё' })).toBeNull()
+        })
+        await waitFor(() => {
+          expect(document.activeElement).toBe(heading())
+        })
+      })
+
+      it('moves focus to the heading when the last page holds only runs shown already', async () => {
+        stubFetch((url) =>
+          url.searchParams.get('cursor') === null
+            ? firstPage
+            : { items: [listedRun(1), listedRun(0)], nextCursor: null },
+        )
+        renderPage()
+
+        await pressMore()
+
+        await waitFor(() => {
+          expect(screen.queryByRole('button', { name: 'Показать ещё' })).toBeNull()
+        })
+        await waitFor(() => {
+          expect(document.activeElement).toBe(heading())
+        })
+      })
+
+      it('leaves the focus where the user moved it when the next page fails', async () => {
+        const held = holdNextPage()
+        renderPage()
+        await pressMore()
+        await held.nextPageAsked()
+
+        // The user does not wait for the page: Tab takes them on.
+        const elsewhere = runLink(listedRun(1))
+        elsewhere.focus()
+        held.fail()
+
+        await screen.findByRole('button', { name: 'Повторить' })
+        expect(document.activeElement).toBe(elsewhere)
+      })
+
+      it('leaves the focus where the user moved it when the last page brings no run', async () => {
+        const held = holdNextPage()
+        renderPage()
+        await pressMore()
+        await held.nextPageAsked()
+
+        const elsewhere = runLink(listedRun(1))
+        elsewhere.focus()
+        held.reply({ items: [], nextCursor: null })
+
+        await waitFor(() => {
+          expect(screen.queryByRole('button', { name: 'Показать ещё' })).toBeNull()
+        })
+        await act(async () => {
+          await Promise.resolve()
+        })
+        expect(document.activeElement).toBe(elsewhere)
+      })
+    })
+
     it('does not pull focus back to a row when the loaded pages are refreshed later', async () => {
       stubFetch((url, call) => {
         const refreshed = call > 2
