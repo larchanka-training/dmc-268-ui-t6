@@ -161,7 +161,12 @@ const StatusCell: FC<StatusCellProps> = ({ repository, updating, onToggleEnabled
       <Dropdown
         menu={{
           items: CHOICE_ITEMS,
-          onClick: ({ key }) => {
+          onClick: ({ key, domEvent }) => {
+            // An Enter pick arrives here on the `keydown`. The focus moves to the trigger below, and
+            // the browser would deliver the same key's `keypress` there: Enter on a button clicks it
+            // and the menu opens again. Cancelling the `keydown` stops that; a mouse pick is not
+            // affected.
+            domEvent.preventDefault()
             setMenuOpen(false)
             returnFocus.current = triggerHadFocus.current
             // The item keeps the focus until the closing motion ends (about 250 ms), and a save
