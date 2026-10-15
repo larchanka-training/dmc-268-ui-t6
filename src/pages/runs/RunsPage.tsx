@@ -47,35 +47,75 @@ export const RunsPage: FC = () => {
   } = useRunList({ repo: filter.repo })
   const runSessions = useMemo(() => uniqueRuns(data?.pages ?? []), [data])
 
-  // Focus follows the action. A control that is gone (the filter reset, the last page loaded)
-  // would drop focus to <body>: the heading takes it after a reset, and the link of the first
-  // run a page brought takes it after «Показать ещё».
+  // Focus follows the action. A control that is gone (the filter reset, the last page loaded,
+  // a failed page) would drop focus to <body>: the heading takes it after a reset, and the link
+  // of the first run a page brought takes it after «Показать ещё»; both always. Two moves are
+  // conditional: «Повторить» takes it after a failed page, and the heading after a last page with
+  // nothing new, but only if the control that asked for the page held the focus and the user has
+  // not moved on since.
   const titleRef = useRef<HTMLHeadingElement>(null)
   const runLinks = useRef(new Map<string, HTMLAnchorElement>())
   // The runs on screen when a page was asked for, until the first new row of the answer is
   // focused. The page and the end of `fetchNextPage` reach React in no fixed order, so the focus
   // looks for the first run it has not seen, whenever the rows change.
   const knownRunIds = useRef<ReadonlySet<string> | null>(null)
+  // Set while a page asked for by a control that held the focus is on its way. If the page fails,
+  // the control is gone and «Повторить» has appeared: the effect below hands the focus to it.
+  const retryRef = useRef<HTMLButtonElement>(null)
+  const retryTakesFocus = useRef(false)
+
+  const focusHeading = useCallback(() => {
+    // A «Показать ещё» still on its way belongs to a list that is gone, or has nothing to show:
+    // its rows must not take the focus off the heading.
+    knownRunIds.current = null
+    titleRef.current?.focus()
+  }, [])
 
   const resetFilterAndFocus = useCallback(() => {
     resetFilter()
-    // A «Показать ещё» still on its way belongs to the filter that is gone: its rows must not
-    // take the focus off the heading.
-    knownRunIds.current = null
-    titleRef.current?.focus()
-  }, [resetFilter])
+    focusHeading()
+  }, [resetFilter, focusHeading])
 
-  const loadMore = async (): Promise<void> => {
+  const loadMore = async (trigger: HTMLElement): Promise<void> => {
+    const hadFocus = document.activeElement === trigger
     const known = new Set(runSessions.map((run) => run.id))
     knownRunIds.current = known
+    retryTakesFocus.current = hadFocus
     const result = await fetchNextPage()
+    if (!result.isError) {
+      retryTakesFocus.current = false
+    }
+    const nothingNew = !uniqueRuns(result.data?.pages ?? []).some((run) => !known.has(run.id))
     // The mark stays while a new row may still be on its way to the DOM. With nothing new in the
     // answer (a failed page, a page of runs already shown) it goes, so that a later refresh of the
     // pages does not take the focus.
-    if (result.isError || !uniqueRuns(result.data?.pages ?? []).some((run) => !known.has(run.id))) {
+    if (result.isError || nothingNew) {
       knownRunIds.current = null
     }
+    // The last page brought no row to focus and its button goes with it: the heading takes the
+    // focus, unless the user has moved on while the page was loading.
+    const active = document.activeElement
+    if (
+      hadFocus &&
+      !result.isError &&
+      nothingNew &&
+      !result.hasNextPage &&
+      (active === trigger || active === document.body)
+    ) {
+      focusHeading()
+    }
   }
+
+  useEffect(() => {
+    if (!isFetchNextPageError || !retryTakesFocus.current) {
+      return
+    }
+    retryTakesFocus.current = false
+    // Not on <body>: the user has moved on, and keeps the focus where it is.
+    if (document.activeElement === document.body) {
+      retryRef.current?.focus()
+    }
+  }, [isFetchNextPageError])
 
   useEffect(() => {
     const known = knownRunIds.current
@@ -221,9 +261,10 @@ export const RunsPage: FC = () => {
           action={
             <Button
               loading={isFetchingNextPage}
-              onClick={() => {
-                void loadMore()
+              onClick={(event) => {
+                void loadMore(event.currentTarget)
               }}
+              ref={retryRef}
               size="small"
             >
               Повторить
@@ -240,8 +281,8 @@ export const RunsPage: FC = () => {
         <Flex className={styles.more} justify="center">
           <Button
             loading={isFetchingNextPage}
-            onClick={() => {
-              void loadMore()
+            onClick={(event) => {
+              void loadMore(event.currentTarget)
             }}
           >
             Показать ещё

@@ -1,5 +1,5 @@
 import { Alert, Button, Skeleton, Typography } from 'antd'
-import type { FC } from 'react'
+import { useEffect, useRef, type FC, type MouseEvent } from 'react'
 
 import { useRepositoryRulesStatus } from '../../../entities/repository'
 import { RulesStatusDetails } from './RulesStatusDetails'
@@ -24,9 +24,34 @@ export interface RulesStatusPanelProps {
 export const RulesStatusPanel: FC<RulesStatusPanelProps> = ({ repoId, enabled }) => {
   const query = useRepositoryRulesStatus(repoId, { enabled })
 
-  const retry = (): void => {
+  // «Обновить» stays on screen whenever the block is enabled, so a refresh that fails does not
+  // take the focused button away. The retry button of an error, or of a status the server called
+  // retryable, goes away when its request ends well: if it had the focus, «Обновить» takes it
+  // then. A retry that fails again keeps its button, and the focus stays on it.
+  const refreshRef = useRef<HTMLButtonElement>(null)
+  const refocusAfterRetry = useRef(false)
+
+  const refresh = (): void => {
     void query.refetch()
   }
+  const retry = (event: MouseEvent<HTMLElement>): void => {
+    refocusAfterRetry.current = document.activeElement === event.currentTarget
+    refresh()
+  }
+
+  // Runs when a request ends. The answer of a fast retry may reach the page without `isFetching`
+  // ever being seen true, so the effect also follows what the answer changes.
+  useEffect(() => {
+    if (query.isFetching || !refocusAfterRetry.current) {
+      return
+    }
+    refocusAfterRetry.current = false
+    // On <body> only: the retry button is gone. If it is still there, the retry failed again, and
+    // if the focus is elsewhere the user has moved on.
+    if (document.activeElement === document.body) {
+      refreshRef.current?.focus()
+    }
+  }, [query.isFetching, query.status, query.dataUpdatedAt, query.errorUpdatedAt])
 
   const body = (() => {
     if (!enabled) {
@@ -57,8 +82,8 @@ export const RulesStatusPanel: FC<RulesStatusPanelProps> = ({ repoId, enabled })
     <section aria-label="Правила ревью" className={styles.root}>
       <div className={styles.header}>
         <h2 className={styles.label}>Правила ревью</h2>
-        {enabled && query.isSuccess ? (
-          <Button loading={query.isFetching} onClick={retry}>
+        {enabled ? (
+          <Button loading={query.isFetching} onClick={refresh} ref={refreshRef}>
             Обновить
           </Button>
         ) : null}
