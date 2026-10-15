@@ -92,10 +92,10 @@ Zustand или `useState` нельзя — получится два источ�
 
 Ф-17 уточнено 2026-10-14 (ui#93): настройки правятся на странице `/repositories/:repoId/settings`,
 а не в модальном окне списка (Ф-21). Поля страницы: `enabled` — переключатель «Автоматическое
-ревью», отдельный `PATCH { enabled }`, сохранённая настройка (§5); `waitForCi`, `maxComments`,
-`reviewEvent` — форма; `defaultEngine` — только текст, не отправляется. Поля api#149 (контракт
-api PR #156, §5): `branchFilter`, `severityThreshold` — форма; обязательное, только для чтения
-`installationAvailable` — предупреждение у переключателя.
+ревью», отдельный `PATCH { enabled }`; сервер отдаёт итог `enabled AND installationAvailable`
+(§5); `waitForCi`, `maxComments`, `reviewEvent` — форма; `defaultEngine` — только текст, не
+отправляется. Поля api#149 (контракт api PR #156, §5): `branchFilter`, `severityThreshold` —
+форма; обязательное, только для чтения `installationAvailable` — предупреждение у переключателя.
 
 ---
 
@@ -714,8 +714,16 @@ Upgrade canary в `routerLocationAdapter.test.tsx` проверяет досту
 - Автоматическое ревью — `AutoReviewSwitch` над формой: применяется сразу отдельным
   `PATCH { enabled }` ([`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) §8: `Switch` применяется сразу),
   ошибка — `Alert` под переключателем; оптимистичное обновление и откат — в `useUpdateRepository`.
-  Форма `enabled` не отправляет. При `installationAvailable === false` рядом — предупреждение: у
-  GitHub App нет доступа, переключатель сохраняет только настройку.
+  Форма `enabled` не отправляет. Переключатель показывает значение сервера — итог
+  `enabled AND installationAvailable` (§5): без доступа GitHub App он выключен и остаётся
+  нажимаемым. При `installationAvailable === false` рядом — предупреждение: у GitHub App нет
+  доступа, поэтому ревью не запустится; переключатель сохраняет выбор, он вступит в силу, когда доступ
+  восстановят. Включение без доступа (ответ на `PATCH { enabled: true }` с
+  `installationAvailable: false`) — `message.info` «Выбор сохранён. Авто-ревью включится, когда
+  доступ к GitHub App восстановится.» вместо «Автоматическое ревью включено»; переключатель после
+  ответа выключен, ошибки нет. Остальные `PATCH` дают прежние сообщения. Пока `PATCH` идёт,
+  переключатель недоступен (`loading`) и браузер уводит с него фокус: после ответа фокус
+  возвращается, если он был у переключателя в момент клика и пользователь не ушёл дальше.
 - Ошибка сохранения раскладывается `splitServerError`
   (`features/repository-settings/lib/serverFieldErrors.ts`): 422 с `detail[].loc` на поле формы —
   текст под этим полем, остальное — `Alert` над формой (§5, «Контракт api#149 (api PR #156)»). Ошибка
@@ -1042,7 +1050,9 @@ off; }` для SSE, либо в документе фиксируется cross-
 [api PR #156](https://github.com/larchanka-training/dmc-268-api-t6/pull/156) (api#149). Zod-схемы
 `Repository` / `RepositoryUpdate` с этими полями пришли в UI из PR #106; снимок UI-Zod в api
 сгенерирован из его коммита `3d3071e`. Пометок `// provisional (ui#93)` у этих членов нет. UI
-разбирает новые поля как обязательные, поэтому UI PR мержится только после деплоя #156.
+разбирает новые поля как обязательные, поэтому UI PR мержится только после деплоя #156. #156 влит в
+`main` api 15.10.2026 (`f27d4c2`); `enabled` в нём — итог, а не настройка (решение D8 по ui#93: UI
+следует API).
 
 **1. `Repository` (`GET /api/repos`, `GET /api/repos/{id}`)** — три обязательных члена.
 
@@ -1062,12 +1072,15 @@ off; }` для SSE, либо в документе фиксируется cross-
   | `warning`  | Warn & Crit   | critical, high, medium, low       |
   | `critical` | Only Critical | critical, high                    |
 
-- `enabled` — сохранённая **настройка** пользователя, а не итог: авто-ревью действует при
-  `enabled && installationAvailable`. UI так и читает поле (AC4 ui#93), моки так и отвечают.
-  api PR #156 сейчас отдаёт в `GET` `enabled AND installationAvailable` (как после
-  [api PR #132](https://github.com/larchanka-training/dmc-268-api-t6/pull/132)), и
-  `PATCH enabled=true` для недоступного репозитория вернёт `false`. UI ждёт, что #156 будет отдавать
-  настройку как есть (решение по ui#93 от 14.10), и под текущее поведение не подстраивается.
+- `enabled` — **итог**, а не настройка: сервер отдаёт `GET` и ответ `PATCH` как
+  `enabled AND installationAvailable` (api `repository_settings.py:27`; `contracts/openapi.yaml`,
+  `Repository.installationAvailable`; api `docs/SYSTEM_DESIGN.md` §6.9, «Автоматическое ревью
+  [техлид, 14.10.2026, #149]»). `PATCH { enabled }` сохраняет только настройку, и пока у GitHub App
+  нет доступа (`installationAvailable: false`), `GET` её не вернёт: она только для записи, а ответ
+  всегда `enabled: false`. `enabled: false` при `installationAvailable: true` — пауза пользователя.
+  UI показывает значение сервера как есть (переключатель выключен) и не выводит настройку сам;
+  включение без доступа подтверждается сообщением, что выбор сохранён (§2, «Автоматическое
+  ревью»). Моки отвечают так же (§8).
 
 **2. `RepositoryUpdate` (`PATCH /api/repos/{id}`)** — плюс необязательные `branchFilter` и
 `severityThreshold` (те же правила). `installationAvailable` не отправляется; пустой объект
@@ -1799,15 +1812,19 @@ checkpoint или ошибка до входа в `traced_step` могут ос�
 
 - **Репозитории** (`mockRepositories`, `app-state.ts`) — по одному на каждый случай страницы настроек:
 
-  | Репозиторий (id `22222222-2222-4222-8222-…`) | `branchFilter`          | `severityThreshold` | Особенность                                                                             |
-  | -------------------------------------------- | ----------------------- | ------------------- | --------------------------------------------------------------------------------------- |
-  | `dmc-268-ui-t6` (`…0001`)                    | `['main', 'release/*']` | `all`               | статус правил `present`                                                                 |
-  | `dmc-268-api-t6` (`…0002`)                   | `[]`                    | `critical`          | статус правил `invalid`; 25 прогонов в истории                                          |
-  | `dmc-268-infra-t6` (`…0003`)                 | `[]`                    | `warning`           | `installationAvailable: false` при `enabled: true`; правила `unavailable`; прогонов нет |
-  | `dmc-268-docs-t6` (`…0004`)                  | `[]`                    | `all`               | правила `missing`                                                                       |
+  | Репозиторий (id `22222222-2222-4222-8222-…`) | `branchFilter`          | `severityThreshold` | Особенность                                                                           |
+  | -------------------------------------------- | ----------------------- | ------------------- | ------------------------------------------------------------------------------------- |
+  | `dmc-268-ui-t6` (`…0001`)                    | `['main', 'release/*']` | `all`               | статус правил `present`                                                               |
+  | `dmc-268-api-t6` (`…0002`)                   | `[]`                    | `critical`          | статус правил `invalid`; 25 прогонов в истории                                        |
+  | `dmc-268-infra-t6` (`…0003`)                 | `[]`                    | `warning`           | `installationAvailable: false`, `enabled: false`; правила `unavailable`; прогонов нет |
+  | `dmc-268-docs-t6` (`…0004`)                  | `[]`                    | `all`               | правила `missing`                                                                     |
 
-  `enabled` в моке — сохранённая настройка, не `enabled AND installationAvailable` (§5). `GET` и
-  `PATCH` отдают копии (`structuredClone`), экспорт `mockRepositories` не меняется.
+  Рабочая копия мока хранит настройку `enabled` как есть (infra-t6 — `true`), а `GET` и ответ
+  `PATCH` отдают итог `enabled AND installationAvailable` (`serveRepository`, как api `repository_settings.py:27`), поэтому
+  infra-t6 читается с `enabled: false`, а `PATCH { enabled: true }` для неё отвечает `false` и
+  сохраняет настройку (снаружи её не видно: она только для записи). У доступного репозитория ответ —
+  настройка. `GET` и `PATCH` отдают копии (`structuredClone`), экспорт `mockRepositories` не
+  меняется.
 
 - **Статус правил** — `mockRulesStatuses` (`src/app/mocks/mockRulesStatus.ts`), по id репозитория:
   ui-t6 — `present`, текст с блоком `review-ignore` и три маски, ветка `release/2.1` (не
@@ -1832,7 +1849,8 @@ checkpoint или ошибка до входа в `traced_step` могут ос�
 - **`PATCH /repos/{id}`** (`validatePatchBody`): `UpdateRepositorySchema.safeParse` вместо `parse`;
   нарушение схемы — `422` с `loc: ['body', …путь Zod]` (нарушения `branchFilter` — пустая или
   длинная маска, больше 20 масок — сводятся к одному элементу `['body', 'branchFilter']`), затем
-  мок-проверка масок по `_pattern_error` из api PR #156 (пробелы и управляющие символы,
+  мок-проверка масок по слитому контракту api (`contracts/openapi.yaml`, `RepositoryUpdate.branchFilter`
+  и `_pattern_error` из api PR #156: пробелы, управляющие символы и одиночные суррогаты,
   `\ ~ ^ : ? [ ] { } !`, `..`, `//`, `***`, сегмент с точки, начало с `/` или `-`, конец на `/`, `.`
   или `.lock`, одиночный `@`; `*` и `**` допустимы) и повтор маски — `422` с одним элементом
   `loc: ['body', 'branchFilter']` без номера маски, как у api PR #156 (список проверяет один
