@@ -59,6 +59,11 @@ const BRANCH_FILTER_LABEL = 'Фильтр веток'
 const AUTO_REVIEW_LABEL = 'Автоматическое ревью'
 const SAVED_FOR_LATER_TEXT =
   'Выбор сохранён. Авто-ревью включится, когда доступ к GitHub App восстановится.'
+const SAVED_OFF_TEXT =
+  'Выбор сохранён. Авто-ревью останется выключенным, когда доступ к GitHub App восстановится.'
+// Regular expressions: antd adds an icon named «loading» to the name of a loading button.
+const ENABLE_CHOICE_LABEL = /Включить авто-ревью/
+const KEEP_OFF_CHOICE_LABEL = /Оставить выключенным/
 const AUTO_REVIEW_ERROR_TITLE = 'Не удалось изменить автоматическое ревью'
 const ENGLISH_422_MSG = 'String should match pattern'
 const STALE_NOTICE = 'Не удалось обновить настройки. Показаны значения, загруженные ранее.'
@@ -883,44 +888,99 @@ describe('RepositorySettingsPage: auto-review', () => {
     })
   })
 
-  it('explains why auto-review will not run and what the switch does when installationAvailable is false', async () => {
+  it('explains why auto-review will not run and offers the two choices when installationAvailable is false', async () => {
     const backend = stubBackend([UNREACHABLE_REPO])
     renderPage(settingsPath(UI_REPO.id))
 
     expect(await screen.findByText(/у GitHub App нет доступа к этому репозиторию/i)).toBeTruthy()
     expect(screen.getByText(/автоматическое ревью не запустится/i)).toBeTruthy()
     expect(
-      screen.getByText(/переключатель сохраняет выбор.*вступит в силу.*доступ к GitHub App/i),
+      screen.getByText(/сохранённый выбор здесь не показывается, пока доступа нет/i),
     ).toBeTruthy()
-    expect(screen.queryByText(/сохраняет только настройку/i)).toBeNull()
+    expect(screen.queryByText(/переключатель сохраняет выбор/i)).toBeNull()
+    expect(screen.getByRole('button', { name: ENABLE_CHOICE_LABEL })).toBeTruthy()
+    expect(screen.getByRole('button', { name: KEEP_OFF_CHOICE_LABEL })).toBeTruthy()
 
-    // The switch shows what the server says and still saves the choice.
+    // The switch shows what the server says and cannot be used: the choice is made in the warning.
     expect(autoReviewSwitch().getAttribute('aria-checked')).toBe('false')
-    fireEvent.click(autoReviewSwitch())
-    await waitFor(() => {
-      expect(backend.patches).toEqual([{ id: UI_REPO.id, body: { enabled: true } }])
-    })
+    expect(autoReviewSwitch().hasAttribute('disabled')).toBe(true)
+    expect(backend.patches).toEqual([])
   })
 
-  it('tells that the choice is saved, not applied, when it is turned on without GitHub App access', async () => {
+  it('saves the choice both ways without GitHub App access, and the switch stays off and disabled', async () => {
     const backend = stubBackend([UNREACHABLE_REPO])
     renderPage(settingsPath(UI_REPO.id))
     await screen.findByLabelText(LIMIT_LABEL)
 
-    fireEvent.click(autoReviewSwitch())
+    fireEvent.click(screen.getByRole('button', { name: ENABLE_CHOICE_LABEL }))
 
-    const message = await screen.findByText(SAVED_FOR_LATER_TEXT)
-    expect(message.closest('.ant-message-info')).not.toBeNull()
+    const turnedOn = await screen.findByText(SAVED_FOR_LATER_TEXT)
+    expect(turnedOn.closest('.ant-message-info')).not.toBeNull()
     expect(backend.patches).toEqual([{ id: UI_REPO.id, body: { enabled: true } }])
-    // The switch shows the server value: off. It is no error and not the usual toast.
-    await waitFor(() => {
-      expect(autoReviewSwitch().getAttribute('aria-checked')).toBe('false')
-    })
+    expect(autoReviewSwitch().getAttribute('aria-checked')).toBe('false')
+    expect(autoReviewSwitch().hasAttribute('disabled')).toBe(true)
+    // It is no error and not the usual toast.
     expect(screen.queryByText(AUTO_REVIEW_ERROR_TITLE)).toBeNull()
     expect(screen.queryByText('Автоматическое ревью включено')).toBeNull()
     // Still one warning, and the next load agrees with the answer.
     expect(screen.getAllByText(/у GitHub App нет доступа к этому репозиторию/i)).toHaveLength(1)
     expect(backend.repos[0]?.enabled).toBe(false)
+    await waitFor(() => {
+      expect(
+        screen.getByRole<HTMLButtonElement>('button', { name: KEEP_OFF_CHOICE_LABEL }).disabled,
+      ).toBe(false)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: KEEP_OFF_CHOICE_LABEL }))
+
+    const keptOff = await screen.findByText(SAVED_OFF_TEXT)
+    expect(keptOff.closest('.ant-message-info')).not.toBeNull()
+    expect(backend.patches).toEqual([
+      { id: UI_REPO.id, body: { enabled: true } },
+      { id: UI_REPO.id, body: { enabled: false } },
+    ])
+    expect(autoReviewSwitch().getAttribute('aria-checked')).toBe('false')
+    expect(autoReviewSwitch().hasAttribute('disabled')).toBe(true)
+    expect(screen.queryByText('Автоматическое ревью выключено')).toBeNull()
+    expect(screen.queryByText(AUTO_REVIEW_ERROR_TITLE)).toBeNull()
+  })
+
+  it('keeps the switch off, not loading and disabled while the choice is being saved', async () => {
+    // The optimistic update writes the choice into the cache at once; the switch must not show it.
+    const backend = stubBackend([UNREACHABLE_REPO])
+    let release = (): void => undefined
+    backend.patchGate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    fireEvent.click(screen.getByRole('button', { name: ENABLE_CHOICE_LABEL }))
+    await waitFor(() => {
+      expect(backend.patches).toHaveLength(1)
+    })
+
+    expect(autoReviewSwitch().getAttribute('aria-checked')).toBe('false')
+    expect(autoReviewSwitch().hasAttribute('disabled')).toBe(true)
+    expect(autoReviewSwitch().className).not.toContain('ant-switch-loading')
+
+    release()
+    await screen.findByText(SAVED_FOR_LATER_TEXT)
+    expect(autoReviewSwitch().getAttribute('aria-checked')).toBe('false')
+  })
+
+  it('shows the error under the warning when the choice cannot be saved', async () => {
+    const backend = stubBackend([UNREACHABLE_REPO])
+    backend.failPatch = true
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    fireEvent.click(screen.getByRole('button', { name: KEEP_OFF_CHOICE_LABEL }))
+
+    expect(await screen.findByText(AUTO_REVIEW_ERROR_TITLE)).toBeTruthy()
+    expect(screen.getByText(SERVER_500_TEXT)).toBeTruthy()
+    expect(screen.queryByText(SAVED_OFF_TEXT)).toBeNull()
+    expect(backend.patches).toEqual([{ id: UI_REPO.id, body: { enabled: false } }])
   })
 
   it('keeps the usual toasts for a repository the GitHub App can reach', async () => {
@@ -935,9 +995,9 @@ describe('RepositorySettingsPage: auto-review', () => {
     expect(autoReviewSwitch().getAttribute('aria-checked')).toBe('true')
   })
 
-  it('says «выключено», not that the choice waits for access, when the switch is turned off and GitHub App access is gone', async () => {
+  it('tells that the choice is saved, not applied, when the switch is turned off and GitHub App access is gone', async () => {
     // The switch is on, then the access goes: the answer to «off» carries installationAvailable
-    // false, and the info message is for turning on only.
+    // false. Whatever the user chose, the access decides, and the message says that it is kept.
     const backend = stubBackend([UI_REPO])
     backend.patchResponse = () =>
       new Response(JSON.stringify({ ...UI_REPO, enabled: false, installationAvailable: false }), {
@@ -949,27 +1009,29 @@ describe('RepositorySettingsPage: auto-review', () => {
 
     fireEvent.click(autoReviewSwitch())
 
-    await screen.findByText('Автоматическое ревью выключено')
+    const message = await screen.findByText(SAVED_OFF_TEXT)
+    expect(message.closest('.ant-message-info')).not.toBeNull()
     expect(backend.patches).toEqual([{ id: UI_REPO.id, body: { enabled: false } }])
+    expect(screen.queryByText('Автоматическое ревью выключено')).toBeNull()
     expect(screen.queryByText(SAVED_FOR_LATER_TEXT)).toBeNull()
     expect(screen.queryByText(AUTO_REVIEW_ERROR_TITLE)).toBeNull()
   })
 
-  it('keeps the focus on the switch when the choice is saved without GitHub App access', async () => {
+  it('keeps the focus on the clicked choice button when the choice is saved without GitHub App access', async () => {
     const backend = stubBackend([UNREACHABLE_REPO])
     renderPage(settingsPath(UI_REPO.id))
     await screen.findByLabelText(LIMIT_LABEL)
-    const toggle = autoReviewSwitch()
-    const observer = dropFocusWhenDisabled(toggle)
+    const keepOff = screen.getByRole<HTMLButtonElement>('button', { name: KEEP_OFF_CHOICE_LABEL })
+    const observer = dropFocusWhenDisabled(keepOff)
     try {
-      toggle.focus()
+      keepOff.focus()
 
-      fireEvent.click(toggle)
-      await screen.findByText(SAVED_FOR_LATER_TEXT)
+      fireEvent.click(keepOff)
+      await screen.findByText(SAVED_OFF_TEXT)
 
       expect(backend.patches).toHaveLength(1)
       await waitFor(() => {
-        expect(document.activeElement).toBe(toggle)
+        expect(document.activeElement).toBe(keepOff)
       })
     } finally {
       observer.disconnect()
