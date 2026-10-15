@@ -49,10 +49,11 @@ export const RunsPage: FC = () => {
 
   // Focus follows the action. A control that is gone (the filter reset, the last page loaded,
   // a failed page) would drop focus to <body>: the heading takes it after a reset, and the link
-  // of the first run a page brought takes it after «Показать ещё»; both always. Two moves are
-  // conditional: «Повторить» takes it after a failed page, and the heading after a last page with
-  // nothing new, but only if the control that asked for the page held the focus and the user has
-  // not moved on since.
+  // of the first run a page brought takes it after «Показать ещё»; both always. Three moves are
+  // conditional: «Повторить» takes it after a failed page, the heading after a last page with
+  // nothing new, and «Показать ещё» after a retry that brought nothing new while pages are left,
+  // but only if the control that asked for the page held the focus and the user has not moved on
+  // since.
   const titleRef = useRef<HTMLHeadingElement>(null)
   const runLinks = useRef(new Map<string, HTMLAnchorElement>())
   // The runs on screen when a page was asked for, until the first new row of the answer is
@@ -63,12 +64,31 @@ export const RunsPage: FC = () => {
   // the control is gone and «Повторить» has appeared: the effect below hands the focus to it.
   const retryRef = useRef<HTMLButtonElement>(null)
   const retryTakesFocus = useRef(false)
+  // Set when a retry that held the focus brought nothing new and left a next page: the retry is
+  // gone and «Показать ещё» is a new button, which the focus is handed to once it is on screen.
+  const moreRef = useRef<HTMLButtonElement>(null)
+  const moreTakesFocus = useRef(false)
 
   const focusHeading = useCallback(() => {
     // A «Показать ещё» still on its way belongs to a list that is gone, or has nothing to show:
     // its rows must not take the focus off the heading.
     knownRunIds.current = null
+    moreTakesFocus.current = false
     titleRef.current?.focus()
+  }, [])
+
+  // The answer and the button reach React in no fixed order: this runs when the answer is known
+  // and again when the page changes, and the focus moves on whichever finds both.
+  const focusMoreIfReady = useCallback(() => {
+    const more = moreRef.current
+    if (!moreTakesFocus.current || more === null) {
+      return
+    }
+    moreTakesFocus.current = false
+    // Not on <body>: the user has moved on, and keeps the focus where it is.
+    if (document.activeElement === document.body) {
+      more.focus()
+    }
   }, [])
 
   const resetFilterAndFocus = useCallback(() => {
@@ -78,6 +98,7 @@ export const RunsPage: FC = () => {
 
   const loadMore = async (trigger: HTMLElement): Promise<void> => {
     const hadFocus = document.activeElement === trigger
+    const fromRetry = trigger === retryRef.current
     const known = new Set(runSessions.map((run) => run.id))
     knownRunIds.current = known
     retryTakesFocus.current = hadFocus
@@ -104,7 +125,16 @@ export const RunsPage: FC = () => {
     ) {
       focusHeading()
     }
+    // The retry is gone, nothing is new, and «Показать ещё» is back for the next page.
+    if (hadFocus && fromRetry && !result.isError && nothingNew && result.hasNextPage) {
+      moreTakesFocus.current = true
+      focusMoreIfReady()
+    }
   }
+
+  useEffect(() => {
+    focusMoreIfReady()
+  }, [focusMoreIfReady, isFetchNextPageError, hasNextPage])
 
   useEffect(() => {
     if (!isFetchNextPageError || !retryTakesFocus.current) {
@@ -284,6 +314,7 @@ export const RunsPage: FC = () => {
             onClick={(event) => {
               void loadMore(event.currentTarget)
             }}
+            ref={moreRef}
           >
             Показать ещё
           </Button>

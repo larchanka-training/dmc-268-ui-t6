@@ -716,6 +716,46 @@ describe('RepositorySettingsPage: a failed refresh on open', () => {
     expect(screen.getByLabelText(LIMIT_LABEL)).toBe(limit)
     expect(limit.value).toBe('3')
   })
+
+  it('moves focus to the first field, without remounting the form, when a background refetch takes away the notice and the retry had the focus', async () => {
+    const { backend, client } = await openWithFailedRefresh()
+    const limit = screen.getByLabelText<HTMLInputElement>(LIMIT_LABEL)
+    retryButton().focus()
+
+    backend.failList = false
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: REPOSITORIES_QUERY_KEY })
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByText(STALE_NOTICE)).toBeNull()
+    })
+    await waitFor(() => {
+      expect(document.activeElement).toBe(screen.getByLabelText(CI_LABEL))
+    })
+    // The values are the old ones: only the notice is gone.
+    expect(screen.getByLabelText(LIMIT_LABEL)).toBe(limit)
+    expect(limit.value).toBe('3')
+  })
+
+  it('leaves the focus where the user moved it when a background refetch takes away the notice', async () => {
+    const { backend, client } = await openWithFailedRefresh()
+    const limit = screen.getByLabelText<HTMLInputElement>(LIMIT_LABEL)
+    retryButton().focus()
+    // Tab takes the user to the limit before the refetch ends.
+    limit.focus()
+
+    backend.failList = false
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: REPOSITORIES_QUERY_KEY })
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByText(STALE_NOTICE)).toBeNull()
+    })
+    await settle()
+    expect(document.activeElement).toBe(limit)
+  })
 })
 
 describe('RepositorySettingsPage: auto-review', () => {
@@ -807,6 +847,26 @@ describe('RepositorySettingsPage: auto-review', () => {
     await screen.findByText('Автоматическое ревью включено')
     expect(screen.queryByText(SAVED_FOR_LATER_TEXT)).toBeNull()
     expect(autoReviewSwitch().getAttribute('aria-checked')).toBe('true')
+  })
+
+  it('says «выключено», not that the choice waits for access, when the switch is turned off and GitHub App access is gone', async () => {
+    // The switch is on, then the access goes: the answer to «off» carries installationAvailable
+    // false, and the info message is for turning on only.
+    const backend = stubBackend([UI_REPO])
+    backend.patchResponse = () =>
+      new Response(JSON.stringify({ ...UI_REPO, enabled: false, installationAvailable: false }), {
+        status: 200,
+      })
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+    expect(autoReviewSwitch().getAttribute('aria-checked')).toBe('true')
+
+    fireEvent.click(autoReviewSwitch())
+
+    await screen.findByText('Автоматическое ревью выключено')
+    expect(backend.patches).toEqual([{ id: UI_REPO.id, body: { enabled: false } }])
+    expect(screen.queryByText(SAVED_FOR_LATER_TEXT)).toBeNull()
+    expect(screen.queryByText(AUTO_REVIEW_ERROR_TITLE)).toBeNull()
   })
 
   it('keeps the focus on the switch when the choice is saved without GitHub App access', async () => {
