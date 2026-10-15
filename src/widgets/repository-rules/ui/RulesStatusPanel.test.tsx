@@ -366,7 +366,7 @@ describe('RulesStatusPanel', () => {
     renderPanel()
 
     await within(panel()).findByText('1111111')
-    fireEvent.click(within(panel()).getByRole('button', { name: 'Обновить' }))
+    fireEvent.click(within(panel()).getByRole('button', { name: /Обновить/ }))
 
     expect(await within(panel()).findByText('3333333')).toBeTruthy()
     expect(within(panel()).queryByText('1111111')).toBeNull()
@@ -387,7 +387,7 @@ describe('RulesStatusPanel', () => {
     renderPanel()
 
     await within(panel()).findByText('1111111')
-    const button = within(panel()).getByRole('button', { name: 'Обновить' })
+    const button = within(panel()).getByRole('button', { name: /Обновить/ })
     expect(button.className).not.toContain('ant-btn-loading')
     fireEvent.click(button)
 
@@ -415,11 +415,127 @@ describe('RulesStatusPanel', () => {
     renderPanel()
 
     await within(panel()).findByText('1111111')
-    fireEvent.click(within(panel()).getByRole('button', { name: 'Обновить' }))
+    fireEvent.click(within(panel()).getByRole('button', { name: /Обновить/ }))
 
     expect(await within(panel()).findByText(LOAD_ERROR)).toBeTruthy()
     expect(within(panel()).queryByText('1111111')).toBeNull()
     expect(within(panel()).queryByText('Файл найден')).toBeNull()
+  })
+
+  describe('«Обновить» in every state', () => {
+    it('is there while the first status loads', () => {
+      stubBackend({ [REPO_A]: [new Promise<Response>(() => undefined)] })
+
+      const { container } = renderPanel()
+
+      expect(container.querySelector('.ant-skeleton')).not.toBeNull()
+      expect(within(panel()).getByRole('button', { name: /Обновить/ })).toBeTruthy()
+    })
+
+    it.each([
+      ['a present file', () => json(present())],
+      ['a missing file', () => json(missing)],
+      ['an invalid file', () => json(invalid('# Rules'))],
+      ['an unavailable file that can be retried', () => json(unavailable(true, 'policy_fetch'))],
+      ['an unavailable file that cannot be retried', () => json(unavailable(false))],
+      ['a load error', () => json({ detail: 'boom' }, 500)],
+    ])('is there for %s', async (_name, answer) => {
+      stubBackend({ [REPO_A]: [answer()] })
+
+      const { container } = renderPanel()
+
+      await waitFor(() => {
+        expect(container.querySelector('.ant-skeleton')).toBeNull()
+      })
+      expect(within(panel()).getByRole('button', { name: /Обновить/ })).toBeTruthy()
+    })
+  })
+
+  describe('focus survives the action', () => {
+    function refreshButton(): HTMLElement {
+      return within(panel()).getByRole('button', { name: /Обновить/ })
+    }
+
+    it('keeps the focus on «Обновить» when the refresh fails', async () => {
+      stubBackend({ [REPO_A]: [json(present()), json({ detail: 'boom' }, 500)] })
+      renderPanel()
+      await within(panel()).findByText('1111111')
+
+      const refresh = refreshButton()
+      refresh.focus()
+      fireEvent.click(refresh)
+
+      await within(panel()).findByText(LOAD_ERROR)
+      expect(refreshButton()).toBe(refresh)
+      expect(document.activeElement).toBe(refresh)
+    })
+
+    it('moves the focus to «Обновить» when the retry of a load error succeeds', async () => {
+      stubBackend({ [REPO_A]: [json({ detail: 'boom' }, 500), json(present())] })
+      renderPanel()
+      const retry = await within(panel()).findByRole('button', { name: 'Повторить' })
+
+      retry.focus()
+      fireEvent.click(retry)
+
+      await within(panel()).findByText('Файл найден')
+      await waitFor(() => {
+        expect(document.activeElement).toBe(refreshButton())
+      })
+    })
+
+    it('moves the focus to «Обновить» when the retry of an unavailable file succeeds', async () => {
+      stubBackend({
+        [REPO_A]: [json(unavailable(true, 'policy_fetch_transient')), json(present())],
+      })
+      renderPanel()
+      const retry = await within(panel()).findByRole('button', { name: 'Повторить' })
+
+      retry.focus()
+      fireEvent.click(retry)
+
+      await within(panel()).findByText('Файл найден')
+      await waitFor(() => {
+        expect(document.activeElement).toBe(refreshButton())
+      })
+    })
+
+    it('moves no focus when the retry that succeeds did not have it', async () => {
+      stubBackend({ [REPO_A]: [json({ detail: 'boom' }, 500), json(present())] })
+      renderPanel()
+      const retry = await within(panel()).findByRole('button', { name: 'Повторить' })
+
+      // A click with the mouse: Safari does not focus a button for it.
+      fireEvent.click(retry)
+
+      await within(panel()).findByText('Файл найден')
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      expect(document.activeElement).toBe(document.body)
+    })
+
+    it('keeps the focus on «Повторить» when the retry fails again', async () => {
+      const backend = stubBackend({
+        [REPO_A]: [json(present()), json({ detail: 'boom' }, 500), json({ detail: 'boom' }, 500)],
+      })
+      renderPanel()
+      await within(panel()).findByText('1111111')
+      // The refresh fails and leaves the focus on «Обновить»; Tab takes the user to «Повторить».
+      const refresh = refreshButton()
+      refresh.focus()
+      fireEvent.click(refresh)
+      const retry = await within(panel()).findByRole('button', { name: 'Повторить' })
+      expect(document.activeElement).toBe(refresh)
+
+      retry.focus()
+      fireEvent.click(retry)
+      await waitFor(() => {
+        expect(backend.requests).toHaveLength(3)
+      })
+      await new Promise((resolve) => setTimeout(resolve, 20))
+
+      expect(within(panel()).getByRole('button', { name: 'Повторить' })).toBe(retry)
+      expect(document.activeElement).toBe(retry)
+    })
   })
 
   it('refetches when reopened', async () => {

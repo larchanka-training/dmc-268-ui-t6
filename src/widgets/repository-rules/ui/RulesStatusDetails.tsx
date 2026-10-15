@@ -1,6 +1,6 @@
 import { BranchesOutlined } from '@ant-design/icons'
 import { Alert, Button, Flex, Tooltip, Typography } from 'antd'
-import type { FC, ReactNode } from 'react'
+import type { FC, MouseEventHandler, ReactNode } from 'react'
 
 import type { RulesDiagnostic, RulesStatus } from '../../../entities/repository'
 import { CodeBlock, Tag } from '../../../shared/ui'
@@ -82,7 +82,7 @@ const Meta: FC<{ status: RulesStatus; tag?: ReactNode }> = ({ status, tag }) => 
 export interface RulesStatusDetailsProps {
   status: RulesStatus
   /** Asks the server again; offered only where the server said a retry can help. */
-  onRetry: () => void
+  onRetry: MouseEventHandler<HTMLElement>
   retrying: boolean
 }
 

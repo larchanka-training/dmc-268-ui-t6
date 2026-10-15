@@ -55,6 +55,8 @@ const SERVER_500_TEXT = 'Внутренняя ошибка сервера (500).
 const BRANCH_FILTER_LABEL = 'Фильтр веток'
 const AUTO_REVIEW_LABEL = 'Автоматическое ревью'
 const ENGLISH_422_MSG = 'String should match pattern'
+const STALE_NOTICE = 'Не удалось обновить настройки. Показаны значения, загруженные ранее.'
+const RETRY_LABEL = /Повторить попытку/
 const RADIO_ALL = 'All — critical, high, medium, low, info'
 const RADIO_WARN = 'Warn & Crit — critical, high, medium, low'
 const RADIO_CRIT = 'Only Critical — critical, high'
@@ -188,6 +190,34 @@ async function saveThreshold(radioName: string, backend: Backend, saves: number)
 
 function saveButton(): HTMLButtonElement {
   return screen.getByRole('button', { name: 'Сохранить' })
+}
+
+function retryButton(): HTMLElement {
+  return screen.getByRole('button', { name: RETRY_LABEL })
+}
+
+/**
+ * Opens the settings from a cached list (limit 3) while the refetch on open fails; the server
+ * has moved on to limit 7 by the time anyone retries.
+ */
+async function openWithFailedRefresh(): Promise<{ backend: Backend; client: QueryClient }> {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
+  })
+  client.setQueryData(REPOSITORIES_QUERY_KEY, [{ ...UI_REPO, maxComments: 3 }])
+  const backend = stubBackend([{ ...UI_REPO, maxComments: 7 }])
+  backend.failList = true
+  renderPage(settingsPath(UI_REPO.id), client)
+  await screen.findByLabelText(LIMIT_LABEL)
+  await screen.findByText(STALE_NOTICE)
+  return { backend, client }
+}
+
+/** Gives the answer of a request the time to reach the page. */
+async function settle(): Promise<void> {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 20))
+  })
 }
 
 async function chooseOption(label: string, optionText: string): Promise<void> {
@@ -391,6 +421,8 @@ describe('RepositorySettingsPage', () => {
     expect(backend.gets).toBe(2)
     expect(client.getQueryState(REPOSITORIES_QUERY_KEY)?.status).toBe('error')
     expect(inputValue(LIMIT_LABEL)).toBe('5')
+    // Only the request that opens the page speaks of old values.
+    expect(screen.queryByText(STALE_NOTICE)).toBeNull()
   })
 
   it('shows the fresh values, never the cached ones, when the settings open', async () => {
@@ -449,7 +481,7 @@ describe('RepositorySettingsPage', () => {
     expect(container.querySelector('.ant-skeleton')).toBeNull()
   })
 
-  it('opens with the cached values when the refetch on open fails', async () => {
+  it('opens with the cached values and warns that they are old when the refetch on open fails', async () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
     })
@@ -463,7 +495,10 @@ describe('RepositorySettingsPage', () => {
     expect(backend.gets).toBe(1)
     expect(client.getQueryState(REPOSITORIES_QUERY_KEY)?.status).toBe('error')
     expect(inputValue(LIMIT_LABEL)).toBe('3')
-    expect(screen.queryByText(SERVER_500_TEXT)).toBeNull()
+    const notice = await screen.findByText(STALE_NOTICE)
+    expect(notice.closest('.ant-alert')?.classList.contains('ant-alert-warning')).toBe(true)
+    // «Сохранить» stays the only primary button of the page.
+    expect(retryButton().className).not.toContain('ant-btn-primary')
   })
 
   it('keeps the form while the list is refetched after a save', async () => {
@@ -521,6 +556,127 @@ describe('RepositorySettingsPage', () => {
     expect(await screen.findByTestId('runs-route')).toBeTruthy()
     expect(router.state.location.pathname).toBe('/runs')
     expect(router.state.location.search).toBe('?repo=larchanka-training%2Fdmc-268-ui-t6')
+  })
+})
+
+describe('RepositorySettingsPage: a failed refresh on open', () => {
+  it('refetches on retry and shows the fresh values when nothing was typed', async () => {
+    const { backend } = await openWithFailedRefresh()
+    expect(inputValue(LIMIT_LABEL)).toBe('3')
+
+    backend.failList = false
+    const retry = retryButton()
+    retry.focus()
+    fireEvent.click(retry)
+
+    await waitFor(() => {
+      expect(screen.queryByText(STALE_NOTICE)).toBeNull()
+    })
+    expect(backend.gets).toBe(2)
+    expect(inputValue(LIMIT_LABEL)).toBe('7')
+    expect(saveButton().disabled).toBe(true)
+    await waitFor(() => {
+      expect(document.activeElement).toBe(screen.getByLabelText(CI_LABEL))
+    })
+  })
+
+  it('keeps what was typed when the retry succeeds', async () => {
+    const { backend } = await openWithFailedRefresh()
+    fireEvent.change(screen.getByLabelText(LIMIT_LABEL), { target: { value: '5' } })
+
+    backend.failList = false
+    const retry = retryButton()
+    retry.focus()
+    fireEvent.click(retry)
+
+    await waitFor(() => {
+      expect(screen.queryByText(STALE_NOTICE)).toBeNull()
+    })
+    expect(backend.gets).toBe(2)
+    expect(inputValue(LIMIT_LABEL)).toBe('5')
+    expect(saveButton().disabled).toBe(false)
+    await waitFor(() => {
+      expect(document.activeElement).toBe(screen.getByLabelText(CI_LABEL))
+    })
+  })
+
+  it('keeps what is typed and focused while the retry is running', async () => {
+    const { backend } = await openWithFailedRefresh()
+    backend.failList = false
+    let release: () => void = () => undefined
+    backend.listGate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const retry = retryButton()
+    retry.focus()
+    fireEvent.click(retry)
+    await waitFor(() => {
+      expect(backend.gets).toBe(2)
+    })
+
+    // The user does not wait: they go to the limit and type, and then the answer comes.
+    const limit = screen.getByLabelText<HTMLInputElement>(LIMIT_LABEL)
+    limit.focus()
+    fireEvent.change(limit, { target: { value: '5' } })
+    release()
+
+    await waitFor(() => {
+      expect(screen.queryByText(STALE_NOTICE)).toBeNull()
+    })
+    await settle()
+    expect(screen.getByLabelText(LIMIT_LABEL)).toBe(limit)
+    expect(limit.value).toBe('5')
+    expect(document.activeElement).toBe(limit)
+  })
+
+  it('moves no focus when the retry did not have it', async () => {
+    const { backend } = await openWithFailedRefresh()
+    backend.failList = false
+
+    // A click with the mouse: Safari does not focus a button for it.
+    fireEvent.click(retryButton())
+
+    await waitFor(() => {
+      expect(screen.queryByText(STALE_NOTICE)).toBeNull()
+    })
+    await settle()
+    expect(inputValue(LIMIT_LABEL)).toBe('7')
+    expect(document.activeElement).toBe(document.body)
+  })
+
+  it('keeps the notice and the focus on the retry when the retry fails', async () => {
+    const { backend } = await openWithFailedRefresh()
+
+    const retry = retryButton()
+    retry.focus()
+    fireEvent.click(retry)
+    await waitFor(() => {
+      expect(backend.gets).toBe(2)
+    })
+    await settle()
+
+    expect(screen.getByText(STALE_NOTICE)).toBeTruthy()
+    expect(retryButton()).toBe(retry)
+    expect(document.activeElement).toBe(retry)
+    expect(inputValue(LIMIT_LABEL)).toBe('3')
+  })
+
+  it('takes the notice away without remounting the form when a background refetch succeeds', async () => {
+    const { backend, client } = await openWithFailedRefresh()
+    const limit = screen.getByLabelText<HTMLInputElement>(LIMIT_LABEL)
+    expect(limit.value).toBe('3')
+
+    backend.failList = false
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: REPOSITORIES_QUERY_KEY })
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByText(STALE_NOTICE)).toBeNull()
+    })
+    // The fields are the ones the user was looking at, with the values they had.
+    expect(screen.getByLabelText(LIMIT_LABEL)).toBe(limit)
+    expect(limit.value).toBe('3')
   })
 })
 
