@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { Repository } from '../../../entities/repository'
@@ -526,5 +526,197 @@ describe('RepositoryList', () => {
         'После установки GitHub App на новый аккаунт нажмите «Обновить доступ»: откроется GitHub, затем вы вернётесь сюда. Репозиторий может появиться с задержкой до нескольких минут',
       ),
     ).toBeDefined()
+  })
+})
+
+// The api serves `enabled: false` for a repository the GitHub App cannot reach (api PR #156,
+// SD §6.9), whatever the user chose: the row shows no stored value and offers the two choices.
+const UNREACHABLE_NAME = 'larchanka-training/dmc-268-infra-t6'
+const UNREACHABLE_ID = 'c3d4e5f6-a7b8-9012-cdef-123456789012'
+const UNREACHABLE_REPO: Repository = {
+  id: UNREACHABLE_ID,
+  fullName: UNREACHABLE_NAME,
+  url: 'https://github.com/larchanka-training/dmc-268-infra-t6',
+  defaultBranch: 'main',
+  enabled: false,
+  defaultEngine: 'fast',
+  waitForCi: 'auto',
+  maxComments: 10,
+  reviewEvent: 'COMMENT',
+  branchFilter: [],
+  severityThreshold: 'all',
+  installationAvailable: false,
+}
+const CHOICE_TRIGGER_NAME = `Авто-ревью для ${UNREACHABLE_NAME}, когда доступ вернётся`
+const ENABLE_CHOICE = 'Включить авто-ревью'
+const KEEP_OFF_CHOICE = 'Оставить выключенным'
+
+function choiceTrigger(): HTMLElement {
+  return screen.getByRole('button', { name: CHOICE_TRIGGER_NAME })
+}
+
+function unreachableSwitch(): HTMLElement {
+  return screen.getByRole('switch', { name: `Ревью для ${UNREACHABLE_NAME}` })
+}
+
+/** Opens the menu of the unreachable row and picks one of its two items. */
+async function chooseFromMenu(label: string): Promise<void> {
+  fireEvent.click(choiceTrigger())
+  fireEvent.click(await screen.findByRole('menuitem', { name: label }))
+}
+
+/**
+ * A menu that closes hands the focus to <body> in a browser (the item that held it is hidden);
+ * jsdom keeps it where it was. This does what the browser does.
+ */
+function dropFocusToBody(): void {
+  act(() => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur()
+    }
+  })
+}
+
+describe('RepositoryList while the GitHub App has no access', () => {
+  function unreachableList(
+    props: Partial<Parameters<typeof RepositoryList>[0]> = {},
+  ): React.ReactElement {
+    return (
+      <RepositoryList
+        onSyncAccess={vi.fn()}
+        repositories={[UNREACHABLE_REPO, ...mockRepos.filter((repo) => repo.enabled)]}
+        settingsHref={settingsHref}
+        {...props}
+      />
+    )
+  }
+
+  it('shows the switch off and disabled, «Нет доступа», and the choice trigger only on that row', () => {
+    render(unreachableList({ onToggleEnabled: vi.fn() }))
+
+    expect(unreachableSwitch().getAttribute('aria-checked')).toBe('false')
+    expect(unreachableSwitch().hasAttribute('disabled')).toBe(true)
+    expect(screen.getByText('Нет доступа')).toBeTruthy()
+    // The row with access keeps its status label and has no trigger.
+    expect(screen.getByText('Активен')).toBeTruthy()
+    expect(screen.queryByText('Пауза')).toBeNull()
+    const trigger = choiceTrigger()
+    expect(trigger.textContent).toBe('Когда доступ вернётся')
+    expect(screen.getAllByRole('button', { name: /когда доступ вернётся/ })).toHaveLength(1)
+  })
+
+  it('keeps a row with access as it was: a working switch, «Активен» / «Пауза», no menu', () => {
+    const onToggleEnabled = vi.fn()
+    render(
+      <RepositoryList
+        onSyncAccess={vi.fn()}
+        onToggleEnabled={onToggleEnabled}
+        repositories={mockRepos}
+        settingsHref={settingsHref}
+      />,
+    )
+
+    expect(screen.getByText('Активен')).toBeTruthy()
+    expect(screen.getByText('Пауза')).toBeTruthy()
+    expect(screen.queryByText('Нет доступа')).toBeNull()
+    expect(screen.queryByRole('button', { name: /когда доступ вернётся/ })).toBeNull()
+    const active = screen.getByRole('switch', {
+      name: 'Ревью для larchanka-training/dmc-268-ui-t6',
+    })
+    expect(active.hasAttribute('disabled')).toBe(false)
+    fireEvent.click(active)
+    expect(onToggleEnabled).toHaveBeenCalledExactlyOnceWith(
+      'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+      false,
+    )
+  })
+
+  it.each([
+    [ENABLE_CHOICE, true],
+    [KEEP_OFF_CHOICE, false],
+  ])('calls onToggleEnabled with the value of the menu item «%s»', async (label, value) => {
+    const onToggleEnabled = vi.fn()
+    render(unreachableList({ onToggleEnabled }))
+
+    fireEvent.click(choiceTrigger())
+    expect(await screen.findByRole('menuitem', { name: ENABLE_CHOICE })).toBeTruthy()
+    expect(screen.getAllByRole('menuitem')).toHaveLength(2)
+    expect(screen.getByRole('menuitem', { name: KEEP_OFF_CHOICE })).toBeTruthy()
+    expect(onToggleEnabled).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('menuitem', { name: label }))
+
+    expect(onToggleEnabled).toHaveBeenCalledExactlyOnceWith(UNREACHABLE_ID, value)
+  })
+
+  it('keeps the switch off and without a spinner, and the trigger loading, while a choice saves', () => {
+    // The optimistic update of the mutation writes `enabled: true` into the cache at once.
+    render(
+      unreachableList({
+        repositories: [{ ...UNREACHABLE_REPO, enabled: true }],
+        updatingRepoIds: new Set([UNREACHABLE_ID]),
+      }),
+    )
+
+    expect(unreachableSwitch().getAttribute('aria-checked')).toBe('false')
+    expect(unreachableSwitch().hasAttribute('disabled')).toBe(true)
+    expect(unreachableSwitch().className).not.toContain('ant-switch-loading')
+    expect(choiceTrigger().className).toContain('ant-btn-loading')
+    expect(screen.getByText('Нет доступа')).toBeTruthy()
+    expect(screen.queryByText('Пауза')).toBeNull()
+    expect(screen.queryByText('Активен')).toBeNull()
+  })
+
+  it('does not open the menu while the row saves', () => {
+    render(unreachableList({ updatingRepoIds: new Set([UNREACHABLE_ID]) }))
+
+    fireEvent.click(choiceTrigger())
+
+    expect(screen.queryByRole('menuitem')).toBeNull()
+  })
+
+  it('puts the focus back on the trigger once the save is over, if it held it before the menu opened', async () => {
+    const view = render(unreachableList({ onToggleEnabled: vi.fn() }))
+    const trigger = choiceTrigger()
+    trigger.focus()
+
+    await chooseFromMenu(ENABLE_CHOICE)
+    view.rerender(
+      unreachableList({ onToggleEnabled: vi.fn(), updatingRepoIds: new Set([UNREACHABLE_ID]) }),
+    )
+    dropFocusToBody()
+    expect(document.activeElement).toBe(document.body)
+
+    view.rerender(unreachableList({ onToggleEnabled: vi.fn(), updatingRepoIds: new Set() }))
+
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('leaves the focus on <body> when the trigger did not hold it before the menu opened', async () => {
+    const view = render(unreachableList({ onToggleEnabled: vi.fn() }))
+
+    await chooseFromMenu(KEEP_OFF_CHOICE)
+    view.rerender(
+      unreachableList({ onToggleEnabled: vi.fn(), updatingRepoIds: new Set([UNREACHABLE_ID]) }),
+    )
+    dropFocusToBody()
+    view.rerender(unreachableList({ onToggleEnabled: vi.fn(), updatingRepoIds: new Set() }))
+
+    expect(document.activeElement).toBe(document.body)
+  })
+
+  it('leaves the focus where the user moved it during the save', async () => {
+    const view = render(unreachableList({ onToggleEnabled: vi.fn() }))
+    choiceTrigger().focus()
+
+    await chooseFromMenu(ENABLE_CHOICE)
+    view.rerender(
+      unreachableList({ onToggleEnabled: vi.fn(), updatingRepoIds: new Set([UNREACHABLE_ID]) }),
+    )
+    const search = screen.getByPlaceholderText('Поиск по названию...')
+    search.focus()
+    view.rerender(unreachableList({ onToggleEnabled: vi.fn(), updatingRepoIds: new Set() }))
+
+    expect(document.activeElement).toBe(search)
   })
 })

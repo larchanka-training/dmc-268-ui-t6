@@ -1260,4 +1260,209 @@ describe('RepositoriesPage', () => {
 
     expect(await screen.findByText('settings route')).toBeTruthy()
   })
+
+  describe('while the GitHub App has no access to a repository', () => {
+    // The api serves `enabled AND installationAvailable` (api PR #156, SD §6.9): the stored choice
+    // is write-only, and a GET answers `enabled: false` whatever it holds.
+    const SAVED_ON_TEXT =
+      'Выбор сохранён. Авто-ревью включится, когда доступ к GitHub App восстановится.'
+    const SAVED_OFF_TEXT =
+      'Выбор сохранён. Авто-ревью останется выключенным, когда доступ к GitHub App восстановится.'
+    const INFRA_NAME = 'larchanka-training/dmc-268-infra-t6'
+    const UI_NAME = 'larchanka-training/dmc-268-ui-t6'
+    const INFRA_REPO: Repository = {
+      id: '33333333-3333-4333-8333-333333333333',
+      fullName: INFRA_NAME,
+      url: `https://github.com/${INFRA_NAME}`,
+      defaultBranch: 'main',
+      enabled: false,
+      defaultEngine: 'fast',
+      waitForCi: 'auto',
+      maxComments: 10,
+      reviewEvent: 'COMMENT',
+      branchFilter: [],
+      severityThreshold: 'all',
+      installationAvailable: false,
+    }
+    const UI_REPO: Repository = {
+      ...INFRA_REPO,
+      id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+      fullName: UI_NAME,
+      url: `https://github.com/${UI_NAME}`,
+      enabled: true,
+      installationAvailable: true,
+    }
+
+    interface Backend {
+      repos: Repository[]
+      patches: { id: string; body: unknown }[]
+      /** While set, every PATCH answers only after this promise resolves. */
+      patchGate: Promise<void> | null
+      failPatch: boolean
+      /** What the server has stored, apart from the served `enabled`. */
+      stored: Map<string, boolean>
+    }
+
+    function stubBackend(repos: Repository[]): Backend {
+      const backend: Backend = {
+        repos,
+        patches: [],
+        patchGate: null,
+        failPatch: false,
+        stored: new Map(),
+      }
+      globalThis.fetch = vi.fn((input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+        if (init?.method !== 'PATCH') {
+          return Promise.resolve(new Response(JSON.stringify(backend.repos), { status: 200 }))
+        }
+        const href =
+          typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        const id = href.split('/').pop() ?? ''
+        const body = JSON.parse(typeof init.body === 'string' ? init.body : '{}') as {
+          enabled: boolean
+        }
+        backend.patches.push({ id, body })
+        const answer = ((): Response => {
+          if (backend.failPatch) {
+            return new Response('Server Error', { status: 500 })
+          }
+          const current = { ...backend.repos.find((repo) => repo.id === id) } as Repository
+          backend.stored.set(id, body.enabled)
+          const saved = { ...current, enabled: body.enabled && current.installationAvailable }
+          backend.repos = backend.repos.map((repo) => (repo.id === id ? saved : repo))
+          return new Response(JSON.stringify(saved), { status: 200 })
+        })()
+        return backend.patchGate === null
+          ? Promise.resolve(answer)
+          : backend.patchGate.then(() => answer)
+      })
+      return backend
+    }
+
+    const triggerName = (name: string): string => `Авто-ревью для ${name}, когда доступ вернётся`
+
+    async function chooseFor(name: string, label: string): Promise<void> {
+      fireEvent.click(await screen.findByRole('button', { name: triggerName(name) }))
+      fireEvent.click(await screen.findByRole('menuitem', { name: label }))
+    }
+
+    async function waitUntilIdle(name: string): Promise<void> {
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: triggerName(name) }).className).not.toContain(
+          'ant-btn-loading',
+        )
+      })
+    }
+
+    const infraSwitch = (): HTMLElement =>
+      screen.getByRole('switch', { name: `Ревью для ${INFRA_NAME}` })
+
+    it('saves the choice both ways from the menu, tells so, and keeps the switch off and disabled', async () => {
+      const backend = stubBackend([INFRA_REPO])
+      renderWithClient(<RepositoriesPage />)
+
+      await chooseFor(INFRA_NAME, 'Включить авто-ревью')
+
+      const turnedOn = await screen.findByText(SAVED_ON_TEXT)
+      expect(turnedOn.closest('.ant-message-info')).not.toBeNull()
+      expect(backend.patches).toEqual([{ id: INFRA_REPO.id, body: { enabled: true } }])
+      expect(backend.stored.get(INFRA_REPO.id)).toBe(true)
+      expect(screen.queryByText(/Статус репозитория обновлен/)).toBeNull()
+      await waitUntilIdle(INFRA_NAME)
+      expect(infraSwitch().getAttribute('aria-checked')).toBe('false')
+      expect(infraSwitch().hasAttribute('disabled')).toBe(true)
+      expect(screen.getByText('Нет доступа')).toBeTruthy()
+
+      await chooseFor(INFRA_NAME, 'Оставить выключенным')
+
+      const keptOff = await screen.findByText(SAVED_OFF_TEXT)
+      expect(keptOff.closest('.ant-message-info')).not.toBeNull()
+      expect(backend.patches).toEqual([
+        { id: INFRA_REPO.id, body: { enabled: true } },
+        { id: INFRA_REPO.id, body: { enabled: false } },
+      ])
+      expect(backend.stored.get(INFRA_REPO.id)).toBe(false)
+      expect(screen.queryByText(/Статус репозитория обновлен/)).toBeNull()
+      await waitUntilIdle(INFRA_NAME)
+      expect(infraSwitch().getAttribute('aria-checked')).toBe('false')
+      expect(infraSwitch().hasAttribute('disabled')).toBe(true)
+    })
+
+    it('keeps the switch off and without a spinner, and the trigger loading, while the PATCH is open', async () => {
+      // The optimistic update writes `enabled: true` into the cache when the request starts.
+      const backend = stubBackend([INFRA_REPO])
+      let release = (): void => undefined
+      backend.patchGate = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      renderWithClient(<RepositoriesPage />)
+
+      await chooseFor(INFRA_NAME, 'Включить авто-ревью')
+      await waitFor(() => {
+        expect(backend.patches).toHaveLength(1)
+      })
+
+      const trigger = screen.getByRole('button', { name: triggerName(INFRA_NAME) })
+      await waitFor(() => {
+        expect(trigger.className).toContain('ant-btn-loading')
+      })
+      expect(infraSwitch().getAttribute('aria-checked')).toBe('false')
+      expect(infraSwitch().hasAttribute('disabled')).toBe(true)
+      expect(infraSwitch().className).not.toContain('ant-switch-loading')
+      expect(screen.getByText('Нет доступа')).toBeTruthy()
+      expect(screen.queryByText('Активен')).toBeNull()
+
+      release()
+      await screen.findByText(SAVED_ON_TEXT)
+      await waitUntilIdle(INFRA_NAME)
+      expect(infraSwitch().getAttribute('aria-checked')).toBe('false')
+    })
+
+    it('still reads the served enabled in the counter and the «Активные» filter after a choice', async () => {
+      stubBackend([UI_REPO, INFRA_REPO])
+      renderWithClient(<RepositoriesPage />)
+      expect(await screen.findByText('Подключено: 2, ревью включено в 1')).toBeTruthy()
+
+      await chooseFor(INFRA_NAME, 'Включить авто-ревью')
+      await screen.findByText(SAVED_ON_TEXT)
+      await waitUntilIdle(INFRA_NAME)
+
+      // The stored `true` is not visible: the api serves `false` for this repository.
+      expect(screen.getByText('Подключено: 2, ревью включено в 1')).toBeTruthy()
+      expect(screen.getByText('Активные (1)')).toBeTruthy()
+      fireEvent.click(screen.getByText('Активные (1)'))
+      await waitFor(() => {
+        expect(screen.queryByText(INFRA_NAME)).toBeNull()
+      })
+      expect(screen.getByText(UI_NAME)).toBeTruthy()
+    })
+
+    it('keeps the usual message and the switch for a repository the GitHub App can reach', async () => {
+      const backend = stubBackend([UI_REPO, INFRA_REPO])
+      renderWithClient(<RepositoriesPage />)
+
+      fireEvent.click(await screen.findByRole('switch', { name: `Ревью для ${UI_NAME}` }))
+
+      expect(await screen.findByText('Статус репозитория обновлен: на паузе')).toBeTruthy()
+      expect(backend.patches).toEqual([{ id: UI_REPO.id, body: { enabled: false } }])
+      expect(screen.queryByText(SAVED_ON_TEXT)).toBeNull()
+      expect(screen.queryByText(SAVED_OFF_TEXT)).toBeNull()
+    })
+
+    it('shows the error and no confirmation when the choice cannot be saved', async () => {
+      const backend = stubBackend([INFRA_REPO])
+      backend.failPatch = true
+      renderWithClient(<RepositoriesPage />)
+
+      await chooseFor(INFRA_NAME, 'Оставить выключенным')
+
+      expect(
+        await screen.findByText('Внутренняя ошибка сервера (500). Повторите попытку позже.'),
+      ).toBeTruthy()
+      expect(backend.patches).toEqual([{ id: INFRA_REPO.id, body: { enabled: false } }])
+      expect(screen.queryByText(SAVED_OFF_TEXT)).toBeNull()
+      await waitUntilIdle(INFRA_NAME)
+      expect(infraSwitch().getAttribute('aria-checked')).toBe('false')
+    })
+  })
 })
