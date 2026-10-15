@@ -557,6 +557,21 @@ describe('RulesStatusPanel', () => {
           elsewhere.remove()
         }
       })
+
+      it('moves no focus when the retry lost the focus and nothing took it', async () => {
+        stubBackend({ [REPO_A]: [json({ detail: 'boom' }, 500), json(present())] })
+        const { client } = renderPanel()
+        const retry = await within(panel()).findByRole('button', { name: 'Повторить' })
+        retry.focus()
+        retry.blur()
+        expect(document.activeElement).toBe(document.body)
+
+        await refetchFromOutside(client)
+
+        await within(panel()).findByText('Файл найден')
+        await new Promise((resolve) => setTimeout(resolve, 20))
+        expect(document.activeElement).toBe(document.body)
+      })
     })
 
     it('keeps the focus on «Повторить» when the retry fails again', async () => {
