@@ -86,7 +86,11 @@ describe('RunControls', () => {
     fireEvent.click(screen.getByText('Перезапустить'))
 
     await waitFor(() => {
-      expect(screen.getByText('У этого PR уже есть активный прогон или PR закрыт')).toBeTruthy()
+      expect(
+        screen.getByText(
+          'Нельзя перезапустить ревью: у PR уже есть активный прогон, PR закрыт, ревью репозитория приостановлено или GitHub App недоступна',
+        ),
+      ).toBeTruthy()
     })
   })
 

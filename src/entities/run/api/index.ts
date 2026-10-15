@@ -46,7 +46,9 @@ export function runMutationErrorMessage(error: unknown, action: 'rerun' | 'cance
       case 404:
         return 'Прогон не найден — обновите страницу'
       case 409:
-        return 'У этого PR уже есть активный прогон или PR закрыт'
+        return action === 'rerun'
+          ? 'Нельзя перезапустить ревью: у PR уже есть активный прогон, PR закрыт, ревью репозитория приостановлено или GitHub App недоступна'
+          : 'У этого PR уже есть активный прогон или PR закрыт'
       case 422:
         return action === 'rerun'
           ? 'Нельзя перезапустить: у репозитория нет активного правила или версии промпта'
