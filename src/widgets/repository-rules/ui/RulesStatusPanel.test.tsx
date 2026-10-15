@@ -1,10 +1,14 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { RulesDiagnostic, RulesStatus } from '../../../entities/repository'
+import {
+  repoRulesStatusQueryKey,
+  type RulesDiagnostic,
+  type RulesStatus,
+} from '../../../entities/repository'
 import { RulesStatusPanel } from './RulesStatusPanel'
 
 const REPO_A = 'a1b2c3d4-e5f6-4890-abcd-ef1234567890'
@@ -511,6 +515,48 @@ describe('RulesStatusPanel', () => {
       await within(panel()).findByText('Файл найден')
       await new Promise((resolve) => setTimeout(resolve, 20))
       expect(document.activeElement).toBe(document.body)
+    })
+
+    describe('when a refetch the retry did not start takes the retry away', () => {
+      /** An invalidation, as a refocused window or another part of the page makes it. */
+      async function refetchFromOutside(client: QueryClient): Promise<void> {
+        await act(async () => {
+          await client.invalidateQueries({ queryKey: repoRulesStatusQueryKey(REPO_A) })
+        })
+      }
+
+      it('moves the focus to «Обновить» when the retry of a load error had it', async () => {
+        stubBackend({ [REPO_A]: [json({ detail: 'boom' }, 500), json(present())] })
+        const { client } = renderPanel()
+        const retry = await within(panel()).findByRole('button', { name: 'Повторить' })
+        retry.focus()
+
+        await refetchFromOutside(client)
+
+        await within(panel()).findByText('Файл найден')
+        expect(within(panel()).queryByRole('button', { name: 'Повторить' })).toBeNull()
+        await waitFor(() => {
+          expect(document.activeElement).toBe(refreshButton())
+        })
+      })
+
+      it('moves no focus when the retry did not have it', async () => {
+        stubBackend({ [REPO_A]: [json({ detail: 'boom' }, 500), json(present())] })
+        const { client } = renderPanel()
+        await within(panel()).findByRole('button', { name: 'Повторить' })
+        const elsewhere = document.body.appendChild(document.createElement('button'))
+        try {
+          elsewhere.focus()
+
+          await refetchFromOutside(client)
+
+          await within(panel()).findByText('Файл найден')
+          await new Promise((resolve) => setTimeout(resolve, 20))
+          expect(document.activeElement).toBe(elsewhere)
+        } finally {
+          elsewhere.remove()
+        }
+      })
     })
 
     it('keeps the focus on «Повторить» when the retry fails again', async () => {
