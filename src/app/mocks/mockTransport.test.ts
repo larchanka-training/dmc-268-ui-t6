@@ -143,6 +143,71 @@ describe('initMockTransport', () => {
     })
   })
 
+  // api PR #156 (`repository_settings.py:27`): the stored preference is write-only while the
+  // GitHub App cannot reach the repository; the api serves `enabled AND installationAvailable`.
+  describe('enabled is the effective value', () => {
+    const [available, , unreachable] = mockRepositories
+    if (available?.installationAvailable !== true || unreachable?.installationAvailable !== false) {
+      throw new Error('the first mock repository must be reachable and the third not')
+    }
+
+    beforeEach(() => {
+      initMockTransport()
+    })
+
+    it('reads enabled: false for a repository the GitHub App cannot reach', async () => {
+      expect(unreachable.enabled).toBe(true)
+
+      const one = await apiClient<Repository>(endpoints.repos.detail(unreachable.id))
+      expect(one.enabled).toBe(false)
+      expect(one.installationAvailable).toBe(false)
+
+      const list = await apiClient<Repository[]>(endpoints.repos.list())
+      expect(list.find((item) => item.id === unreachable.id)?.enabled).toBe(false)
+    })
+
+    it('reads the preference for a repository the GitHub App can reach', async () => {
+      const list = await apiClient<Repository[]>(endpoints.repos.list())
+
+      expect(list.find((item) => item.id === available.id)?.enabled).toBe(true)
+    })
+
+    it('answers PATCH { enabled: true } for an unreachable repository with enabled: false', async () => {
+      const updated = await apiClient<Repository>(endpoints.repos.update(unreachable.id), {
+        body: { enabled: true },
+      })
+
+      expect(updated.enabled).toBe(false)
+      expect(updated.installationAvailable).toBe(false)
+      const one = await apiClient<Repository>(endpoints.repos.detail(unreachable.id))
+      expect(one.enabled).toBe(false)
+    })
+
+    it('answers PATCH { enabled: false } for an unreachable repository with enabled: false', async () => {
+      const updated = await apiClient<Repository>(endpoints.repos.update(unreachable.id), {
+        body: { enabled: false },
+      })
+
+      expect(updated.enabled).toBe(false)
+    })
+
+    it('answers PATCH of a reachable repository with the preference it stored', async () => {
+      const off = await apiClient<Repository>(endpoints.repos.update(available.id), {
+        body: { enabled: false },
+      })
+      expect(off.enabled).toBe(false)
+      expect((await apiClient<Repository>(endpoints.repos.detail(available.id))).enabled).toBe(
+        false,
+      )
+
+      const on = await apiClient<Repository>(endpoints.repos.update(available.id), {
+        body: { enabled: true },
+      })
+      expect(on.enabled).toBe(true)
+      expect((await apiClient<Repository>(endpoints.repos.detail(available.id))).enabled).toBe(true)
+    })
+  })
+
   describe('PATCH /repos/{id}', () => {
     const [repo] = mockRepositories
     if (!repo) {
@@ -318,6 +383,7 @@ describe('initMockTransport', () => {
         ['a leading dash', '-main'],
         ['a trailing dot', 'feat.'],
         ['a lone @', '@'],
+        ['a lone surrogate', 'feat/\ud800x'],
       ])('rejects a mask with %s', async (_name, mask) => {
         const error = await rejection({ branchFilter: [mask] })
 
@@ -325,16 +391,23 @@ describe('initMockTransport', () => {
         expect(validationErrorLocations(error.data)).toEqual([{ path: ['body', 'branchFilter'] }])
       })
 
-      it.each(['main', 'release/*', 'feat/**', '*', '**', 'hotfix/v1.2', 'feature/a-b_c', 'a@b'])(
-        'accepts the mask %s',
-        async (mask) => {
-          const updated = await apiClient<Repository>(endpoints.repos.update(repo.id), {
-            body: { branchFilter: [mask] },
-          })
+      it.each([
+        'main',
+        'release/*',
+        'feat/**',
+        '*',
+        '**',
+        'hotfix/v1.2',
+        'feature/a-b_c',
+        'a@b',
+        'feat/\u{1f642}',
+      ])('accepts the mask %s', async (mask) => {
+        const updated = await apiClient<Repository>(endpoints.repos.update(repo.id), {
+          body: { branchFilter: [mask] },
+        })
 
-          expect(updated.branchFilter).toEqual([mask])
-        },
-      )
+        expect(updated.branchFilter).toEqual([mask])
+      })
 
       it('rejects a repeated mask at the field, once', async () => {
         const error = await rejection({ branchFilter: ['main', 'release/*', 'main', 'release/*'] })

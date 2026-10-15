@@ -320,7 +320,8 @@ export const mockRepositories: Repository[] = [
     installationAvailable: true,
   },
   {
-    // The App lost access while auto-review stays on: `enabled` is the stored preference.
+    // The App lost access while auto-review stays on: `enabled` is the stored preference, which the
+    // mock transport serves as `enabled: false` (effective value, api #156), like the real api.
     id: '22222222-2222-4222-8222-000000000003',
     fullName: 'larchanka-training/dmc-268-infra-t6',
     url: 'https://github.com/larchanka-training/dmc-268-infra-t6',
