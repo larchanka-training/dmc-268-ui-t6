@@ -700,6 +700,36 @@ describe('RepositoryList while the GitHub App has no access', () => {
 
     expect(document.activeElement).toBe(document.body)
   })
+
+  // The pick moves the focus to the trigger inside the item's `onClick`, which rc-menu fires on the
+  // Enter `keydown`. Unless that `keydown` is cancelled, a browser delivers the same key's `keypress`
+  // to the trigger, which is focused by then: Enter on a button clicks it and the menu opens again.
+  // jsdom does not synthesise the `keypress`, so the cancelled default action is what is pinned.
+  it.each([
+    [ENABLE_CHOICE, true],
+    [KEEP_OFF_CHOICE, false],
+  ] as const)(
+    'cancels the default action of the Enter that picks «%s», so the menu does not open again',
+    async (label, enabled) => {
+      const onToggleEnabled = vi.fn()
+      render(unreachableList({ onToggleEnabled }))
+      choiceTrigger().focus()
+      fireEvent.click(choiceTrigger())
+      const item = await screen.findByRole('menuitem', { name: label })
+      item.focus()
+
+      const notCancelled = fireEvent.keyDown(item, {
+        key: 'Enter',
+        code: 'Enter',
+        keyCode: 13,
+        which: 13,
+      })
+
+      expect(onToggleEnabled).toHaveBeenCalledWith(UNREACHABLE_ID, enabled)
+      expect(notCancelled).toBe(false)
+      expect(document.activeElement).toBe(choiceTrigger())
+    },
+  )
 })
 
 describe('RepositoryList when the access comes back during a refetch', () => {
