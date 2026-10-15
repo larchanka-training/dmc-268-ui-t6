@@ -756,6 +756,28 @@ describe('RepositorySettingsPage: a failed refresh on open', () => {
     await settle()
     expect(document.activeElement).toBe(limit)
   })
+
+  it('moves no focus when a background refetch takes away the notice and the retry did not have it', async () => {
+    const { backend, client } = await openWithFailedRefresh()
+    const limit = screen.getByLabelText<HTMLInputElement>(LIMIT_LABEL)
+    // The retry lost the focus without anything else taking it: the focus is on <body>.
+    const retry = retryButton()
+    retry.focus()
+    retry.blur()
+    expect(document.activeElement).toBe(document.body)
+
+    backend.failList = false
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: REPOSITORIES_QUERY_KEY })
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByText(STALE_NOTICE)).toBeNull()
+    })
+    await settle()
+    expect(screen.getByLabelText(LIMIT_LABEL)).toBe(limit)
+    expect(document.activeElement).toBe(document.body)
+  })
 })
 
 describe('RepositorySettingsPage: auto-review', () => {
