@@ -605,6 +605,97 @@ describe('RunsPage', () => {
         })
       })
 
+      it('keeps focus on «Показать ещё» when the page holds only runs shown already and more pages are left', async () => {
+        const fetchMock = stubFetch((url) =>
+          url.searchParams.get('cursor') === null
+            ? firstPage
+            : { items: [listedRun(1)], nextCursor: 'cursor-b' },
+        )
+        renderPage()
+        await screen.findByText(listedRun(0).pullRequest.title)
+        const more = screen.getByRole('button', { name: 'Показать ещё' })
+
+        await pressMore()
+        await waitFor(() => {
+          expect(fetchMock).toHaveBeenCalledTimes(2)
+        })
+        // Give the answer the time to reach the page.
+        await act(async () => {
+          await new Promise((resolve) => setTimeout(resolve, 20))
+        })
+
+        // The button is still there, so the heading has no reason to take the focus from it.
+        expect(screen.getAllByRole('link', { name: /^#/ })).toHaveLength(2)
+        expect(screen.getByRole('button', { name: 'Показать ещё' })).toBe(more)
+        expect(document.activeElement).toBe(more)
+      })
+
+      describe('when the retry of a failed page had the focus', () => {
+        /** The retry is focused; the page it asks for shows no new run and leaves a next page. */
+        async function focusRetryOfFailedPage(): Promise<HTMLElement> {
+          stubFetch((url, call) => {
+            if (url.searchParams.get('cursor') === null) {
+              return firstPage
+            }
+            return call === 2 ? failure() : { items: [listedRun(1)], nextCursor: 'cursor-b' }
+          })
+          renderPage()
+          await pressMore()
+          const retry = await screen.findByRole('button', { name: 'Повторить' })
+          await waitFor(() => {
+            expect(document.activeElement).toBe(retry)
+          })
+          return retry
+        }
+
+        it('moves focus to «Показать ещё» when the retry brings no new run and more pages are left', async () => {
+          const retry = await focusRetryOfFailedPage()
+
+          fireEvent.click(retry)
+
+          // The button of the Alert is gone and a new «Показать ещё» has taken its place.
+          const more = await screen.findByRole('button', { name: 'Показать ещё' })
+          await waitFor(() => {
+            expect(document.activeElement).toBe(more)
+          })
+          expect(screen.queryByRole('button', { name: 'Повторить' })).toBeNull()
+          expect(screen.getAllByRole('link', { name: /^#/ })).toHaveLength(2)
+        })
+
+        it('moves focus to «Показать ещё» when React gets the page before fetchNextPage settles', async () => {
+          notifyManager.setScheduler((callback) => {
+            callback()
+          })
+          try {
+            const retry = await focusRetryOfFailedPage()
+
+            fireEvent.click(retry)
+
+            const more = await screen.findByRole('button', { name: 'Показать ещё' })
+            await waitFor(() => {
+              expect(document.activeElement).toBe(more)
+            })
+          } finally {
+            notifyManager.setScheduler(defaultScheduler)
+          }
+        })
+
+        it('leaves the focus where the user moved it while the retry was running', async () => {
+          const retry = await focusRetryOfFailedPage()
+
+          fireEvent.click(retry)
+          // The user does not wait for the page: Tab takes them on.
+          const elsewhere = runLink(listedRun(1))
+          elsewhere.focus()
+
+          await screen.findByRole('button', { name: 'Показать ещё' })
+          await act(async () => {
+            await new Promise((resolve) => setTimeout(resolve, 20))
+          })
+          expect(document.activeElement).toBe(elsewhere)
+        })
+      })
+
       it('leaves the focus where the user moved it when the next page fails', async () => {
         const held = holdNextPage()
         renderPage()
