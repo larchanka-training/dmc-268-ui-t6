@@ -4,6 +4,7 @@ import type { Repository } from '../../../entities/repository'
 import {
   buildSettingsPatch,
   formatBranchFilter,
+  hasDraftChanges,
   parseBranchFilter,
   toFormValues,
   validateBranchFilterText,
@@ -211,5 +212,50 @@ describe('buildSettingsPatch', () => {
     it('sends nothing for the value it opened with', () => {
       expect(buildSettingsPatch(BASELINE, { ...BASELINE })).toEqual({})
     })
+  })
+})
+
+describe('hasDraftChanges', () => {
+  it('is false for the values the form opened with', () => {
+    expect(hasDraftChanges(BASELINE, { ...BASELINE })).toBe(false)
+  })
+
+  it('is true for each field that differs from the baseline', () => {
+    expect(hasDraftChanges(BASELINE, { ...BASELINE, waitForCi: 'always' })).toBe(true)
+    expect(hasDraftChanges(BASELINE, { ...BASELINE, maxComments: 3 })).toBe(true)
+    expect(hasDraftChanges(BASELINE, { ...BASELINE, reviewEvent: 'REQUEST_CHANGES' })).toBe(true)
+    expect(hasDraftChanges(BASELINE, { ...BASELINE, branchFilter: 'main' })).toBe(true)
+    expect(hasDraftChanges(BASELINE, { ...BASELINE, severityThreshold: 'critical' })).toBe(true)
+  })
+
+  it('is true for a cleared limit, which buildSettingsPatch leaves out of the patch', () => {
+    const cleared = { ...BASELINE, maxComments: null }
+    expect(buildSettingsPatch(BASELINE, cleared)).toEqual({})
+    expect(hasDraftChanges(BASELINE, cleared)).toBe(true)
+  })
+
+  it('is false for a limit that is cleared in the baseline too', () => {
+    const cleared = { ...BASELINE, maxComments: null }
+    expect(hasDraftChanges(cleared, { ...cleared })).toBe(false)
+  })
+
+  it.each([
+    ['a blank line', 'main\nrelease/*\n'],
+    ['trailing spaces', 'main\nrelease/*  '],
+    ['a repeated mask', 'main\nrelease/*\nmain'],
+    ['a space before a mask', ' main\nrelease/*'],
+  ])(
+    'is true for a branch filter text that differs only by %s, which parses to the same list',
+    (_name, text) => {
+      const typed = { ...BASELINE, branchFilter: text }
+      expect(buildSettingsPatch(BASELINE, typed)).toEqual({})
+      expect(hasDraftChanges(BASELINE, typed)).toBe(true)
+    },
+  )
+
+  it('compares against the baseline it is given', () => {
+    const saved = { ...BASELINE, maxComments: 4 }
+    expect(hasDraftChanges(saved, { ...BASELINE, maxComments: 4 })).toBe(false)
+    expect(hasDraftChanges(BASELINE, { ...BASELINE, maxComments: 4 })).toBe(true)
   })
 })
