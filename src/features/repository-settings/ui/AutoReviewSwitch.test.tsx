@@ -84,7 +84,8 @@ describe('AutoReviewSwitch: GitHub App has no access', () => {
   })
 
   it('shows the switch off even when the cache holds a choice the server has not confirmed', () => {
-    // The optimistic update of a save writes `enabled: true` into the cache before the answer.
+    // The optimistic update keeps `enabled` off for such a repository too; the switch does not
+    // rely on it.
     renderSwitch({ enabled: true, installationAvailable: false })
 
     expect(theSwitch().getAttribute('aria-checked')).toBe('false')
@@ -97,6 +98,23 @@ describe('AutoReviewSwitch: GitHub App has no access', () => {
     expect(screen.getByText(WARNING_TEXT)).toBeTruthy()
     expect(enableButton()).toBeTruthy()
     expect(keepOffButton()).toBeTruthy()
+  })
+
+  it('puts the two buttons in the description, under the text, and uses no action slot', () => {
+    // antd lays the `action` slot out beside the text, as a row: at 390px the title and the text
+    // collapse to one letter per line. The buttons belong to the description (review r6, P2-1).
+    const { view } = renderSwitch()
+
+    const description = screen.getByText(WARNING_TEXT).closest('.ant-alert-description')
+    expect(description).not.toBeNull()
+    expect(description?.contains(enableButton())).toBe(true)
+    expect(description?.contains(keepOffButton())).toBe(true)
+    expect(view.container.querySelector('.ant-alert-actions')).toBeNull()
+    // The text comes first.
+    expect(
+      screen.getByText(WARNING_TEXT).compareDocumentPosition(enableButton()) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
   })
 
   it('saves true from «Включить авто-ревью» and false from «Оставить выключенным»', async () => {
@@ -150,9 +168,12 @@ describe('AutoReviewSwitch: GitHub App has no access', () => {
     expect(keepOffButton().className).not.toContain('ant-btn-loading')
   })
 
-  it('gives the focus back to the clicked button once the choice is saved', async () => {
+  it.each([
+    ['«Включить авто-ревью»', enableButton],
+    ['«Оставить выключенным»', keepOffButton],
+  ])('gives the focus back to the clicked button %s once the choice is saved', async (_, find) => {
     const { onChange } = renderSwitch()
-    const button = keepOffButton()
+    const button = find()
     const observer = dropFocusWhenDisabled(button)
     try {
       button.focus()
@@ -220,10 +241,14 @@ describe('AutoReviewSwitch: GitHub App has no access', () => {
     expect(keepOffButton().disabled).toBe(false)
   })
 
-  it('moves the focus to the switch when the warning goes away while a choice button had it', () => {
+  it.each([
+    ['«Включить авто-ревью»', enableButton],
+    ['«Оставить выключенным»', keepOffButton],
+  ])('moves the focus to the switch when the warning goes away while %s had it', (_, find) => {
     const { rerenderWith } = renderSwitch()
-    keepOffButton().focus()
-    expect(document.activeElement).toBe(keepOffButton())
+    const button = find()
+    button.focus()
+    expect(document.activeElement).toBe(button)
 
     rerenderWith({ enabled: true, installationAvailable: true })
 
