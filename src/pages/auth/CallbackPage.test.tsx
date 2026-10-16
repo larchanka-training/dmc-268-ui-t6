@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from 'react'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../shared/config/env', async (importOriginal) => {
@@ -23,6 +23,14 @@ import {
 } from '../../features/auth'
 import { ApiError, setAccessToken, setMockTransport } from '../../shared/api/client'
 import { CallbackPage } from './CallbackPage'
+
+// No @types/node here and Vitest zeroes `.css?raw`: load `fs` untyped to read the real stylesheet.
+// Under jsdom `import.meta.url` is not a file URL, so the path is relative to the project root,
+// where Vitest runs.
+const FS_MODULE = 'node:fs'
+const { readFileSync } = (await import(/* @vite-ignore */ FS_MODULE)) as {
+  readFileSync: (path: string, encoding: 'utf8') => string
+}
 
 const originalAuth = useAuthStore.getState()
 
@@ -53,9 +61,10 @@ describe('CallbackPage OAuth errors', () => {
 
     render(<CallbackPage onSuccess={onSuccess} />)
 
-    await screen.findByText('Авторизация успешна!')
+    await waitFor(() => {
+      expect(onSuccess).toHaveBeenCalledOnce()
+    })
     expect(observedIntents).toEqual(['ready'])
-    expect(onSuccess).toHaveBeenCalledOnce()
   })
 
   it('shows a fixed Russian message instead of error_description', async () => {
@@ -154,9 +163,10 @@ describe('CallbackPage OAuth errors', () => {
       </React.StrictMode>,
     )
 
-    await screen.findByText('Авторизация успешна!')
+    await waitFor(() => {
+      expect(onSuccess).toHaveBeenCalledOnce()
+    })
     expect(exchange).toHaveBeenCalledOnce()
-    expect(onSuccess).toHaveBeenCalledOnce()
     expect(peekAccessRefreshIntent()).toBe('ready')
   })
 
@@ -169,9 +179,13 @@ describe('CallbackPage OAuth errors', () => {
       '/auth/callback?code=github_exchange_code&state=csrf_test_state',
     )
 
-    render(<CallbackPage onSuccess={vi.fn()} />)
+    const onSuccess = vi.fn()
 
-    await screen.findByText('Авторизация успешна!')
+    render(<CallbackPage onSuccess={onSuccess} />)
+
+    await waitFor(() => {
+      expect(onSuccess).toHaveBeenCalledOnce()
+    })
     expect(peekAccessRefreshIntent()).toBeNull()
   })
 
@@ -190,9 +204,12 @@ describe('CallbackPage OAuth errors', () => {
       '',
       '/auth/callback?code=github_exchange_code&state=csrf_test_state',
     )
-    view.rerender(<CallbackPage onSuccess={vi.fn()} />)
+    const onSuccess = vi.fn()
+    view.rerender(<CallbackPage onSuccess={onSuccess} />)
 
-    await screen.findByText('Авторизация успешна!')
+    await waitFor(() => {
+      expect(onSuccess).toHaveBeenCalledOnce()
+    })
     expect(peekAccessRefreshIntent()).toBeNull()
   })
 
@@ -206,5 +223,67 @@ describe('CallbackPage OAuth errors', () => {
       expect(screen.getByText('Отсутствует код авторизации (параметр code не найден)')).toBeTruthy()
     })
     expect(peekAccessRefreshIntent()).toBeNull()
+  })
+})
+
+describe('CallbackPage success', () => {
+  it('has no success screen: the exchange screen stays up while onSuccess fires', async () => {
+    initMockTransport()
+    sessionStorage.setItem(STATE_STORAGE_KEY, 'csrf_test_state')
+    window.history.pushState(
+      {},
+      '',
+      '/auth/callback?code=github_exchange_code&state=csrf_test_state',
+    )
+    const onScreenWhenCalled: (string | null)[] = []
+    const onSuccess = vi.fn(() => {
+      onScreenWhenCalled.push(
+        screen.queryByText('Авторизация через GitHub...')?.textContent ?? null,
+      )
+    })
+
+    render(<CallbackPage onSuccess={onSuccess} />)
+
+    await waitFor(() => {
+      expect(onSuccess).toHaveBeenCalledOnce()
+    })
+    // Let the state update that would have swapped the screen reach the DOM.
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(onScreenWhenCalled).toEqual(['Авторизация через GitHub...'])
+    expect(screen.getByText('Авторизация через GitHub...')).toBeTruthy()
+    expect(screen.queryByText('Авторизация успешна!')).toBeNull()
+    expect(screen.queryByText('Перенаправляем в панель управления...')).toBeNull()
+  })
+})
+
+describe('CallbackPage.module.css', () => {
+  const css = readFileSync('src/pages/auth/CallbackPage.module.css', 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\s+/g, ' ')
+
+  function declarations(selector: string): string {
+    const start = css.indexOf(`${selector} {`)
+    expect(start, selector).toBeGreaterThanOrEqual(0)
+    return css.slice(css.indexOf('{', start) + 1, css.indexOf('}', start))
+  }
+
+  it('fades the screen in with the tokens of the design system, opacity only', () => {
+    expect(declarations('.content')).toContain(
+      'animation: content-fade-in var(--rv-motion-fade) var(--rv-ease);',
+    )
+    expect(css).toContain('@keyframes content-fade-in { from { opacity: 0; } }')
+    expect(css).not.toContain('transform')
+  })
+
+  it('shows the screen from the first frame: no delay, no hidden state', () => {
+    expect(css).not.toMatch(/animation-delay|visibility|pointer-events/)
+  })
+
+  it('shows the screen at once under reduced motion', () => {
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\) \{ \.content \{ animation: none; \} \}/,
+    )
   })
 })
