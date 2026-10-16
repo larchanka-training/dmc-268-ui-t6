@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { disabledRagIndex } from '../model/schemas'
 import { fetchRepositories, fetchRepository, repoApi, updateRepository } from './index'
 
 describe('repoApi schema mappings', () => {
@@ -34,6 +35,8 @@ describe('repository API client methods', () => {
     branchFilter: [],
     severityThreshold: 'all' as const,
     installationAvailable: true,
+    ragEnabled: false,
+    ragIndex: disabledRagIndex,
   }
 
   it('fetchRepositories returns validated repositories', async () => {

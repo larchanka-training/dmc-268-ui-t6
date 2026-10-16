@@ -22,7 +22,12 @@ import {
   saveAuthReturnTo,
   useAuthStore,
 } from '../../features/auth'
-import { REPOSITORIES_QUERY_KEY, useRepositories, type Repository } from '../../entities/repository'
+import {
+  disabledRagIndex,
+  REPOSITORIES_QUERY_KEY,
+  useRepositories,
+  type Repository,
+} from '../../entities/repository'
 
 import { RepositoriesPage } from './RepositoriesPage'
 
@@ -157,6 +162,8 @@ describe('RepositoriesPage', () => {
         branchFilter: [],
         severityThreshold: 'all',
         installationAvailable: true,
+        ragEnabled: false,
+        ragIndex: disabledRagIndex,
       }
       const newRepository: Repository = {
         ...repository,
@@ -231,6 +238,8 @@ describe('RepositoriesPage', () => {
       branchFilter: [],
       severityThreshold: 'all',
       installationAvailable: true,
+      ragEnabled: false,
+      ragIndex: disabledRagIndex,
     }
     const newRepo: Repository = {
       ...oldRepo,
@@ -295,6 +304,8 @@ describe('RepositoriesPage', () => {
       branchFilter: [],
       severityThreshold: 'all',
       installationAvailable: true,
+      ragEnabled: false,
+      ragIndex: disabledRagIndex,
     }
     const confirmedRepository = { ...repository, enabled: false }
     const client = new QueryClient({
@@ -643,6 +654,8 @@ describe('RepositoriesPage', () => {
       branchFilter: [],
       severityThreshold: 'all',
       installationAvailable: true,
+      ragEnabled: false,
+      ragIndex: disabledRagIndex,
     }
     let requests = 0
     globalThis.fetch = vi.fn(() => {
@@ -717,6 +730,8 @@ describe('RepositoriesPage', () => {
       branchFilter: [],
       severityThreshold: 'all',
       installationAvailable: true,
+      ragEnabled: false,
+      ragIndex: disabledRagIndex,
     }
     let gets = 0
     globalThis.fetch = vi.fn((_url, options?: RequestInit) => {
@@ -763,6 +778,8 @@ describe('RepositoriesPage', () => {
       branchFilter: [],
       severityThreshold: 'all',
       installationAvailable: true,
+      ragEnabled: false,
+      ragIndex: disabledRagIndex,
     }
     let resolvePatch!: (response: Response) => void
     const patch = new Promise<Response>((resolve) => {
@@ -827,6 +844,8 @@ describe('RepositoriesPage', () => {
       branchFilter: [],
       severityThreshold: 'all',
       installationAvailable: true,
+      ragEnabled: false,
+      ragIndex: disabledRagIndex,
     }
     const second: Repository = {
       ...first,
@@ -940,6 +959,8 @@ describe('RepositoriesPage', () => {
       branchFilter: [],
       severityThreshold: 'all',
       installationAvailable: true,
+      ragEnabled: false,
+      ragIndex: disabledRagIndex,
     }
     client.setQueryData(REPOSITORIES_QUERY_KEY, [repository])
     let gets = 0
@@ -984,6 +1005,8 @@ describe('RepositoriesPage', () => {
       branchFilter: [],
       severityThreshold: 'all',
       installationAvailable: true,
+      ragEnabled: false,
+      ragIndex: disabledRagIndex,
     }
 
     globalThis.fetch = vi.fn().mockResolvedValue(
@@ -1047,6 +1070,8 @@ describe('RepositoriesPage', () => {
       branchFilter: [],
       severityThreshold: 'all',
       installationAvailable: true,
+      ragEnabled: false,
+      ragIndex: disabledRagIndex,
     }
 
     let resolvePatch: (res: Response) => void = vi.fn()
@@ -1116,6 +1141,8 @@ describe('RepositoriesPage', () => {
       branchFilter: [],
       severityThreshold: 'all',
       installationAvailable: true,
+      ragEnabled: false,
+      ragIndex: disabledRagIndex,
     }
     const repo2 = {
       id: '22222222-2222-4222-8222-222222222222',
@@ -1130,6 +1157,8 @@ describe('RepositoriesPage', () => {
       branchFilter: [],
       severityThreshold: 'all',
       installationAvailable: true,
+      ragEnabled: false,
+      ragIndex: disabledRagIndex,
     }
 
     let resolvePatch1!: (res: Response) => void
@@ -1235,6 +1264,8 @@ describe('RepositoriesPage', () => {
       branchFilter: [],
       severityThreshold: 'all',
       installationAvailable: true,
+      ragEnabled: false,
+      ragIndex: disabledRagIndex,
     }
     globalThis.fetch = vi.fn().mockResolvedValue(
       new Response(JSON.stringify([mockRepo]), {
@@ -1281,6 +1312,8 @@ describe('RepositoriesPage', () => {
       branchFilter: [],
       severityThreshold: 'all',
       installationAvailable: false,
+      ragEnabled: false,
+      ragIndex: disabledRagIndex,
     }
     const UI_REPO: Repository = {
       ...INFRA_REPO,

@@ -2,7 +2,11 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { Repository, UpdateRepositoryInput } from '../../../entities/repository'
+import {
+  disabledRagIndex,
+  type Repository,
+  type UpdateRepositoryInput,
+} from '../../../entities/repository'
 import { RepositorySettingsForm } from './RepositorySettingsForm'
 
 const REPOSITORY: Repository = {
@@ -18,6 +22,8 @@ const REPOSITORY: Repository = {
   branchFilter: [],
   severityThreshold: 'all',
   installationAvailable: true,
+  ragEnabled: false,
+  ragIndex: disabledRagIndex,
 }
 
 const LIMIT_LABEL = 'Лимит замечаний (1..10)'

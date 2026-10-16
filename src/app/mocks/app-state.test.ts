@@ -215,6 +215,15 @@ describe('mockRepositories', () => {
     expect(unreachable.every((repo) => repo.enabled)).toBe(true)
   })
 
+  it('stores a different RAG index status on each repository', () => {
+    expect(mockRepositories.map((repo) => [repo.ragEnabled, repo.ragIndex.status])).toEqual([
+      [true, 'ready'],
+      [true, 'failed'],
+      [true, 'stale'],
+      [false, 'disabled'],
+    ])
+  })
+
   it('has a fourth repository for the missing rules file', () => {
     expect(mockRepositories).toHaveLength(4)
     expect(mockRepositories[3]?.id).toBe('22222222-2222-4222-8222-000000000004')
