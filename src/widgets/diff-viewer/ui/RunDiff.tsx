@@ -9,6 +9,7 @@ import type { FindingView, ReviewComment } from '../../../entities/review'
 import {
   EMPTY_FINDING_FILTERS,
   FindingFiltersBar,
+  type SubscribeFilterNavigation,
   effectiveFileFilter,
   hasContentFilter,
   matchesFindingFilters,
@@ -41,6 +42,7 @@ interface RunDiffProps {
   findingsPending?: boolean
   /** Changes when the URL was changed by a navigation the page did not make (back, a link). */
   filtersNavigationKey?: number
+  subscribeToFiltersNavigation?: SubscribeFilterNavigation
 }
 
 function findingsOutsideVisibleDiff(files: FileDiff[], findings: FindingView[]): FindingView[] {
@@ -96,6 +98,7 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
     commentsPending = false,
     findingsPending = false,
     filtersNavigationKey,
+    subscribeToFiltersNavigation,
   } = props
 
   const activeFilters = onFiltersChange === undefined ? EMPTY_FINDING_FILTERS : filters
@@ -146,6 +149,7 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
       filters={filters}
       findingsPending={findingsPending}
       navigationKey={filtersNavigationKey}
+      subscribeToNavigation={subscribeToFiltersNavigation}
       onChange={controls.onChange}
       onQueryChange={controls.onQueryChange}
       onReset={controls.onReset}
