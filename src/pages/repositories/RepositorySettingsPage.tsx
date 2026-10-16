@@ -1,10 +1,12 @@
 import { RightOutlined } from '@ant-design/icons'
+import { useIsMutating } from '@tanstack/react-query'
 import { Alert, App, Breadcrumb, Button, Empty, Flex, Skeleton } from 'antd'
 import { useCallback, useEffect, useRef, useState, type FC, type ReactNode } from 'react'
 import { Link, useHref, useLinkClickHandler, useParams } from 'react-router'
 
 import {
   RepositoryIdSchema,
+  UPDATE_REPOSITORY_MUTATION_KEY,
   useRepository,
   useUpdateRepository,
   type Repository,
@@ -79,8 +81,10 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
   // It is asked of the form here, in an effect, after the answer: the user may have typed while
   // the request ran. While a save runs the cache holds the optimistic copy of its patch, which
   // is not an answer of the server, so the effect waits for the refetch the save ends with.
+  // `saving` counts every running save, the form's and the switch's together: the mutation of the
+  // hook tracks only the latest one, and the guard would drop while the other still runs.
   const formRef = useRef<RepositorySettingsFormHandle>(null)
-  const saving = updateMutation.isPending
+  const saving = useIsMutating({ mutationKey: UPDATE_REPOSITORY_MUTATION_KEY }) > 0
   useEffect(() => {
     const form = formRef.current
     if (notice !== 'stale' || isFetching || isError || saving || !form || !repository) {
@@ -140,7 +144,11 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
     }
 
     // The latest values of the server, as the page holds them now. The button that used it leaves
-    // the page with the notice, so the first field takes the focus.
+    // the page with the notice, so the first field takes the focus. The button is disabled while
+    // a save runs (the cache holds the optimistic copy of its patch then, and a failing save would
+    // leave the form showing values the server does not hold). «Отменить изменения» is not held
+    // back here: the form disables it during its own save, and the optimistic copy of an
+    // auto-review toggle touches no field.
     const loadServerValues = (): void => {
       formRef.current?.resetTo(repository)
       setNotice(null)
@@ -199,7 +207,7 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
             // The button is not in the `action` slot, which lays an Alert out as a row beside the
             // text and squeezes it on a narrow screen (see `AutoReviewSwitch`).
             description={
-              <Button onClick={loadServerValues} ref={loadServerRef} size="small">
+              <Button disabled={saving} onClick={loadServerValues} ref={loadServerRef} size="small">
                 Загрузить значения с сервера
               </Button>
             }
