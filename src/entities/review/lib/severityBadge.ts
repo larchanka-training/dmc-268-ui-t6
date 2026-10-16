@@ -18,3 +18,12 @@ export const SEVERITY_BADGE_LABEL: Record<SeverityBadgeGroup, string> = {
   warning: 'Warning',
   info: 'Info',
 }
+
+/** Badge text of one finding: its exact level. The group keeps the colour and the «Критичность» filter. */
+export const SEVERITY_LABEL: Record<Severity, string> = {
+  critical: 'Critical',
+  high: 'High',
+  medium: 'Medium',
+  low: 'Low',
+  info: 'Info',
+}

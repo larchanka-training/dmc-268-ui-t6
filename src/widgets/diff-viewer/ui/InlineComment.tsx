@@ -3,11 +3,7 @@ import { Typography } from 'antd'
 
 import { extractNewSideLines, type FileDiff } from '../../../entities/diff'
 import type { FindingView } from '../../../entities/review'
-import {
-  findingLineRangeLabel,
-  SEVERITY_BADGE_LABEL,
-  severityBadgeGroup,
-} from '../../../entities/review'
+import { findingLineRangeLabel, SEVERITY_LABEL, severityBadgeGroup } from '../../../entities/review'
 import { RowButton, Tag } from '../../../shared/ui'
 import { DiffSuggestion } from './DiffSuggestion'
 
@@ -45,7 +41,7 @@ export function InlineComment(props: InlineCommentProps): JSX.Element {
         }}
       >
         <Tag tone={SEVERITY_TAG[badge].tone} variant={SEVERITY_TAG[badge].variant}>
-          {SEVERITY_BADGE_LABEL[badge]}
+          {SEVERITY_LABEL[finding.severity]}
         </Tag>
         <Typography.Text strong>{finding.title}</Typography.Text>
         {range !== null ? <Typography.Text type="secondary">{range}</Typography.Text> : null}
