@@ -31,6 +31,8 @@ export interface RvPalette {
   selected: string
   buttonHover: string
   buttonActive: string
+  /** Background of a pressed text button. */
+  buttonTextActive: string
   accentActive: string
   focusRing: string
   sidebar: string
@@ -45,6 +47,8 @@ export interface RvPalette {
   warningBorder: string
   dangerBg: string
   dangerBgStrong: string
+  /** Background of a pressed danger text button and of a pressed outlined danger button. */
+  dangerBgActive: string
   dangerBorder: string
   infoBg: string
   infoBgStrong: string
@@ -79,7 +83,8 @@ export const RV_PALETTE: Record<RvThemeMode, RvPalette> = {
     hover: 'rgba(148, 163, 184, 0.06)',
     selected: 'rgba(248, 250, 252, 0.08)',
     buttonHover: '#222737',
-    buttonActive: '#2a3042',
+    buttonActive: '#191e2f',
+    buttonTextActive: 'rgba(0, 0, 0, 0.3)',
     accentActive: '#1d4fd0',
     focusRing: 'rgba(96, 165, 250, 0.25)',
     sidebar: '#090d18',
@@ -93,6 +98,7 @@ export const RV_PALETTE: Record<RvThemeMode, RvPalette> = {
     warningBorder: '#584922',
     dangerBg: '#281d2b',
     dangerBgStrong: '#402633',
+    dangerBgActive: '#1b1624',
     dangerBorder: '#58303b',
     infoBg: '#16233b',
     infoBgStrong: '#1e3251',
@@ -126,6 +132,7 @@ export const RV_PALETTE: Record<RvThemeMode, RvPalette> = {
     selected: 'rgba(15, 23, 42, 0.06)',
     buttonHover: '#ebeced',
     buttonActive: '#dfe2e6',
+    buttonTextActive: 'rgba(15, 23, 42, 0.08)',
     accentActive: '#1d4fd0',
     focusRing: 'rgba(29, 78, 216, 0.2)',
     sidebar: '#f8f9fc',
@@ -139,6 +146,7 @@ export const RV_PALETTE: Record<RvThemeMode, RvPalette> = {
     warningBorder: '#e1cdb0',
     dangerBg: '#fdecec',
     dangerBgStrong: '#fbd6d6',
+    dangerBgActive: '#fbd6d6',
     dangerBorder: '#f4baba',
     infoBg: '#e8edfb',
     infoBgStrong: '#d6dff8',

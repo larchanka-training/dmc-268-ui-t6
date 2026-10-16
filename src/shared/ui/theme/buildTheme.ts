@@ -158,6 +158,11 @@ export function buildTheme(mode: RvThemeMode, options: BuildThemeOptions = {}): 
         textTextHoverColor: p.text,
         textTextActiveColor: p.text,
         textHoverBg: p.hover,
+        // The press background of a text button is `colorFill` and that of a danger text button
+        // is `colorErrorBgActive`; neither has a token of its own. Set here, not for the whole
+        // theme: the diff viewer reads `colorErrorBgActive` for its edited-text highlight.
+        colorFill: p.buttonTextActive,
+        colorErrorBgActive: p.dangerBgActive,
         paddingInline: 12,
         paddingInlineLG: 18,
         paddingInlineSM: 8,

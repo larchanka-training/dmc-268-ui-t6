@@ -24,6 +24,8 @@
   --rv-high: #fb923c;
   --rv-critical: #f97316;
   --rv-danger: #f87171;
+  --rv-danger-bg: #281d2b;
+  --rv-danger-bg-active: #1b1624;
   --rv-hover: rgb(148 163 184 / 6%);
   --rv-selected: rgb(248 250 252 / 8%);
   --rv-overlay: rgb(0 0 0 / 55%);
@@ -67,6 +69,8 @@
   --rv-high: #c2410c;
   --rv-critical: #b91c1c;
   --rv-danger: #d92626;
+  --rv-danger-bg: #fdecec;
+  --rv-danger-bg-active: #fbd6d6;
   --rv-hover: rgb(15 23 42 / 4%);
   --rv-selected: rgb(15 23 42 / 6%);
   --rv-overlay: rgb(15 23 42 / 35%);

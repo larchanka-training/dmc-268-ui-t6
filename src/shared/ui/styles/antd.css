@@ -177,3 +177,13 @@
 .ant-steps .ant-steps-item .ant-steps-item-rail-finish {
   --ant-cmp-steps-item-solid-line-color: var(--rv-success);
 }
+
+/* Button, danger default: tinted on hover and pressed darker, on the surface of a default button.
+   Ant Design keeps the background of an outlined danger button fixed on `colorBgContainer` and has
+   no token for its hover or press. The selector is one class heavier than the library's, whose
+   rules for these variables weigh two. */
+.ant-btn.ant-btn-color-dangerous.ant-btn-variant-outlined {
+  --ant-btn-bg-color: var(--rv-surface);
+  --ant-btn-bg-color-hover: var(--rv-danger-bg);
+  --ant-btn-bg-color-active: var(--rv-danger-bg-active);
+}
