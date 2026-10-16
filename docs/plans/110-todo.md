@@ -52,7 +52,7 @@ Standards/Spec reviews и подготовить reviewable PR с русским
       прогон остаётся в списке и открывается повторно; reload сбрасывает mock state.
 - [x] Все шесть gates проходят или конкретный baseline blocker явно отражён;
       Standards/Spec reviews не имеют unresolved findings.
-- [ ] Ветка rebased на актуальный main, ownership перепроверен, PR опубликован
+- [x] Ветка rebased на актуальный main, ownership перепроверен, PR опубликован
       с русским описанием `What` / `Why` / `How to verify` / `Refs` без closing keyword.
 
 **Verification:**
@@ -67,7 +67,7 @@ Standards/Spec reviews и подготовить reviewable PR с русским
 - [x] `pnpm build`
 - [x] `pnpm verify:prod-bundle` после build
 - [x] Independent Standards review и Spec review; recheck после исправлений.
-- [ ] Rebase, final diff и ownership check; publisher возвращает ссылку на PR.
+- [x] Rebase, final diff и ownership check; publisher возвращает ссылку на PR.
 
 **Dependencies:** Task 1.
 
@@ -81,7 +81,7 @@ Standards/Spec reviews и подготовить reviewable PR с русским
 ## Checkpoint: Complete
 
 - [x] Все AC issue подтверждены evidence ниже.
-- [ ] Все исправления verified и PR готов к review; merge/issue closure не выполнять.
+- [x] Все исправления verified и Draft PR опубликован; merge/issue closure не выполнять.
 
 ## Evidence
 
@@ -138,3 +138,12 @@ Standards/Spec reviews и подготовить reviewable PR с русским
   неуспешным и успешным snapshot runs не было. `pnpm verify:prod-bundle` после
   snapshot build — exit 0, 22 assets clean. Итого все шесть неизменённых gates
   на intended snapshot — exit 0; raw workspace format baseline failure сохранён выше.
+- Publication: `origin/main` повторно fetched, остаётся `5150ddc`; rebase
+  `--autostash` подтвердил up-to-date. Комментарии согласования PR #106/#109
+  проверены; новый PR #122 не владеет intended файлами. Коммит `70541ba`
+  содержит только пять intended файлов; source/tests byte-identical к snapshot.
+  Обычные pre-commit и pre-push hooks прошли без bypass. Опубликован
+  [Draft PR #124](https://github.com/larchanka-training/dmc-268-ui-t6/pull/124)
+  с русским описанием и `Refs #110`, без reviewer (default после optional вопроса).
+  Merge и issue closure не выполнялись; approving review на текущем head остаётся
+  условием последующего merge.
