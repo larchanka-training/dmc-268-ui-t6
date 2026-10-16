@@ -45,6 +45,7 @@ function renderRunDetail(runId: string) {
 
 describe('RunDetailPage', () => {
   beforeEach(() => {
+    vi.spyOn(crypto, 'randomUUID').mockReturnValue(RERUN_RUN_ID)
     initMockTransport()
     setAccessToken('mock_jwt_token_skvertl_dmc')
     useAuthStore.setState({
@@ -550,23 +551,20 @@ describe('RunDetailPage', () => {
     if (!session) {
       throw new Error('demo run missing from mock list')
     }
-    const previousStatus = session.status
-    const previousFinishedAt = session.finishedAt
-    try {
-      session.status = 'running'
-      session.finishedAt = null
+    withMockTransportOverlay((endpoint) => {
+      if (endpoint.path === `/runs/${DEMO_RUN_ID}` && endpoint.method === 'GET') {
+        return { ...buildMockRunDetail(session), status: 'running', finishedAt: null }
+      }
+      return undefined
+    })
 
-      await act(async () => {
-        await client.invalidateQueries({ queryKey: runQueryKeys.detail(DEMO_RUN_ID) })
-      })
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: runQueryKeys.detail(DEMO_RUN_ID) })
+    })
 
-      await waitFor(() => {
-        expect(screen.getByText('running')).toBeTruthy()
-      })
-    } finally {
-      session.status = previousStatus
-      session.finishedAt = previousFinishedAt
-    }
+    await waitFor(() => {
+      expect(screen.getByText('running')).toBeTruthy()
+    })
   })
 
   it('shows a dedicated diff error while keeping run header and controls', async () => {

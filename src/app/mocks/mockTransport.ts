@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 import { RawFileDiffSchema } from '../../entities/diff'
-import type { RunStatus } from '../../entities/run'
+import { ACTIVE_RUN_STATUSES, type RunSession, type RunStatus } from '../../entities/run'
 import { makeDuoActions } from '../../entities/run/lib/duoActions.fixture'
 import {
   RepositorySchema,
@@ -41,12 +41,12 @@ export const MOCK_OAUTH_CODE = 'mock_code_123'
 
 // Working copy of the fixture: PATCH edits stay here, `mockRepositories` is never written.
 let repositories: Repository[] = structuredClone(mockRepositories)
+let runSessions: RunSession[] = structuredClone(mockRunsListPage.items)
 
 function findRunSession(id: string) {
-  if (id === WALKING_RUN_ID) {
-    return currentWalkingRun().session
-  }
-  return mockRunsListPage.items.find((run) => run.id === id)
+  const session =
+    id === WALKING_RUN_ID ? currentWalkingRun().session : runSessions.find((run) => run.id === id)
+  return session ? structuredClone(session) : undefined
 }
 
 function handleMockTransport(
@@ -59,7 +59,7 @@ function handleMockTransport(
 
   if (endpoint.path === '/runs' && endpoint.method === 'GET') {
     return {
-      items: mockRunsListPage.items.map((item) => {
+      items: runSessions.map((item) => {
         const run = item.id === WALKING_RUN_ID ? currentWalkingRun().session : item
         return { ...run, pullRequest: { ...run.pullRequest } }
       }),
@@ -243,18 +243,23 @@ function handleMockTransport(
     if (!session) {
       throw new ApiError(404, 'Not Found', { message: 'Run not found' })
     }
-    const activeSibling = mockRunsListPage.items.find(
+    const activeSibling = runSessions.find(
       (item) =>
         item.id !== session.id &&
+        item.pullRequest.repo === session.pullRequest.repo &&
         item.pullRequest.number === session.pullRequest.number &&
-        (item.status === 'queued' || item.status === 'running' || item.status === 'publishing'),
+        ACTIVE_RUN_STATUSES.some(
+          (status) =>
+            status ===
+            (item.id === WALKING_RUN_ID ? currentWalkingRun().session.status : item.status),
+        ),
     )
     if (activeSibling) {
       throw new ApiError(409, 'Conflict', { detail: 'Active run already exists' })
     }
-    return {
+    const rerun: RunSession = {
       ...session,
-      id: '11111111-1111-4111-8111-000000000099',
+      id: crypto.randomUUID(),
       status: 'queued' as const,
       startedAt: null,
       finishedAt: null,
@@ -262,7 +267,11 @@ function handleMockTransport(
       cancelRequested: false,
       trigger: 'rerun' as const,
       createdAt: new Date().toISOString(),
+      actionCount: 0,
+      errorCode: null,
     }
+    runSessions.push(rerun)
+    return structuredClone(rerun)
   }
 
   return undefined
@@ -272,6 +281,7 @@ export function initMockTransport(): void {
   if (!USE_MOCKS) return
 
   repositories = structuredClone(mockRepositories)
+  runSessions = structuredClone(mockRunsListPage.items)
   resetWalkingRun()
 
   setMockAuthAdapter({
