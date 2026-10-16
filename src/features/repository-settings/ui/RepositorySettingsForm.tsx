@@ -13,6 +13,7 @@ import {
 } from '../lib/serverFieldErrors'
 import { SEVERITY_THRESHOLD_OPTIONS } from '../lib/severityThreshold'
 import {
+  applySavedValues,
   buildSettingsPatch,
   hasDraftChanges,
   toFormValues,
@@ -55,6 +56,17 @@ export interface RepositorySettingsFormHandle {
    * as typed: an emptied limit counts though «Сохранить» stays disabled for it.
    */
   hasUnsavedChanges: () => boolean
+  /**
+   * Whether `repository` holds other values than the baseline, compared field by field as the
+   * form holds them (see `hasUnsavedChanges`).
+   */
+  differsFromBaseline: (repository: Repository) => boolean
+  /**
+   * Makes the values of `repository` the baseline and puts them into every field, dropping what
+   * was typed and every error shown. The fields are not remounted, so a focused field keeps the
+   * focus; nothing here moves it.
+   */
+  resetTo: (repository: Repository) => void
 }
 
 export interface RepositorySettingsFormProps {
@@ -63,21 +75,27 @@ export interface RepositorySettingsFormProps {
   onSave: (patch: UpdateRepositoryInput) => Promise<Repository>
   /** Text of an error the form shows above itself. */
   describeError: (error: unknown) => string
+  /**
+   * When given, «Отменить изменения» calls it instead of restoring the baseline: the page has
+   * other values to load (`resetTo`) and closes what told the user about them.
+   */
+  onCancel?: () => void
   ref?: Ref<RepositorySettingsFormHandle>
 }
 
 /**
  * The form is built once per opened repository: the page mounts it with a `key` and only after
  * the repository has loaded. Later props (a background refetch, the optimistic update of a save
- * and its rollback) never reach the fields; the page remounts the form when it wants fresh
- * values to, and asks through `ref` (`hasUnsavedChanges`) whether that would lose any. The
- * baseline is what the form opened with, and after a successful save what the server confirmed;
- * only fields that differ from it are sent.
+ * and its rollback) never reach the fields; when the page wants fresh values in, it asks through
+ * `ref` (`hasUnsavedChanges`, `differsFromBaseline`) what that would lose, and hands them over
+ * with `resetTo`. The baseline is what the form opened with, and after a successful save what the
+ * server confirmed; only fields that differ from it are sent.
  */
 export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
   repository,
   onSave,
   describeError,
+  onCancel,
   ref,
 }) => {
   const [form] = Form.useForm<SettingsFormValues>()
@@ -99,6 +117,24 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
       // Anything typed counts, even what no PATCH could carry (an emptied limit): asked of the
       // store now, not of the `values` of the last render.
       hasUnsavedChanges: () => hasDraftChanges(baseline, form.getFieldsValue()),
+      differsFromBaseline: (other) => hasDraftChanges(baseline, toFormValues(other)),
+      resetTo: (other) => {
+        const next = toFormValues(other)
+        // `setFields` also drops the validation messages, and unlike `resetFields` it does not
+        // remount the fields (the focus stays) nor go back to the values the form opened with.
+        form.setFields(
+          (Object.keys(next) as SettingsFieldName[]).map((name) => ({
+            name,
+            value: next[name],
+            errors: [],
+          })),
+        )
+        // setFields does not fire onValuesChange.
+        setBaseline(next)
+        setValues(next)
+        setSaveError(null)
+        setServerErrors({})
+      },
     }),
     [form, baseline],
   )
@@ -113,6 +149,13 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
     setSaving(true)
     try {
       const saved = await onSave(patch)
+      // What the user has not touched since the submit shows what the server confirmed (a field
+      // that showed an old value takes the fresh one); a field they changed while the request ran
+      // keeps what they typed, and is a change against the new baseline.
+      const next = applySavedValues(submitted, form.getFieldsValue(), toFormValues(saved))
+      form.setFieldsValue(next)
+      // setFieldsValue does not fire onValuesChange.
+      setValues(next)
       setBaseline(toFormValues(saved))
       // «Сохранить» is disabled again now: keep the keyboard user in the form.
       form.focusField(FIRST_FIELD)
@@ -131,6 +174,10 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
   }
 
   const handleCancel = (): void => {
+    if (onCancel !== undefined) {
+      onCancel()
+      return
+    }
     form.setFieldsValue(baseline)
     // setFieldsValue does not fire onValuesChange.
     setValues(baseline)

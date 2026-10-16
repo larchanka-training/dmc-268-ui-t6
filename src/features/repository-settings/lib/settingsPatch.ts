@@ -118,3 +118,28 @@ export function hasDraftChanges(baseline: SettingsFormValues, values: SettingsFo
     values.severityThreshold !== baseline.severityThreshold
   )
 }
+
+/**
+ * The values to show after a successful save: every field that still holds what was submitted
+ * takes the saved value, one the user changed while the request ran keeps what they typed. The
+ * comparison is raw, as in `hasDraftChanges`.
+ */
+export function applySavedValues(
+  submitted: SettingsFormValues,
+  current: SettingsFormValues,
+  saved: SettingsFormValues,
+): SettingsFormValues {
+  return {
+    waitForCi: current.waitForCi === submitted.waitForCi ? saved.waitForCi : current.waitForCi,
+    maxComments:
+      current.maxComments === submitted.maxComments ? saved.maxComments : current.maxComments,
+    reviewEvent:
+      current.reviewEvent === submitted.reviewEvent ? saved.reviewEvent : current.reviewEvent,
+    branchFilter:
+      current.branchFilter === submitted.branchFilter ? saved.branchFilter : current.branchFilter,
+    severityThreshold:
+      current.severityThreshold === submitted.severityThreshold
+        ? saved.severityThreshold
+        : current.severityThreshold,
+  }
+}

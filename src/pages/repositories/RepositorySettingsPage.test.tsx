@@ -68,6 +68,10 @@ const AUTO_REVIEW_ERROR_TITLE = 'Не удалось изменить автом
 const ENGLISH_422_MSG = 'String should match pattern'
 const STALE_NOTICE = 'Не удалось обновить настройки. Показаны значения, загруженные ранее.'
 const RETRY_LABEL = /Повторить попытку/
+const DIFFERS_NOTICE =
+  'На сервере сохранены другие значения. В форме — ваши правки поверх загруженных ранее.'
+const LOAD_SERVER_LABEL = 'Загрузить значения с сервера'
+const NEVER_OPTION = 'Никогда (запускать ревью без ожидания CI)'
 const RADIO_ALL = 'All — critical, high, medium, low, info'
 const RADIO_WARN = 'Warn & Crit — critical, high, medium, low'
 const RADIO_CRIT = 'Only Critical — critical, high'
@@ -239,18 +243,24 @@ function retryButton(): HTMLElement {
   return screen.getByRole('button', { name: RETRY_LABEL })
 }
 
+function loadServerButton(): HTMLElement {
+  return screen.getByRole('button', { name: LOAD_SERVER_LABEL })
+}
+
 /**
  * Opens the settings of `repository` from a cached list (limit 3) while the refetch on open
- * fails; the server has moved on to limit 7 by the time anyone retries.
+ * fails; the server has moved on to `serverMaxComments` (7, unless told otherwise) by the time
+ * anyone retries.
  */
 async function openWithFailedRefresh(
   repository: Repository = UI_REPO,
+  serverMaxComments = 7,
 ): Promise<{ backend: Backend; client: QueryClient }> {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
   })
   client.setQueryData(REPOSITORIES_QUERY_KEY, [{ ...repository, maxComments: 3 }])
-  const backend = stubBackend([{ ...repository, maxComments: 7 }])
+  const backend = stubBackend([{ ...repository, maxComments: serverMaxComments }])
   backend.failList = true
   renderPage(settingsPath(repository.id), client)
   await screen.findByLabelText(LIMIT_LABEL)
@@ -625,7 +635,7 @@ describe('RepositorySettingsPage: a failed refresh on open', () => {
     })
   })
 
-  it('keeps what was typed when the retry succeeds', async () => {
+  it('keeps what was typed, and says the server holds other values, when the retry succeeds', async () => {
     const { backend } = await openWithFailedRefresh()
     fireEvent.change(screen.getByLabelText(LIMIT_LABEL), { target: { value: '5' } })
 
@@ -640,9 +650,9 @@ describe('RepositorySettingsPage: a failed refresh on open', () => {
     expect(backend.gets).toBe(2)
     expect(inputValue(LIMIT_LABEL)).toBe('5')
     expect(saveButton().disabled).toBe(false)
-    await waitFor(() => {
-      expect(document.activeElement).toBe(screen.getByLabelText(CI_LABEL))
-    })
+    // The server holds limit 7, the form was opened with 3: the draft stays over old values.
+    expect(screen.getByText(DIFFERS_NOTICE)).toBeTruthy()
+    expect(loadServerButton()).toBeTruthy()
   })
 
   it('keeps what is typed and focused while the retry is running', async () => {
@@ -703,6 +713,9 @@ describe('RepositorySettingsPage: a failed refresh on open', () => {
     expect(screen.getByLabelText(LIMIT_LABEL)).toBe(limit)
     expect(limit.value).toBe('')
     expect(document.activeElement).toBe(limit)
+    // The draft stays over old values, and the page says so.
+    expect(screen.getByText(DIFFERS_NOTICE)).toBeTruthy()
+    expect(loadServerButton()).toBeTruthy()
   })
 
   it('keeps a branch filter text that only reads as the same list when the retry succeeds', async () => {
@@ -734,6 +747,9 @@ describe('RepositorySettingsPage: a failed refresh on open', () => {
     expect(filter.value).toBe('main\nrelease/*  \n')
     expect(inputValue(LIMIT_LABEL)).toBe('3')
     expect(document.activeElement).toBe(filter)
+    // The draft stays over old values, and the page says so.
+    expect(screen.getByText(DIFFERS_NOTICE)).toBeTruthy()
+    expect(loadServerButton()).toBeTruthy()
   })
 
   it('moves no focus when the retry did not have it', async () => {
@@ -768,7 +784,7 @@ describe('RepositorySettingsPage: a failed refresh on open', () => {
     expect(inputValue(LIMIT_LABEL)).toBe('3')
   })
 
-  it('takes the notice away without remounting the form when a background refetch succeeds', async () => {
+  it('brings the fresh values into an untouched form, without remounting it, when a background refetch succeeds', async () => {
     const { backend, client } = await openWithFailedRefresh()
     const limit = screen.getByLabelText<HTMLInputElement>(LIMIT_LABEL)
     expect(limit.value).toBe('3')
@@ -781,12 +797,34 @@ describe('RepositorySettingsPage: a failed refresh on open', () => {
     await waitFor(() => {
       expect(screen.queryByText(STALE_NOTICE)).toBeNull()
     })
-    // The fields are the ones the user was looking at, with the values they had.
+    await settle()
+    // The fields are the ones the user was looking at, with the server's values.
     expect(screen.getByLabelText(LIMIT_LABEL)).toBe(limit)
-    expect(limit.value).toBe('3')
+    expect(limit.value).toBe('7')
+    expect(saveButton().disabled).toBe(true)
+    expect(screen.queryByText(DIFFERS_NOTICE)).toBeNull()
   })
 
-  it('moves focus to the first field, without remounting the form, when a background refetch takes away the notice and the retry had the focus', async () => {
+  it('keeps the focus of a field of an untouched form when a background refetch brings fresh values', async () => {
+    const { backend, client } = await openWithFailedRefresh()
+    const limit = screen.getByLabelText<HTMLInputElement>(LIMIT_LABEL)
+    limit.focus()
+
+    backend.failList = false
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: REPOSITORIES_QUERY_KEY })
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByText(STALE_NOTICE)).toBeNull()
+    })
+    await settle()
+    expect(screen.getByLabelText(LIMIT_LABEL)).toBe(limit)
+    expect(limit.value).toBe('7')
+    expect(document.activeElement).toBe(limit)
+  })
+
+  it('brings the fresh values and moves focus to the first field when a background refetch takes away the notice and the retry had the focus', async () => {
     const { backend, client } = await openWithFailedRefresh()
     const limit = screen.getByLabelText<HTMLInputElement>(LIMIT_LABEL)
     retryButton().focus()
@@ -802,9 +840,9 @@ describe('RepositorySettingsPage: a failed refresh on open', () => {
     await waitFor(() => {
       expect(document.activeElement).toBe(screen.getByLabelText(CI_LABEL))
     })
-    // The values are the old ones: only the notice is gone.
+    // Without a remount, and with the server's values.
     expect(screen.getByLabelText(LIMIT_LABEL)).toBe(limit)
-    expect(limit.value).toBe('3')
+    expect(limit.value).toBe('7')
   })
 
   it('leaves the focus where the user moved it when a background refetch takes away the notice', async () => {
@@ -846,6 +884,154 @@ describe('RepositorySettingsPage: a failed refresh on open', () => {
     await settle()
     expect(screen.getByLabelText(LIMIT_LABEL)).toBe(limit)
     expect(document.activeElement).toBe(document.body)
+  })
+
+  it('keeps the draft over the old values and says the server holds other ones when a background refetch brings them', async () => {
+    const { backend, client } = await openWithFailedRefresh()
+    await chooseOption(CI_LABEL, NEVER_OPTION)
+
+    backend.failList = false
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: REPOSITORIES_QUERY_KEY })
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByText(STALE_NOTICE)).toBeNull()
+    })
+    const notice = screen.getByText(DIFFERS_NOTICE)
+    expect(notice.closest('.ant-alert')?.classList.contains('ant-alert-info')).toBe(true)
+    expect(loadServerButton().className).not.toContain('ant-btn-primary')
+    // The draft stays as typed; the untouched fields keep the values they were opened with.
+    expect(selectedText(CI_LABEL)).toBe(NEVER_OPTION)
+    expect(inputValue(LIMIT_LABEL)).toBe('3')
+    expect(saveButton().disabled).toBe(false)
+  })
+
+  it('shows no notice when a background refetch brings the values the form was opened with, draft or not', async () => {
+    const { backend, client } = await openWithFailedRefresh(UI_REPO, 3)
+    await chooseOption(CI_LABEL, NEVER_OPTION)
+
+    backend.failList = false
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: REPOSITORIES_QUERY_KEY })
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByText(STALE_NOTICE)).toBeNull()
+    })
+    await settle()
+    expect(screen.queryByText(DIFFERS_NOTICE)).toBeNull()
+    expect(screen.queryByRole('button', { name: LOAD_SERVER_LABEL })).toBeNull()
+    expect(selectedText(CI_LABEL)).toBe(NEVER_OPTION)
+    expect(saveButton().disabled).toBe(false)
+  })
+
+  it('moves the focus of the retry to «Загрузить значения с сервера» when the notice that replaces it says the server holds other values', async () => {
+    const { backend } = await openWithFailedRefresh()
+    await chooseOption(CI_LABEL, NEVER_OPTION)
+
+    backend.failList = false
+    const retry = retryButton()
+    retry.focus()
+    fireEvent.click(retry)
+
+    await waitFor(() => {
+      expect(screen.queryByText(STALE_NOTICE)).toBeNull()
+    })
+    await waitFor(() => {
+      expect(document.activeElement).toBe(loadServerButton())
+    })
+    expect(screen.getByText(DIFFERS_NOTICE)).toBeTruthy()
+    expect(selectedText(CI_LABEL)).toBe(NEVER_OPTION)
+  })
+
+  describe('when the server holds other values than the draft was typed over', () => {
+    /** A draft (the CI wait), then a background refetch that brings limit 7: the info notice. */
+    async function openWithDraftOverOtherValues() {
+      const opened = await openWithFailedRefresh()
+      await chooseOption(CI_LABEL, NEVER_OPTION)
+      opened.backend.failList = false
+      await act(async () => {
+        await opened.client.invalidateQueries({ queryKey: REPOSITORIES_QUERY_KEY })
+      })
+      await screen.findByText(DIFFERS_NOTICE)
+      return opened
+    }
+
+    it('puts the server values into every field, closes the notice and focuses the first field on «Загрузить значения с сервера»', async () => {
+      await openWithDraftOverOtherValues()
+      expect(inputValue(LIMIT_LABEL)).toBe('3')
+
+      const button = loadServerButton()
+      button.focus()
+      fireEvent.click(button)
+
+      await waitFor(() => {
+        expect(screen.queryByText(DIFFERS_NOTICE)).toBeNull()
+      })
+      expect(inputValue(LIMIT_LABEL)).toBe('7')
+      expect(selectedText(CI_LABEL)).toBe('Авто (ожидать CI при наличии проверок)')
+      expect(saveButton().disabled).toBe(true)
+      await waitFor(() => {
+        expect(document.activeElement).toBe(screen.getByLabelText(CI_LABEL))
+      })
+    })
+
+    it('loads the server values, not the old ones, on «Отменить изменения»', async () => {
+      await openWithDraftOverOtherValues()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Отменить изменения' }))
+
+      await waitFor(() => {
+        expect(screen.queryByText(DIFFERS_NOTICE)).toBeNull()
+      })
+      expect(inputValue(LIMIT_LABEL)).toBe('7')
+      expect(selectedText(CI_LABEL)).toBe('Авто (ожидать CI при наличии проверок)')
+      expect(saveButton().disabled).toBe(true)
+      await waitFor(() => {
+        expect(document.activeElement).toBe(screen.getByLabelText(CI_LABEL))
+      })
+    })
+
+    it('closes the notice after a successful save and sends only what was changed', async () => {
+      const { backend } = await openWithDraftOverOtherValues()
+
+      fireEvent.click(saveButton())
+
+      await waitFor(() => {
+        expect(backend.patches).toHaveLength(1)
+      })
+      expect(backend.patches[0]).toEqual({ id: UI_REPO.id, body: { waitForCi: 'never' } })
+      await waitFor(() => {
+        expect(screen.queryByText(DIFFERS_NOTICE)).toBeNull()
+      })
+      await waitFor(() => {
+        expect(saveButton().disabled).toBe(true)
+      })
+      expect(inputValue(LIMIT_LABEL)).toBe('7')
+    })
+  })
+
+  it('refreshes the untouched fields from the answer to a save made over stale values', async () => {
+    // The form shows limit 3, the server holds 7, and the list still fails to load.
+    const { backend } = await openWithFailedRefresh()
+    await chooseOption(CI_LABEL, NEVER_OPTION)
+
+    fireEvent.click(saveButton())
+
+    await waitFor(() => {
+      expect(backend.patches).toHaveLength(1)
+    })
+    // The limit was not edited: it must not travel with the save.
+    expect(backend.patches[0]).toEqual({ id: UI_REPO.id, body: { waitForCi: 'never' } })
+    await waitFor(() => {
+      expect(inputValue(LIMIT_LABEL)).toBe('7')
+    })
+    expect(selectedText(CI_LABEL)).toBe(NEVER_OPTION)
+    // The baseline is the answer, and so are the fields: nothing is left to save.
+    expect(saveButton().disabled).toBe(true)
+    expect(screen.queryByText(STALE_NOTICE)).toBeNull()
+    expect(screen.queryByText(DIFFERS_NOTICE)).toBeNull()
   })
 })
 
