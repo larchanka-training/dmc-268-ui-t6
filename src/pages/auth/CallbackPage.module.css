@@ -12,6 +12,14 @@
   width: 100%;
   max-width: 360px;
   text-align: center;
+  animation: content-fade-in var(--rv-motion-fade) var(--rv-ease);
+}
+
+/* Opacity only and no delay: the user must see this screen from the first frame. */
+@keyframes content-fade-in {
+  from {
+    opacity: 0;
+  }
 }
 
 .title {
@@ -30,4 +38,10 @@
 
 .action {
   margin-top: 18px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .content {
+    animation: none;
+  }
 }
