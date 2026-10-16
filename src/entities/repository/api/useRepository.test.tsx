@@ -4,6 +4,7 @@ import { cleanup, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { disabledRagIndex } from '../model/schemas'
 import { REPOSITORIES_QUERY_KEY, useRepositories, useRepository } from './index'
 
 const FIRST = {
@@ -19,6 +20,8 @@ const FIRST = {
   branchFilter: [],
   severityThreshold: 'all',
   installationAvailable: true,
+  ragEnabled: false,
+  ragIndex: disabledRagIndex,
 }
 const SECOND = {
   ...FIRST,

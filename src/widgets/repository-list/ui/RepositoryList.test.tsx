@@ -2,7 +2,7 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { Repository } from '../../../entities/repository'
+import { disabledRagIndex, type Repository } from '../../../entities/repository'
 import { useAuthStore } from '../../../features/auth'
 import { RepositoryList } from './RepositoryList'
 
@@ -67,6 +67,8 @@ const mockRepos: Repository[] = [
     branchFilter: [],
     severityThreshold: 'all',
     installationAvailable: true,
+    ragEnabled: false,
+    ragIndex: disabledRagIndex,
   },
   {
     id: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
@@ -81,6 +83,8 @@ const mockRepos: Repository[] = [
     branchFilter: [],
     severityThreshold: 'all',
     installationAvailable: true,
+    ragEnabled: false,
+    ragIndex: disabledRagIndex,
   },
 ]
 
@@ -180,6 +184,8 @@ describe('RepositoryList', () => {
       branchFilter: [],
       severityThreshold: 'all',
       installationAvailable: true,
+      ragEnabled: false,
+      ragIndex: disabledRagIndex,
     }
     const { container } = render(
       <RepositoryList
@@ -461,6 +467,8 @@ const UNREACHABLE_REPO: Repository = {
   branchFilter: [],
   severityThreshold: 'all',
   installationAvailable: false,
+  ragEnabled: false,
+  ragIndex: disabledRagIndex,
 }
 // The visible text «Выбрать» starts the accessible name (WCAG 2.5.3, label in name).
 const CHOICE_TRIGGER_NAME = `Выбрать авто-ревью для ${UNREACHABLE_NAME}, когда доступ вернётся`

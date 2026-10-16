@@ -4,7 +4,7 @@ import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { RulesStatus } from '../model/schemas'
+import { disabledRagIndex, type RulesStatus } from '../model/schemas'
 import {
   REPOSITORIES_QUERY_KEY,
   repoRulesStatusQueryKey,
@@ -30,6 +30,8 @@ const REPO = {
   branchFilter: [],
   severityThreshold: 'all',
   installationAvailable: true,
+  ragEnabled: false,
+  ragIndex: disabledRagIndex,
 }
 
 function missingStatus(sha: string): RulesStatus {

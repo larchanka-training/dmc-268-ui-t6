@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import App from './App'
 import { createRoutes } from './app/routes'
+import { disabledRagIndex } from './entities/repository'
 import { setMockAuthAdapter, useAuthStore } from './features/auth'
 import { setAccessToken } from './shared/api/client'
 
@@ -109,6 +110,8 @@ describe('App root integration and protected routes', () => {
       branchFilter: [],
       severityThreshold: 'all',
       installationAvailable: true,
+      ragEnabled: false,
+      ragIndex: disabledRagIndex,
     }
     let meCalls = 0
 
@@ -182,6 +185,8 @@ describe('App root integration and protected routes', () => {
       branchFilter: [],
       severityThreshold: 'all',
       installationAvailable: true,
+      ragEnabled: false,
+      ragIndex: disabledRagIndex,
     }
 
     // First: refresh returns 200, me returns 200, repos returns 200
@@ -275,6 +280,8 @@ describe('App root integration and protected routes', () => {
       branchFilter: [],
       severityThreshold: 'all',
       installationAvailable: true,
+      ragEnabled: false,
+      ragIndex: disabledRagIndex,
     }
 
     let reposCallCount = 0
@@ -373,6 +380,8 @@ describe('App root integration and protected routes', () => {
       branchFilter: [],
       severityThreshold: 'all',
       installationAvailable: true,
+      ragEnabled: false,
+      ragIndex: disabledRagIndex,
     }
 
     globalThis.fetch = vi.fn().mockImplementation((url: RequestInfo | URL) => {
@@ -495,6 +504,8 @@ describe('App root integration and protected routes', () => {
       branchFilter: [],
       severityThreshold: 'all',
       installationAvailable: true,
+      ragEnabled: false,
+      ragIndex: disabledRagIndex,
     }
 
     let refreshCallCount = 0
@@ -583,6 +594,8 @@ describe('App root integration and protected routes', () => {
       branchFilter: [],
       severityThreshold: 'all',
       installationAvailable: true,
+      ragEnabled: false,
+      ragIndex: disabledRagIndex,
     }
 
     globalThis.fetch = vi.fn().mockImplementation((url: RequestInfo | URL) => {
@@ -749,6 +762,8 @@ describe('App root integration and protected routes', () => {
       branchFilter: [],
       severityThreshold: 'all',
       installationAvailable: true,
+      ragEnabled: false,
+      ragIndex: disabledRagIndex,
     }
 
     globalThis.fetch = vi.fn().mockImplementation((url: RequestInfo | URL) => {
