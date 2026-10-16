@@ -113,8 +113,8 @@ numbers are.
    computed colours, do not judge by eye.
 7. **Sizes.** Controls in one row have one height, one of the control heights of
    `docs/DESIGN_SYSTEM.md` §5. Measure with `getBoundingClientRect()`.
-8. **Narrow screen.** At 390px the page has no horizontal scroll:
-   `document.documentElement.scrollWidth` equals the viewport width.
+8. **Narrow screen.** At the narrow-screen width of `docs/DESIGN_SYSTEM.md` §5 (390px) the page
+   has no horizontal scroll: `document.documentElement.scrollWidth` equals the viewport width.
 9. **Reduced motion.** With `prefers-reduced-motion: reduce` nothing essential depends on an
    animation.
 10. **No new shortcut** of a single key without a way to turn it off.
