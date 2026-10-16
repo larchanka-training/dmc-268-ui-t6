@@ -54,7 +54,7 @@ describe('run api actions', () => {
     {
       action: 'cancel',
       status: 409,
-      text: 'У этого PR уже есть активный прогон или PR закрыт',
+      text: 'Не удалось выполнить операцию',
     },
     {
       action: 'rerun',

@@ -649,9 +649,13 @@ nginx-контейнер за edge-Caddy); п. 1 [SD][sd] покрывал и р
 запись того, что фронт запросил 2026-09-18. Жизненный цикл прогона, якорь и вердикт —
 [PIPELINE_SPEC.md][ps]. Что изменилось: п. 3 — `GET /api/runs/{id}` отдаёт `RunDetail` (§4, Ф-16);
 п. 5 — формулы якоря в §6 (Ф-6); п. 9 — стрим читается `fetch` с Bearer (Ф-14). Сверх пунктов
-ниже: `POST /api/runs/{id}/rerun` (`202` → новый `RunSession` в `queued`; `409`, если у PR уже есть
-активный прогон), `/api/auth/*` (Ф-15), `/api/repos`, `/api/repos/{id}` и `/api/repos/{id}/pulls`
-(Ф-17). Операции с `x-status: planned` в openapi ещё не реализованы, `x-issue` называет задачу.
+ниже: `POST /api/runs/{id}/rerun` (`202` → новый `RunSession` в `queued` для текущего head SHA PR;
+`409`, если у PR уже есть активный прогон, PR закрыт, ревью репозитория приостановлено или GitHub App
+недоступна). По [OpenAPI][openapi] `ErrorResponse` содержит только строковый `detail` без кода причины,
+поэтому UI показывает фиксированный русский текст: «Нельзя перезапустить ревью: у PR уже есть активный
+прогон, PR закрыт, ревью репозитория приостановлено или GitHub App недоступна». Также добавлены
+`/api/auth/*` (Ф-15), `/api/repos`, `/api/repos/{id}` и `/api/repos/{id}/pulls` (Ф-17).
+Операции с `x-status: planned` в openapi ещё не реализованы, `x-issue` называет задачу.
 
 1. JSON на проводе — camelCase; Zod-схемы фронта источник истины ([SD §12][sd-12]). — роль 6.
 2. `GET /api/runs?status&repo&cursor` возвращает `RunListPage` (конверт с `nextCursor`), а не голый
@@ -1414,9 +1418,13 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
 - **antd `List` на summary-only прогоне** пишет в консоль предупреждение об устаревании. Так было
   с #42, к фильтрам это не относится; follow-up — заменить `List` в `RunDiff` (отдельной задачей).
 - **`POST /api/runs/{id}/rerun`** — есть в [`openapi.yaml`][openapi] (реализация — api#34): `202` →
-  новый `RunSession` в `queued` для того же PR и `headSha`; `409`, если у PR уже есть активный
-  прогон. В `src/shared/api/endpoints.ts` его нет (`endpoints.runs` содержит только `cancel`) —
-  добавить эндпоинт в контракт до реализации UI повторного запуска.
+  новый `RunSession` в `queued` для текущего head SHA PR; `409`, если у PR уже есть активный прогон,
+  PR закрыт, ревью репозитория приостановлено или GitHub App недоступна. `ErrorResponse` содержит
+  только строковый `detail` без кода причины, поэтому UI показывает фиксированный русский текст:
+  «Нельзя перезапустить ревью: у PR уже есть активный прогон, PR закрыт, ревью репозитория
+  приостановлено или GitHub App недоступна». Повторный запуск реализован: `endpoints.runs.rerun`
+  в `src/shared/api/endpoints.ts`, `runApi.rerun` / `rerunRun` в `src/entities/run/api/index.ts`
+  и кнопка `RunControls` в `src/widgets/run-inspector/ui/RunControls.tsx`.
 
 ---
 

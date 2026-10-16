@@ -94,7 +94,7 @@ describe('RunControls', () => {
     })
   })
 
-  it('surfaces cancel 409 conflicts via antd message', async () => {
+  it('shows the generic fallback for an unexpected cancel 409 via antd message', async () => {
     mockCancelMutate.mockImplementation(
       (_vars: undefined, options?: { onError?: (error: unknown) => void }) => {
         options?.onError?.(new ApiError(409, 'Conflict', { detail: 'Active run already exists' }))
@@ -105,8 +105,10 @@ describe('RunControls', () => {
     fireEvent.click(screen.getByText('Отменить'))
 
     await waitFor(() => {
-      expect(screen.getByText('У этого PR уже есть активный прогон или PR закрыт')).toBeTruthy()
+      expect(screen.getByText('Не удалось выполнить операцию')).toBeTruthy()
     })
+    expect(screen.queryByText('Active run already exists')).toBeNull()
+    expect(screen.queryByText('У этого PR уже есть активный прогон или PR закрыт')).toBeNull()
   })
 
   // Fixed Russian text by status code: the api `detail` (English, or a FastAPI validation
