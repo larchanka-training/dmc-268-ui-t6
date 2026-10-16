@@ -47,6 +47,7 @@
   --rv-ctl-md: 32px;
   --rv-ctl-lg: 40px;
   --rv-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --rv-motion-fade: 200ms;
 }
 
 [data-rv-theme='light'] {

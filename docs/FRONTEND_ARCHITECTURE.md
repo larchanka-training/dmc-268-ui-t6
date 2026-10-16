@@ -523,8 +523,8 @@ sequenceDiagram
 **Ф-20.** Вид всех экранов задаёт дизайн-система Flat Console в `src/shared/ui`: тема antd
 (`theme/buildTheme.ts`), CSS-токены (`styles/tokens.css`), правки поверх antd (`styles/antd.css`)
 и свои компоненты
-(`Tag`, `Spinner`, `PageHeader`, `DataTable`, `NavMenu`, `RowButton`, `TraceTree`, `ProgressSteps`,
-`CodeBlock`, `Logo`). Всё включается одним `DesignSystemProvider`.
+(`Tag`, `Spinner`, `PageLoader`, `PageHeader`, `DataTable`, `NavMenu`, `RowButton`, `TraceTree`,
+`ProgressSteps`, `CodeBlock`, `Logo`). Всё включается одним `DesignSystemProvider`.
 Числа, правила и чеклист для нового компонента antd: [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md).
 Витрина: `pnpm storybook`. Правило: базовые компоненты берутся только из antd в нашей теме и из
 `src/shared/ui`; на экране их не перекрашивают. Вид компонента antd меняется только внутри
@@ -1288,6 +1288,7 @@ issue прямо выносит подключение логирования з
 — зона ответственности инфры (роль 3, PR #28, сейчас `:8080` захардкожен).
 
 **Роутер.** Установлен **react-router 8** (^8.4.0, peer react ≥ 19.2.7 — выполняется), настроен в `src/app/routes.tsx`. Лэйауты (`AppLayoutRoute`, `ProtectedLayout`, `PageFallback`, `RouteErrorFallback`) и обёртки страниц (`RoutedRepositoriesPage` и др.) вынесены в `src/app/layouts/`, чтобы файл роутера оставался чистой конфигурацией маршрутов без отключения правил Fast Refresh (`react-refresh/only-export-components`).
+`PageFallback` ничего не рисует: это метка ожидания `PageLoading` из дизайн-системы (ею же отмечена проверка сессии в `ProtectedLayout`). Кольцо одно на приложение, его показывает `PageLoaderHost` в `UiProvider`: по центру окна, не раньше чем через 300 мс ожидания, с плавным появлением и исчезновением (`docs/DESIGN_SYSTEM.md` §7).
 
 **Сборка и чанки.** `vite.config.ts`: `build.rolldownOptions.output.codeSplitting`
 (`vendor-react`, `vendor-query`, `vendor-zod`, `includeDependenciesRecursively: false`);

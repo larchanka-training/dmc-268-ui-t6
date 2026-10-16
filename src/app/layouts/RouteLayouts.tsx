@@ -1,16 +1,13 @@
-import { Button, Flex, Result, Spin } from 'antd'
+import { Button, Flex, Result } from 'antd'
 import { Suspense, type FC } from 'react'
 import { Navigate, Outlet, useLocation, useNavigate, useRouteError } from 'react-router'
 
 import { useAuthStore, saveAuthReturnTo } from '../../features/auth'
+import { PageLoading } from '../../shared/ui'
 import { AppLayout } from '../../widgets/app-layout'
 import styles from './RouteLayouts.module.css'
 
-export const PageFallback: FC = () => (
-  <Flex align="center" className={styles.fallbackContainer} justify="center">
-    <Spin size="large" />
-  </Flex>
-)
+export const PageFallback: FC = () => <PageLoading />
 
 export const RouteErrorFallback: FC = () => {
   const error = useRouteError()
@@ -39,11 +36,7 @@ export const ProtectedLayout: FC = () => {
   const isInitialized = useAuthStore((state) => state.isInitialized)
 
   if (!isInitialized || isLoading) {
-    return (
-      <Flex align="center" className={styles.fullPageContainer} justify="center">
-        <Spin size="large" />
-      </Flex>
-    )
+    return <PageFallback />
   }
 
   if (!isAuthenticated) {

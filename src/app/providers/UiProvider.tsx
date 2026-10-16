@@ -2,7 +2,7 @@ import { App as AntApp, theme } from 'antd'
 import { useEffect, type FC, type ReactNode } from 'react'
 
 import { useThemeStore } from '../../features/theme'
-import { DesignSystemProvider } from '../../shared/ui'
+import { DesignSystemProvider, PageLoaderHost } from '../../shared/ui'
 
 const ThemeBodySync: FC = () => {
   const { token } = theme.useToken()
@@ -27,6 +27,7 @@ export function UiProvider({ children }: { children: ReactNode }) {
     <DesignSystemProvider mode={mode}>
       <AntApp>
         <ThemeBodySync />
+        <PageLoaderHost />
         {children}
       </AntApp>
     </DesignSystemProvider>
