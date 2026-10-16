@@ -615,8 +615,10 @@ Run detail (Ф-16; [PIPELINE_SPEC §11][ps-11], схема `RunDetail` в [`open
 `verdict: blocking | attention | clean | null`, `severityCounts { critical, high, medium, low, info }`
 и `budget | null`. Вердикт считает сервер по опубликованным находкам: есть `critical` или `high` →
 `blocking`, иначе есть `medium` или `low` → `attention`, иначе `clean`; `null`, пока прогон не
-`succeeded`, и у summary-only прогона. UI вердикт сам не выводит. Бейджи Critical / Warning / Info —
-только группировка в UI: `critical` + `high` / `medium` + `low` / `info`; API отдаёт пять уровней.
+`succeeded`, и у summary-only прогона. UI вердикт сам не выводит. Подпись бейджа находки — её точный
+уровень: Critical / High / Medium / Low / Info (`SEVERITY_LABEL`, решение техлида 16.10.2026, #121).
+Цвет и вариант бейджа и фильтр «Критичность» — группировка в UI по D3: Critical = `critical` +
+`high`, Warning = `medium` + `low`, Info = `info` (`severityBadgeGroup`); API отдаёт пять уровней.
 
 Отклонения от схем issue:
 
