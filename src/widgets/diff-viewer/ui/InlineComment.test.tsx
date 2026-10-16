@@ -77,7 +77,7 @@ describe('InlineComment', () => {
     ['low', 'Low', 'warning', 'dot'],
     ['info', 'Info', 'info', 'dot'],
   ] as const)(
-    'labels a %s finding "%s" and keeps the D3 group tone %s and variant %s',
+    'labels the %s finding "%s" and keeps the D3 group tone %s and variant %s',
     (severity, label, tone, variant) => {
       render(<InlineComment finding={{ ...finding, severity }} />)
       const badge = screen.getByText(label)
