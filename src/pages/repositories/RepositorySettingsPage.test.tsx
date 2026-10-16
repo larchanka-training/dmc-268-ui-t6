@@ -628,8 +628,10 @@ describe('RepositorySettingsPage: a failed refresh on open', () => {
       expect(screen.queryByText(STALE_NOTICE)).toBeNull()
     })
     expect(backend.gets).toBe(2)
-    expect(inputValue(LIMIT_LABEL)).toBe('7')
-    expect(saveButton().disabled).toBe(true)
+    await waitFor(() => {
+      expect(inputValue(LIMIT_LABEL)).toBe('7')
+      expect(saveButton().disabled).toBe(true)
+    })
     await waitFor(() => {
       expect(document.activeElement).toBe(screen.getByLabelText(CI_LABEL))
     })
@@ -1010,6 +1012,98 @@ describe('RepositorySettingsPage: a failed refresh on open', () => {
       })
       expect(inputValue(LIMIT_LABEL)).toBe('7')
     })
+
+    it('loads the server values on «Отменить изменения» while an auto-review toggle is being saved', async () => {
+      const { backend } = await openWithDraftOverOtherValues()
+      let release = (): void => undefined
+      backend.patchGate = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      fireEvent.click(autoReviewSwitch())
+      await waitFor(() => {
+        expect(backend.patches).toHaveLength(1)
+      })
+      await settle()
+
+      // The toggle's optimistic copy touches no field of the form, so Cancel is not held back by it.
+      fireEvent.click(screen.getByRole('button', { name: 'Отменить изменения' }))
+
+      await waitFor(() => {
+        expect(screen.queryByText(DIFFERS_NOTICE)).toBeNull()
+      })
+      expect(inputValue(LIMIT_LABEL)).toBe('7')
+      expect(selectedText(CI_LABEL)).toBe('Авто (ожидать CI при наличии проверок)')
+      expect(saveButton().disabled).toBe(true)
+      release()
+    })
+
+    it('keeps «Загрузить значения с сервера» disabled while a save runs, and enabled again when the save fails', async () => {
+      const { backend } = await openWithDraftOverOtherValues()
+      backend.failPatch = true
+      let release = (): void => undefined
+      backend.patchGate = new Promise<void>((resolve) => {
+        release = resolve
+      })
+
+      fireEvent.click(saveButton())
+      await waitFor(() => {
+        expect(backend.patches).toHaveLength(1)
+      })
+      await settle()
+
+      // The cache holds the optimistic copy of the patch, which the server has not confirmed: the
+      // button must not load it.
+      expect(loadServerButton().hasAttribute('disabled')).toBe(true)
+      fireEvent.click(loadServerButton())
+      expect(inputValue(LIMIT_LABEL)).toBe('3')
+      expect(selectedText(CI_LABEL)).toBe(NEVER_OPTION)
+      expect(screen.getByText(DIFFERS_NOTICE)).toBeTruthy()
+
+      release()
+      expect(await screen.findByText(SERVER_500_TEXT)).toBeTruthy()
+      await waitFor(() => {
+        expect(loadServerButton().hasAttribute('disabled')).toBe(false)
+      })
+      // By a pattern: the loading icon of a save that was held stays in the name in jsdom.
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: /Сохранить/ }).disabled).toBe(
+        false,
+      )
+      // The draft, the notice and the old baseline are all still there: the failed save changed
+      // nothing, and the form holds no value the server does not.
+      expect(screen.getByText(DIFFERS_NOTICE)).toBeTruthy()
+      expect(inputValue(LIMIT_LABEL)).toBe('3')
+      expect(selectedText(CI_LABEL)).toBe(NEVER_OPTION)
+      expect(backend.patches).toEqual([{ id: UI_REPO.id, body: { waitForCi: 'never' } }])
+    })
+  })
+
+  it('keeps the stale warning, and says nothing about other values, while a save runs and after it fails', async () => {
+    const { backend } = await openWithFailedRefresh()
+    await chooseOption(CI_LABEL, NEVER_OPTION)
+    backend.failPatch = true
+    let release = (): void => undefined
+    backend.patchGate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+
+    fireEvent.click(saveButton())
+    await waitFor(() => {
+      expect(backend.patches).toHaveLength(1)
+    })
+    await settle()
+
+    // The optimistic copy in the cache is not an answer of the server: it takes no warning away.
+    expect(screen.getByText(STALE_NOTICE)).toBeTruthy()
+    expect(screen.queryByText(DIFFERS_NOTICE)).toBeNull()
+
+    release()
+    expect(await screen.findByText(SERVER_500_TEXT)).toBeTruthy()
+    await settle()
+
+    // The list still fails to load, so the failed save has not brought a fresh answer either.
+    expect(screen.getByText(STALE_NOTICE)).toBeTruthy()
+    expect(screen.queryByText(DIFFERS_NOTICE)).toBeNull()
+    expect(selectedText(CI_LABEL)).toBe(NEVER_OPTION)
   })
 
   it('refreshes the untouched fields from the answer to a save made over stale values', async () => {
