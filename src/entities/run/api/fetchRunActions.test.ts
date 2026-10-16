@@ -38,17 +38,24 @@ describe('run api actions', () => {
     expect(actions[0]?.tool).toBe('get_diff')
   })
 
-  it('maps rerun 409 to a user-facing message', () => {
-    const message = runMutationErrorMessage(
-      new ApiError(409, 'Conflict', { detail: 'Active run already exists' }),
-      'rerun',
+  it.each([
+    'the pull request has an active run or is closed, or repository reviews are paused or unavailable',
+    'Active run already exists',
+  ])('maps rerun 409 to all possible causes without exposing detail: %s', (detail) => {
+    const message = runMutationErrorMessage(new ApiError(409, 'Conflict', { detail }), 'rerun')
+    expect(message).toBe(
+      'Нельзя перезапустить ревью: у PR уже есть активный прогон, PR закрыт, ревью репозитория приостановлено или GitHub App недоступна',
     )
-    expect(message).toBe('У этого PR уже есть активный прогон или PR закрыт')
   })
 
   it.each([
     { action: 'rerun', status: 404, text: 'Прогон не найден — обновите страницу' },
     { action: 'cancel', status: 404, text: 'Прогон не найден — обновите страницу' },
+    {
+      action: 'cancel',
+      status: 409,
+      text: 'У этого PR уже есть активный прогон или PR закрыт',
+    },
     {
       action: 'rerun',
       status: 422,
@@ -66,11 +73,14 @@ describe('run api actions', () => {
     expect(message).toBe(row.text)
   })
 
-  it('falls back to the generic text for a non-ApiError', () => {
-    expect(runMutationErrorMessage(new Error('boom'), 'cancel')).toBe(
-      'Не удалось выполнить операцию',
-    )
-  })
+  it.each(['rerun', 'cancel'] as const)(
+    'falls back to the generic text for a non-ApiError on %s',
+    (action) => {
+      expect(runMutationErrorMessage(new Error('boom'), action)).toBe(
+        'Не удалось выполнить операцию',
+      )
+    },
+  )
 
   it('rerunRun parses a queued session', async () => {
     vi.mocked(apiClient).mockResolvedValueOnce({
