@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { Repository } from '../../../entities/repository'
 import {
+  applySavedValues,
   buildSettingsPatch,
   formatBranchFilter,
   hasDraftChanges,
@@ -257,5 +258,35 @@ describe('hasDraftChanges', () => {
     const saved = { ...BASELINE, maxComments: 4 }
     expect(hasDraftChanges(saved, { ...BASELINE, maxComments: 4 })).toBe(false)
     expect(hasDraftChanges(BASELINE, { ...BASELINE, maxComments: 4 })).toBe(true)
+  })
+})
+
+describe('applySavedValues', () => {
+  const SAVED: SettingsFormValues = {
+    waitForCi: 'never',
+    maxComments: 7,
+    reviewEvent: 'REQUEST_CHANGES',
+    branchFilter: 'main',
+    severityThreshold: 'critical',
+  }
+
+  it('takes the saved value for every field that still holds what was submitted', () => {
+    expect(applySavedValues(BASELINE, { ...BASELINE }, SAVED)).toEqual(SAVED)
+  })
+
+  it('keeps the typed value of a field changed while the request ran', () => {
+    const current = { ...BASELINE, maxComments: 5, branchFilter: 'main\nrelease/*\n' }
+    expect(applySavedValues(BASELINE, current, SAVED)).toEqual({
+      ...SAVED,
+      maxComments: 5,
+      branchFilter: 'main\nrelease/*\n',
+    })
+  })
+
+  it('compares raw values, so a branch filter text that only reads as the same list is replaced', () => {
+    const submitted = { ...BASELINE, branchFilter: 'main\n\nrelease/*  ' }
+    expect(applySavedValues(submitted, { ...submitted }, BASELINE).branchFilter).toBe(
+      'main\nrelease/*',
+    )
   })
 })

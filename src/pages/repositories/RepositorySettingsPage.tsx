@@ -1,15 +1,6 @@
 import { RightOutlined } from '@ant-design/icons'
 import { Alert, App, Breadcrumb, Button, Empty, Flex, Skeleton } from 'antd'
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type FC,
-  type MouseEvent,
-  type ReactNode,
-} from 'react'
-import { flushSync } from 'react-dom'
+import { useCallback, useEffect, useRef, useState, type FC, type ReactNode } from 'react'
 import { Link, useHref, useLinkClickHandler, useParams } from 'react-router'
 
 import {
@@ -44,6 +35,15 @@ const LinkButton: FC<{ to: string; children: ReactNode }> = ({ to, children }) =
 }
 
 const STALE_NOTICE = 'Не удалось обновить настройки. Показаны значения, загруженные ранее.'
+const DIFFERS_NOTICE =
+  'На сервере сохранены другие значения. В форме — ваши правки поверх загруженных ранее.'
+
+/**
+ * What stands above the auto-review switch about the values of the form: `stale` — the request
+ * that opened the page failed and the form shows what the cache held; `differs` — fresh values
+ * came, but the user has a draft over the old ones, which stays, and the server holds others.
+ */
+type FormNotice = 'stale' | 'differs' | null
 
 const NotAvailable: FC<{ description: string }> = ({ description }) => (
   <Empty description={description}>
@@ -60,78 +60,91 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
   // page sends: the cached list may be old. The wait ends once and stays ended: later refetches
   // (a save invalidates the list) must not take the form away. A request that fails or is
   // paused ends it too, and the form opens with what the cache holds. A failed one also says so
-  // (`staleNotice`), until some later answer is not an error: a retry, a refocused window, the
-  // refetch after a save. A failure after the page opened says nothing.
+  // (`notice` is `stale`), until some later answer is not an error: a retry, a refocused window,
+  // the refetch after a save. A failure after the page opened says nothing.
   const [openingRequestDone, setOpeningRequestDone] = useState(false)
-  const [staleNotice, setStaleNotice] = useState(false)
+  const [notice, setNotice] = useState<FormNotice>(null)
   if (!openingRequestDone && !isFetching) {
     setOpeningRequestDone(true)
-    setStaleNotice(isError)
-  } else if (staleNotice && !isFetching && !isError) {
-    setStaleNotice(false)
+    setNotice(isError ? 'stale' : null)
   }
 
-  // The form reads its values once. A retry that brings fresh ones remounts it (`formEpoch` is
-  // part of its key), unless the user has typed something in the meantime.
+  // The first answer that is not an error ends `stale`, whoever asked for it (the retry, a
+  // refocused window, the refetch after a save), and brings the form up to date:
+  //  - nothing typed: the form takes the fresh values, in place, so a focused field keeps its
+  //    focus;
+  //  - a draft, and the fresh values differ from what the form opened with: the draft stays and
+  //    the user is told (`differs`), with a button that loads the fresh values;
+  //  - a draft, and the fresh values are those the form opened with: nothing to say.
+  // It is asked of the form here, in an effect, after the answer: the user may have typed while
+  // the request ran. While a save runs the cache holds the optimistic copy of its patch, which
+  // is not an answer of the server, so the effect waits for the refetch the save ends with.
   const formRef = useRef<RepositorySettingsFormHandle>(null)
-  const [formEpoch, setFormEpoch] = useState(0)
+  const saving = updateMutation.isPending
+  useEffect(() => {
+    const form = formRef.current
+    if (notice !== 'stale' || isFetching || isError || saving || !form || !repository) {
+      return
+    }
+    if (form.hasUnsavedChanges()) {
+      setNotice(form.differsFromBaseline(repository) ? 'differs' : null)
+    } else {
+      form.resetTo(repository)
+      setNotice(null)
+    }
+  }, [notice, isFetching, isError, saving, repository])
 
-  // The notice also goes away because of a refetch the retry did not start (a refocused window,
-  // the refetch after a save). If the retry held the focus, the first field takes it, and the
-  // form stays as it is. The retry is marked as it leaves the page, while it is still in the
-  // document and `activeElement` tells whether it held the focus.
+  // The retry button goes away with the warning, and also because of a refetch it did not start
+  // (a refocused window, the refetch after a save). If it held the focus, the control that takes
+  // its place does: the button that loads the fresh values when the warning is replaced by the
+  // notice about them, the first field otherwise. The retry is marked as it leaves the page,
+  // while it is still in the document and `activeElement` tells whether it held the focus.
   const noticeRetryRef = useRef<HTMLButtonElement | null>(null)
-  const fieldTakesFocus = useRef(false)
+  const loadServerRef = useRef<HTMLButtonElement | null>(null)
+  const retryHadFocus = useRef(false)
   const trackNoticeRetry = useCallback((node: HTMLButtonElement | null) => {
     if (node !== null) {
       noticeRetryRef.current = node
       return
     }
     if (document.activeElement === noticeRetryRef.current) {
-      fieldTakesFocus.current = true
+      retryHadFocus.current = true
     }
     noticeRetryRef.current = null
   }, [])
   useEffect(() => {
-    if (staleNotice || !fieldTakesFocus.current) {
+    if (notice === 'stale' || !retryHadFocus.current) {
       return
     }
-    fieldTakesFocus.current = false
+    retryHadFocus.current = false
     // Not on <body>: the user has moved on, and keeps the focus where it is.
-    if (document.activeElement === document.body) {
-      formRef.current?.focusFirstField()
-    }
-  }, [staleNotice])
-
-  const handleRetryRefresh = async (event: MouseEvent<HTMLElement>): Promise<void> => {
-    const retry = event.currentTarget
-    const hadFocus = document.activeElement === retry
-    const result = await refetch({ cancelRefetch: false })
-    if (result.isError) {
-      // The notice and the retry button stay, and so does the focus.
+    if (document.activeElement !== document.body) {
       return
     }
-    // Asked now, not at the click: the user may have typed while the request ran.
-    if (formRef.current?.hasUnsavedChanges() !== true) {
-      flushSync(() => {
-        setFormEpoch((epoch) => epoch + 1)
-      })
-    }
-    // The retry button goes with the notice: the first field takes the focus it had, unless the
-    // user has moved on.
-    const active = document.activeElement
-    if (hadFocus && (active === retry || active === document.body)) {
+    if (notice === 'differs') {
+      loadServerRef.current?.focus()
+    } else {
       formRef.current?.focusFirstField()
     }
-  }
+  }, [notice])
 
   // A repository that is on screen stays on screen: a failed background refetch keeps `data`
   // and must not unmount the form with the typed values.
   if (repository !== undefined && openingRequestDone) {
     const handleSave = async (patch: UpdateRepositoryInput): Promise<Repository> => {
       const saved = await updateMutation.mutateAsync({ id: repository.id, patch })
+      // The answer is the server's own: whatever the form showed over old values is settled now.
+      setNotice(null)
       void message.success('Настройки репозитория успешно сохранены')
       return saved
+    }
+
+    // The latest values of the server, as the page holds them now. The button that used it leaves
+    // the page with the notice, so the first field takes the focus.
+    const loadServerValues = (): void => {
+      formRef.current?.resetTo(repository)
+      setNotice(null)
+      formRef.current?.focusFirstField()
     }
 
     const handleToggleAutoReview = async (enabled: boolean): Promise<void> => {
@@ -163,21 +176,37 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
           description={repository.fullName}
           title="Настройки репозитория"
         />
-        {staleNotice ? (
+        {notice === 'stale' ? (
           <Alert
             action={
               <Button
                 loading={isFetching}
-                onClick={(event) => void handleRetryRefresh(event)}
+                onClick={() => void refetch({ cancelRefetch: false })}
                 ref={trackNoticeRetry}
                 size="small"
               >
                 Повторить попытку
               </Button>
             }
+            key="stale"
             showIcon
             title={STALE_NOTICE}
             type="warning"
+          />
+        ) : null}
+        {notice === 'differs' ? (
+          <Alert
+            // The button is not in the `action` slot, which lays an Alert out as a row beside the
+            // text and squeezes it on a narrow screen (see `AutoReviewSwitch`).
+            description={
+              <Button onClick={loadServerValues} ref={loadServerRef} size="small">
+                Загрузить значения с сервера
+              </Button>
+            }
+            key="differs"
+            showIcon
+            title={DIFFERS_NOTICE}
+            type="info"
           />
         ) : null}
         <AutoReviewSwitch
@@ -189,8 +218,8 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
           onChange={handleToggleAutoReview}
         />
         <RepositorySettingsForm
-          key={formEpoch}
           describeError={(err) => formatErrorMessage(err, 'Не удалось сохранить настройки')}
+          onCancel={notice === 'differs' ? loadServerValues : undefined}
           onSave={handleSave}
           ref={formRef}
           repository={repository}
