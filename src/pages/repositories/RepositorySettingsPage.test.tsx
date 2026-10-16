@@ -1075,6 +1075,34 @@ describe('RepositorySettingsPage: a failed refresh on open', () => {
       expect(selectedText(CI_LABEL)).toBe(NEVER_OPTION)
       expect(backend.patches).toEqual([{ id: UI_REPO.id, body: { waitForCi: 'never' } }])
     })
+
+    it('keeps «Загрузить значения с сервера» disabled while a save is still running after a toggle settles', async () => {
+      const { backend } = await openWithDraftOverOtherValues()
+      // The form's save is held and will fail; the switch's choice is answered at once.
+      backend.failPatch = true
+      let release = (): void => undefined
+      backend.patchGate = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      fireEvent.click(saveButton())
+      await waitFor(() => {
+        expect(backend.patches).toHaveLength(1)
+      })
+      backend.failPatch = false
+      backend.patchGate = null
+      fireEvent.click(autoReviewSwitch())
+      await waitFor(() => {
+        expect(backend.patches).toHaveLength(2)
+      })
+      await settle()
+      // The choice has settled, the save has not: the cache still holds the save's optimistic copy.
+      expect(loadServerButton().hasAttribute('disabled')).toBe(true)
+      release()
+      expect(await screen.findByText(SERVER_500_TEXT)).toBeTruthy()
+      await waitFor(() => {
+        expect(loadServerButton().hasAttribute('disabled')).toBe(false)
+      })
+    })
   })
 
   it('keeps the stale warning, and says nothing about other values, while a save runs and after it fails', async () => {
