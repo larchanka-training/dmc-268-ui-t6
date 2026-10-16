@@ -170,3 +170,45 @@ commit/push development не выполнял.
   На первом snapshot CI `UI quality` и `Docker image build` выполняются;
   их статус не выдаётся за локальный PASS. Эта запись — отдельный docs commit
   evidence, код реализации после проверки не менялся.
+
+## CI follow-up: PR #122, head bd25a23
+
+- RED: [UI quality run 38976969655](https://github.com/larchanka-training/dmc-268-ui-t6/actions/runs/38976969655)
+  на опубликованном head `bd25a23`: 103 files / 1195 tests PASS, но exit1 из-за
+  6 unhandled `ReferenceError: window is not defined`. Stack указывает на
+  `@rc-component/util/lib/hooks/useDelayState.js:39`, origin
+  `src/widgets/diff-viewer/ui/RunDiff.filters.test.tsx`.
+  Команда исследования: `gh run view 38976969655 --repo larchanka-training/dmc-268-ui-t6 --log-failed`.
+- Причина подтверждена installed source: `antd/lib/form/hooks/useDebounce.js`
+  вызывает `useDelayState` с 10ms для пустых errors/warnings; util не отменяет
+  этот timeout на unmount. Callback `setState` мог сработать после jsdom teardown.
+- Ownership для `src/test/setup.ts` согласован до правки:
+  [комментарий в PR #106](https://github.com/larchanka-training/dmc-268-ui-t6/pull/106#issuecomment-6226062551).
+  Прочитан точный patch через
+  `gh api repos/larchanka-training/dmc-268-ui-t6/pulls/106/files --paginate --jq '.[] | select(.filename == "src/test/setup.ts") | .patch'`.
+- Применён тот же patch из #106: зарегистрированный в setup `afterAll`
+  включает real timers и ждёт один 10ms timer после file hooks и последнего
+  cleanup. Ранее поставленные antd callbacks выполняются, пока jsdom ещё жив.
+  Это test lifecycle fix: production, dependencies, таймбюджеты и обработка
+  unhandled errors не менялись; ошибочные assertions/исключения не подавляются.
+- Локальный исходный `CI=1 pnpm test src/widgets/diff-viewer/ui/RunDiff.filters.test.tsx`
+  → PASS, 50 tests, 5.20s. CI log служит RED evidence непостоянной гонки;
+  искусственный тест на внутренний timer не добавлялся.
+- После правки `pnpm lint`, `pnpm check-types`, `pnpm build`,
+  `pnpm verify:prod-bundle` → PASS; 3535 modules, 22 clean assets.
+  `pnpm format:check` → PASS.
+- `CI=1 pnpm test src/widgets/diff-viewer/ui/RunDiff.filters.test.tsx src/features/finding-filters/model/queryNavigation.test.tsx src/pages/runs/RunDetailPage.search.test.tsx`
+  выполнена трижды с обычным CI worker режимом → 3 files / 73 tests PASS в каждом,
+  11.51s / 11.24s / 10.32s; exit0, unhandled errors отсутствуют.
+  Логи: `/private/tmp/86-ci-teardown-repeat-{1,2,3}.log`.
+- Финальный `pnpm test` → 103 files / 1195 tests PASS, 45.43s, exit0;
+  unhandled errors отсутствуют. Production поведение не менялось, прежний browser QA
+  остаётся применимым. `git diff --check` → PASS.
+- Fresh review координатора после fix: Standards 0, Spec 0; подтверждены hook order,
+  отсутствие suppress и сохранение #86 fake-timer regressions. Повторная публикация
+  follow-up остаётся publisher; development не выполняет commit/push.
+- Publisher перед follow-up повторил fetch main: `origin/main` остаётся `5150ddc`,
+  rebase не требуется. Diff от `bd25a23` содержит только setup и этот evidence;
+  ownership setup с #106 согласован указанным комментарием. Подготовлен один
+  test commit и обновление существующего draft PR #122; результат CI нового
+  head на момент commit ещё ожидается, новых docs commit после push не планируется.
