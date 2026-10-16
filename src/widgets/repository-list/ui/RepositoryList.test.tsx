@@ -2,7 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { Repository } from '../../../entities/repository'
+import { disabledRagIndex, type Repository } from '../../../entities/repository'
 import { useAuthStore } from '../../../features/auth'
 import { stubViewport } from '../../../test/viewport'
 import { RepositoryList } from './RepositoryList'
@@ -76,6 +76,8 @@ const mockRepos: Repository[] = [
     branchFilter: [],
     severityThreshold: 'all',
     installationAvailable: true,
+    ragEnabled: false,
+    ragIndex: disabledRagIndex,
   },
   {
     id: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
@@ -90,6 +92,8 @@ const mockRepos: Repository[] = [
     branchFilter: [],
     severityThreshold: 'all',
     installationAvailable: true,
+    ragEnabled: false,
+    ragIndex: disabledRagIndex,
   },
 ]
 
@@ -275,6 +279,8 @@ describe('RepositoryList', () => {
       branchFilter: [],
       severityThreshold: 'all',
       installationAvailable: true,
+      ragEnabled: false,
+      ragIndex: disabledRagIndex,
     }
     const { container } = render(
       <RepositoryList
@@ -635,6 +641,8 @@ const UNREACHABLE_REPO: Repository = {
   branchFilter: [],
   severityThreshold: 'all',
   installationAvailable: false,
+  ragEnabled: false,
+  ragIndex: disabledRagIndex,
 }
 
 // D17: a row without GitHub App access links to the settings page, where the choice lives.

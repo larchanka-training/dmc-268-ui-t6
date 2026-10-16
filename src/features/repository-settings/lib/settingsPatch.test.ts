@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { Repository } from '../../../entities/repository'
+import { disabledRagIndex, type Repository } from '../../../entities/repository'
 import {
   applySavedValues,
   buildSettingsPatch,
@@ -26,6 +26,8 @@ const REPOSITORY: Repository = {
   branchFilter: ['main', 'release/*'],
   severityThreshold: 'all',
   installationAvailable: true,
+  ragEnabled: false,
+  ragIndex: disabledRagIndex,
 }
 
 // The form of REPOSITORY.

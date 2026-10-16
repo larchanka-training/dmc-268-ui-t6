@@ -10,8 +10,10 @@ import {
 } from '../../entities/run'
 import { makeDuoActions } from '../../entities/run/lib/duoActions.fixture'
 import {
+  disabledRagIndex,
   RepositorySchema,
   UpdateRepositorySchema,
+  type RagIndex,
   type Repository,
   type RulesStatus,
   type UpdateRepositoryInput,
@@ -49,7 +51,8 @@ export const MOCK_TOKEN = 'mock_jwt_token_skvertl_dmc'
 export const MOCK_OAUTH_CODE = 'mock_code_123'
 
 // Working copy of the fixture: PATCH edits stay here, `mockRepositories` is never written. Its
-// `enabled` is the stored preference; what the transport serves is `serveRepository` of it.
+// `enabled` and `ragEnabled` are the stored preferences; what the transport serves is
+// `serveRepository` of it.
 let repositories: Repository[] = structuredClone(mockRepositories)
 let runSessions: RunSession[] = structuredClone(mockRunsListPage.items)
 const createdRunIds = new Set<string>()
@@ -60,18 +63,35 @@ const rulesStatusAsked = new Set<string>()
  * A copy of a stored repository as the api serves it: `enabled` is the effective
  * `enabled AND installationAvailable` (api `repository_settings.py:27`, SD §6.9), so a
  * repository the GitHub App cannot reach reads `enabled: false` whatever was stored, and the
- * stored preference is write-only there.
+ * stored preference is write-only there. `ragEnabled` is masked the same way, and the index of a
+ * repository whose effective `ragEnabled` is false reads `disabled` (api#145).
  */
 function serveRepository(repository: Repository): Repository {
+  const ragEnabled = repository.ragEnabled && repository.installationAvailable
   return {
     ...structuredClone(repository),
     enabled: repository.enabled && repository.installationAvailable,
+    ragEnabled,
+    ragIndex: ragEnabled ? structuredClone(repository.ragIndex) : { ...disabledRagIndex },
   }
 }
 
 /**
- * The repository as stored, before `serveRepository`: its `enabled` is the user's preference, which
- * the api never returns while the GitHub App has no access. For tests; the app does not call it.
+ * The stored index after a PATCH. Only a change of the stored `ragEnabled` moves it: switching RAG
+ * off drops the index (`disabled`), switching it on starts from `empty`, as no index is built until
+ * api#143. Re-sending the stored value, or a patch without `ragEnabled`, keeps the index.
+ */
+function ragIndexAfterPatch(stored: Repository, patch: UpdateRepositoryInput): RagIndex {
+  if (patch.ragEnabled === undefined || patch.ragEnabled === stored.ragEnabled) {
+    return stored.ragIndex
+  }
+  return patch.ragEnabled ? { ...disabledRagIndex, status: 'empty' } : { ...disabledRagIndex }
+}
+
+/**
+ * The repository as stored, before `serveRepository`: its `enabled` and `ragEnabled` are the user's
+ * preferences, which the api never returns while the GitHub App has no access, and its `ragIndex`
+ * is the index served while RAG is effectively on. For tests; the app does not call it.
  */
 export function readStoredMockRepository(id: string): Repository | undefined {
   return structuredClone(repositories.find((repo) => repo.id === id))
@@ -283,8 +303,13 @@ function handleMockTransport(
     }
     if (options.body && typeof options.body === 'object') {
       const patch = validatePatchBody(options.body)
-      // The patch is stored as sent: `enabled` is the preference, served through `serveRepository`.
-      stored = RepositorySchema.parse({ ...stored, ...patch })
+      // The patch is stored as sent: `enabled` and `ragEnabled` are the preferences, served through
+      // `serveRepository`.
+      stored = RepositorySchema.parse({
+        ...stored,
+        ...patch,
+        ragIndex: ragIndexAfterPatch(stored, patch),
+      })
       repositories[index] = stored
     }
     return serveRepository(stored)

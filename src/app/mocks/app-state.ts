@@ -3,7 +3,7 @@ import type { RunAction, RunSession } from '../../entities/run'
 import { fromPatch } from '../../entities/diff'
 import type { FileDiff, RawFileDiff } from '../../entities/diff'
 import type { ReviewComment } from '../../entities/review'
-import type { Repository } from '../../entities/repository'
+import { disabledRagIndex, type Repository } from '../../entities/repository'
 import type { User } from '../../entities/user'
 import { SAMPLE_PATCHES } from '../../shared/fixtures/sample.patch'
 
@@ -302,6 +302,15 @@ export const mockRepositories: Repository[] = [
     branchFilter: ['main', 'release/*'],
     severityThreshold: 'all',
     installationAvailable: true,
+    ragEnabled: true,
+    ragIndex: {
+      status: 'ready',
+      indexedCommitSha: '4f1c2e9a7b3d5e6f8091a2b3c4d5e6f708192a3b',
+      indexedAt: '2026-09-18T11:40:00.000Z',
+      fileCount: 214,
+      symbolCount: 3187,
+      lastErrorCode: null,
+    },
   },
   {
     id: '22222222-2222-4222-8222-000000000002',
@@ -316,6 +325,16 @@ export const mockRepositories: Repository[] = [
     branchFilter: [],
     severityThreshold: 'critical',
     installationAvailable: true,
+    // The last build hit a limit: no index is published, so the publication fields are empty.
+    ragEnabled: true,
+    ragIndex: {
+      status: 'failed',
+      indexedCommitSha: null,
+      indexedAt: null,
+      fileCount: 0,
+      symbolCount: 0,
+      lastErrorCode: 'limit_exceeded:symbols',
+    },
   },
   {
     // The App lost access while auto-review stays on: `enabled` is the stored preference, which the
@@ -332,6 +351,17 @@ export const mockRepositories: Repository[] = [
     branchFilter: [],
     severityThreshold: 'warning',
     installationAvailable: false,
+    // Stored like `enabled`: the mock transport serves `ragEnabled: false` and a disabled index
+    // here (api#145), whatever is stored.
+    ragEnabled: true,
+    ragIndex: {
+      status: 'stale',
+      indexedCommitSha: '9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a291807',
+      indexedAt: '2026-09-17T08:15:00.000Z',
+      fileCount: 96,
+      symbolCount: 1240,
+      lastErrorCode: null,
+    },
   },
   {
     // No .review/rules.md here: the repository the `missing` rules status is shown for.
@@ -347,5 +377,7 @@ export const mockRepositories: Repository[] = [
     branchFilter: [],
     severityThreshold: 'all',
     installationAvailable: true,
+    ragEnabled: false,
+    ragIndex: disabledRagIndex,
   },
 ]
