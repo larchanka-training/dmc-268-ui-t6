@@ -5,7 +5,11 @@ import { App } from 'antd'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { REPOSITORIES_QUERY_KEY, type Repository } from '../../entities/repository'
+import {
+  disabledRagIndex,
+  REPOSITORIES_QUERY_KEY,
+  type Repository,
+} from '../../entities/repository'
 import { RepositorySettingsPage } from './RepositorySettingsPage'
 
 const UI_REPO: Repository = {
@@ -21,6 +25,8 @@ const UI_REPO: Repository = {
   branchFilter: [],
   severityThreshold: 'all',
   installationAvailable: true,
+  ragEnabled: false,
+  ragIndex: disabledRagIndex,
 }
 
 const API_REPO: Repository = {
@@ -36,6 +42,8 @@ const API_REPO: Repository = {
   branchFilter: [],
   severityThreshold: 'all',
   installationAvailable: true,
+  ragEnabled: false,
+  ragIndex: disabledRagIndex,
 }
 
 // A repository whose branch filter is set.

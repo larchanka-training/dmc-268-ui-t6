@@ -4,7 +4,7 @@ import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { Repository, UpdateRepositoryInput } from '../model/schemas'
+import { disabledRagIndex, type Repository, type UpdateRepositoryInput } from '../model/schemas'
 import { REPOSITORIES_QUERY_KEY, useUpdateRepository } from './index'
 
 const REACHABLE: Repository = {
@@ -20,6 +20,8 @@ const REACHABLE: Repository = {
   branchFilter: [],
   severityThreshold: 'all',
   installationAvailable: true,
+  ragEnabled: false,
+  ragIndex: disabledRagIndex,
 }
 // The api serves `enabled AND installationAvailable` (api PR #156, SD §6.9): `false` here whatever
 // the user stored.

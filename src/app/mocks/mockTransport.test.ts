@@ -230,6 +230,143 @@ describe('initMockTransport', () => {
     })
   })
 
+  describe('ragEnabled is the effective value and decides the index', () => {
+    const [ready, , unreachable, ragOff] = mockRepositories
+    if (
+      ready?.ragIndex.status !== 'ready' ||
+      unreachable?.installationAvailable !== false ||
+      ragOff?.ragEnabled !== false
+    ) {
+      throw new Error(
+        'the first mock repository must have a ready index, the third no App access, the fourth RAG off',
+      )
+    }
+    const disabled = {
+      status: 'disabled',
+      indexedCommitSha: null,
+      indexedAt: null,
+      fileCount: 0,
+      symbolCount: 0,
+      lastErrorCode: null,
+    }
+    const empty = { ...disabled, status: 'empty' }
+
+    beforeEach(() => {
+      initMockTransport()
+    })
+
+    it('serves ragEnabled: false and a disabled index for a repository the GitHub App cannot reach', async () => {
+      expect(readStoredMockRepository(unreachable.id)?.ragEnabled).toBe(true)
+      expect(readStoredMockRepository(unreachable.id)?.ragIndex.status).toBe('stale')
+
+      const one = await apiClient<Repository>(endpoints.repos.detail(unreachable.id))
+      expect(one.ragEnabled).toBe(false)
+      expect(one.ragIndex).toEqual(disabled)
+
+      const list = await apiClient<Repository[]>(endpoints.repos.list())
+      const row = list.find((item) => item.id === unreachable.id)
+      expect(row?.ragEnabled).toBe(false)
+      expect(row?.ragIndex).toEqual(disabled)
+    })
+
+    it('serves the stored index of a reachable repository with RAG on', async () => {
+      const one = await apiClient<Repository>(endpoints.repos.detail(ready.id))
+
+      expect(one.ragEnabled).toBe(true)
+      expect(one.ragIndex).toEqual({
+        status: 'ready',
+        indexedCommitSha: '4f1c2e9a7b3d5e6f8091a2b3c4d5e6f708192a3b',
+        indexedAt: '2026-09-18T11:40:00.000Z',
+        fileCount: 214,
+        symbolCount: 3187,
+        lastErrorCode: null,
+      })
+    })
+
+    it('drops the index on PATCH { ragEnabled: false } and starts from empty on true', async () => {
+      const off = await apiClient<Repository>(endpoints.repos.update(ready.id), {
+        body: { ragEnabled: false },
+      })
+      expect(off.ragEnabled).toBe(false)
+      expect(off.ragIndex).toEqual(disabled)
+      expect((await apiClient<Repository>(endpoints.repos.detail(ready.id))).ragIndex).toEqual(
+        disabled,
+      )
+
+      const on = await apiClient<Repository>(endpoints.repos.update(ready.id), {
+        body: { ragEnabled: true },
+      })
+      expect(on.ragEnabled).toBe(true)
+      expect(on.ragIndex).toEqual(empty)
+      expect((await apiClient<Repository>(endpoints.repos.detail(ready.id))).ragIndex).toEqual(
+        empty,
+      )
+    })
+
+    it('switches RAG on from off with an empty index', async () => {
+      const on = await apiClient<Repository>(endpoints.repos.update(ragOff.id), {
+        body: { ragEnabled: true },
+      })
+
+      expect(on.ragEnabled).toBe(true)
+      expect(on.ragIndex).toEqual(empty)
+    })
+
+    it('keeps the index when ragEnabled is re-sent unchanged or left out', async () => {
+      const same = await apiClient<Repository>(endpoints.repos.update(ready.id), {
+        body: { ragEnabled: true },
+      })
+      expect(same.ragIndex.status).toBe('ready')
+
+      const other = await apiClient<Repository>(endpoints.repos.update(ready.id), {
+        body: { maxComments: 3 },
+      })
+      expect(other.ragEnabled).toBe(true)
+      expect(other.ragIndex.status).toBe('ready')
+    })
+
+    it('stores ragEnabled of an unreachable repository both ways while serving it off', async () => {
+      const off = await apiClient<Repository>(endpoints.repos.update(unreachable.id), {
+        body: { ragEnabled: false },
+      })
+      expect(off.ragEnabled).toBe(false)
+      expect(off.ragIndex).toEqual(disabled)
+      expect(readStoredMockRepository(unreachable.id)?.ragEnabled).toBe(false)
+      expect(readStoredMockRepository(unreachable.id)?.ragIndex).toEqual(disabled)
+
+      const on = await apiClient<Repository>(endpoints.repos.update(unreachable.id), {
+        body: { ragEnabled: true },
+      })
+      expect(on.ragEnabled).toBe(false)
+      expect(on.ragIndex).toEqual(disabled)
+      expect(readStoredMockRepository(unreachable.id)?.ragEnabled).toBe(true)
+      expect(readStoredMockRepository(unreachable.id)?.ragIndex).toEqual(empty)
+    })
+
+    it('never writes the read-only ragIndex', async () => {
+      const updated = await apiClient<Repository>(endpoints.repos.update(ragOff.id), {
+        body: { maxComments: 4, ragIndex: { ...disabled, status: 'ready', fileCount: 1 } },
+      })
+
+      expect(updated.maxComments).toBe(4)
+      expect(updated.ragIndex).toEqual(disabled)
+    })
+
+    it('hands out copies of the index', async () => {
+      const one = await apiClient<Repository>(endpoints.repos.detail(ready.id))
+      one.ragIndex.fileCount = 0
+      expect(
+        (await apiClient<Repository>(endpoints.repos.detail(ready.id))).ragIndex.fileCount,
+      ).toBe(214)
+
+      const masked = await apiClient<Repository>(endpoints.repos.detail(unreachable.id))
+      masked.ragIndex.fileCount = 7
+      expect(
+        (await apiClient<Repository>(endpoints.repos.detail(unreachable.id))).ragIndex,
+      ).toEqual(disabled)
+    })
+  })
+
   describe('PATCH /repos/{id}', () => {
     const [repo] = mockRepositories
     if (!repo) {

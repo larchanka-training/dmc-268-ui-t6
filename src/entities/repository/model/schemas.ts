@@ -15,6 +15,40 @@ export const RepositoryIdSchema = z.uuid()
 export const SeverityThresholdSchema = z.enum(['all', 'warning', 'critical'])
 export type SeverityThreshold = z.infer<typeof SeverityThresholdSchema>
 
+// State of the repository's RAG code index (api#145). `disabled` while RAG is off or the GitHub App
+// has no access; `empty` until a first index is built.
+export const RagIndexStatusSchema = z.enum([
+  'disabled',
+  'empty',
+  'building',
+  'ready',
+  'stale',
+  'failed',
+])
+export type RagIndexStatus = z.infer<typeof RagIndexStatusSchema>
+
+// The publication fields (`indexedCommitSha`, `indexedAt`, the counts) describe the visible index:
+// they are set only for ready and stale, null or 0 otherwise.
+export const RagIndexSchema = z.object({
+  status: RagIndexStatusSchema,
+  indexedCommitSha: z.string().nullable(),
+  indexedAt: z.iso.datetime().nullable(),
+  fileCount: z.int().nonnegative(),
+  symbolCount: z.int().nonnegative(),
+  lastErrorCode: z.string().nullable(),
+})
+export type RagIndex = z.infer<typeof RagIndexSchema>
+
+// The index of a repository with RAG off, as the api serves it.
+export const disabledRagIndex: RagIndex = {
+  status: 'disabled',
+  indexedCommitSha: null,
+  indexedAt: null,
+  fileCount: 0,
+  symbolCount: 0,
+  lastErrorCode: null,
+}
+
 export const RepositorySchema = z.object({
   id: RepositoryIdSchema,
   fullName: z.string().min(1),
@@ -28,6 +62,8 @@ export const RepositorySchema = z.object({
   branchFilter: z.array(z.string().min(1).max(255)).max(20),
   severityThreshold: SeverityThresholdSchema,
   installationAvailable: z.boolean(),
+  ragEnabled: z.boolean(),
+  ragIndex: RagIndexSchema,
 })
 export type Repository = z.infer<typeof RepositorySchema>
 
@@ -40,6 +76,7 @@ export const UpdateRepositorySchema = z
     reviewEvent: ReviewEventSchema.optional(),
     branchFilter: z.array(z.string().min(1).max(255)).max(20).optional(),
     severityThreshold: SeverityThresholdSchema.optional(),
+    ragEnabled: z.boolean().optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: 'At least one property must be provided',
