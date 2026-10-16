@@ -2,6 +2,7 @@ import { theme as antdTheme } from 'antd'
 import { describe, expect, it } from 'vitest'
 
 import { buildTheme } from './buildTheme'
+import { RV_MOTION_FADE_MS } from './motion'
 import { RV_PALETTE, type RvPalette, type RvThemeMode } from './palette'
 
 const MODES = ['dark', 'light'] as const
@@ -443,6 +444,12 @@ describe('tokens.css', () => {
         )
       }
     }
+  })
+
+  it('holds the fade duration of the TS constant, declared once for both modes', () => {
+    const dark = block(":root,\n[data-rv-theme='dark']")
+    expect(dark['--rv-motion-fade']).toBe(`${String(RV_MOTION_FADE_MS)}ms`)
+    expect(block("[data-rv-theme='light']")).not.toHaveProperty('--rv-motion-fade')
   })
 
   it('lets a subtree force the dark palette inside a light page', () => {

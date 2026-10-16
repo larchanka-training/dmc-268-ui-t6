@@ -14,6 +14,7 @@ export { NavMenu } from './NavMenu/NavMenu'
 export type { NavMenuItem, NavMenuProps } from './NavMenu/NavMenu'
 export { PageHeader } from './PageHeader/PageHeader'
 export type { PageHeaderProps } from './PageHeader/PageHeader'
+export { PageLoaderHost, PageLoading } from './PageLoader/PageLoader'
 export { ProgressSteps } from './ProgressSteps/ProgressSteps'
 export type {
   ProgressStep,
