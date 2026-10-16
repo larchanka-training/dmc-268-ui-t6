@@ -73,10 +73,10 @@ compatibility/docs. Общий slice проходит единый review, чт�
 - [x] Spec review: 0 пропущенных AC; review на текущем head после исправлений.
 - [x] Обновить main/ownership перед review и публикацией, при изменении кода
       повторить затронутые проверки; сборка и bundle check согласованы.
-- [ ] Conventional Commit с `(#86)`/`Refs #86`, без closing keywords.
-- [ ] Draft PR: русский body с What / Why / How to verify / Refs;
+- [x] Conventional Commit с `(#86)`/`Refs #86`, без closing keywords.
+- [x] Draft PR: русский body с What / Why / How to verify / Refs;
       reviewer не назначен, issue не закрыта, Development link не добавлен.
-- [ ] PR прикреплён к текущему чату; URL возвращён пользователю.
+- [x] PR прикреплён к текущему чату; URL возвращён пользователю.
 
 ## Evidence
 
@@ -161,3 +161,12 @@ commit/push development не выполнял.
   `docs/FRONTEND_ARCHITECTURE.md` с #106, согласованное прежним комментарием.
   Просмотрен полный diff, включая новые adapter/tests и оба плановых документа;
   `git diff --check` PASS. До commit/push пункты публикации оставлены открытыми.
+- Публикация: implementation commit `1c95f4d`;
+  pre-commit (eslint/prettier) и pre-push (tsc/eslint/stylelint) PASS,
+  hooks не обходились. [Draft PR #122](https://github.com/larchanka-training/dmc-268-ui-t6/pull/122)
+  создан с русским body, reviewer не назначен; опубликован
+  [русский комментарий проверок](https://github.com/larchanka-training/dmc-268-ui-t6/pull/122#issuecomment-6226011088).
+  PR прикреплён к чату. Issue не закрывалась, Development link не добавлялся.
+  На первом snapshot CI `UI quality` и `Docker image build` выполняются;
+  их статус не выдаётся за локальный PASS. Эта запись — отдельный docs commit
+  evidence, код реализации после проверки не менялся.
