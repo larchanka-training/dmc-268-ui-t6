@@ -149,7 +149,9 @@ function unprocessable(detail: ValidationDetailItem[]): ApiError {
  * Whether a branch mask is one the mock accepts: the refusals listed by the merged api
  * (`contracts/openapi.yaml:1465-1469`, `_pattern_error` in api PR #156) after the length checks
  * Zod already makes. `*` and `**` stay valid; `*` three times in a row does not. The api judges
- * the real grammar; the mock keeps the 422 reachable and its refusals the same.
+ * the real grammar; the mock stands in for it with its refusals the same, as an independent copy.
+ * The settings form refuses the same masks and drops repeats before it sends (`branchMaskError`),
+ * so this 422 is reached only by direct transport calls and tests.
  */
 function isMockBranchMaskValid(mask: string): boolean {
   const refused =

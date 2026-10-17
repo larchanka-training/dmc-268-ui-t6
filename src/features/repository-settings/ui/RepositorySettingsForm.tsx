@@ -162,10 +162,7 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
     } catch (error) {
       // The entered values stay in the fields; only messages appear: under the fields the
       // server named, above the form for the rest.
-      const split = splitServerError(
-        error,
-        patch.branchFilter === undefined ? undefined : submitted.branchFilter,
-      )
+      const split = splitServerError(error)
       setServerErrors(split.fields)
       setSaveError(split.general ? { error } : null)
     } finally {

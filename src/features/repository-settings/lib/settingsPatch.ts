@@ -6,6 +6,7 @@ import {
   type UpdateRepositoryInput,
   type WaitForCi,
 } from '../../../entities/repository'
+import { branchMaskError } from './branchMask'
 
 /**
  * What the settings form edits. `defaultEngine` is not here on purpose: it is shown as text and
@@ -47,21 +48,30 @@ export function formatBranchFilter(masks: readonly string[]): string {
 }
 
 /**
- * The client checks only the size of the list (the limits of `Repository.branchFilter`) so the
- * save never fails in `updateRepository` with a Zod error; the glob grammar is the server's to
- * judge.
+ * The client mirrors what the API checks of the list: the size limits of
+ * `Repository.branchFilter` (also so the save never fails in `updateRepository` with a Zod error)
+ * and the grammar of each mask (`branchMaskError`), so a refused mask is named by its line before
+ * any request. The 422 of the server stays as the fallback if the two drift. Sizes are judged
+ * first; then the first line of the text, in textarea order, whose mask is refused.
  */
 export function validateBranchFilterText(text: string): string | null {
-  const parsed = RepositorySchema.shape.branchFilter.safeParse(parseBranchFilter(text))
-  if (parsed.success) {
-    return null
+  const masks = parseBranchFilter(text)
+  const parsed = RepositorySchema.shape.branchFilter.safeParse(masks)
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0]
+    const index = issue?.path[0]
+    if (typeof index === 'number') {
+      return `Маска в строке ${String(visibleLineNumber(text, index))} длиннее 255 символов`
+    }
+    return 'Не больше 20 масок'
   }
-  const issue = parsed.error.issues[0]
-  const index = issue?.path[0]
-  if (typeof index === 'number') {
-    return `Маска в строке ${String(visibleLineNumber(text, index))} длиннее 255 символов`
+  for (const [index, mask] of masks.entries()) {
+    const reason = branchMaskError(mask)
+    if (reason !== null) {
+      return `Маска в строке ${String(visibleLineNumber(text, index))}: ${reason}`
+    }
   }
-  return 'Не больше 20 масок'
+  return null
 }
 
 export function toFormValues(repository: Repository): SettingsFormValues {
