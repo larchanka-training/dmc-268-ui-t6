@@ -233,6 +233,49 @@ describe('PageLoaderHost timeline', () => {
     expect(ring()).toBe(before)
   })
 
+  it('keeps the ring shown when a transition ends inside the two-frame window after the wait', () => {
+    const { rerender } = showRing()
+    const before = ring()
+    rerender(<Screen markers={[]} />)
+    frames(1)
+    expect(ring().dataset.state).toBe('shown')
+    // The wait is over but the fade-out is not released yet: the ring is still shown, so the end of
+    // an opacity transition here is the fade-in's and must not take it out.
+    endTransition(ring())
+    expect(ring()).toBe(before)
+    expect(ring().dataset.state).toBe('shown')
+    // The window runs on as usual: the second frame hides the ring.
+    frames(1)
+    expect(ring().dataset.state).toBe('hidden')
+  })
+
+  it('fades a new ring in after the previous one was taken out by the end of its fade', () => {
+    const { rerender } = showRing()
+    rerender(<Screen markers={[]} />)
+    frames(2)
+    endTransition(ring())
+    expect(rings()).toHaveLength(0)
+    rerender(<Screen markers={['again']} />)
+    elapse(RV_PAGE_LOADER_DELAY_MS)
+    // Nothing is left of the first ring's entry: the new one starts transparent, not shown.
+    expect(ring().dataset.state).toBe('hidden')
+    elapse(FRAME_MS)
+    expect(ring().dataset.state).toBe('shown')
+  })
+
+  it('fades a new ring in after the previous one was taken out by the fallback timer', () => {
+    const { rerender } = showRing()
+    rerender(<Screen markers={[]} />)
+    frames(2)
+    elapse(FALLBACK_MS)
+    expect(rings()).toHaveLength(0)
+    rerender(<Screen markers={['again']} />)
+    elapse(RV_PAGE_LOADER_DELAY_MS)
+    expect(ring().dataset.state).toBe('hidden')
+    elapse(FRAME_MS)
+    expect(ring().dataset.state).toBe('shown')
+  })
+
   it('never fades in a ring whose wait ended before its first frame, and removes it at once', () => {
     const { rerender } = render(<Screen markers={['page']} />)
     elapse(RV_PAGE_LOADER_DELAY_MS)

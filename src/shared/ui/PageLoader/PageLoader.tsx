@@ -142,7 +142,8 @@ export function PageLoaderHost(): JSX.Element | null {
   }, [waiting, mounted, leaving, nothingToFade])
 
   // The ring is hidden and its own opacity fade has ended: take it out. The end of a ring that was
-  // brought back (a new wait) is the fade-in's and does not count.
+  // brought back (a new wait) is the fade-in's and does not count; nor does one inside the
+  // two-frame window, where the ring is still shown.
   function handleTransitionEnd(event: TransitionEvent<HTMLDivElement>): void {
     if (event.target !== event.currentTarget || event.propertyName !== 'opacity') {
       return
