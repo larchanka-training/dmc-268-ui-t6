@@ -49,10 +49,7 @@ vi.mock('../../../entities/run', async (importOriginal) => {
 })
 
 function renderControls() {
-  const router = createMemoryRouter([{ path: '/', element: <RunControls run={terminalRun} /> }], {
-    initialEntries: ['/'],
-  })
-  return render(<RouterProvider router={router} />)
+  return renderControlsFor(terminalRun)
 }
 
 const activeRun: RunSession = {
@@ -179,11 +176,22 @@ describe('RunControls', () => {
 
       const button = screen.getByRole('button', { name: 'Отмена запрошена' })
       expect((button as HTMLButtonElement).disabled).toBe(true)
+      // The requested-cancel button stays a plain default one: no danger or primary style.
+      expect(button.className).toContain('ant-btn-color-default')
+      expect(button.className).not.toContain('ant-btn-color-dangerous')
       fireEvent.click(button)
       expect(mockCancelMutate).not.toHaveBeenCalled()
       expect(screen.queryByText('Отменить')).toBeNull()
     },
   )
+
+  it('shows only an enabled «Отменить» on an active run without a cancel request', () => {
+    renderActiveControls()
+
+    const button = screen.getByRole('button', { name: 'Отменить' })
+    expect((button as HTMLButtonElement).disabled).toBe(false)
+    expect(screen.queryByText('Отмена запрошена')).toBeNull()
+  })
 
   it('shows no cancel-side button on a terminal run even when cancelRequested is true', () => {
     renderControlsFor({
