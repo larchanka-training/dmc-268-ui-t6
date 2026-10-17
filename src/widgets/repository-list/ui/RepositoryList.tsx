@@ -1,6 +1,6 @@
 import {
   BranchesOutlined,
-  DownOutlined,
+  ExclamationCircleFilled,
   GithubOutlined,
   PlusOutlined,
   ReloadOutlined,
@@ -8,7 +8,6 @@ import {
 } from '@ant-design/icons'
 import {
   Button,
-  Dropdown,
   Empty,
   Flex,
   Input,
@@ -16,10 +15,9 @@ import {
   Switch,
   Tooltip,
   Typography,
-  type MenuProps,
   type TableColumnsType,
 } from 'antd'
-import { useCallback, useEffect, useMemo, useRef, useState, type FC, type MouseEvent } from 'react'
+import { useMemo, useState, type FC, type MouseEvent } from 'react'
 
 import type {
   Repository,
@@ -27,10 +25,6 @@ import type {
   ReviewEvent,
   WaitForCi,
 } from '../../../entities/repository'
-import {
-  ENABLE_AUTO_REVIEW_LABEL,
-  KEEP_AUTO_REVIEW_OFF_LABEL,
-} from '../../../features/repository-settings'
 import { GITHUB_APP_SLUG, GITHUB_CLIENT_ID, isMockMode } from '../../../shared/config/env'
 import { safeHttpUrl } from '../../../shared/lib/safeHttpUrl'
 import { DataTable, IconSettings, PageHeader, Segmented, Tag } from '../../../shared/ui'
@@ -73,69 +67,30 @@ export interface RepositoryListProps {
   onSyncAccess: () => void
 }
 
-const CHOICE_ITEMS: MenuProps['items'] = [
-  { key: 'enable', label: ENABLE_AUTO_REVIEW_LABEL },
-  { key: 'keepOff', label: KEEP_AUTO_REVIEW_OFF_LABEL },
-]
-
 interface StatusCellProps {
   repository: Repository
   updating: boolean
   onToggleEnabled?: (id: string, enabled: boolean) => Promise<void> | void
+  /** Address of the settings page of the repository. */
+  settingsHref: string
+  /** The click handler of a link to it, the same as of the settings button. */
+  onSettingsClick: (event: MouseEvent) => void
 }
 
 /**
  * The status of a row: a switch with its label. While the GitHub App has no access to the
  * repository the api serves `enabled: false` whatever was stored (api PR #156, SD §6.9), so the
- * row has no switch (D13) and reads «Нет доступа» on one line with a trigger whose menu holds the
- * two choices (D10, as on the settings page): the stored preference is write-only and never shown.
+ * row has no switch (D13): it shows a warning icon and the link «Нет доступа» to the settings
+ * page, where the choice lives (D17); the stored preference is write-only and never shown.
  */
-const StatusCell: FC<StatusCellProps> = ({ repository, updating, onToggleEnabled }) => {
+const StatusCell: FC<StatusCellProps> = ({
+  repository,
+  updating,
+  onToggleEnabled,
+  settingsHref,
+  onSettingsClick,
+}) => {
   const { id, fullName, enabled, installationAvailable } = repository
-  const [menuOpen, setMenuOpen] = useState(false)
-  const triggerRef = useRef<HTMLButtonElement | null>(null)
-  const switchRef = useRef<HTMLButtonElement>(null)
-  // Whether the trigger held the focus when the menu opened, and whether the focus is to be put
-  // back on it once the choice is saved.
-  const triggerHadFocus = useRef(false)
-  const returnFocus = useRef(false)
-  // The trigger leaves the page when a refetch says the access is back. It is marked as it leaves,
-  // while it is still in the document and `activeElement` tells whether it held the focus. A node
-  // that attaches again (the ref is composed by `Dropdown`) cancels the mark.
-  const switchTakesFocus = useRef(false)
-  const trackTrigger = useCallback((node: HTMLButtonElement | null) => {
-    if (node !== null) {
-      switchTakesFocus.current = false
-    } else if (document.activeElement === triggerRef.current) {
-      switchTakesFocus.current = true
-    }
-    triggerRef.current = node
-  }, [])
-
-  // The menu closes on a choice and takes the focus with it. The pick itself moves the focus to the
-  // trigger (below); this is the second guard: once the save is over, the focus goes back to the
-  // trigger if it was to return and the user has not moved on.
-  useEffect(() => {
-    if (updating || !returnFocus.current) {
-      return
-    }
-    returnFocus.current = false
-    if (document.activeElement === document.body) {
-      triggerRef.current?.focus()
-    }
-  }, [updating])
-
-  // Access is back while the trigger held the focus: the switch of the row takes it, unless the
-  // user has moved on (the focus is not on <body>).
-  useEffect(() => {
-    if (!installationAvailable || !switchTakesFocus.current) {
-      return
-    }
-    switchTakesFocus.current = false
-    if (document.activeElement === document.body) {
-      switchRef.current?.focus()
-    }
-  }, [installationAvailable])
 
   if (installationAvailable) {
     return (
@@ -146,7 +101,6 @@ const StatusCell: FC<StatusCellProps> = ({ repository, updating, onToggleEnabled
           disabled={updating}
           loading={updating}
           onChange={(checked) => void onToggleEnabled?.(id, checked)}
-          ref={switchRef}
         />
         <Text className={styles.switchLabel} type="secondary">
           {enabled ? 'Активен' : 'Пауза'}
@@ -157,52 +111,14 @@ const StatusCell: FC<StatusCellProps> = ({ repository, updating, onToggleEnabled
 
   return (
     <Flex align="center" gap={10}>
-      {/* No switch: its state would only repeat «Нет доступа» (D13). The spinner of a saving choice
-          is the trigger's. */}
-      <Text className={styles.switchLabel} type="secondary">
-        Нет доступа
-      </Text>
-      <Dropdown
-        menu={{
-          items: CHOICE_ITEMS,
-          onClick: ({ key, domEvent }) => {
-            // An Enter pick arrives here on the `keydown`. The focus moves to the trigger below, and
-            // the browser would deliver the same key's `keypress` there: Enter on a button clicks it
-            // and the menu opens again. Cancelling the `keydown` stops that; a mouse pick is not
-            // affected.
-            domEvent.preventDefault()
-            setMenuOpen(false)
-            returnFocus.current = triggerHadFocus.current
-            // The item keeps the focus until the closing motion ends (about 250 ms), and a save
-            // can be over sooner: the focus moves to the trigger now, not when the save is done.
-            if (triggerHadFocus.current) {
-              triggerRef.current?.focus()
-            }
-            void onToggleEnabled?.(id, key === 'enable')
-          },
-        }}
-        onOpenChange={(open) => {
-          setMenuOpen(open)
-          if (open) {
-            triggerHadFocus.current = document.activeElement === triggerRef.current
-          }
-        }}
-        open={menuOpen}
-        trigger={['click']}
+      <ExclamationCircleFilled aria-hidden="true" className={styles.noAccessIcon} />
+      <Link
+        aria-label={`Нет доступа у GitHub App к ${fullName}: открыть настройки`}
+        href={settingsHref}
+        onClick={onSettingsClick}
       >
-        <Button
-          aria-expanded={menuOpen}
-          aria-haspopup="menu"
-          aria-label={`Выбрать авто-ревью для ${fullName}, когда доступ вернётся`}
-          icon={<DownOutlined />}
-          iconPlacement="end"
-          loading={updating}
-          ref={trackTrigger}
-          size="small"
-        >
-          Выбрать
-        </Button>
-      </Dropdown>
+        Нет доступа
+      </Link>
     </Flex>
   )
 }
@@ -326,7 +242,15 @@ export const RepositoryList: FC<RepositoryListProps> = ({
             : updatingRepoIds.has(record.id)
           : false
         return (
-          <StatusCell onToggleEnabled={onToggleEnabled} repository={record} updating={updating} />
+          <StatusCell
+            onSettingsClick={(event) => {
+              goToSettings(event, record)
+            }}
+            onToggleEnabled={onToggleEnabled}
+            repository={record}
+            settingsHref={settingsHref(record)}
+            updating={updating}
+          />
         )
       },
     },

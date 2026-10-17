@@ -59,6 +59,10 @@
   font-size: var(--rv-fs-xs);
 }
 
+.noAccessIcon {
+  color: var(--rv-warning);
+}
+
 .empty {
   padding: 56px 24px;
   border: 1px solid var(--rv-border);
