@@ -212,3 +212,125 @@ commit/push development не выполнял.
   ownership setup с #106 согласован указанным комментарием. Подготовлен один
   test commit и обновление существующего draft PR #122; результат CI нового
   head на момент commit ещё ожидается, новых docs commit после push не планируется.
+
+## Task 2: Заменить ожидание teardown исправлением util из review #122
+
+**Description:** Обновить транзитивный util до релиза с unmount cleanup и убрать
+10ms workaround. План/исследование выполнены на `dcda299`; пользователь явно
+одобрил реализацию и публикацию. Разработка ведётся после rebase на `120203c`.
+
+**Acceptance criteria:**
+
+- [x] Используемое дерево содержит `@rc-component/util@1.14.0` с cleanup на
+      unmount; обновление узкое, без новой direct зависимости/override.
+- [x] Global `afterAll` wait и unused import удалены; публичный Form.Item
+      regression RED на 1.13.0 и GREEN на 1.14.0 без sleep/suppress.
+- [ ] Все шесть gates, повторные CI runs и browser smoke PASS; PR #122 обновлён
+      и reviewer получил ответ с SHA/evidence; CI на новом head завершён.
+
+**Ordered checklist / verification:**
+
+- [x] Прочитать review, проверить antd constraint и установленный 1.13.0 hook;
+      подтвердить merged upstream #806, проверить уже исправленный navigationKey
+      doc и reply (`1afee38`), перепроверить ownership #106/#109.
+- [x] Пользователь одобрил follow-up план.
+- [x] Освежить main/ownership, согласовать удаление setup workaround новым
+      комментарием в #106 до edit; безопасно rebase перед финальной проверкой.
+- [x] Подтвердить 1.14.0 в registry и cleanup в установленном пакете.
+- [x] RED: минимальный public Form.Item unmount regression без global wait
+      падает на старой версии по timer cleanup assertion.
+- [x] Узко обновить транзитивный пакет через pnpm; убрать setup wait/import;
+      проверить lockfile diff и разрешённые версии через dependency tree.
+- [x] GREEN regression; возврат старого util снова даёт RED; восстановить 1.14.0.
+- [x] Checkpoint: нет иных source/dependency правок или ожиданий в teardown.
+- [x] Три CI=1 запуска RunDiff.filters + queryNavigation + RunDetailPage.search
+      вместе с regression; exit0, без unhandled errors, обычные workers.
+- [x] `pnpm lint`
+- [x] `pnpm check-types`
+- [x] `pnpm format:check`
+- [x] `pnpm test`
+- [x] `pnpm build`
+- [x] `pnpm verify:prod-bundle` после build
+- [x] Browser smoke поиска/фильтров в обеих темах; записать evidence.
+- [x] Независимые Standards/Spec reviews на финальном diff без findings.
+- [ ] Commit `(#86)`, hooks не обходить; push в существующую ветку/PR #122.
+- [ ] Обновить русский PR body, упомянуть transitive update и проверки;
+      ответить reviewer с SHA/evidence, thread не resolve, проверить новый CI.
+
+**Dependencies:** Task 1 выполнен; follow-up plan approval → coordination →
+RED/GREEN → gates/reviews → publisher.
+
+**Files likely touched:** `pnpm-lock.yaml`, `src/test/setup.ts`, один новый
+co-located Form.Item regression в `src/shared/ui`, `docs/plans/86-plan.md`,
+`docs/plans/86-todo.md`. `package.json` не предполагается менять.
+
+**Estimated scope:** Medium, до 5 файлов; один последовательный review цикл.
+
+### Task 2 execution evidence
+
+- Пользователь явно одобрил follow-up и публикацию. До edit setup опубликован
+  [новый ownership comment в #106](https://github.com/larchanka-training/dmc-268-ui-t6/pull/106#issuecomment-6235966133)
+  о замене workaround upstream cleanup; #109 не пересекается.
+- Перед gates: task-only tracked edits сохранены в отдельный stash; `git rebase origin/main`
+  на `120203c` выполнен без конфликтов, новый head `4ccef32`. Stash применён,
+  восстановление трёх файлов и `git diff --check` проверены; только затем stash удалён.
+  Untracked regression сохранён. Исходный checkout не менялся.
+- `pnpm view @rc-component/util@1.14.0 version dist.integrity dist.tarball dependencies peerDependencies --registry=https://registry.npmjs.org`
+  подтвердил опубликованный пакет и integrity; `dist-tags.latest` = `1.14.0`.
+  Configured private registry не отвечал, поэтому использован явный public registry
+  только в командах; настройки registry не менялись.
+- Targeted update: `pnpm update @rc-component/util --depth 100 --registry=https://registry.npmjs.org`.
+  pnpm 12 не принимает version selector для indirect dependency; штатная unversioned
+  команда разрешила подтверждённый latest `1.14.0` в пределах существующих ranges.
+  Lockfile diff содержит только util version/integrity и ссылки на него;
+  `package.json`, overrides и остальные resolved versions не менялись.
+- `pnpm why @rc-component/util` → одна версия `1.14.0` во всём используемом дереве.
+  Установленный `lib/hooks/useDelayState.js` содержит
+  `React.useEffect(() => cancelPending, [cancelPending])`.
+- Public regression `src/shared/ui/styles/antd.form.lifecycle.test.tsx` монтирует
+  реальный `Form.Item` с именованным полем, доказывает наличие pending timers,
+  unmount и ноль оставшихся timers. Нет deep imports, mocks внутренних hooks,
+  sleep, drain/clear timers или suppress. Fake timers восстановлены в afterEach.
+- Initial RED без setup wait на 1.13.0:
+  `pnpm test src/shared/ui/styles/antd.form.lifecycle.test.tsx` → FAILED:
+  после unmount осталось 2 timers вместо 0 (1.76s).
+- Initial GREEN на 1.14.0: та же команда → 1/1 PASS (1.51s).
+  Возврат сохранённого старого lockfile через `pnpm install --frozen-lockfile --offline`
+  → повторный RED, то же assertion 2 вместо 0 (1.55s), log
+  `/private/tmp/86-util-old-mutation.log`. Python finally восстановил новый lockfile
+  и installed 1.14.0; финальный regression → 1/1 PASS (1.10s).
+- Global 10ms `afterAll` и его import удалены; существующие cleanup/mocks/wait budgets
+  сохранены. `navigationKey`, application source и конфигурация workers/timeouts
+  не менялись. Scope — lockfile, setup, один public regression и два plans.
+
+- Три последовательных запуска с обычными CI workers:
+  `CI=1 pnpm test src/widgets/diff-viewer/ui/RunDiff.filters.test.tsx src/features/finding-filters/model/queryNavigation.test.tsx src/pages/runs/RunDetailPage.search.test.tsx src/shared/ui/styles/antd.form.lifecycle.test.tsx`
+  → каждый 4 files / 74 tests PASS, exit0, без unhandled errors;
+  12.91s / 11.55s / 10.67s. Логи `/private/tmp/86-util-ci-repeat-{1,2,3}.log`.
+- `pnpm lint` → PASS (eslint + stylelint); `pnpm check-types` → PASS.
+- `pnpm build` → PASS, 3539 modules; существующее предупреждение о крупном UI chunk
+  (657.49 kB), ошибок нет. `pnpm verify:prod-bundle` после этой сборки → PASS,
+  22 clean assets.
+
+- Полная suite `pnpm test` → PASS, 108 files / 1276 tests, 51.25s, exit0;
+  unhandled errors отсутствуют, log `/private/tmp/86-util-full-test.log`.
+  Штатные jsdom diagnostics о pseudo-element styles/canvas/navigation не являются
+  unhandled errors; test config и workers не менялись.
+
+- Browser smoke координатора после util 1.14.0, mock Vite `http://127.0.0.1:5186`:
+  поиск Retry → 1/11 и `q=Retry`; keyboard severity Warning →
+  `severity=warning&q=Retry`; Back удаляет severity, сохраняя q;
+  Forward и reload сохраняют 1/11 и оба параметра; reset → 11/11 без query.
+  Light search Docs → 2/11. Проверены light/dark, focus ring и clear по Enter:
+  11/11, activeElement с aria-label «Поиск по замечаниям».
+  Mobile viewport390: clientWidth = scrollWidth = 375;
+  desktop viewport1280: clientWidth = scrollWidth = 1265.
+  Console warnings/errors пусты; после smoke восстановлена dark theme.
+- Независимые финальные Standards и Spec subagents проверили
+  `120203c...HEAD` вместе с working diff и новым regression: оба 0 findings.
+  После шести gates implementation source не менялся.
+- Publisher refresh перед публикацией: `origin/main` остаётся `120203c`,
+  PR head остаётся ожидаемым `dcda299021e4cf4e771b6ed5331cbad5d0b7d617`,
+  PR готов к review (`isDraft=false`). Rebase уже выполнен development;
+  publication использует точный `--force-with-lease` этого remote head.
+  Статус PR и reviewer не меняются. Публикационные пункты и новый CI пока открыты.
