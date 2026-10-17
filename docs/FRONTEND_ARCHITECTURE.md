@@ -1061,9 +1061,11 @@ React, без `innerHTML`.
 
 Отмена и повторный запуск — `RunControls` (`src/widgets/run-inspector/ui/RunControls.tsx`):
 «Отменить» на активном прогоне, «Перезапустить» на терминальном. На `running`/`publishing` отмена
-статус не меняет: API ставит `cancelRequested: true` на `RunSession`, пока воркер не остановится,
-и на месте «Отменить» стоит неактивная кнопка «Отмена запрошена» без `danger` — это уже не действие
-(DESIGN_SYSTEM §8). `attempt: number` (номер попытки при retry) `RunHeader` показывает в поле «Попытка».
+статус не меняет: API ставит `cancelRequested: true` на `RunSession`, пока воркер не остановится.
+Тогда та же кнопка становится неактивной «Отмена запрошена»: без `danger` — это уже не действие
+(DESIGN_SYSTEM §8), с `aria-disabled` и классом отключённой кнопки antd вместо `disabled`, чтобы
+фокус остался на ней (`.agents/rules/frontend.md` §3b п. 3). `attempt: number` (номер попытки при
+retry) `RunHeader` показывает в поле «Попытка».
 
 ### Прогресс-бар (Refs ui#84)
 
