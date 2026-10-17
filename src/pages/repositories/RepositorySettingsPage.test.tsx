@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { App } from 'antd'
+import { App, ConfigProvider } from 'antd'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -148,9 +148,14 @@ function stubBackend(repos: Repository[]): Backend {
   return backend
 }
 
+/**
+ * `withoutMotion` takes the antd animations off: a closed confirm then leaves the document at
+ * once, where jsdom would keep it for the length of a leave animation that never ends.
+ */
 function renderPage(
   entry: string,
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+  { withoutMotion = false }: { withoutMotion?: boolean } = {},
 ) {
   const router = createMemoryRouter(
     [
@@ -158,9 +163,11 @@ function renderPage(
         path: '/repositories/:repoId/settings',
         element: (
           <QueryClientProvider client={client}>
-            <App>
-              <RepositorySettingsPage />
-            </App>
+            <ConfigProvider theme={{ token: { motion: !withoutMotion } }}>
+              <App>
+                <RepositorySettingsPage />
+              </App>
+            </ConfigProvider>
           </QueryClientProvider>
         ),
       },
@@ -241,6 +248,23 @@ function saveButton(): HTMLButtonElement {
 
 function cancelButton(): HTMLButtonElement {
   return screen.getByRole('button', { name: 'Отменить изменения' })
+}
+
+/** The state of every blocker the router holds (the page registers one). */
+function blockerStates(router: { state: { blockers: Map<string, { state: string }> } }): string[] {
+  return [...router.state.blockers.values()].map((blocker) => blocker.state)
+}
+
+const LEAVE_TITLE = 'Уйти без сохранения?'
+const LEAVE_TEXT = 'Изменения настроек не сохранены и пропадут.'
+
+/** The confirm that asks before the page is left with a draft. */
+function leaveDialog(): HTMLElement {
+  return screen.getByRole('dialog', { name: LEAVE_TITLE })
+}
+
+function leaveDialogButton(name: string): HTMLElement {
+  return within(leaveDialog()).getByRole('button', { name })
 }
 
 function retryButton(): HTMLElement {
@@ -615,9 +639,11 @@ describe('RepositorySettingsPage', () => {
     fireEvent.change(screen.getByLabelText(LIMIT_LABEL), { target: { value: '3' } })
     expect(inputValue(LIMIT_LABEL)).toBe('3')
 
-    await act(async () => {
-      await router.navigate(settingsPath(API_REPO.id))
+    // The draft would be lost with the form of this repository: the page asks first.
+    act(() => {
+      void router.navigate(settingsPath(API_REPO.id))
     })
+    fireEvent.click(await screen.findByRole('button', { name: 'Уйти' }))
 
     expect(await screen.findByText('larchanka-training/dmc-268-api-t6')).toBeTruthy()
     expect(inputValue(LIMIT_LABEL)).toBe('4')
@@ -1748,6 +1774,225 @@ describe('RepositorySettingsPage: focus', () => {
 
     expect(await screen.findByText(SERVER_500_TEXT)).toBeTruthy()
     expect(document.activeElement).toBe(saveButton())
+  })
+})
+
+describe('RepositorySettingsPage: leaving with a draft', () => {
+  const RUNS_SEARCH = '?repo=larchanka-training%2Fdmc-268-ui-t6'
+
+  function renderLeavingPage() {
+    return renderPage(
+      settingsPath(UI_REPO.id),
+      new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+      { withoutMotion: true },
+    )
+  }
+
+  it('asks before leaving with a draft, and «Остаться» keeps the page and the draft', async () => {
+    stubBackend([UI_REPO])
+    const { router } = renderLeavingPage()
+    await screen.findByLabelText(LIMIT_LABEL)
+    fireEvent.change(screen.getByLabelText(LIMIT_LABEL), { target: { value: '5' } })
+
+    fireEvent.click(screen.getByRole('link', { name: 'История проверок' }))
+
+    expect(await screen.findByRole('dialog', { name: LEAVE_TITLE })).toBeTruthy()
+    // One dialog for one block.
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
+    expect(within(leaveDialog()).getByText(LEAVE_TEXT)).toBeTruthy()
+    // The danger button of the design system (outlined), not a second primary next to «Сохранить».
+    const leave = leaveDialogButton('Уйти')
+    expect(leave.classList.contains('ant-btn-color-dangerous')).toBe(true)
+    expect(leave.classList.contains('ant-btn-variant-outlined')).toBe(true)
+    expect(screen.queryByTestId('runs-route')).toBeNull()
+
+    fireEvent.click(leaveDialogButton('Остаться'))
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: LEAVE_TITLE })).toBeNull()
+    })
+    expect(blockerStates(router)).toEqual(['unblocked'])
+    expect(router.state.location.pathname).toBe(settingsPath(UI_REPO.id))
+    expect(screen.queryByTestId('runs-route')).toBeNull()
+    expect(inputValue(LIMIT_LABEL)).toBe('5')
+    expect(saveButton().disabled).toBe(false)
+  })
+
+  it('leaves for the run history on «Уйти»', async () => {
+    stubBackend([UI_REPO])
+    const { router } = renderLeavingPage()
+    await screen.findByLabelText(LIMIT_LABEL)
+    fireEvent.change(screen.getByLabelText(LIMIT_LABEL), { target: { value: '5' } })
+
+    fireEvent.click(screen.getByRole('link', { name: 'История проверок' }))
+    await screen.findByRole('dialog', { name: LEAVE_TITLE })
+    fireEvent.click(leaveDialogButton('Уйти'))
+
+    expect(await screen.findByTestId('runs-route')).toBeTruthy()
+    expect(router.state.location.pathname).toBe('/runs')
+    expect(router.state.location.search).toBe(RUNS_SEARCH)
+  })
+
+  it('asks again for the next attempt after «Остаться»', async () => {
+    stubBackend([UI_REPO])
+    renderLeavingPage()
+    await screen.findByLabelText(LIMIT_LABEL)
+    fireEvent.change(screen.getByLabelText(LIMIT_LABEL), { target: { value: '5' } })
+    const link = screen.getByRole('link', { name: 'История проверок' })
+
+    fireEvent.click(link)
+    await screen.findByRole('dialog', { name: LEAVE_TITLE })
+    fireEvent.click(leaveDialogButton('Остаться'))
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: LEAVE_TITLE })).toBeNull()
+    })
+
+    fireEvent.click(link)
+
+    expect(await screen.findByRole('dialog', { name: LEAVE_TITLE })).toBeTruthy()
+    expect(screen.queryByTestId('runs-route')).toBeNull()
+  })
+
+  it('asks for an emptied limit too: anything typed is a draft', async () => {
+    stubBackend([UI_REPO])
+    renderLeavingPage()
+    await screen.findByLabelText(LIMIT_LABEL)
+    fireEvent.change(screen.getByLabelText(LIMIT_LABEL), { target: { value: '' } })
+    // No PATCH could carry it, but the page would lose it.
+    expect(saveButton().disabled).toBe(true)
+
+    fireEvent.click(screen.getByRole('link', { name: 'История проверок' }))
+
+    expect(await screen.findByRole('dialog', { name: LEAVE_TITLE })).toBeTruthy()
+    expect(screen.queryByTestId('runs-route')).toBeNull()
+  })
+
+  it('leaves at once, without a dialog, when nothing was typed', async () => {
+    stubBackend([UI_REPO])
+    const { router } = renderLeavingPage()
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    fireEvent.click(screen.getByRole('link', { name: 'История проверок' }))
+
+    expect(await screen.findByTestId('runs-route')).toBeTruthy()
+    expect(router.state.location.pathname).toBe('/runs')
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('leaves at once after «Отменить изменения» took the draft back', async () => {
+    stubBackend([UI_REPO])
+    renderLeavingPage()
+    await screen.findByLabelText(LIMIT_LABEL)
+    fireEvent.change(screen.getByLabelText(LIMIT_LABEL), { target: { value: '5' } })
+    fireEvent.click(cancelButton())
+    await waitFor(() => {
+      expect(inputValue(LIMIT_LABEL)).toBe('10')
+    })
+
+    fireEvent.click(screen.getByRole('link', { name: 'История проверок' }))
+
+    expect(await screen.findByTestId('runs-route')).toBeTruthy()
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('leaves without a dialog after a successful save', async () => {
+    const backend = stubBackend([UI_REPO])
+    renderLeavingPage()
+    await screen.findByLabelText(LIMIT_LABEL)
+    fireEvent.change(screen.getByLabelText(LIMIT_LABEL), { target: { value: '5' } })
+    fireEvent.click(saveButton())
+    await screen.findByText('Настройки репозитория успешно сохранены')
+    expect(backend.patches).toHaveLength(1)
+    await waitFor(() => {
+      expect(saveButton().disabled).toBe(true)
+    })
+
+    fireEvent.click(screen.getByRole('link', { name: 'История проверок' }))
+
+    expect(await screen.findByTestId('runs-route')).toBeTruthy()
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('does not block a change of the search or the hash of the same page', async () => {
+    stubBackend([UI_REPO])
+    const { router } = renderLeavingPage()
+    await screen.findByLabelText(LIMIT_LABEL)
+    fireEvent.change(screen.getByLabelText(LIMIT_LABEL), { target: { value: '5' } })
+
+    await act(async () => {
+      await router.navigate(`${settingsPath(UI_REPO.id)}?from=list#rules`)
+    })
+
+    expect(router.state.location.search).toBe('?from=list')
+    expect(router.state.location.hash).toBe('#rules')
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(inputValue(LIMIT_LABEL)).toBe('5')
+  })
+
+  it('asks before a reload or a tab close with a draft, and not without one', async () => {
+    stubBackend([UI_REPO])
+    renderLeavingPage()
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    const clean = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(clean)
+    expect(clean.defaultPrevented).toBe(false)
+
+    fireEvent.change(screen.getByLabelText(LIMIT_LABEL), { target: { value: '5' } })
+
+    // jsdom's plain Event has a boolean `returnValue` that cancels the event: an accessor on the
+    // event stands in for the string one of a browser's, and records what the page assigns.
+    let assigned: unknown = 'unset'
+    const dirty = new Event('beforeunload', { cancelable: true })
+    Object.defineProperty(dirty, 'returnValue', {
+      get: () => assigned,
+      set: (value: unknown) => {
+        assigned = value
+      },
+    })
+    window.dispatchEvent(dirty)
+    expect(dirty.defaultPrevented).toBe(true)
+    // Some browsers show the prompt only for this.
+    expect(assigned).toBe('')
+  })
+
+  it('does not ask before a reload once the draft is saved', async () => {
+    stubBackend([UI_REPO])
+    renderLeavingPage()
+    await screen.findByLabelText(LIMIT_LABEL)
+    fireEvent.change(screen.getByLabelText(LIMIT_LABEL), { target: { value: '5' } })
+    fireEvent.click(saveButton())
+    await screen.findByText('Настройки репозитория успешно сохранены')
+    await waitFor(() => {
+      expect(saveButton().disabled).toBe(true)
+    })
+
+    const saved = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(saved)
+
+    expect(saved.defaultPrevented).toBe(false)
+  })
+
+  it('takes the beforeunload listener off with the page', async () => {
+    stubBackend([UI_REPO])
+    const added = vi.spyOn(window, 'addEventListener')
+    const removed = vi.spyOn(window, 'removeEventListener')
+    try {
+      const { unmount } = renderLeavingPage()
+      await screen.findByLabelText(LIMIT_LABEL)
+      const listeners = added.mock.calls.filter(([type]) => type === 'beforeunload')
+      expect(listeners).toHaveLength(1)
+
+      unmount()
+
+      const listener = listeners[0]?.[1]
+      expect(
+        removed.mock.calls.some(([type, fn]) => type === 'beforeunload' && fn === listener),
+      ).toBe(true)
+    } finally {
+      added.mockRestore()
+      removed.mockRestore()
+    }
   })
 })
 
