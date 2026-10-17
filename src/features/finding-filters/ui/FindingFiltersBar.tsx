@@ -13,6 +13,7 @@ import {
   type FindingFilters,
   type FindingFiltersChange,
 } from '../model/findingFilters'
+import type { SubscribeFilterNavigation } from '../model/useFindingFiltersParams'
 import { useQueryText } from '../model/useQueryText'
 import styles from './FindingFiltersBar.module.css'
 
@@ -40,6 +41,7 @@ export interface FindingFiltersBarProps {
   onReset: () => void
   /** Changes when the URL was changed by a navigation the owner did not make (back, a link). */
   navigationKey?: number
+  subscribeToNavigation?: SubscribeFilterNavigation
 }
 
 const SEVERITY_OPTIONS = SEVERITY_BADGE_GROUPS.map((group) => ({
@@ -79,11 +81,13 @@ export function FindingFiltersBar(props: FindingFiltersBarProps): JSX.Element {
     onQueryChange,
     onReset,
     navigationKey,
+    subscribeToNavigation,
   } = props
   const { text, type, takePending, clear } = useQueryText(
     filters.query,
     onQueryChange,
     navigationKey,
+    subscribeToNavigation,
   )
   const id = useId()
   const filesRef = useRef<RefSelectProps>(null)

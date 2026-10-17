@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import type { SubscribeFilterNavigation } from './useFindingFiltersParams'
+
 /** Pause after the last keystroke before the query is written to the URL. */
 const QUERY_WRITE_DEBOUNCE_MS = 250
 
@@ -18,6 +20,7 @@ export function useQueryText(
   urlQuery: string,
   writeQuery: (query: string) => void,
   navigationKey = 0,
+  subscribeToNavigation?: SubscribeFilterNavigation,
 ): {
   text: string
   /** The user edited the text: it shows at once, the write follows after the pause. */
@@ -65,7 +68,9 @@ export function useQueryText(
   }, [urlQuery])
 
   useEffect(() => {
-    if (navigationKey === navigationKeyRef.current) {
+    // A pre-commit notification already reset the input. Repeating it at commit would erase
+    // text the user typed after that navigation, while the old screen was still visible.
+    if (subscribeToNavigation || navigationKey === navigationKeyRef.current) {
       return
     }
     navigationKeyRef.current = navigationKey
@@ -75,7 +80,20 @@ export function useQueryText(
     requestedRef.current = urlQuery
     writtenRef.current.clear()
     setText(urlQuery)
-  }, [navigationKey, urlQuery])
+  }, [navigationKey, subscribeToNavigation, urlQuery])
+
+  useEffect(
+    () =>
+      subscribeToNavigation?.((query) => {
+        window.clearTimeout(timerRef.current)
+        timerRef.current = undefined
+        textRef.current = query
+        requestedRef.current = query
+        writtenRef.current.clear()
+        setText(query)
+      }),
+    [subscribeToNavigation],
+  )
 
   const request = useCallback((query: string) => {
     if (query !== requestedRef.current) {
