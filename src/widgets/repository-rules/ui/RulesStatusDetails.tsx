@@ -8,6 +8,7 @@ import {
   describeDiagnosticLimit,
   describeDiagnosticLocation,
   formatCheckedAt,
+  isKnownUnavailableCode,
   shortSha,
   unavailableReason,
 } from '../lib/rulesStatusView'
@@ -158,7 +159,13 @@ export const RulesStatusDetails: FC<RulesStatusDetailsProps> = ({ status, onRetr
               <ul className={styles.list}>
                 {status.diagnostics.map((diagnostic, index) => (
                   <li key={`${diagnostic.code}-${String(index)}`}>
-                    <span>{unavailableReason(diagnostic.code)}</span> <code>{diagnostic.code}</code>
+                    <span>{unavailableReason(diagnostic.code)}</span>
+                    {isKnownUnavailableCode(diagnostic.code) ? null : (
+                      <>
+                        {' '}
+                        <code>{diagnostic.code}</code>
+                      </>
+                    )}
                   </li>
                 ))}
               </ul>
