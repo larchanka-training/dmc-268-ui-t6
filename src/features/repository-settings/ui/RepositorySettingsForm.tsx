@@ -300,7 +300,7 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
         <Button disabled={!changed} htmlType="submit" loading={saving} type="primary">
           Сохранить
         </Button>
-        <Button disabled={!changed || saving} onClick={handleCancel}>
+        <Button disabled={!hasDraftChanges(baseline, values) || saving} onClick={handleCancel}>
           Отменить изменения
         </Button>
       </Flex>
