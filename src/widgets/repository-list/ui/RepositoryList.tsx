@@ -307,6 +307,21 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       },
     },
     {
+      title: 'Статус',
+      dataIndex: 'enabled',
+      key: 'enabled',
+      render: (_: boolean, record: Repository) => {
+        const updating = updatingRepoIds
+          ? Array.isArray(updatingRepoIds)
+            ? updatingRepoIds.includes(record.id)
+            : updatingRepoIds.has(record.id)
+          : false
+        return (
+          <StatusCell onToggleEnabled={onToggleEnabled} repository={record} updating={updating} />
+        )
+      },
+    },
+    {
       title: 'Ветка',
       dataIndex: 'defaultBranch',
       key: 'defaultBranch',
@@ -346,21 +361,6 @@ export const RepositoryList: FC<RepositoryListProps> = ({
         ) : (
           <Tag>Комментарий</Tag>
         ),
-    },
-    {
-      title: 'Статус',
-      dataIndex: 'enabled',
-      key: 'enabled',
-      render: (_: boolean, record: Repository) => {
-        const updating = updatingRepoIds
-          ? Array.isArray(updatingRepoIds)
-            ? updatingRepoIds.includes(record.id)
-            : updatingRepoIds.has(record.id)
-          : false
-        return (
-          <StatusCell onToggleEnabled={onToggleEnabled} repository={record} updating={updating} />
-        )
-      },
     },
     {
       title: '',
