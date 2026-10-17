@@ -11,6 +11,13 @@
   transition: opacity var(--rv-motion-fade) var(--rv-ease);
 }
 
+/* A transition runs on the curve of the state it moves to: the fade-in keeps the decelerating
+   curve of the base rule, the fade-out accelerates, so the ring does not spend its whole fade in
+   the first frames of a page that is still busy. */
+.layer[data-state='hidden'] {
+  transition-timing-function: var(--rv-ease-exit);
+}
+
 .layer[data-state='shown'] {
   opacity: 1;
 }
