@@ -53,11 +53,14 @@ it('waits behind the late page loader while the session is checked, not behind a
   elapse(16)
   expect(screen.getByTestId('page-loader').dataset.state).toBe('shown')
 
-  // The session is ready: the page appears at once and the ring fades out behind it.
+  // The session is ready: the page appears at once and the ring fades out over it, two frames later.
   act(() => {
     useAuthStore.setState({ isAuthenticated: true, isLoading: false, isInitialized: true })
   })
   expect(screen.getByRole('heading', { name: 'Репозитории' })).toBeDefined()
+  expect(screen.getByTestId('page-loader').dataset.state).toBe('shown')
+  elapse(16)
+  elapse(16)
   expect(screen.getByTestId('page-loader').dataset.state).toBe('hidden')
   elapse(200)
   expect(screen.queryByTestId('page-loader')).toBeNull()

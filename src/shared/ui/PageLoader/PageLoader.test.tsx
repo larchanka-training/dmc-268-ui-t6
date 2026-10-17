@@ -58,6 +58,13 @@ function elapse(ms: number): void {
   })
 }
 
+/** Runs `count` animation frames one by one, so React flushes its effects after each of them. */
+function frames(count: number): void {
+  for (let index = 0; index < count; index += 1) {
+    elapse(FRAME_MS)
+  }
+}
+
 function rings(): HTMLElement[] {
   return screen.queryAllByTestId('page-loader')
 }
@@ -78,6 +85,15 @@ function showRing(markers: string[] = ['page']): ReturnType<typeof render> {
   expect(ring().dataset.state).toBe('shown')
   return view
 }
+
+describe('spec numbers', () => {
+  // The timeline tests below take their expected values from these constants, so the literals of
+  // the design system (`docs/DESIGN_SYSTEM.md` §7) are pinned here.
+  it('shows the ring after 300 ms of waiting and fades it in 200 ms', () => {
+    expect(RV_PAGE_LOADER_DELAY_MS).toBe(300)
+    expect(RV_MOTION_FADE_MS).toBe(200)
+  })
+})
 
 describe('PageLoading', () => {
   it('renders nothing itself', () => {
@@ -123,9 +139,21 @@ describe('PageLoaderHost timeline', () => {
     expect(rings()).toHaveLength(1)
   })
 
-  it('fades out when the marker unmounts and removes the ring after 200 ms', () => {
+  it('keeps the ring shown for two frames after the marker unmounts, then fades it out', () => {
     const { rerender } = showRing()
     rerender(<Screen markers={[]} />)
+    // The page has just been committed and its first frame is heavy: the fade waits for it.
+    expect(ring().dataset.state).toBe('shown')
+    frames(1)
+    expect(ring().dataset.state).toBe('shown')
+    frames(1)
+    expect(ring().dataset.state).toBe('hidden')
+  })
+
+  it('removes the ring 200 ms after the fade begins, not after the marker is gone', () => {
+    const { rerender } = showRing()
+    rerender(<Screen markers={[]} />)
+    frames(2)
     expect(ring().dataset.state).toBe('hidden')
     elapse(RV_MOTION_FADE_MS - 1)
     expect(rings()).toHaveLength(1)
@@ -133,7 +161,36 @@ describe('PageLoaderHost timeline', () => {
     expect(rings()).toHaveLength(0)
   })
 
-  it('removes the ring at once when Ant Design motion is off', () => {
+  it('never fades in a ring whose wait ended before its first frame, and removes it after 200 ms', () => {
+    const { rerender } = render(<Screen markers={['page']} />)
+    elapse(RV_PAGE_LOADER_DELAY_MS)
+    expect(ring().dataset.state).toBe('hidden')
+    // The page is ready before the ring has drawn its first frame: nothing was shown, no grace.
+    rerender(<Screen markers={[]} />)
+    frames(1)
+    expect(ring().dataset.state).toBe('hidden')
+    frames(1)
+    expect(ring().dataset.state).toBe('hidden')
+    elapse(RV_MOTION_FADE_MS - 2 * FRAME_MS - 1)
+    expect(rings()).toHaveLength(1)
+    elapse(1)
+    expect(rings()).toHaveLength(0)
+  })
+
+  it('fades in a ring that never showed when a new wait begins before it is removed', () => {
+    const { rerender } = render(<Screen markers={['page']} />)
+    elapse(RV_PAGE_LOADER_DELAY_MS)
+    rerender(<Screen markers={[]} />)
+    frames(1)
+    rerender(<Screen markers={['again']} />)
+    expect(ring().dataset.state).toBe('hidden')
+    frames(1)
+    expect(ring().dataset.state).toBe('shown')
+    elapse(RV_MOTION_FADE_MS * 5)
+    expect(ring().dataset.state).toBe('shown')
+  })
+
+  it('removes the ring at once, without waiting for frames, when Ant Design motion is off', () => {
     reduceMotion()
     const { rerender } = render(<Screen markers={['page']} />)
     elapse(RV_PAGE_LOADER_DELAY_MS - 1)
@@ -141,7 +198,10 @@ describe('PageLoaderHost timeline', () => {
     // No fade-in either: the ring is shown in the frame it appears in.
     elapse(1)
     expect(ring().dataset.state).toBe('shown')
+    // Its first frame has passed, so only the motion setting can make it leave without a grace.
+    frames(1)
     rerender(<Screen markers={[]} />)
+    expect(ring().dataset.state).toBe('hidden')
     elapse(0)
     expect(rings()).toHaveLength(0)
   })
@@ -150,6 +210,7 @@ describe('PageLoaderHost timeline', () => {
     const { rerender } = showRing()
     const before = ring()
     rerender(<Screen markers={[]} />)
+    frames(2)
     elapse(RV_MOTION_FADE_MS / 2)
     expect(ring().dataset.state).toBe('hidden')
     rerender(<Screen markers={['again']} />)
@@ -157,6 +218,81 @@ describe('PageLoaderHost timeline', () => {
     elapse(RV_MOTION_FADE_MS * 5)
     expect(ring()).toBe(before)
     expect(ring().dataset.state).toBe('shown')
+    // The new wait ends like any other: two frames of grace, not the release left over from before.
+    rerender(<Screen markers={[]} />)
+    frames(1)
+    expect(ring().dataset.state).toBe('shown')
+    frames(1)
+    expect(ring().dataset.state).toBe('hidden')
+  })
+
+  it('keeps the ring, with no fade, when a marker registers inside the two-frame window', () => {
+    const { rerender } = showRing()
+    const before = ring()
+    rerender(<Screen markers={[]} />)
+    frames(1)
+    expect(ring().dataset.state).toBe('shown')
+    rerender(<Screen markers={['again']} />)
+    // The cancelled hide never lands: not on the frame it was due, nor after the fade length.
+    frames(2)
+    expect(ring().dataset.state).toBe('shown')
+    elapse(RV_MOTION_FADE_MS * 5)
+    expect(ring()).toBe(before)
+    expect(ring().dataset.state).toBe('shown')
+  })
+
+  it('waits two frames again after a wait that began inside the window ends', () => {
+    const { rerender } = showRing()
+    rerender(<Screen markers={[]} />)
+    frames(1)
+    rerender(<Screen markers={['again']} />)
+    frames(2)
+    rerender(<Screen markers={[]} />)
+    expect(ring().dataset.state).toBe('shown')
+    frames(1)
+    expect(ring().dataset.state).toBe('shown')
+    frames(1)
+    expect(ring().dataset.state).toBe('hidden')
+    elapse(RV_MOTION_FADE_MS)
+    expect(rings()).toHaveLength(0)
+  })
+
+  it('leaves no frame or timer pending when the host unmounts inside the window', () => {
+    const view = showRing()
+    view.rerender(<Screen markers={[]} />)
+    frames(1)
+    view.unmount()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('leaves no timer pending when the host unmounts during the fade-out', () => {
+    const view = showRing()
+    view.rerender(<Screen markers={[]} />)
+    frames(2)
+    view.unmount()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('fades out the same way under StrictMode double mounting', () => {
+    const { rerender } = render(
+      <StrictMode>
+        <Screen markers={['page']} />
+      </StrictMode>,
+    )
+    elapse(RV_PAGE_LOADER_DELAY_MS)
+    frames(1)
+    expect(ring().dataset.state).toBe('shown')
+    rerender(
+      <StrictMode>
+        <Screen markers={[]} />
+      </StrictMode>,
+    )
+    frames(1)
+    expect(ring().dataset.state).toBe('shown')
+    frames(1)
+    expect(ring().dataset.state).toBe('hidden')
+    elapse(RV_MOTION_FADE_MS)
+    expect(rings()).toHaveLength(0)
   })
 
   it('does not blink when a marker hands over to another in the same commit before the ring', () => {
@@ -188,6 +324,7 @@ describe('PageLoaderHost timeline', () => {
     elapse(RV_MOTION_FADE_MS * 5)
     expect(ring().dataset.state).toBe('shown')
     rerender(<Screen markers={[]} />)
+    frames(2)
     elapse(RV_MOTION_FADE_MS)
     expect(rings()).toHaveLength(0)
   })
