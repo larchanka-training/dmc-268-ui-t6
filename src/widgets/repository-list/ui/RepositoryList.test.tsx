@@ -235,6 +235,29 @@ describe('RepositoryList', () => {
     ).toBe('/repositories/b2c3d4e5-f6a7-8901-bcde-f12345678901/settings')
   })
 
+  it('pins the actions column to the right edge, the header and every row, and no other column (D14)', () => {
+    const { container } = render(
+      <RepositoryList
+        settingsHref={settingsHref}
+        onSyncAccess={vi.fn()}
+        repositories={mockRepos}
+      />,
+    )
+
+    // The table scrolls sideways under the column and «Настроить» is visible at any width. Ant
+    // Design 6 names the right edge `end` (`ant-table-cell-fix-end`; `-right` before version 6).
+    expect(container.querySelectorAll('.ant-table-cell-fix')).toHaveLength(mockRepos.length + 1)
+    expect(container.querySelectorAll('.ant-table-cell-fix-end')).toHaveLength(mockRepos.length + 1)
+    expect(container.querySelector('thead th.ant-table-cell-fix-end')).not.toBeNull()
+    for (const repository of mockRepos) {
+      const link = screen.getByRole('link', { name: `Настройки ${repository.fullName}` })
+      expect(link.closest('td')?.classList.contains('ant-table-cell-fix-end')).toBe(true)
+    }
+    // A pinned column turns the layout into `fixed` (equal column widths, long names run over the
+    // next column) unless it is asked to stay `auto`.
+    expect(container.querySelector('table')?.style.tableLayout).toBe('auto')
+  })
+
   it('opens the settings through onOpenSettings and keeps the page from loading', () => {
     const onOpenSettings = vi.fn()
     render(

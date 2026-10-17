@@ -250,7 +250,9 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
         />
         {notice === 'stale' ? (
           <Alert
-            action={
+            // The button is not in the `action` slot, which lays an Alert out as a row beside the
+            // text and squeezes it on a narrow screen (see `AutoReviewSwitch`).
+            description={
               <Button
                 loading={isFetching}
                 onClick={() => void refetch({ cancelRefetch: false })}
@@ -311,17 +313,21 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
   if (isError) {
     return (
       <Alert
-        action={
-          <Button
-            loading={isFetching}
-            onClick={() => void refetch({ cancelRefetch: false })}
-            size="small"
-            type="primary"
-          >
-            Повторить попытку
-          </Button>
+        // The button is not in the `action` slot, which lays an Alert out as a row beside the text
+        // and squeezes it on a narrow screen (see `AutoReviewSwitch`).
+        description={
+          <Flex align="flex-start" gap={8} vertical>
+            <span>{formatErrorMessage(error, 'Не удалось загрузить репозиторий')}</span>
+            <Button
+              loading={isFetching}
+              onClick={() => void refetch({ cancelRefetch: false })}
+              size="small"
+              type="primary"
+            >
+              Повторить попытку
+            </Button>
+          </Flex>
         }
-        description={formatErrorMessage(error, 'Не удалось загрузить репозиторий')}
         showIcon
         title="Ошибка загрузки данных"
         type="error"
