@@ -59,6 +59,21 @@ function heavier(a: [number, number], b: [number, number]): boolean {
   return a[0] !== b[0] ? a[0] > b[0] : a[1] > b[1]
 }
 
+/** The selectors of Ant Design's rules that set `property` and match `cell`, with their weights. */
+function libraryRulesFor(
+  cell: Element | undefined,
+  property: RegExp,
+): ReturnType<typeof weightOf>[] {
+  return injectedRules().flatMap(({ selectors, body: declarations }) =>
+    property.test(declarations)
+      ? selectors.map(weightOf).filter(({ plain }) => cell?.matches(plain) === true)
+      : [],
+  )
+}
+
+const PAINTS = /(^|[;\s])background(-color)?\s*:/
+const ANIMATES = /(^|[;\s])transition\s*:/
+
 interface Row {
   id: number
   name: string
@@ -97,9 +112,9 @@ afterEach(() => {
 })
 
 describe('the pinned-column rules of antd.css', () => {
-  it('are exactly these: an opaque surface for a pinned cell and the hover laid over it', () => {
+  it('are exactly these: an opaque surface for a pinned cell, no fade, and the hover laid over it', () => {
     expect(pinnedRules()).toEqual([
-      `${RULES.surface.join(', ')} { background: var(--rv-bg-raised); }`,
+      `${RULES.surface.join(', ')} { background: var(--rv-bg-raised); transition: none; }`,
       `${RULES.hover} { background: linear-gradient(var(--rv-hover), var(--rv-hover)), var(--rv-bg-raised); }`,
     ])
   })
@@ -139,12 +154,29 @@ describe('the pinned-column rules of antd.css', () => {
     expect(hoveredCell?.classList.contains('ant-table-cell-row-hover')).toBe(true)
     expect(restingCell?.classList.contains('ant-table-cell-row-hover')).toBe(false)
     for (const [cell, rule] of cases) {
-      const contenders = injectedRules().flatMap(({ selectors, body: declarations }) =>
-        /(^|[;\s])background(-color)?\s*:/.test(declarations)
-          ? selectors.map(weightOf).filter(({ plain }) => cell?.matches(plain) === true)
-          : [],
-      )
+      const contenders = libraryRulesFor(cell, PAINTS)
       // The library's rules for the cell are found, and each one weighs less than ours.
+      expect(contenders.length, rule).toBeGreaterThan(0)
+      for (const { plain, weight } of contenders) {
+        expect(heavier(weightOf(rule).weight, weight), `${rule} vs ${plain}`).toBe(true)
+      }
+    }
+  })
+
+  it('are heavier than every rule of Ant Design that fades those cells', () => {
+    const container = renderPinnedTable()
+    const [headerRule, bodyRule] = RULES.surface
+    fireEvent.mouseEnter(firstNameCell(container))
+    const header = container.querySelector('thead th.ant-table-cell-fix')
+    const [hoveredCell, restingCell] = container.querySelectorAll('tbody td.ant-table-cell-fix')
+    // The fade is switched off by the surface rule, which the hovered cell matches as well.
+    const cases: [Element | undefined, string][] = [
+      [header ?? undefined, headerRule],
+      [restingCell, bodyRule],
+      [hoveredCell, bodyRule],
+    ]
+    for (const [cell, rule] of cases) {
+      const contenders = libraryRulesFor(cell, ANIMATES)
       expect(contenders.length, rule).toBeGreaterThan(0)
       for (const { plain, weight } of contenders) {
         expect(heavier(weightOf(rule).weight, weight), `${rule} vs ${plain}`).toBe(true)
