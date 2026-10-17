@@ -117,6 +117,43 @@ describe('validateBranchFilterText', () => {
     const text = `\nmain\n\n${'a'.repeat(256)}`
     expect(validateBranchFilterText(text)).toBe('Маска в строке 4 длиннее 255 символов')
   })
+
+  it('accepts masks with the stars, dots and an emoji the API accepts', () => {
+    expect(
+      validateBranchFilterText('*\n**\nfeature/**/x\nv1.2\nmain.locked\nuser@x\nfeat/🚀'),
+    ).toBeNull()
+  })
+
+  it('names the line and the reason of a refused mask', () => {
+    expect(validateBranchFilterText('main\nrelease..x')).toBe(
+      'Маска в строке 2: «..» и «//» недопустимы',
+    )
+    expect(validateBranchFilterText('main\nrelease x')).toBe(
+      'Маска в строке 2: пробелы и управляющие символы недопустимы',
+    )
+    expect(validateBranchFilterText('main\n@')).toBe('Маска в строке 2: «@» не может быть маской')
+  })
+
+  it('names the visible line when blank lines and a duplicate come before the refused mask', () => {
+    // The cleaned list is ['main', 'a..b']: the refused mask is its second, on line 5 of the text.
+    expect(validateBranchFilterText('\nmain\n\nmain\n  a..b  ')).toBe(
+      'Маска в строке 5: «..» и «//» недопустимы',
+    )
+  })
+
+  it('names the first refused line in the order of the text', () => {
+    expect(validateBranchFilterText('main\nx?y\na..b')).toBe(
+      'Маска в строке 2: символы ? [ ] { } ! \\ ~ ^ : недопустимы',
+    )
+  })
+
+  it('judges the size of the list and of a mask before their syntax', () => {
+    const tooMany = ['a..b', ...Array.from({ length: 20 }, (_, i) => `b${String(i)}`)].join('\n')
+    expect(validateBranchFilterText(tooMany)).toBe('Не больше 20 масок')
+    expect(validateBranchFilterText(`a..b\n${'a'.repeat(256)}`)).toBe(
+      'Маска в строке 2 длиннее 255 символов',
+    )
+  })
 })
 
 describe('buildSettingsPatch', () => {
