@@ -728,6 +728,20 @@ lazy-страницы), отложенная запись `q` (до 250 мс п�
   (`features/repository-settings/lib/serverFieldErrors.ts`): 422 с `detail[].loc` на поле формы —
   текст под этим полем, остальное — `Alert` над формой (§5, «Контракт api#149 (api PR #156)»). Ошибка
   поля снимается, когда пользователь меняет это поле (`onValuesChange`).
+- Уход со страницы с черновиком (решение D12). Пока форма держит черновик
+  (`RepositorySettingsFormHandle.hasUnsavedChanges`, то есть `hasDraftChanges`: в него входит и
+  опустошённое поле), `useBlocker` в `RepositorySettingsPage` останавливает переход на другой путь
+  (ссылка, «Назад», другой репозиторий: форма ключуется `repoId`, и черновик пропал бы); смена одного
+  `search` или `hash` страницу не покидает и не блокируется. Вопрос задаёт `modal.confirm` из
+  `App.useApp()` (тема antd `App` из `UiProvider`; статический `Modal.confirm` её не получил бы):
+  «Уйти без сохранения?» / «Изменения настроек не сохранены и пропадут.», «Уйти» (`danger` с
+  рамкой, не primary: единственная главная кнопка страницы — «Сохранить», DESIGN_SYSTEM §8) —
+  `blocker.proceed()`, «Остаться» и закрытие — `blocker.reset()`; на одну блокировку один диалог
+  (cleanup эффекта закрывает его). Перезагрузку и закрытие вкладки ловит `beforeunload`
+  (`preventDefault()` и `returnValue = ''` только при черновике; слушатель снимается вместе со
+  страницей), текст вопроса там браузера. `useBlocker` требует data router (`createBrowserRouter`, §9),
+  поэтому страница в тестах идёт через `createMemoryRouter` и `RouterProvider`. Без черновика, после
+  успешного сохранения и после «Отменить изменения» вопроса нет.
 - Статус правил — `useRepositoryRulesStatus(repoId, { enabled })`, ключ
   `['repoRulesStatus', repoId]` (`repoRulesStatusQueryKey`). Ключ **не** под `['repos']`: мутация
   настроек делает `cancelQueries` и `invalidateQueries` по префиксу `['repos']` и отменяла бы и
