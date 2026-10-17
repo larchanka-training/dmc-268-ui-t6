@@ -1,4 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { Query, QueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 
 import { ApiError, apiClient } from '../../../shared/api/client'
@@ -94,6 +95,60 @@ export function runListEndpoint(query: RunListQuery = {}): Endpoint {
 export async function fetchRunList(query: RunListQuery = {}): Promise<RunListPage> {
   const data = await apiClient<unknown>(runListEndpoint(query))
   return RunListPageSchema.parse(data)
+}
+
+/** A runs list whose next page is being loaded: `fetchNextPage` marks that fetch `fetchMore`. */
+function isLoadingListPage(query: Query): boolean {
+  return query.state.fetchStatus === 'fetching' && Boolean(query.state.fetchMeta?.fetchMore)
+}
+
+/** Lists with a trailing invalidation already queued; a second event of the same load adds none. */
+const listsWithTrailingInvalidation = new WeakSet<Query>()
+
+/**
+ * Invalidates `query` once its page load has ended, resolved, rejected or abandoned. A plain
+ * `invalidateQueries` would cancel the page in flight and refetch only the pages loaded before it.
+ */
+function invalidateAfterPageLoad(queryClient: QueryClient, query: Query): void {
+  if (listsWithTrailingInvalidation.has(query)) {
+    return
+  }
+  listsWithTrailingInvalidation.add(query)
+  const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+    if (event.query !== query) {
+      return
+    }
+    if (event.type === 'removed') {
+      unsubscribe()
+      return
+    }
+    if (event.type !== 'updated' || isLoadingListPage(query)) {
+      return
+    }
+    unsubscribe()
+    listsWithTrailingInvalidation.delete(query)
+    void queryClient.invalidateQueries({ queryKey: query.queryKey, exact: true })
+  })
+}
+
+/**
+ * Invalidates every runs list (`runQueryKeys.list()` prefix). A list that is loading a page is not
+ * cancelled: the plain `cancelRefetch: false` would join the fetch in flight and its success would
+ * clear `isInvalidated`, losing the event. Such a list is invalidated once, after the page has
+ * landed, however many events arrive meanwhile.
+ */
+export function invalidateRunLists(queryClient: QueryClient): void {
+  const loading = queryClient
+    .getQueryCache()
+    .findAll({ queryKey: runQueryKeys.list() })
+    .filter(isLoadingListPage)
+  for (const query of loading) {
+    invalidateAfterPageLoad(queryClient, query)
+  }
+  void queryClient.invalidateQueries({
+    queryKey: runQueryKeys.list(),
+    ...(loading.length > 0 && { predicate: (query: Query) => !loading.includes(query) }),
+  })
 }
 
 /** Runs per request of the list; sent explicitly, the api default is larger. */
