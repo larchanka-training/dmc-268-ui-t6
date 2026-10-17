@@ -1059,9 +1059,11 @@ React, без `innerHTML`.
 `startedAt` старше 10 минут (`STALE_RUNNING_MS`) — порог совпадает с порогом реконсилера в [SD §6.4][sd-6.4]
 (`queued` старше 10 мин без сообщения → повтор публикации).
 
-Хуки под cancel/retry в контракте уже есть, UI для них — вне спринта: `cancelRequested: boolean`
-(флаг отмены до подтверждения бэкендом) и `attempt: number` (номер попытки при retry) на
-`RunSession`.
+Отмена и повторный запуск — `RunControls` (`src/widgets/run-inspector/ui/RunControls.tsx`):
+«Отменить» на активном прогоне, «Перезапустить» на терминальном. На `running`/`publishing` отмена
+статус не меняет: API ставит `cancelRequested: true` на `RunSession`, пока воркер не остановится,
+и на месте «Отменить» стоит неактивная кнопка «Отмена запрошена» без `danger` — это уже не действие
+(DESIGN_SYSTEM §8). `attempt: number` (номер попытки при retry) `RunHeader` показывает в поле «Попытка».
 
 ### Прогресс-бар (Refs ui#84)
 
