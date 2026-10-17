@@ -228,9 +228,9 @@ focused suites, включая reset и fixture isolation.
 - [x] Независимые Standards/Spec reviews без unresolved findings; recheck после
       исправлений. Записать RED/GREEN и итоговые gate evidence ниже.
 - [x] Перепроверить ownership и rebase на свежий main; сохранить `.pnpm-store/`.
-- [ ] Publisher обновляет этот же PR #124 и его русское описание, отвечает во всех
+- [x] Publisher обновляет этот же PR #124 и его русское описание, отвечает во всех
       трёх review threads с SHA исправления, не разрешая threads.
-- [ ] Merge/закрытие issue не выполнять; отмечать follow-up завершённым только
+- [x] Merge/закрытие issue не выполнять; отмечать follow-up завершённым только
       после review и публикации.
 
 ## Follow-up evidence (2026-10-17)
@@ -292,3 +292,15 @@ focused suites, включая reset и fixture isolation.
   Открытые PR #122/#123 не владеют intended файлами; пересечения #106/#109
   по transport/test покрыты существующими coordination comments, проверенными
   перед публикацией. Untracked `.pnpm-store/` не включён в change.
+- Publication: source commit `7e69da400422b5975662a53c41526ae39ffa6ad8`
+  содержит четыре intended файла; source/test byte-identical к verified snapshot.
+  Обычный pre-commit (eslint/prettier) и pre-push (types/lint) прошли без bypass.
+  Existing [PR #124](https://github.com/larchanka-training/dmc-268-ui-t6/pull/124)
+  обновлён exact-lease push от проверенного прежнего head `ff0f425`; русское
+  описание охватывает весь PR и все три исправления. Remote head/body проверены.
+  Ответы с SHA и regression evidence опубликованы и проверены в каждом thread:
+  [cancel](https://github.com/larchanka-training/dmc-268-ui-t6/pull/124#discussion_r4303153523),
+  [empty results](https://github.com/larchanka-training/dmc-268-ui-t6/pull/124#discussion_r4303153616),
+  [list order](https://github.com/larchanka-training/dmc-268-ui-t6/pull/124#discussion_r4303153726).
+  Threads не разрешались; merge и issue closure не выполнялись. Approve на
+  текущем head и разрешение threads reviewer'ом остаются условиями merge.
