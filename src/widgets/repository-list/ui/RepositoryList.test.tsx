@@ -616,13 +616,17 @@ describe('RepositoryList while the GitHub App has no access', () => {
     )
   }
 
-  it('shows the switch off and disabled, «Нет доступа», and the choice trigger only on that row', () => {
+  it('shows «Нет доступа» and the choice trigger on one line, without a switch, only on that row', () => {
     render(unreachableList({ onToggleEnabled: vi.fn() }))
 
-    expect(unreachableSwitch().getAttribute('aria-checked')).toBe('false')
-    expect(unreachableSwitch().hasAttribute('disabled')).toBe(true)
-    expect(screen.getByText('Нет доступа')).toBeTruthy()
-    // The row with access keeps its status label and has no trigger.
+    // D13: no switch, enabled or disabled, in the cell; the cell does not wrap.
+    expect(screen.queryByRole('switch', { name: `Ревью для ${UNREACHABLE_NAME}` })).toBeNull()
+    const label = screen.getByText('Нет доступа')
+    expect(label.closest('.ant-flex')).toBe(choiceTrigger().closest('.ant-flex'))
+    expect(label.closest('.ant-flex')?.className).not.toContain('ant-flex-wrap')
+    // The only switch left is the one of the row with access, which keeps its status label and has
+    // no trigger.
+    expect(screen.getAllByRole('switch')).toHaveLength(1)
     expect(screen.getByText('Активен')).toBeTruthy()
     expect(screen.queryByText('Пауза')).toBeNull()
     const trigger = choiceTrigger()
@@ -678,9 +682,9 @@ describe('RepositoryList while the GitHub App has no access', () => {
     expect(onToggleEnabled).toHaveBeenCalledExactlyOnceWith(UNREACHABLE_ID, value)
   })
 
-  it('keeps the switch off and without a spinner, and the trigger loading, while a choice saves', () => {
-    // The optimistic update keeps `enabled` off for such a repository too; the row does not rely
-    // on it.
+  it('keeps the row without a switch, and the trigger loading, while a choice saves', () => {
+    // The optimistic update keeps `enabled` off for such a repository too; the row shows neither
+    // «Активен» nor «Пауза» whatever the cache holds.
     render(
       unreachableList({
         repositories: [{ ...UNREACHABLE_REPO, enabled: true }],
@@ -688,9 +692,7 @@ describe('RepositoryList while the GitHub App has no access', () => {
       }),
     )
 
-    expect(unreachableSwitch().getAttribute('aria-checked')).toBe('false')
-    expect(unreachableSwitch().hasAttribute('disabled')).toBe(true)
-    expect(unreachableSwitch().className).not.toContain('ant-switch-loading')
+    expect(screen.queryByRole('switch')).toBeNull()
     expect(choiceTrigger().className).toContain('ant-btn-loading')
     expect(screen.getByText('Нет доступа')).toBeTruthy()
     expect(screen.queryByText('Пауза')).toBeNull()
@@ -835,6 +837,7 @@ describe('RepositoryList when the access comes back during a refetch', () => {
 
   it('moves the focus to the switch of the row when the trigger held it', () => {
     const view = render(list(UNREACHABLE_REPO))
+    expect(screen.queryByRole('switch', { name: `Ревью для ${UNREACHABLE_NAME}` })).toBeNull()
     choiceTrigger().focus()
     expect(document.activeElement).toBe(choiceTrigger())
 
