@@ -1515,6 +1515,34 @@ describe('RepositorySettingsPage: branch filter and severity threshold', () => {
     expect(backend.patches).toEqual([])
   })
 
+  it('names the line and the reason of a refused mask and sends nothing', async () => {
+    const backend = stubBackend([FULL_REPO])
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    // The refused mask is on line 3 of the text, after a blank line.
+    fireEvent.change(branchFilterField(), { target: { value: 'main\n\nrelease..x' } })
+    fireEvent.click(saveButton())
+
+    expect(await screen.findByText('Маска в строке 3: «..» и «//» недопустимы')).toBeTruthy()
+    expect(backend.patches).toEqual([])
+    expect(branchFilterField().value).toBe('main\n\nrelease..x')
+
+    // Fixing the line takes the message away and lets the save through.
+    fireEvent.change(branchFilterField(), { target: { value: 'main\n\nrelease.x' } })
+    await waitFor(() => {
+      expect(screen.queryByText(/Маска в строке/)).toBeNull()
+    })
+    fireEvent.click(saveButton())
+    await waitFor(() => {
+      expect(backend.patches).toEqual([
+        { id: UI_REPO.id, body: { branchFilter: ['main', 'release.x'] } },
+      ])
+    })
+  })
+
+  // The client judges the grammar itself; the 422 of api PR #156 is the fallback for a mask it
+  // accepts and the server does not (the two rules drifted).
   it('shows the 422 of api PR #156 under the branch filter and keeps the masks', async () => {
     const backend = stubBackend([FULL_REPO])
     // The body as FastAPI renders a ValueError of the list validator: the whole field is the
@@ -1523,15 +1551,15 @@ describe('RepositorySettingsPage: branch filter and severity threshold', () => {
       {
         type: 'value_error',
         loc: ['body', 'branchFilter'],
-        msg: "Value error, branch pattern 'a..b' must not contain '..' or '//'",
-        input: ['main', 'a..b'],
+        msg: "Value error, branch pattern 'feature/new' is not accepted",
+        input: ['main', 'feature/new'],
         ctx: { error: {} },
       },
     ])
     renderPage(settingsPath(UI_REPO.id))
     await screen.findByLabelText(LIMIT_LABEL)
 
-    fireEvent.change(branchFilterField(), { target: { value: 'main\na..b' } })
+    fireEvent.change(branchFilterField(), { target: { value: 'main\nfeature/new' } })
     fireEvent.click(saveButton())
 
     const field = branchFilterField().closest<HTMLElement>('.ant-form-item')
@@ -1539,66 +1567,21 @@ describe('RepositorySettingsPage: branch filter and severity threshold', () => {
       throw new Error('the branch filter has no form item')
     }
     expect(await within(field).findByText('Сервер не принял значение')).toBeTruthy()
-    expect(backend.patches).toEqual([{ id: UI_REPO.id, body: { branchFilter: ['main', 'a..b'] } }])
+    expect(backend.patches).toEqual([
+      { id: UI_REPO.id, body: { branchFilter: ['main', 'feature/new'] } },
+    ])
     // The server's English text is never shown and nothing is reported above the form.
     expect(screen.queryByText(/Value error/)).toBeNull()
     expect(screen.queryByText('Не удалось сохранить настройки')).toBeNull()
     expect(screen.queryByText(/Маска в строке/)).toBeNull()
-    expect(branchFilterField().value).toBe('main\na..b')
+    expect(branchFilterField().value).toBe('main\nfeature/new')
     expect(saveButton().disabled).toBe(false)
 
     // Editing the field takes the server's complaint away.
-    fireEvent.change(branchFilterField(), { target: { value: 'main\na.b' } })
+    fireEvent.change(branchFilterField(), { target: { value: 'main\nfeature/old' } })
     await waitFor(() => {
       expect(screen.queryByText('Сервер не принял значение')).toBeNull()
     })
-  })
-
-  // api PR #156 names no mask index today. The mapping of an indexed location to the line stays as
-  // forward compatibility, so the stubs below answer with an index.
-  it('shows the 422 under the branch filter with the line number and keeps the masks', async () => {
-    const backend = stubBackend([FULL_REPO])
-    backend.patchResponse = unprocessable([
-      { loc: ['body', 'branchFilter', 1], msg: ENGLISH_422_MSG, type: 'value_error' },
-    ])
-    renderPage(settingsPath(UI_REPO.id))
-    await screen.findByLabelText(LIMIT_LABEL)
-
-    fireEvent.change(branchFilterField(), { target: { value: 'main\n[oops' } })
-    fireEvent.click(saveButton())
-
-    expect(await screen.findByText('Маска в строке 2 не принята сервером')).toBeTruthy()
-    expect(backend.patches).toEqual([{ id: UI_REPO.id, body: { branchFilter: ['main', '[oops'] } }])
-    // The server's English text is never shown and nothing is reported above the form.
-    expect(screen.queryByText(ENGLISH_422_MSG)).toBeNull()
-    expect(screen.queryByText('Не удалось сохранить настройки')).toBeNull()
-    expect(branchFilterField().value).toBe('main\n[oops')
-    expect(saveButton().disabled).toBe(false)
-
-    // Editing the field takes the server's complaint away; the other fields never had one.
-    fireEvent.change(branchFilterField(), { target: { value: 'main\n[oops]' } })
-    await waitFor(() => {
-      expect(screen.queryByText('Маска в строке 2 не принята сервером')).toBeNull()
-    })
-  })
-
-  it('names the visible line of the refused mask when the text has a blank line and a duplicate', async () => {
-    const backend = stubBackend([FULL_REPO])
-    // The cleaned list is ['main', '[oops']: the server refuses its second mask.
-    backend.patchResponse = unprocessable([
-      { loc: ['body', 'branchFilter', 1], msg: ENGLISH_422_MSG, type: 'value_error' },
-    ])
-    renderPage(settingsPath(UI_REPO.id))
-    await screen.findByLabelText(LIMIT_LABEL)
-
-    fireEvent.change(branchFilterField(), { target: { value: '\nmain\nmain\n[oops' } })
-    fireEvent.click(saveButton())
-
-    // The mask sits on line 4 of the textarea, not at place 2 of the cleaned list.
-    expect(await screen.findByText('Маска в строке 4 не принята сервером')).toBeTruthy()
-    expect(screen.queryByText('Маска в строке 2 не принята сервером')).toBeNull()
-    expect(backend.patches).toEqual([{ id: UI_REPO.id, body: { branchFilter: ['main', '[oops'] } }])
-    expect(branchFilterField().value).toBe('\nmain\nmain\n[oops')
   })
 
   it('shows the 422 under the threshold', async () => {
@@ -1638,7 +1621,7 @@ describe('RepositorySettingsPage: branch filter and severity threshold', () => {
 
     expect(await screen.findByText('Не удалось сохранить настройки')).toBeTruthy()
     expect(screen.getByText('Некорректные параметры запроса (422).')).toBeTruthy()
-    expect(screen.getByText('Маска в строке 1 не принята сервером')).toBeTruthy()
+    expect(screen.getByText('Сервер не принял значение')).toBeTruthy()
     expect(screen.queryByText(ENGLISH_422_MSG)).toBeNull()
   })
 
@@ -1683,19 +1666,19 @@ describe('RepositorySettingsPage: branch filter and severity threshold', () => {
   it('takes the 422 under the branch filter away on «Отменить изменения»', async () => {
     const backend = stubBackend([FULL_REPO])
     backend.patchResponse = unprocessable([
-      { loc: ['body', 'branchFilter', 1], msg: ENGLISH_422_MSG, type: 'value_error' },
+      { loc: ['body', 'branchFilter'], msg: ENGLISH_422_MSG, type: 'value_error' },
     ])
     renderPage(settingsPath(UI_REPO.id))
     await screen.findByLabelText(LIMIT_LABEL)
 
-    fireEvent.change(branchFilterField(), { target: { value: 'main\n[oops' } })
+    fireEvent.change(branchFilterField(), { target: { value: 'main\nfeature/new' } })
     fireEvent.click(saveButton())
-    expect(await screen.findByText('Маска в строке 2 не принята сервером')).toBeTruthy()
+    expect(await screen.findByText('Сервер не принял значение')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'Отменить изменения' }))
 
     await waitFor(() => {
-      expect(screen.queryByText('Маска в строке 2 не принята сервером')).toBeNull()
+      expect(screen.queryByText('Сервер не принял значение')).toBeNull()
     })
     expect(branchFilterField().value).toBe('main\nrelease/*')
   })

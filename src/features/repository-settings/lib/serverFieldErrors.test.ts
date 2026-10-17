@@ -10,51 +10,6 @@ function unprocessable(detail: unknown): ApiError {
 const ENGLISH_MSG = 'String should match pattern'
 
 describe('splitServerError', () => {
-  it('puts a bad mask under the branch filter with its line number', () => {
-    const error = unprocessable([
-      { loc: ['body', 'branchFilter', 1], msg: ENGLISH_MSG, type: 'value_error' },
-      { loc: ['body', 'branchFilter', 3], msg: ENGLISH_MSG, type: 'value_error' },
-    ])
-
-    expect(splitServerError(error)).toEqual({
-      fields: {
-        branchFilter: [
-          'Маска в строке 2 не принята сервером',
-          'Маска в строке 4 не принята сервером',
-        ],
-      },
-      general: false,
-    })
-  })
-
-  it('names the visible textarea line of the mask, not its place in the cleaned list', () => {
-    // Cleaned: ['main', 'release/*', '[oops']. Visible lines: blank, main, main, release/*, [oops.
-    const text = '\nmain\nmain\nrelease/*\n  [oops  '
-    const error = unprocessable([
-      { loc: ['body', 'branchFilter', 2], msg: ENGLISH_MSG, type: 'value_error' },
-    ])
-
-    expect(splitServerError(error, text)).toEqual({
-      fields: { branchFilter: ['Маска в строке 5 не принята сервером'] },
-      general: false,
-    })
-  })
-
-  it('falls back to the place in the cleaned list when the text does not hold the mask', () => {
-    const error = unprocessable([
-      { loc: ['body', 'branchFilter', 1], msg: ENGLISH_MSG, type: 'value_error' },
-    ])
-
-    expect(splitServerError(error, 'main')).toEqual({
-      fields: { branchFilter: ['Маска в строке 2 не принята сервером'] },
-      general: false,
-    })
-    expect(splitServerError(error, undefined)).toEqual({
-      fields: { branchFilter: ['Маска в строке 2 не принята сервером'] },
-      general: false,
-    })
-  })
-
   it('puts a bad threshold under the threshold', () => {
     const error = unprocessable([
       { loc: ['body', 'severityThreshold'], msg: ENGLISH_MSG, type: 'enum' },
@@ -115,7 +70,7 @@ describe('splitServerError', () => {
     ])
 
     expect(splitServerError(error)).toEqual({
-      fields: { branchFilter: ['Маска в строке 1 не принята сервером'] },
+      fields: { branchFilter: ['Сервер не принял значение'] },
       general: true,
     })
   })

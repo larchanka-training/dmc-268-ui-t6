@@ -1,6 +1,5 @@
 import { ApiError } from '../../../shared/api/client'
 import { validationErrorLocations } from '../../../shared/api/validationError'
-import { visibleLineNumber } from './settingsPatch'
 
 const FIELD_NAMES = [
   'waitForCi',
@@ -25,16 +24,7 @@ function isFieldName(value: unknown): value is SettingsFieldName {
 }
 
 // The server's own `msg` is English text and is never shown (see `runMutationErrorMessage`).
-function fieldMessage(
-  field: SettingsFieldName,
-  index: string | number | undefined,
-  submittedBranchFilter: string | undefined,
-): string {
-  if (field === 'branchFilter' && typeof index === 'number') {
-    // `index` counts the cleaned list that was sent; the user counts the lines they typed.
-    const line = visibleLineNumber(submittedBranchFilter ?? '', index)
-    return `Маска в строке ${String(line)} не принята сервером`
-  }
+function fieldMessage(field: SettingsFieldName): string {
   if (field === 'severityThreshold') {
     return 'Сервер не принял порог'
   }
@@ -46,10 +36,11 @@ function fieldMessage(
  * above it. Only a 422 in FastAPI's `HTTPValidationError` shape can name a field; any other
  * error, a `detail` that is not a list, and a location that matches no field are general.
  *
- * `submittedBranchFilter` is the textarea text the sent list came from: a refused mask is named
- * by its line there. Pass `undefined` when the branch filter was not part of the save.
+ * The API names a refused mask by no index (the whole list is one location), and the form judges
+ * the grammar itself before sending (`branchMaskError`), so a 422 at `branchFilter` is the
+ * fallback for rules that drifted: it gets the same text as any other field.
  */
-export function splitServerError(error: unknown, submittedBranchFilter?: string): ServerErrorSplit {
+export function splitServerError(error: unknown): ServerErrorSplit {
   if (!(error instanceof ApiError) || error.status !== 422) {
     return { fields: {}, general: true }
   }
@@ -61,12 +52,12 @@ export function splitServerError(error: unknown, submittedBranchFilter?: string)
   const fields: ServerFieldErrors = {}
   let general = false
   for (const { path } of locations) {
-    const [root, field, index] = path
+    const [root, field] = path
     if (root !== 'body' || !isFieldName(field)) {
       general = true
       continue
     }
-    const message = fieldMessage(field, index, submittedBranchFilter)
+    const message = fieldMessage(field)
     const messages = fields[field] ?? []
     if (!messages.includes(message)) {
       messages.push(message)
