@@ -130,8 +130,9 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
       okType: 'default',
       okButtonProps: { danger: true },
       cancelText: 'Остаться',
-      // The safe answer takes the focus, so an Enter pressed at once keeps the draft.
-      autoFocusButton: 'cancel',
+      // The safe answer takes the focus, so an Enter pressed at once keeps the draft. Through
+      // `focusable`: the top-level `autoFocusButton` is deprecated in antd 6 (it logs a warning).
+      focusable: { autoFocusButton: 'cancel' },
       onOk: () => {
         blocker.proceed()
       },
