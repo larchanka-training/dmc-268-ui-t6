@@ -97,9 +97,14 @@ export async function fetchRunList(query: RunListQuery = {}): Promise<RunListPag
   return RunListPageSchema.parse(data)
 }
 
-/** A runs list whose next page is being loaded: `fetchNextPage` marks that fetch `fetchMore`. */
+/**
+ * A runs list whose next page is being loaded: `fetchNextPage` marks that fetch `fetchMore`. A load
+ * paused for lack of network (`fetchStatus: 'paused'`) is still a page load, and an invalidation
+ * would turn it into a refetch of the loaded pages; `fetchMeta` outlives the fetch, so only an
+ * `idle` list is not loading.
+ */
 function isLoadingListPage(query: Query): boolean {
-  return query.state.fetchStatus === 'fetching' && Boolean(query.state.fetchMeta?.fetchMore)
+  return query.state.fetchStatus !== 'idle' && Boolean(query.state.fetchMeta?.fetchMore)
 }
 
 /** Lists with a trailing invalidation already queued; a second event of the same load adds none. */

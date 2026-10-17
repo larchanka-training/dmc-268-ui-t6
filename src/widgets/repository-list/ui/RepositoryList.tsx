@@ -67,7 +67,10 @@ export interface RepositoryListProps {
   accessRefreshStatus?: 'idle' | 'waiting' | 'timedOut'
   updatingRepoIds?: string[] | ReadonlySet<string>
   onToggleEnabled?: (id: string, enabled: boolean) => Promise<void> | void
-  /** Address of the settings page of a repository; «Настроить» is a link to it. */
+  /**
+   * Address of the settings page of a repository. Two links lead to it: the icon button
+   * «Настройки {fullName}» (tooltip «Настроить») and, in a row without GitHub App access, «Нет доступа».
+   */
   settingsHref: (repository: Repository) => string
   /**
    * Opens the settings page without a page load. When nobody handles navigation, or the click
@@ -323,7 +326,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       // D14: the table scrolls under the column, so «Настроить» is visible at any width.
       fixed: 'right',
       render: (_: unknown, record: Repository) => (
-        <Tooltip title="Настроить">
+        <Tooltip title="Настроить" trigger={['hover', 'focus']}>
           <Button
             aria-label={`Настройки ${record.fullName}`}
             href={settingsHref(record)}

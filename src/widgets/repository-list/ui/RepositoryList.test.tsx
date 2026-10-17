@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { Repository } from '../../../entities/repository'
@@ -395,7 +395,6 @@ describe('RepositoryList', () => {
     ])
     narrow.unmount()
 
-    vi.restoreAllMocks()
     stubViewport(EDGE)
     const wide = render(
       <RepositoryList
@@ -791,6 +790,22 @@ describe('RepositoryList compact table', () => {
 
     fireEvent.mouseEnter(link)
     expect((await screen.findByText('Настроить')).closest('[role="tooltip"]')).not.toBeNull()
+  })
+
+  it('shows the tooltip of the settings button on keyboard focus too and describes the button by it', async () => {
+    stubViewport(WIDE)
+    render(list())
+
+    const link = screen.getByRole('link', { name: 'Настройки larchanka-training/dmc-268-ui-t6' })
+    expect(link.getAttribute('aria-describedby')).toBeNull()
+
+    act(() => {
+      link.focus()
+    })
+
+    const tooltip = (await screen.findByText('Настроить')).closest('[role="tooltip"]')
+    expect(tooltip).not.toBeNull()
+    expect(link.getAttribute('aria-describedby')).toBe(tooltip?.id)
   })
 
   it('writes the verdict as plain text, not a tag', () => {

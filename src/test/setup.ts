@@ -11,6 +11,9 @@ configure({ asyncUtilTimeout: 15_000 })
 
 afterEach(() => {
   cleanup()
+  // A `vi.stubGlobal` of a test (`stubViewport`) does not reach the next test, which starts from
+  // the stubs set up below.
+  vi.unstubAllGlobals()
 })
 
 // Every antd `Form.Item` debounces its error and warning lists with a 10 ms `setTimeout`

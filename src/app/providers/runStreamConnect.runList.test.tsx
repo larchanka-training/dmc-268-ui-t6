@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
-import { QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider, onlineManager } from '@tanstack/react-query'
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { useRunList } from '../../entities/run'
+import { runQueryKeys, useRunList } from '../../entities/run'
 import type { RunListPage } from '../../entities/run'
 import { queryClient } from './queryClient'
 import { applyRunUpdated } from './runStreamConnect'
@@ -152,6 +152,7 @@ afterEach(() => {
   cleanup()
   queryClient.clear()
   globalThis.fetch = originalFetch
+  onlineManager.setOnline(true)
 })
 
 describe('applyRunUpdated with a mounted run list', () => {
@@ -188,7 +189,7 @@ describe('applyRunUpdated with a mounted run list', () => {
     expect(pageSizes(view.result)).toEqual([2, 1])
   })
 
-  it('still aborts a list refetch in flight and starts a new request', async () => {
+  it('lets a newer refetch win over the list refetch in flight', async () => {
     const view = await mountWithFirstPage()
     hold.add(FIRST)
 
@@ -270,5 +271,65 @@ describe('applyRunUpdated with a mounted run list', () => {
     await settle(view)
     expect(urls).toHaveLength(3)
     expect(pageSizes(view.result)).toEqual([2])
+  })
+
+  it('lets go of the cache listener when the list is removed during a page load', async () => {
+    const view = await mountWithFirstPage()
+    await startHeldPageLoad(view)
+    const cache = queryClient.getQueryCache()
+    // Nothing else listens to the cache, so a listener left over is the one of the trailing round.
+    expect(cache.hasListeners()).toBe(false)
+
+    act(() => {
+      applyRunUpdated({ runId: RUN_ID, status: 'running' })
+    })
+    expect(cache.hasListeners()).toBe(true)
+
+    // The list goes with its page (a cleared cache). A mounted observer would build it again.
+    view.unmount()
+    act(() => {
+      queryClient.removeQueries({ queryKey: runQueryKeys.list() })
+    })
+    expect(cache.hasListeners()).toBe(false)
+
+    hold.delete(SECOND)
+    await act(async () => {
+      held[0]?.release()
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    })
+    expect(urls).toEqual([FIRST, SECOND])
+  })
+
+  it('keeps a page load that is paused offline and refetches the list once after it', async () => {
+    const view = await mountWithFirstPage()
+    onlineManager.setOnline(false)
+    act(() => {
+      void view.result.current.fetchNextPage()
+    })
+    await waitFor(() => {
+      expect(
+        queryClient.getQueryCache().findAll({ queryKey: runQueryKeys.list() })[0]?.state
+          .fetchStatus,
+      ).toBe('paused')
+    })
+
+    act(() => {
+      applyRunUpdated({ runId: RUN_ID, status: 'running' })
+    })
+    await act(async () => {
+      await Promise.resolve()
+    })
+    // The page has not been requested yet, and the event did not turn it into a refetch.
+    expect(urls).toEqual([FIRST])
+
+    act(() => {
+      onlineManager.setOnline(true)
+    })
+    await waitFor(() => {
+      expect(urls).toEqual([FIRST, SECOND, FIRST, SECOND])
+    })
+    await settle(view)
+    expect(urls).toHaveLength(4)
+    expect(pageSizes(view.result)).toEqual([2, 1])
   })
 })

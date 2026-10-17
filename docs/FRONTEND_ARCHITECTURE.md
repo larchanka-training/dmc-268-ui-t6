@@ -147,8 +147,9 @@ flowchart TD
   сущностей — это импорт вниз;
 - `pages/repositories` (ссылка «История проверок») и `pages/runs` (чтение фильтра) берут
   `runListHref` / `useRunListFilterParams` из `features/run-list-filter` и друг друга не импортируют;
-- `widgets/repository-list` не знает о роутере: адрес «Настроить» приходит пропом
-  `settingsHref(repo)`, переход без перезагрузки — `onOpenSettings(repo)` (как у `NavMenu` /
+- `widgets/repository-list` не знает о роутере: адрес страницы настроек приходит пропом
+  `settingsHref(repo)` — он нужен обоим путям к ней, кнопке-иконке «Настройки {fullName}» и ссылке
+  «Нет доступа»; переход без перезагрузки — `onOpenSettings(repo)` (как у `NavMenu` /
   `AppSidebar`); путь собирает страница (`pages/repositories/lib/settingsPath.ts`).
 
 Дерево `src/` (`find src -type f | LC_ALL=C sort`):
@@ -183,6 +184,7 @@ src/app/providers/UiProvider.test.tsx
 src/app/providers/UiProvider.tsx
 src/app/providers/index.ts
 src/app/providers/queryClient.ts
+src/app/providers/runStreamConnect.runList.test.tsx
 src/app/providers/runStreamConnect.test.ts
 src/app/providers/runStreamConnect.ts
 src/app/providers/useRunStream.test.tsx
@@ -272,6 +274,8 @@ src/features/finding-filters/ui/FindingFiltersBar.tsx
 src/features/repository-settings/index.ts
 src/features/repository-settings/lib/autoReviewChoice.test.ts
 src/features/repository-settings/lib/autoReviewChoice.ts
+src/features/repository-settings/lib/branchMask.test.ts
+src/features/repository-settings/lib/branchMask.ts
 src/features/repository-settings/lib/serverFieldErrors.test.ts
 src/features/repository-settings/lib/serverFieldErrors.ts
 src/features/repository-settings/lib/settingsPatch.test.ts
@@ -413,6 +417,7 @@ src/shared/ui/styles/antd.form.test.tsx
 src/shared/ui/styles/antd.input.test.tsx
 src/shared/ui/styles/antd.select.test.tsx
 src/shared/ui/styles/antd.steps.test.tsx
+src/shared/ui/styles/antd.table.test.tsx
 src/shared/ui/styles/tokens.css
 src/shared/ui/theme/DesignSystemProvider.test.tsx
 src/shared/ui/theme/DesignSystemProvider.tsx
@@ -421,6 +426,7 @@ src/shared/ui/theme/buildTheme.ts
 src/shared/ui/theme/palette.ts
 src/test/responsiveSelectLayout.ts
 src/test/setup.ts
+src/test/viewport.test.ts
 src/test/viewport.ts
 src/vite-env.d.ts
 src/widgets/app-layout/index.ts
@@ -794,7 +800,8 @@ Upgrade canary в `routerLocationAdapter.test.tsx` проверяет досту
   «Движок», «Ожидание CI», «Лимит»; «Вердикт» — обычный текст («Комментарий» / «Запрос изменений»),
   не `Tag`: настройка репозитория не тревога, а заполненные теги для того, что требует действия
   ([`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) §8); действия — кнопка с одной иконкой (`IconSettings`,
-  `aria-label` «Настройки {fullName}») и `Tooltip` «Настроить».
+  `aria-label` «Настройки {fullName}») и `Tooltip` «Настроить», который открывается и при наведении, и
+  при фокусе с клавиатуры (`trigger={['hover', 'focus']}`, как у sha в блоке правил).
   Колонка с кнопкой настроек закреплена справа (`fixed: 'right'`, решение D14): таблица прокручивается
   под ней, кнопка видна при любой ширине; для этого у таблицы `tableLayout="auto"` (закреплённая колонка
   иначе переводит её в `fixed` с равными колонками) и непрозрачные закреплённые ячейки (правило в
@@ -806,8 +813,9 @@ Upgrade canary в `routerLocationAdapter.test.tsx` проверяет досту
   короткого имени: ветка тегом, движок, `CI: авто`, `лимит 10`; «Ревью», «Вердикт» и кнопка
   остаются колонками. Один порог `FULL_TABLE_MIN_WIDTH` = 1366 px (`useViewportAtLeast`:
   `matchMedia('(min-width: 1366px)')`, ответ известен с первого рендера) выбирает и список колонок,
-  и строку. Это не ключ antd: `responsive` и `Grid.useBreakpoint` знают только 1200 и 1600 px, а
-  полный набор не помещается ни на 1280, ни на 1200. Замер на моках (имена по 33 символа): полный
+  и строку. Это не ключ antd: ключи `responsive` и `Grid.useBreakpoint` — 576, 768, 992, 1200
+  (`xl`), 1600 (`xxl`) и 1920 px, а между `xl` и `xxl` ключа нет; полный набор не помещается ни на
+  1280, ни на 1200, и порог 1366 лежит как раз в этой щели. Замер на моках (имена по 33 символа): полный
   набор 1027,2 px; прокручиваемая область — окно за вычетом меню (232 px), полей страницы (64 px)
   и рамки таблицы (2 px): 982 px при 1280, 1068 при 1366, 1142 при 1440, 1334 при 1920. Набор
   помещается с 1326 px (запас меньше 1 px); с 1366 px запас 41 px на имена длиннее. Узкий набор
@@ -2021,8 +2029,9 @@ issue прямо выносит подключение логирования з
 текст). Содержимое страницы ключуется `repoId` (§2).
 Боковое меню оставляет текущим раздел «Репозитории» (`AppSidebar` сравнивает адрес через
 `startsWith`), `isSafeAuthReturnPath` адрес принимает, и вход возвращает на него
-(`App.returnTo.test.tsx`). На страницу ведут «Настроить» в `RepositoryList` и прямой адрес; кнопка
-«История проверок» в шапке ведёт на `/runs?repo=<fullName>` (§2, «Фильтр истории прогонов»).
+(`App.returnTo.test.tsx`). На страницу ведут в `RepositoryList` кнопка-иконка «Настройки
+{fullName}» (подсказка «Настроить») и ссылка «Нет доступа» в строке без доступа GitHub App, а также
+прямой адрес; кнопка «История проверок» в шапке ведёт на `/runs?repo=<fullName>` (§2, «Фильтр истории прогонов»).
 
 **Сборка и чанки.** `vite.config.ts`: `build.rolldownOptions.output.codeSplitting`
 (`vendor-react`, `vendor-query`, `vendor-zod`, `includeDependenciesRecursively: false`);
@@ -2092,7 +2101,9 @@ proof-run, п. (d)): `window.matchMedia` (нужен `Descriptions`/`useBreakpoi
 antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-list`) — jsdom 30.1.0 их не
 предоставляет. Стаб `matchMedia` не совпадает ни с одним запросом (везде самая узкая раскладка);
 тест, которому важна ширина окна, вызывает `stubViewport(width)` из `src/test/viewport.ts`: он
-отвечает на `(min-width: …px)` и `(max-width: …px)`, как окно такой ширины.
+отвечает на `(min-width: …px)` и `(max-width: …px)`, как окно такой ширины. Это `vi.stubGlobal`: после
+каждого теста его снимает `vi.unstubAllGlobals()` в `afterEach` из `setup.ts`, и следующий тест снова
+видит стаб, не совпадающий ни с одним запросом (`vi.restoreAllMocks()` его не снимает).
 
 ---
 

@@ -14,7 +14,6 @@ describe('useViewportAtLeast', () => {
   it('answers on the first render, and from the exact width', () => {
     stubViewport(1365)
     expect(renderHook(() => useViewportAtLeast(1366)).result.current).toBe(false)
-    vi.restoreAllMocks()
     stubViewport(1366)
     expect(renderHook(() => useViewportAtLeast(1366)).result.current).toBe(true)
   })
@@ -23,7 +22,8 @@ describe('useViewportAtLeast', () => {
     let matches = false
     const listeners = new Set<() => void>()
     const removed = vi.fn()
-    vi.spyOn(window, 'matchMedia').mockImplementation(
+    vi.stubGlobal(
+      'matchMedia',
       (query: string) =>
         ({
           get matches() {
