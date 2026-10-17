@@ -5,6 +5,7 @@ import {
   describeDiagnosticLimit,
   describeDiagnosticLocation,
   formatCheckedAt,
+  isKnownUnavailableCode,
   shortSha,
   unavailableReason,
 } from './rulesStatusView'
@@ -24,8 +25,8 @@ describe('shortSha', () => {
 })
 
 describe('formatCheckedAt', () => {
-  it('prints the UTC date and time to the second', () => {
-    expect(formatCheckedAt('2026-10-14T09:30:15.123Z')).toBe('2026-10-14 09:30:15 UTC')
+  it('prints the UTC date and time to the second, with no zone label', () => {
+    expect(formatCheckedAt('2026-10-14T09:30:15.123Z')).toBe('2026-10-14 09:30:15')
   })
 })
 
@@ -64,5 +65,20 @@ describe('unavailableReason', () => {
 
   it('falls back to a general reason for a code it does not know', () => {
     expect(unavailableReason('something_new')).toBe('Сервер не смог прочитать файл правил')
+  })
+})
+
+describe('isKnownUnavailableCode', () => {
+  it.each([
+    'policy_access_denied',
+    'policy_revision_unavailable',
+    'policy_fetch_transient',
+    'policy_rate_limited',
+  ])('knows %s', (code) => {
+    expect(isKnownUnavailableCode(code)).toBe(true)
+  })
+
+  it('does not know a new code', () => {
+    expect(isKnownUnavailableCode('something_new')).toBe(false)
   })
 })

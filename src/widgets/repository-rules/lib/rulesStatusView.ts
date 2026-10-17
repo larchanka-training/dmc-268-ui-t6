@@ -5,9 +5,12 @@ export function shortSha(sha: string): string {
   return sha.slice(0, 7)
 }
 
-/** `2026-10-14 09:30:15 UTC`: the same layout as the run header, with the zone spelled out. */
+/**
+ * `2026-10-14 09:30:15`: the same text as the run header. The time is UTC and carries no label,
+ * like every other time in the app; showing local time app-wide is a separate issue.
+ */
 export function formatCheckedAt(iso: string): string {
-  return `${new Date(iso).toISOString().replace('T', ' ').slice(0, 19)} UTC`
+  return new Date(iso).toISOString().replace('T', ' ').slice(0, 19)
 }
 
 /** `line:column`, `line`, or null when the server gave no line. */
@@ -34,6 +37,11 @@ const UNAVAILABLE_REASONS: Record<string, string> = {
   policy_revision_unavailable: 'Закреплённая ревизия правил недоступна',
   policy_fetch_transient: 'GitHub временно не отвечает',
   policy_rate_limited: 'GitHub ограничил число запросов',
+}
+
+/** Whether `unavailableReason` has a text of its own for the code; the generic fallback does not count. */
+export function isKnownUnavailableCode(code: string): boolean {
+  return Object.keys(UNAVAILABLE_REASONS).includes(code)
 }
 
 /** The reason an `unavailable` status gives, by code: the server's `message` is not shown. */

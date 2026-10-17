@@ -171,7 +171,8 @@ describe('RulesStatusPanel', () => {
     expect(view.getByText('.review/rules.md')).toBeTruthy()
     expect(view.getByText('release/2.1')).toBeTruthy()
     expect(view.getByText('1111111')).toBeTruthy()
-    expect(view.getByText(/2026-10-14 09:30:15 UTC/)).toBeTruthy()
+    expect(view.getByText('Проверено: 2026-10-14 09:30:15')).toBeTruthy()
+    expect(panel().textContent).not.toContain('UTC')
     expect(panel().querySelector('pre')?.textContent).toBe('# Rules\nBe kind.')
     expect(view.getByText('dist/**')).toBeTruthy()
     expect(view.getByText('**/*.snap')).toBeTruthy()
@@ -306,9 +307,31 @@ describe('RulesStatusPanel', () => {
     expect(await within(panel()).findByText('Не удалось прочитать файл правил')).toBeTruthy()
     const view = within(panel())
     expect(view.getByText('У GitHub App нет доступа к репозиторию')).toBeTruthy()
-    expect(view.getByText('policy_access_denied')).toBeTruthy()
+    expect(view.queryByText('policy_access_denied')).toBeNull()
     expect(view.queryByRole('button', { name: 'Повторить' })).toBeNull()
     expect(view.queryByText(MISSING_WARNING)).toBeNull()
+  })
+
+  it.each([
+    [
+      'a known code shows its reason and no code',
+      'policy_rate_limited',
+      'GitHub ограничил число запросов',
+      false,
+    ],
+    [
+      'an unknown code shows the generic reason and the code',
+      'policy_something_new',
+      'Сервер не смог прочитать файл правил',
+      true,
+    ],
+  ])('an unavailable file with %s', async (_name, code, reason, codeShown) => {
+    stubBackend({ [REPO_A]: [json(unavailable(false, code))] })
+
+    renderPanel()
+
+    expect(await within(panel()).findByText(reason)).toBeTruthy()
+    expect(within(panel()).queryByText(code) !== null).toBe(codeShown)
   })
 
   it('offers a retry for a retryable unavailable file and asks again on click', async () => {
