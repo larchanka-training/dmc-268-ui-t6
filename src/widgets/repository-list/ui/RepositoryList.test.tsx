@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { Repository } from '../../../entities/repository'
@@ -353,7 +353,7 @@ describe('RepositoryList', () => {
     )
 
     // At 1280 px the table is wider than its container: the informational columns scroll under the
-    // pinned actions column, so the switch and the no-access «Выбрать» sit right after the name.
+    // pinned actions column, so the switch and the no-access link sit right after the name.
     const headers = [...container.querySelectorAll('thead th')].map((th) => th.textContent)
     expect(headers).toEqual([
       'Репозиторий',
@@ -577,7 +577,7 @@ describe('RepositoryList', () => {
 })
 
 // The api serves `enabled: false` for a repository the GitHub App cannot reach (api PR #156,
-// SD §6.9), whatever the user chose: the row shows no stored value and offers the two choices.
+// SD §6.9), whatever the user chose: the row shows no stored value and links to the settings page.
 const UNREACHABLE_NAME = 'larchanka-training/dmc-268-infra-t6'
 const UNREACHABLE_ID = 'c3d4e5f6-a7b8-9012-cdef-123456789012'
 const UNREACHABLE_REPO: Repository = {
@@ -594,63 +594,12 @@ const UNREACHABLE_REPO: Repository = {
   severityThreshold: 'all',
   installationAvailable: false,
 }
-// The visible text «Выбрать» starts the accessible name (WCAG 2.5.3, label in name).
-const CHOICE_TRIGGER_NAME = `Выбрать авто-ревью для ${UNREACHABLE_NAME}, когда доступ вернётся`
-const ENABLE_CHOICE = 'Включить авто-ревью'
-const KEEP_OFF_CHOICE = 'Оставить выключенным'
 
-function choiceTrigger(): HTMLElement {
-  return screen.getByRole('button', { name: CHOICE_TRIGGER_NAME })
-}
+// D17: a row without GitHub App access links to the settings page, where the choice lives.
+describe('RepositoryList no-access row', () => {
+  const NO_ACCESS_LINK = `Нет доступа у GitHub App к ${UNREACHABLE_NAME}: открыть настройки`
 
-function unreachableSwitch(): HTMLElement {
-  return screen.getByRole('switch', { name: `Ревью для ${UNREACHABLE_NAME}` })
-}
-
-/** Opens the menu of the unreachable row and picks one of its two items. */
-async function chooseFromMenu(label: string): Promise<void> {
-  fireEvent.click(choiceTrigger())
-  fireEvent.click(await screen.findByRole('menuitem', { name: label }))
-}
-
-/**
- * A menu that closes hands the focus to <body> in a browser (the item that held it is hidden);
- * jsdom keeps it where it was. This does what the browser does.
- */
-function dropFocusToBody(): void {
-  act(() => {
-    if (document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur()
-    }
-  })
-}
-
-/**
- * Opens the menu and picks an item the way a person does: the item holds the focus (a click or the
- * keys put it there), then the click lands. Returns the item.
- */
-async function pickFromMenu(label: string): Promise<HTMLElement> {
-  fireEvent.click(choiceTrigger())
-  const item = await screen.findByRole('menuitem', { name: label })
-  item.focus()
-  expect(document.activeElement).toBe(item)
-  fireEvent.click(item)
-  return item
-}
-
-/**
- * The closing menu keeps the focus on its item for the length of its motion (about 250 ms), then
- * the item leaves and the browser hands the focus to <body>. This is that moment for `item`; unlike
- * `dropFocusToBody` it leaves the focus alone when something else holds it.
- */
-function itemLeaves(item: HTMLElement): void {
-  act(() => {
-    item.blur()
-  })
-}
-
-describe('RepositoryList while the GitHub App has no access', () => {
-  function unreachableList(
+  function noAccessList(
     props: Partial<Parameters<typeof RepositoryList>[0]> = {},
   ): React.ReactElement {
     return (
@@ -663,29 +612,29 @@ describe('RepositoryList while the GitHub App has no access', () => {
     )
   }
 
-  it('shows «Нет доступа» and the choice trigger on one line, without a switch, only on that row', () => {
-    render(unreachableList({ onToggleEnabled: vi.fn() }))
+  it('shows a warning icon and a «Нет доступа» link to the settings page, and nothing to choose with', () => {
+    render(noAccessList({ onToggleEnabled: vi.fn() }))
 
-    // D13: no switch, enabled or disabled, in the cell; the cell does not wrap.
+    const link = screen.getByRole('link', { name: NO_ACCESS_LINK })
+    expect(link.textContent).toBe('Нет доступа')
+    expect(link.getAttribute('href')).toBe(`/repositories/${UNREACHABLE_ID}/settings`)
+    // The icon is decoration next to the link, on one line with it (D13: the cell does not wrap).
+    const cell = link.closest('.ant-flex')
+    expect(cell?.className).not.toContain('ant-flex-wrap')
+    expect(cell?.querySelector('.anticon-exclamation-circle')?.getAttribute('aria-hidden')).toBe(
+      'true',
+    )
+    // D13 / D17: no switch for this row and no menu; the choice lives on the settings page.
     expect(screen.queryByRole('switch', { name: `Ревью для ${UNREACHABLE_NAME}` })).toBeNull()
-    const label = screen.getByText('Нет доступа')
-    expect(label.closest('.ant-flex')).toBe(choiceTrigger().closest('.ant-flex'))
-    expect(label.closest('.ant-flex')?.className).not.toContain('ant-flex-wrap')
-    // The only switch left is the one of the row with access, which keeps its status label and has
-    // no trigger.
+    expect(screen.queryByRole('button', { name: /Выбрать/ })).toBeNull()
+    expect(screen.queryByText('Выбрать')).toBeNull()
+    expect(screen.queryByRole('menuitem')).toBeNull()
+    // The row with access keeps its switch and its status label.
     expect(screen.getAllByRole('switch')).toHaveLength(1)
     expect(screen.getByText('Активен')).toBeTruthy()
-    expect(screen.queryByText('Пауза')).toBeNull()
-    const trigger = choiceTrigger()
-    // The visible text is short, so the Status column stays narrow (browser round 5, 3f); the caret
-    // says the button opens a menu.
-    expect(trigger.textContent).toBe('Выбрать')
-    expect(trigger.querySelector('.anticon-down')).not.toBeNull()
-    expect(trigger.getAttribute('aria-label')?.startsWith(trigger.textContent)).toBe(true)
-    expect(screen.getAllByRole('button', { name: /когда доступ вернётся/ })).toHaveLength(1)
   })
 
-  it('keeps a row with access as it was: a working switch, «Активен» / «Пауза», no menu', () => {
+  it('keeps a row with access as it was: a working switch, «Активен» / «Пауза», no link', () => {
     const onToggleEnabled = vi.fn()
     render(
       <RepositoryList
@@ -699,7 +648,7 @@ describe('RepositoryList while the GitHub App has no access', () => {
     expect(screen.getByText('Активен')).toBeTruthy()
     expect(screen.getByText('Пауза')).toBeTruthy()
     expect(screen.queryByText('Нет доступа')).toBeNull()
-    expect(screen.queryByRole('button', { name: /когда доступ вернётся/ })).toBeNull()
+    expect(screen.queryByRole('link', { name: /Нет доступа/ })).toBeNull()
     const active = screen.getByRole('switch', {
       name: 'Ревью для larchanka-training/dmc-268-ui-t6',
     })
@@ -711,221 +660,37 @@ describe('RepositoryList while the GitHub App has no access', () => {
     )
   })
 
-  it.each([
-    [ENABLE_CHOICE, true],
-    [KEEP_OFF_CHOICE, false],
-  ])('calls onToggleEnabled with the value of the menu item «%s»', async (label, value) => {
-    const onToggleEnabled = vi.fn()
-    render(unreachableList({ onToggleEnabled }))
-
-    fireEvent.click(choiceTrigger())
-    expect(await screen.findByRole('menuitem', { name: ENABLE_CHOICE })).toBeTruthy()
-    expect(screen.getAllByRole('menuitem')).toHaveLength(2)
-    expect(screen.getByRole('menuitem', { name: KEEP_OFF_CHOICE })).toBeTruthy()
-    expect(onToggleEnabled).not.toHaveBeenCalled()
-
-    fireEvent.click(screen.getByRole('menuitem', { name: label }))
-
-    expect(onToggleEnabled).toHaveBeenCalledExactlyOnceWith(UNREACHABLE_ID, value)
-  })
-
-  it('keeps the row without a switch, and the trigger loading, while a choice saves', () => {
-    // The optimistic update keeps `enabled` off for such a repository too; the row shows neither
-    // «Активен» nor «Пауза» whatever the cache holds.
+  it('keeps the link and no switch while a choice from the settings page is saving', () => {
     render(
-      unreachableList({
+      noAccessList({
         repositories: [{ ...UNREACHABLE_REPO, enabled: true }],
         updatingRepoIds: new Set([UNREACHABLE_ID]),
       }),
     )
 
+    expect(screen.getByRole('link', { name: NO_ACCESS_LINK })).toBeTruthy()
     expect(screen.queryByRole('switch')).toBeNull()
-    expect(choiceTrigger().className).toContain('ant-btn-loading')
-    expect(screen.getByText('Нет доступа')).toBeTruthy()
-    expect(screen.queryByText('Пауза')).toBeNull()
     expect(screen.queryByText('Активен')).toBeNull()
+    expect(screen.queryByText('Пауза')).toBeNull()
   })
 
-  it('does not open the menu while the row saves', () => {
-    render(unreachableList({ updatingRepoIds: new Set([UNREACHABLE_ID]) }))
+  it('opens the settings of a no-access row in-app on a plain click and leaves a modified click to the browser', () => {
+    const onOpenSettings = vi.fn()
+    render(noAccessList({ onOpenSettings }))
+    const link = screen.getByRole('link', { name: NO_ACCESS_LINK })
 
-    fireEvent.click(choiceTrigger())
+    expect(clickIsTakenOver(link, { ctrlKey: true })).toBe(false)
+    expect(clickIsTakenOver(link, { metaKey: true })).toBe(false)
+    expect(clickIsTakenOver(link, { shiftKey: true })).toBe(false)
+    expect(onOpenSettings).not.toHaveBeenCalled()
 
-    expect(screen.queryByRole('menuitem')).toBeNull()
+    expect(clickIsTakenOver(link)).toBe(true)
+    expect(onOpenSettings).toHaveBeenCalledExactlyOnceWith(UNREACHABLE_REPO)
   })
 
-  it('puts the focus back on the trigger once the save is over, if it held it before the menu opened', async () => {
-    const view = render(unreachableList({ onToggleEnabled: vi.fn() }))
-    const trigger = choiceTrigger()
-    trigger.focus()
+  it('leaves the click on a no-access link to the browser when nobody handles navigation', () => {
+    render(noAccessList())
 
-    await chooseFromMenu(ENABLE_CHOICE)
-    view.rerender(
-      unreachableList({ onToggleEnabled: vi.fn(), updatingRepoIds: new Set([UNREACHABLE_ID]) }),
-    )
-    dropFocusToBody()
-    expect(document.activeElement).toBe(document.body)
-
-    view.rerender(unreachableList({ onToggleEnabled: vi.fn(), updatingRepoIds: new Set() }))
-
-    expect(document.activeElement).toBe(trigger)
-  })
-
-  it('leaves the focus on <body> when the trigger did not hold it before the menu opened', async () => {
-    const view = render(unreachableList({ onToggleEnabled: vi.fn() }))
-
-    await chooseFromMenu(KEEP_OFF_CHOICE)
-    view.rerender(
-      unreachableList({ onToggleEnabled: vi.fn(), updatingRepoIds: new Set([UNREACHABLE_ID]) }),
-    )
-    dropFocusToBody()
-    view.rerender(unreachableList({ onToggleEnabled: vi.fn(), updatingRepoIds: new Set() }))
-
-    expect(document.activeElement).toBe(document.body)
-  })
-
-  it('leaves the focus where the user moved it during the save', async () => {
-    const view = render(unreachableList({ onToggleEnabled: vi.fn() }))
-    choiceTrigger().focus()
-
-    await chooseFromMenu(ENABLE_CHOICE)
-    view.rerender(
-      unreachableList({ onToggleEnabled: vi.fn(), updatingRepoIds: new Set([UNREACHABLE_ID]) }),
-    )
-    const search = screen.getByPlaceholderText('Поиск по названию...')
-    search.focus()
-    view.rerender(unreachableList({ onToggleEnabled: vi.fn(), updatingRepoIds: new Set() }))
-
-    expect(document.activeElement).toBe(search)
-  })
-
-  it.each([
-    ['at once: the row is never seen saving (0 ms)', 'instant'],
-    ['while the closing menu item still holds the focus (a fast save, 100 ms)', 'fast'],
-    ['after the closing menu is gone (a slow save, 600 ms)', 'slow'],
-  ] as const)('ends with the focus on the trigger when the answer comes %s', async (_, answer) => {
-    const onToggleEnabled = vi.fn()
-    const view = render(unreachableList({ onToggleEnabled }))
-    const trigger = choiceTrigger()
-    trigger.focus()
-
-    const item = await pickFromMenu(ENABLE_CHOICE)
-    if (answer !== 'instant') {
-      view.rerender(
-        unreachableList({ onToggleEnabled, updatingRepoIds: new Set([UNREACHABLE_ID]) }),
-      )
-    }
-    if (answer === 'slow') {
-      itemLeaves(item)
-    }
-    if (answer !== 'instant') {
-      view.rerender(unreachableList({ onToggleEnabled, updatingRepoIds: new Set() }))
-    }
-    itemLeaves(item)
-
-    expect(document.activeElement).toBe(trigger)
-  })
-
-  it('does not pull the focus to the trigger when it did not hold it before the menu opened', async () => {
-    render(unreachableList({ onToggleEnabled: vi.fn() }))
-
-    const item = await pickFromMenu(KEEP_OFF_CHOICE)
-    itemLeaves(item)
-
-    expect(document.activeElement).toBe(document.body)
-  })
-
-  // The pick moves the focus to the trigger inside the item's `onClick`, which rc-menu fires on the
-  // Enter `keydown`. Unless that `keydown` is cancelled, a browser delivers the same key's `keypress`
-  // to the trigger, which is focused by then: Enter on a button clicks it and the menu opens again.
-  // jsdom does not synthesise the `keypress`, so the cancelled default action is what is pinned.
-  it.each([
-    [ENABLE_CHOICE, true],
-    [KEEP_OFF_CHOICE, false],
-  ] as const)(
-    'cancels the default action of the Enter that picks «%s», so the menu does not open again',
-    async (label, enabled) => {
-      const onToggleEnabled = vi.fn()
-      render(unreachableList({ onToggleEnabled }))
-      choiceTrigger().focus()
-      fireEvent.click(choiceTrigger())
-      const item = await screen.findByRole('menuitem', { name: label })
-      item.focus()
-
-      const notCancelled = fireEvent.keyDown(item, {
-        key: 'Enter',
-        code: 'Enter',
-        keyCode: 13,
-        which: 13,
-      })
-
-      expect(onToggleEnabled).toHaveBeenCalledWith(UNREACHABLE_ID, enabled)
-      expect(notCancelled).toBe(false)
-      expect(document.activeElement).toBe(choiceTrigger())
-    },
-  )
-})
-
-describe('RepositoryList when the access comes back during a refetch', () => {
-  // A refetch (the window refocus asks again) can say the GitHub App reaches the repository now:
-  // the row turns to the usual switch and the trigger leaves the page (review r6, P3-3).
-  const reachableRepo: Repository = { ...UNREACHABLE_REPO, installationAvailable: true }
-
-  function list(repo: Repository): React.ReactElement {
-    return (
-      <RepositoryList
-        onSyncAccess={vi.fn()}
-        onToggleEnabled={vi.fn()}
-        repositories={[repo, ...mockRepos.filter((other) => other.enabled)]}
-        settingsHref={settingsHref}
-      />
-    )
-  }
-
-  it('moves the focus to the switch of the row when the trigger held it', () => {
-    const view = render(list(UNREACHABLE_REPO))
-    expect(screen.queryByRole('switch', { name: `Ревью для ${UNREACHABLE_NAME}` })).toBeNull()
-    choiceTrigger().focus()
-    expect(document.activeElement).toBe(choiceTrigger())
-
-    view.rerender(list(reachableRepo))
-
-    expect(screen.queryByRole('button', { name: CHOICE_TRIGGER_NAME })).toBeNull()
-    expect(unreachableSwitch().hasAttribute('disabled')).toBe(false)
-    expect(document.activeElement).toBe(unreachableSwitch())
-  })
-
-  it('moves nothing when the focus is on another control', () => {
-    const view = render(list(UNREACHABLE_REPO))
-    const search = screen.getByPlaceholderText('Поиск по названию...')
-    search.focus()
-
-    view.rerender(list(reachableRepo))
-
-    expect(document.activeElement).toBe(search)
-  })
-
-  it('moves nothing when the trigger held the focus earlier and the user has left it since', () => {
-    const view = render(list(UNREACHABLE_REPO))
-    choiceTrigger().focus()
-    // A refetch that changes nothing re-renders the row with the trigger focused.
-    view.rerender(list({ ...UNREACHABLE_REPO }))
-    act(() => {
-      choiceTrigger().blur()
-    })
-    expect(document.activeElement).toBe(document.body)
-
-    view.rerender(list(reachableRepo))
-
-    expect(document.activeElement).toBe(document.body)
-  })
-
-  it('moves nothing when the focus was nowhere', () => {
-    const view = render(list(UNREACHABLE_REPO))
-    expect(document.activeElement).toBe(document.body)
-
-    view.rerender(list(reachableRepo))
-
-    expect(document.activeElement).toBe(document.body)
+    expect(clickIsTakenOver(screen.getByRole('link', { name: NO_ACCESS_LINK }))).toBe(false)
   })
 })

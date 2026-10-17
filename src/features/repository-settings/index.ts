@@ -5,8 +5,4 @@ export type {
   RepositorySettingsFormHandle,
   RepositorySettingsFormProps,
 } from './ui/RepositorySettingsForm'
-export {
-  autoReviewChoiceSaved,
-  ENABLE_AUTO_REVIEW_LABEL,
-  KEEP_AUTO_REVIEW_OFF_LABEL,
-} from './lib/autoReviewChoice'
+export { autoReviewChoiceSaved } from './lib/autoReviewChoice'
