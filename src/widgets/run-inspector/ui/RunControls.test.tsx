@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createMemoryRouter, RouterProvider } from 'react-router'
+import { createMemoryRouter, MemoryRouter, RouterProvider } from 'react-router'
 
 import type { RunSession } from '../../../entities/run'
 import { ApiError } from '../../../shared/api/client'
@@ -170,13 +170,17 @@ describe('RunControls', () => {
   })
 
   it.each(['running', 'publishing'] as const)(
-    'replaces «Отменить» with a disabled «Отмена запрошена» on a %s run after a cancel request',
+    'turns «Отменить» into an aria-disabled «Отмена запрошена» on a %s run after a cancel request',
     (status) => {
       renderControlsFor({ ...activeRun, status, cancelRequested: true })
 
       const button = screen.getByRole('button', { name: 'Отмена запрошена' })
-      expect((button as HTMLButtonElement).disabled).toBe(true)
-      // The requested-cancel button stays a plain default one: no danger or primary style.
+      // Not natively disabled: a disabled button cannot hold the focus (frontend.md §3b item 3).
+      expect(button.getAttribute('aria-disabled')).toBe('true')
+      expect((button as HTMLButtonElement).disabled).toBe(false)
+      // Ant Design's own disabled class gives its disabled look; the button stays a plain
+      // default one: no danger or primary style.
+      expect(button.className).toContain('ant-btn-disabled')
       expect(button.className).toContain('ant-btn-color-default')
       expect(button.className).not.toContain('ant-btn-color-dangerous')
       fireEvent.click(button)
@@ -185,11 +189,36 @@ describe('RunControls', () => {
     },
   )
 
+  it('keeps the focus on the cancel button once a cancel is requested', () => {
+    const requestedRun: RunSession = { ...activeRun, cancelRequested: true }
+    const { rerender } = render(
+      <MemoryRouter>
+        <RunControls run={activeRun} />
+      </MemoryRouter>,
+    )
+    const cancelButton = screen.getByRole('button', { name: 'Отменить' })
+    cancelButton.focus()
+    expect(document.activeElement).toBe(cancelButton)
+
+    rerender(
+      <MemoryRouter>
+        <RunControls run={requestedRun} />
+      </MemoryRouter>,
+    )
+
+    const requestedButton = screen.getByRole('button', { name: 'Отмена запрошена' })
+    expect(requestedButton).toBe(cancelButton)
+    expect(document.activeElement).toBe(requestedButton)
+    // jsdom keeps the focus on a button that turns disabled; a real browser drops it.
+    expect((requestedButton as HTMLButtonElement).disabled).toBe(false)
+  })
+
   it('shows only an enabled «Отменить» on an active run without a cancel request', () => {
     renderActiveControls()
 
     const button = screen.getByRole('button', { name: 'Отменить' })
     expect((button as HTMLButtonElement).disabled).toBe(false)
+    expect(button.hasAttribute('aria-disabled')).toBe(false)
     expect(screen.queryByText('Отмена запрошена')).toBeNull()
   })
 

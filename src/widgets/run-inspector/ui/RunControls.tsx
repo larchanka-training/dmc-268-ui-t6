@@ -1,5 +1,5 @@
-import type { JSX } from 'react'
-import { Button, Space, message } from 'antd'
+import { useContext, type JSX } from 'react'
+import { Button, ConfigProvider, Space, message } from 'antd'
 import { useNavigate } from 'react-router'
 
 import {
@@ -21,6 +21,7 @@ export function RunControls(props: RunControlsProps): JSX.Element {
   const cancelMutation = useCancelRun(run.id)
   const rerunMutation = useRerunRun(run.id)
   const [messageApi, contextHolder] = message.useMessage()
+  const { getPrefixCls } = useContext(ConfigProvider.ConfigContext)
 
   const canCancel = ACTIVE_RUN_STATUSES.some((status) => status === run.status)
   const canRerun = TERMINAL_RUN_STATUSES.some((status) => status === run.status)
@@ -33,20 +34,26 @@ export function RunControls(props: RunControlsProps): JSX.Element {
     <>
       {contextHolder}
       <Space wrap>
-        {canCancel && run.cancelRequested ? <Button disabled>Отмена запрошена</Button> : null}
-        {canCancel && !run.cancelRequested ? (
+        {canCancel ? (
+          // aria-disabled, not disabled: a natively disabled button would drop the focus.
           <Button
-            danger
+            aria-disabled={run.cancelRequested ? true : undefined}
+            className={run.cancelRequested ? `${getPrefixCls('btn')}-disabled` : undefined}
+            danger={!run.cancelRequested}
             loading={cancelMutation.isPending}
-            onClick={() => {
-              cancelMutation.mutate(undefined, {
-                onError: (error) => {
-                  showError(error, 'cancel')
-                },
-              })
-            }}
+            onClick={
+              run.cancelRequested
+                ? undefined
+                : () => {
+                    cancelMutation.mutate(undefined, {
+                      onError: (error) => {
+                        showError(error, 'cancel')
+                      },
+                    })
+                  }
+            }
           >
-            Отменить
+            {run.cancelRequested ? 'Отмена запрошена' : 'Отменить'}
           </Button>
         ) : null}
         {canRerun ? (
