@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { lazy, Suspense, type FC } from 'react'
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
@@ -62,7 +62,8 @@ it('waits behind the late page loader while the session is checked, not behind a
   elapse(16)
   elapse(16)
   expect(screen.getByTestId('page-loader').dataset.state).toBe('hidden')
-  elapse(200)
+  // The ring is taken out when the browser reports the end of its fade; jsdom has no transitions.
+  fireEvent.transitionEnd(screen.getByTestId('page-loader'), { propertyName: 'opacity' })
   expect(screen.queryByTestId('page-loader')).toBeNull()
   router.dispose()
 })

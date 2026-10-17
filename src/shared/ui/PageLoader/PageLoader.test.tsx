@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { StrictMode, type JSX } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -19,6 +19,9 @@ const originalMatchMedia = window.matchMedia.bind(window)
 
 // One animation frame of the fake clock.
 const FRAME_MS = 16
+
+// How long a ring may wait for the end of its fade before it is taken out anyway.
+const FALLBACK_MS = RV_MOTION_FADE_MS * 3
 
 beforeEach(() => {
   vi.useFakeTimers()
@@ -65,6 +68,11 @@ function frames(count: number): void {
   }
 }
 
+/** The browser reports the end of a transition; jsdom has none, so the test sends the event. */
+function endTransition(target: HTMLElement, propertyName = 'opacity'): void {
+  fireEvent.transitionEnd(target, { propertyName })
+}
+
 function rings(): HTMLElement[] {
   return screen.queryAllByTestId('page-loader')
 }
@@ -92,6 +100,10 @@ describe('spec numbers', () => {
   it('shows the ring after 300 ms of waiting and fades it in 200 ms', () => {
     expect(RV_PAGE_LOADER_DELAY_MS).toBe(300)
     expect(RV_MOTION_FADE_MS).toBe(200)
+  })
+
+  it('takes a ring whose fade never reports its end out after three fades', () => {
+    expect(FALLBACK_MS).toBe(600)
   })
 })
 
@@ -150,38 +162,95 @@ describe('PageLoaderHost timeline', () => {
     expect(ring().dataset.state).toBe('hidden')
   })
 
-  it('removes the ring 200 ms after the fade begins, not after the marker is gone', () => {
+  it('removes the ring when the opacity transition of its layer ends, not on a timer from the flip', () => {
     const { rerender } = showRing()
     rerender(<Screen markers={[]} />)
     frames(2)
     expect(ring().dataset.state).toBe('hidden')
-    elapse(RV_MOTION_FADE_MS - 1)
+    // On a busy page the transition starts late: past the fade length the ring is still fading.
+    elapse(RV_MOTION_FADE_MS * 2)
+    expect(ring().dataset.state).toBe('hidden')
+    endTransition(ring())
+    expect(rings()).toHaveLength(0)
+    // The event cancelled the fallback.
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('takes the ring out after three fades when the end of the transition never comes', () => {
+    const { rerender } = showRing()
+    rerender(<Screen markers={[]} />)
+    frames(2)
+    expect(ring().dataset.state).toBe('hidden')
+    elapse(FALLBACK_MS - 1)
     expect(rings()).toHaveLength(1)
     elapse(1)
     expect(rings()).toHaveLength(0)
   })
 
-  it('never fades in a ring whose wait ended before its first frame, and removes it after 200 ms', () => {
+  it('ignores a transitionend that comes from a child of the layer', () => {
+    const { rerender } = showRing()
+    rerender(<Screen markers={[]} />)
+    frames(2)
+    const child = ring().firstElementChild
+    expect(child).not.toBeNull()
+    // The event bubbles up to the layer, but it is the spinner's, not the layer's own.
+    endTransition(child as HTMLElement)
+    expect(rings()).toHaveLength(1)
+  })
+
+  it('ignores the end of a transition of another property and the cancel of the opacity one', () => {
+    const { rerender } = showRing()
+    rerender(<Screen markers={[]} />)
+    frames(2)
+    endTransition(ring(), 'transform')
+    expect(rings()).toHaveLength(1)
+    fireEvent(
+      ring(),
+      new TransitionEvent('transitioncancel', { propertyName: 'opacity', bubbles: true }),
+    )
+    expect(rings()).toHaveLength(1)
+    elapse(FALLBACK_MS - 1)
+    expect(rings()).toHaveLength(1)
+  })
+
+  it('keeps the ring when the end of a transition arrives after a marker registered again', () => {
+    const { rerender } = showRing()
+    const before = ring()
+    rerender(<Screen markers={[]} />)
+    frames(2)
+    elapse(RV_MOTION_FADE_MS / 2)
+    rerender(<Screen markers={['again']} />)
+    expect(ring().dataset.state).toBe('shown')
+    // The reversed transition ends in the shown state: that end must not take the ring out.
+    endTransition(ring())
+    expect(ring()).toBe(before)
+    expect(ring().dataset.state).toBe('shown')
+    // The fallback of the abandoned fade-out is gone with it (one frame lets the fade-in's own
+    // frame pass first).
+    frames(1)
+    expect(vi.getTimerCount()).toBe(0)
+    elapse(FALLBACK_MS * 2)
+    expect(ring()).toBe(before)
+  })
+
+  it('never fades in a ring whose wait ended before its first frame, and removes it at once', () => {
     const { rerender } = render(<Screen markers={['page']} />)
     elapse(RV_PAGE_LOADER_DELAY_MS)
     expect(ring().dataset.state).toBe('hidden')
-    // The page is ready before the ring has drawn its first frame: nothing was shown, no grace.
+    // The page is ready before the ring has drawn its first frame: nothing was shown, so nothing
+    // fades and no end of a transition is waited for.
     rerender(<Screen markers={[]} />)
-    frames(1)
     expect(ring().dataset.state).toBe('hidden')
-    frames(1)
-    expect(ring().dataset.state).toBe('hidden')
-    elapse(RV_MOTION_FADE_MS - 2 * FRAME_MS - 1)
-    expect(rings()).toHaveLength(1)
-    elapse(1)
+    elapse(0)
     expect(rings()).toHaveLength(0)
+    expect(vi.getTimerCount()).toBe(0)
   })
 
   it('fades in a ring that never showed when a new wait begins before it is removed', () => {
     const { rerender } = render(<Screen markers={['page']} />)
     elapse(RV_PAGE_LOADER_DELAY_MS)
     rerender(<Screen markers={[]} />)
-    frames(1)
+    // Before the ring is taken out, which happens at once: the same tick.
     rerender(<Screen markers={['again']} />)
     expect(ring().dataset.state).toBe('hidden')
     frames(1)
@@ -253,7 +322,7 @@ describe('PageLoaderHost timeline', () => {
     expect(ring().dataset.state).toBe('shown')
     frames(1)
     expect(ring().dataset.state).toBe('hidden')
-    elapse(RV_MOTION_FADE_MS)
+    endTransition(ring())
     expect(rings()).toHaveLength(0)
   })
 
@@ -306,6 +375,25 @@ describe('PageLoaderHost timeline', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
+  it('leaves no timer pending when the host unmounts during the fade-out under StrictMode', () => {
+    const view = render(
+      <StrictMode>
+        <Screen markers={['page']} />
+      </StrictMode>,
+    )
+    elapse(RV_PAGE_LOADER_DELAY_MS)
+    frames(1)
+    view.rerender(
+      <StrictMode>
+        <Screen markers={[]} />
+      </StrictMode>,
+    )
+    frames(2)
+    expect(ring().dataset.state).toBe('hidden')
+    view.unmount()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   it('fades out the same way under StrictMode double mounting', () => {
     const { rerender } = render(
       <StrictMode>
@@ -324,8 +412,29 @@ describe('PageLoaderHost timeline', () => {
     expect(ring().dataset.state).toBe('shown')
     frames(1)
     expect(ring().dataset.state).toBe('hidden')
-    elapse(RV_MOTION_FADE_MS)
+    endTransition(ring())
     expect(rings()).toHaveLength(0)
+  })
+
+  it('takes the ring out after three fades under StrictMode when no transition ends', () => {
+    const { rerender } = render(
+      <StrictMode>
+        <Screen markers={['page']} />
+      </StrictMode>,
+    )
+    elapse(RV_PAGE_LOADER_DELAY_MS)
+    frames(1)
+    rerender(
+      <StrictMode>
+        <Screen markers={[]} />
+      </StrictMode>,
+    )
+    frames(2)
+    elapse(FALLBACK_MS - 1)
+    expect(rings()).toHaveLength(1)
+    elapse(1)
+    expect(rings()).toHaveLength(0)
+    expect(vi.getTimerCount()).toBe(0)
   })
 
   it('does not blink when a marker hands over to another in the same commit before the ring', () => {
@@ -358,7 +467,7 @@ describe('PageLoaderHost timeline', () => {
     expect(ring().dataset.state).toBe('shown')
     rerender(<Screen markers={[]} />)
     frames(2)
-    elapse(RV_MOTION_FADE_MS)
+    endTransition(ring())
     expect(rings()).toHaveLength(0)
   })
 
