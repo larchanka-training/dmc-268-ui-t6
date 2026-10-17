@@ -5,6 +5,7 @@ export { reviewCommentToFinding } from './lib/reviewCommentToFinding'
 export {
   SEVERITY_BADGE_GROUPS,
   SEVERITY_BADGE_LABEL,
+  SEVERITY_LABEL,
   severityBadgeGroup,
 } from './lib/severityBadge'
 export type { SeverityBadgeGroup } from './lib/severityBadge'

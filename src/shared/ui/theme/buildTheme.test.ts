@@ -2,6 +2,7 @@ import { theme as antdTheme } from 'antd'
 import { describe, expect, it } from 'vitest'
 
 import { buildTheme } from './buildTheme'
+import { RV_MOTION_FADE_MS } from './motion'
 import { RV_PALETTE, type RvPalette, type RvThemeMode } from './palette'
 
 const MODES = ['dark', 'light'] as const
@@ -126,7 +127,7 @@ describe('buildTheme', () => {
   it('keeps a secondary button neutral on hover and press, text and border included', () => {
     const dark = buildTheme('dark').components?.Button
     expect(dark?.defaultHoverBg).toBe('#222737')
-    expect(dark?.defaultActiveBg).toBe('#2a3042')
+    expect(dark?.defaultActiveBg).toBe('#191e2f')
     expect([dark?.defaultHoverColor, dark?.defaultActiveColor]).toEqual(['#f8fafc', '#f8fafc'])
     expect([dark?.defaultHoverBorderColor, dark?.defaultActiveBorderColor]).toEqual([
       'rgba(148, 163, 184, 0.2)',
@@ -302,6 +303,130 @@ describe('danger colours', () => {
   })
 })
 
+// A press goes one step further than hover on every button (§7). The values are the literals of
+// the specification; the second test checks the rule itself, from the colours Ant Design receives.
+describe('pressed buttons', () => {
+  const BACKDROPS = ['bg', 'bgRaised', 'surface'] as const
+  const BLACK = '#000000'
+
+  /** A `#rrggbb` or `rgba(r, g, b, a)` colour laid over an opaque `#rrggbb` one: the pixel seen. */
+  function over(top: string, bottom: string): string {
+    const rgba = /^rgba\((\d+), (\d+), (\d+), ([\d.]+)\)$/.exec(top)
+    if (rgba === null) {
+      return top
+    }
+    const hex = [1, 2, 3].map((index) => Number(rgba[index]).toString(16).padStart(2, '0'))
+    return mix(`#${hex.join('')}`, bottom, Number(rgba[4]))
+  }
+
+  /** The contrast against black grows with the luminance, so it orders two colours by it. */
+  function lightness(colour: string): number {
+    return contrast(colour, BLACK)
+  }
+
+  function defined(value: string | undefined): string {
+    expect(value).toBeDefined()
+    return value ?? ''
+  }
+
+  /** Hover and pressed background of each variant, and its pressed text, as Ant Design receives them. */
+  function variants(mode: RvThemeMode) {
+    const p = RV_PALETTE[mode]
+    const button = buildTheme(mode).components?.Button
+    const tokens = resolved(mode)
+    return {
+      primary: {
+        hover: defined(button?.colorPrimaryHover),
+        pressed: defined(button?.colorPrimaryActive),
+        text: p.accentFg,
+      },
+      default: {
+        hover: defined(button?.defaultHoverBg),
+        pressed: defined(button?.defaultActiveBg),
+        text: defined(button?.defaultActiveColor),
+      },
+      text: {
+        hover: defined(button?.textHoverBg),
+        pressed: defined(button?.colorFill),
+        text: defined(button?.textTextActiveColor),
+      },
+      'danger primary': {
+        hover: tokens.colorErrorHover,
+        pressed: tokens.colorErrorActive,
+        text: p.dangerFg,
+      },
+      'danger text': {
+        hover: tokens.colorErrorBg,
+        pressed: defined(button?.colorErrorBgActive),
+        text: tokens.colorErrorActive,
+      },
+      // The outlined danger button: its tint and press are `--rv-danger-bg` and
+      // `--rv-danger-bg-active` of the rule in `antd.css`, held equal to the palette above.
+      'danger default': {
+        hover: p.dangerBg,
+        pressed: p.dangerBgActive,
+        text: tokens.colorErrorActive,
+      },
+    }
+  }
+
+  it('gives a text button and a danger button their own press values in both modes', () => {
+    const dark = buildTheme('dark').components?.Button
+    expect([dark?.colorFill, dark?.colorErrorBgActive]).toEqual(['rgba(0, 0, 0, 0.3)', '#1b1624'])
+    const light = buildTheme('light').components?.Button
+    expect([light?.colorFill, light?.colorErrorBgActive]).toEqual([
+      'rgba(15, 23, 42, 0.08)',
+      '#fbd6d6',
+    ])
+    expect([RV_PALETTE.dark.buttonTextActive, RV_PALETTE.dark.dangerBgActive]).toEqual([
+      'rgba(0, 0, 0, 0.3)',
+      '#1b1624',
+    ])
+    expect([RV_PALETTE.light.buttonTextActive, RV_PALETTE.light.dangerBgActive]).toEqual([
+      'rgba(15, 23, 42, 0.08)',
+      '#fbd6d6',
+    ])
+  })
+
+  it('keeps the page-wide error and fill tokens as they were: only Button presses differently', () => {
+    for (const mode of MODES) {
+      const p = RV_PALETTE[mode]
+      // The diff viewer reads `colorErrorBgActive` for its edited-text highlight.
+      expect(resolved(mode).colorErrorBgActive).toBe(p.dangerBorder)
+      expect(buildTheme(mode).token).not.toHaveProperty('colorFill')
+      expect(buildTheme(mode).token).not.toHaveProperty('colorErrorBgActive')
+      expect(resolved(mode).colorFill).not.toBe(p.buttonTextActive)
+    }
+  })
+
+  it('presses every variant darker than its hover, over every background, in both modes', () => {
+    for (const mode of MODES) {
+      for (const [name, { hover, pressed }] of Object.entries(variants(mode))) {
+        for (const backdrop of BACKDROPS) {
+          const page = RV_PALETTE[mode][backdrop]
+          expect(
+            lightness(over(pressed, page)),
+            `${mode} ${name} on ${backdrop}: ${pressed} against ${hover}`,
+          ).toBeLessThan(lightness(over(hover, page)))
+        }
+      }
+    }
+  })
+
+  it('keeps the text of a pressed button readable, over every background, in both modes', () => {
+    for (const mode of MODES) {
+      for (const [name, { pressed, text }] of Object.entries(variants(mode))) {
+        for (const backdrop of BACKDROPS) {
+          expect(
+            contrast(text, over(pressed, RV_PALETTE[mode][backdrop])),
+            `${mode} ${name} on ${backdrop}: ${text} on ${pressed}`,
+          ).toBeGreaterThanOrEqual(4.5)
+        }
+      }
+    }
+  })
+})
+
 // Steps draws its marks through `ProgressSteps`. The tokens are pinned here, the two rail rules
 // that no token expresses are read from `antd.css`, and the colours of the marks and titles are
 // checked against every surface; `ProgressSteps.test.tsx` maps each state to its colour.
@@ -426,6 +551,8 @@ describe('tokens.css', () => {
     '--rv-high': 'high',
     '--rv-critical': 'critical',
     '--rv-danger': 'danger',
+    '--rv-danger-bg': 'dangerBg',
+    '--rv-danger-bg-active': 'dangerBgActive',
     '--rv-hover': 'hover',
     '--rv-selected': 'selected',
     '--rv-overlay': 'mask',
@@ -443,6 +570,19 @@ describe('tokens.css', () => {
         )
       }
     }
+  })
+
+  it('holds the fade duration of the TS constant, declared once for both modes', () => {
+    const dark = block(":root,\n[data-rv-theme='dark']")
+    expect(dark['--rv-motion-fade']).toBe(`${String(RV_MOTION_FADE_MS)}ms`)
+    expect(block("[data-rv-theme='light']")).not.toHaveProperty('--rv-motion-fade')
+  })
+
+  it('declares the exit curve once, accelerating, for both modes', () => {
+    const dark = block(":root,\n[data-rv-theme='dark']")
+    expect(dark['--rv-ease-exit']).toBe('cubic-bezier(0.4, 0, 1, 1)')
+    expect(block("[data-rv-theme='light']")).not.toHaveProperty('--rv-ease-exit')
+    expect(css.match(/--rv-ease-exit:/g)).toHaveLength(1)
   })
 
   it('lets a subtree force the dark palette inside a light page', () => {

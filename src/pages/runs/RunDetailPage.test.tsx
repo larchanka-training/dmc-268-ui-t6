@@ -143,12 +143,13 @@ describe('RunDetailPage', () => {
     expect(screen.getByTestId('diff-suggestion').textContent).toContain('const SAFE = 2')
   })
 
-  it('shows Warning and Info severity badges on inline findings', async () => {
+  it('shows the Medium, Low and Info level badges on inline findings', async () => {
     renderRunDetail(DEMO_RUN_ID)
     await waitFor(() => {
       expect(screen.getByText('Medium severity sample')).toBeTruthy()
     })
-    expect(screen.getAllByText('Warning').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Medium').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Low').length).toBeGreaterThan(0)
     expect(screen.getByText('Docs tone')).toBeTruthy()
     expect(screen.getAllByText('Info').length).toBeGreaterThan(0)
   })

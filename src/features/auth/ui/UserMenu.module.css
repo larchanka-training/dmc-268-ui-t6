@@ -1,3 +1,14 @@
+/* A flex item shrinks to fit: in the folded sidebar the avatar would squeeze into an oval. */
+.avatar {
+  flex: none;
+}
+
+/* Folded: the avatar is the whole row, centred like the icons of the menu above it. */
+.compact:global(.ant-btn.ant-btn-lg) {
+  justify-content: center;
+  padding-inline: 0;
+}
+
 .loginText {
   flex: 1;
   min-width: 0;

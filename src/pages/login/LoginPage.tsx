@@ -1,4 +1,4 @@
-import { Alert, Button, ConfigProvider } from 'antd'
+import { Alert, Button, ConfigProvider, theme } from 'antd'
 import type { FC } from 'react'
 
 import { useMe } from '../../entities/user'
@@ -17,15 +17,17 @@ const FORM_DIM = [0.5, 0.27, 2.1] as const
 /**
  * Sign-in. The only screen with the animated glass background of the landing; that background is
  * dark-only, so the screen stays dark whatever theme the user picked: the nested provider themes
- * Ant Design and `data-rv-theme="dark"` switches the `--rv-*` tokens for this subtree.
+ * Ant Design and `data-rv-theme="dark"` switches the `--rv-*` tokens for this subtree. The nested
+ * provider keeps the motion setting of the enclosing one, which follows the system.
  */
 export const LoginPage: FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   const authError = useAuthStore((state) => state.error)
   const { data: user } = useMe(isAuthenticated)
+  const { token } = theme.useToken()
 
   return (
-    <ConfigProvider theme={buildTheme('dark')}>
+    <ConfigProvider theme={buildTheme('dark', { reducedMotion: !token.motion })}>
       <main className={styles.container} data-rv-theme="dark">
         <HeroGlass dim={FORM_DIM} textSelector="#login-form" />
         <div className={styles.form} id="login-form">

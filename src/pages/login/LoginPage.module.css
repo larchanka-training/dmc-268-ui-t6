@@ -21,6 +21,14 @@
   width: 100%;
   max-width: 340px;
   text-align: center;
+  animation: form-fade-in var(--rv-motion-fade) var(--rv-ease);
+}
+
+/* Opacity only: the glass background measures the block's rects every frame, so nothing may move. */
+@keyframes form-fade-in {
+  from {
+    opacity: 0;
+  }
 }
 
 .logo {
@@ -58,4 +66,10 @@
   justify-items: center;
   width: 100%;
   margin-top: 18px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .form {
+    animation: none;
+  }
 }

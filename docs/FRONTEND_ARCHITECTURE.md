@@ -523,8 +523,8 @@ sequenceDiagram
 **Ф-20.** Вид всех экранов задаёт дизайн-система Flat Console в `src/shared/ui`: тема antd
 (`theme/buildTheme.ts`), CSS-токены (`styles/tokens.css`), правки поверх antd (`styles/antd.css`)
 и свои компоненты
-(`Tag`, `Spinner`, `PageHeader`, `DataTable`, `NavMenu`, `RowButton`, `TraceTree`, `ProgressSteps`,
-`CodeBlock`, `Logo`). Всё включается одним `DesignSystemProvider`.
+(`Tag`, `Spinner`, `PageLoader`, `PageHeader`, `DataTable`, `NavMenu`, `RowButton`, `TraceTree`,
+`ProgressSteps`, `CodeBlock`, `Logo`). Всё включается одним `DesignSystemProvider`.
 Числа, правила и чеклист для нового компонента antd: [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md).
 Витрина: `pnpm storybook`. Правило: базовые компоненты берутся только из antd в нашей теме и из
 `src/shared/ui`; на экране их не перекрашивают. Вид компонента antd меняется только внутри
@@ -615,8 +615,10 @@ Run detail (Ф-16; [PIPELINE_SPEC §11][ps-11], схема `RunDetail` в [`open
 `verdict: blocking | attention | clean | null`, `severityCounts { critical, high, medium, low, info }`
 и `budget | null`. Вердикт считает сервер по опубликованным находкам: есть `critical` или `high` →
 `blocking`, иначе есть `medium` или `low` → `attention`, иначе `clean`; `null`, пока прогон не
-`succeeded`, и у summary-only прогона. UI вердикт сам не выводит. Бейджи Critical / Warning / Info —
-только группировка в UI: `critical` + `high` / `medium` + `low` / `info`; API отдаёт пять уровней.
+`succeeded`, и у summary-only прогона. UI вердикт сам не выводит. Подпись бейджа находки — её точный
+уровень: Critical / High / Medium / Low / Info (`SEVERITY_LABEL`, решение техлида 16.10.2026, #121).
+Цвет и вариант бейджа и фильтр «Критичность» — группировка в UI по D3: Critical = `critical` +
+`high`, Warning = `medium` + `low`, Info = `info` (`severityBadgeGroup`); API отдаёт пять уровней.
 
 Отклонения от схем issue:
 
@@ -1292,6 +1294,7 @@ issue прямо выносит подключение логирования з
 — зона ответственности инфры (роль 3, PR #28, сейчас `:8080` захардкожен).
 
 **Роутер.** Установлен **react-router 8** (^8.4.0, peer react ≥ 19.2.7 — выполняется), настроен в `src/app/routes.tsx`. Лэйауты (`AppLayoutRoute`, `ProtectedLayout`, `PageFallback`, `RouteErrorFallback`) и обёртки страниц (`RoutedRepositoriesPage` и др.) вынесены в `src/app/layouts/`, чтобы файл роутера оставался чистой конфигурацией маршрутов без отключения правил Fast Refresh (`react-refresh/only-export-components`).
+`PageFallback` ничего не рисует: это метка ожидания `PageLoading` из дизайн-системы (ею же отмечена проверка сессии в `ProtectedLayout`). Кольцо одно на приложение, его показывает `PageLoaderHost` в `UiProvider`: по центру окна, не раньше чем через 300 мс ожидания, с плавным появлением и исчезновением (`docs/DESIGN_SYSTEM.md` §7).
 
 **Сборка и чанки.** `vite.config.ts`: `build.rolldownOptions.output.codeSplitting`
 (`vendor-react`, `vendor-query`, `vendor-zod`, `includeDependenciesRecursively: false`);

@@ -70,10 +70,21 @@ describe('InlineComment', () => {
     expect(suggestion.querySelector('.diff-code-insert span.token.keyword')).not.toBeNull()
   })
 
-  it('shows D3 Critical badge for high severity', () => {
-    render(<InlineComment finding={{ ...finding, severity: 'high' }} />)
-    expect(screen.getByText('Critical')).toBeTruthy()
-  })
+  it.each([
+    ['critical', 'Critical', 'critical', 'solid'],
+    ['high', 'High', 'critical', 'solid'],
+    ['medium', 'Medium', 'warning', 'dot'],
+    ['low', 'Low', 'warning', 'dot'],
+    ['info', 'Info', 'info', 'dot'],
+  ] as const)(
+    'labels the %s finding "%s" and keeps the D3 group tone %s and variant %s',
+    (severity, label, tone, variant) => {
+      render(<InlineComment finding={{ ...finding, severity }} />)
+      const badge = screen.getByText(label)
+      expect(badge.getAttribute('data-tone')).toBe(tone)
+      expect(badge.getAttribute('data-variant')).toBe(variant)
+    },
+  )
 
   it('is collapsed by default: the body is not rendered', () => {
     render(<InlineComment finding={finding} />)

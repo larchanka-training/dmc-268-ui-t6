@@ -1,0 +1,29 @@
+/* One layer in the window, so the ring sits in the same place on every screen. It lies above the
+   sidebar, which is positioned, and never takes a click. */
+.layer {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--rv-motion-fade) var(--rv-ease);
+}
+
+/* A transition runs on the curve of the state it moves to: the fade-in keeps the decelerating
+   curve of the base rule, the fade-out accelerates, so the ring does not spend its whole fade in
+   the first frames of a page that is still busy. */
+.layer[data-state='hidden'] {
+  transition-timing-function: var(--rv-ease-exit);
+}
+
+.layer[data-state='shown'] {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .layer {
+    transition: none;
+  }
+}

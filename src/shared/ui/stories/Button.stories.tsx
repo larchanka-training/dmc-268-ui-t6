@@ -25,6 +25,12 @@ export const Variants: Story = {
       <Button icon={<ReloadOutlined />}>Обновить</Button>
       <Button type="text">Отмена</Button>
       <Button danger>Остановить прогон</Button>
+      <Button danger type="primary">
+        Удалить репозиторий
+      </Button>
+      <Button danger type="text">
+        Сбросить
+      </Button>
     </div>
   ),
 }

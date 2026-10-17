@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { SEVERITY_BADGE_GROUPS, SEVERITY_BADGE_LABEL, severityBadgeGroup } from './severityBadge'
+import { SeveritySchema } from '../model/schemas'
+import {
+  SEVERITY_BADGE_GROUPS,
+  SEVERITY_BADGE_LABEL,
+  SEVERITY_LABEL,
+  severityBadgeGroup,
+} from './severityBadge'
 
 describe('SEVERITY_BADGE_GROUPS', () => {
   it('lists the three badge groups in canonical order', () => {
@@ -19,5 +25,11 @@ describe('severityBadgeGroup', () => {
     expect(severityBadgeGroup('medium')).toBe('warning')
     expect(severityBadgeGroup('low')).toBe('warning')
     expect(severityBadgeGroup('info')).toBe('info')
+  })
+})
+
+describe('SEVERITY_LABEL', () => {
+  it('has a label for every severity level', () => {
+    expect(Object.keys(SEVERITY_LABEL)).toEqual(SeveritySchema.options)
   })
 })

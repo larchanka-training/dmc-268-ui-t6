@@ -76,11 +76,13 @@ export const UserMenu: FC<UserMenuProps> = ({ extraItems, compact = false }) => 
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label="Меню пользователя"
+        className={compact ? styles.compact : undefined}
         ref={triggerRef}
         size="large"
       >
         <Avatar
           alt={login}
+          className={styles.avatar}
           icon={!user?.avatarUrl ? <UserOutlined /> : undefined}
           size={28}
           src={user?.avatarUrl ?? undefined}

@@ -19,7 +19,7 @@ export interface CallbackPageProps {
 export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError, onBackToLogin }) => {
   const handleCallback = useAuthStore((state) => state.handleCallback)
   const markInitialized = useAuthStore((state) => state.markInitialized)
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
+  const [status, setStatus] = useState<'loading' | 'error'>('loading')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const processedRef = useRef(false)
 
@@ -71,7 +71,6 @@ export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError, onBack
       try {
         await handleCallback(code, state)
         activateAccessRefreshIntent()
-        setStatus('success')
         if (onSuccess) {
           onSuccess()
         } else {
@@ -97,7 +96,7 @@ export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError, onBack
             <h1 className={styles.title}>Авторизация через GitHub...</h1>
             <p className={styles.text}>Обмениваем код подтверждения на сессионный токен</p>
           </>
-        ) : status === 'error' ? (
+        ) : (
           <>
             <h1 className={styles.title}>Не удалось войти</h1>
             <p className={styles.text} role="alert">
@@ -117,11 +116,6 @@ export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError, onBack
             >
               Вернуться к экрану входа
             </Button>
-          </>
-        ) : (
-          <>
-            <h1 className={styles.title}>Авторизация успешна!</h1>
-            <p className={styles.text}>Перенаправляем в панель управления...</p>
           </>
         )}
       </div>
