@@ -1,21 +1,24 @@
 import { useMutationState } from '@tanstack/react-query'
 import { Alert, App, Button, Flex } from 'antd'
 import { useMemo, type FC } from 'react'
+import { useNavigate } from 'react-router'
 
 import {
   UPDATE_REPOSITORY_MUTATION_KEY,
   useRepositories,
   useUpdateRepository,
-  type UpdateRepositoryInput,
   type UpdateRepositoryVariables,
 } from '../../entities/repository'
 import { saveAccessRefreshIntent, saveAuthReturnTo, useAuthStore } from '../../features/auth'
+import { autoReviewChoiceSaved } from '../../features/repository-settings'
 import { RepositoryList } from '../../widgets/repository-list'
 import { formatErrorMessage } from './lib/formatError'
+import { repositorySettingsPath } from './lib/settingsPath'
 import { useRepositoryAccessRefresh } from './lib/useRepositoryAccessRefresh'
 
 export const RepositoriesPage: FC = () => {
   const { message } = App.useApp()
+  const navigate = useNavigate()
   const loginWithGitHub = useAuthStore((state) => state.loginWithGitHub)
 
   const handleSyncAccess = () => {
@@ -49,20 +52,16 @@ export const RepositoriesPage: FC = () => {
 
   const handleToggleEnabled = async (id: string, enabled: boolean) => {
     try {
-      await updateMutation.mutateAsync({ id, patch: { enabled } })
+      const saved = await updateMutation.mutateAsync({ id, patch: { enabled } })
+      // Without GitHub App access the server keeps the choice but serves `enabled: false` (api PR
+      // #156): «активен» or «на паузе» would be wrong, whichever way the choice went.
+      if (!saved.installationAvailable) {
+        void message.info(autoReviewChoiceSaved(enabled))
+        return
+      }
       void message.success(`Статус репозитория обновлен: ${enabled ? 'активен' : 'на паузе'}`)
     } catch (err) {
       void message.error(formatErrorMessage(err, 'Не удалось изменить статус репозитория'))
-    }
-  }
-
-  const handleUpdateRepository = async (id: string, patch: UpdateRepositoryInput) => {
-    try {
-      await updateMutation.mutateAsync({ id, patch })
-      void message.success('Настройки репозитория успешно сохранены')
-    } catch (err) {
-      void message.error(formatErrorMessage(err, 'Не удалось сохранить настройки'))
-      throw err
     }
   }
 
@@ -93,10 +92,11 @@ export const RepositoriesPage: FC = () => {
           loading={isLoading}
           onRefresh={() => void refetch({ cancelRefetch: false })}
           onSyncAccess={handleSyncAccess}
+          onOpenSettings={(repo) => void navigate(repositorySettingsPath(repo.id))}
           onToggleEnabled={handleToggleEnabled}
-          onUpdateRepository={handleUpdateRepository}
           repositories={repositories}
           refreshing={isFetching}
+          settingsHref={(repo) => repositorySettingsPath(repo.id)}
           updatingRepoIds={updatingRepoIds}
         />
       ) : null}

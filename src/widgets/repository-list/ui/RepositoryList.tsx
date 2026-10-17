@@ -1,5 +1,6 @@
 import {
   BranchesOutlined,
+  DownOutlined,
   GithubOutlined,
   PlusOutlined,
   ReloadOutlined,
@@ -7,29 +8,30 @@ import {
 } from '@ant-design/icons'
 import {
   Button,
+  Dropdown,
   Empty,
   Flex,
-  Form,
   Input,
-  InputNumber,
-  Modal,
   Segmented,
-  Select,
   Spin,
   Switch,
   Tooltip,
   Typography,
+  type MenuProps,
   type TableColumnsType,
 } from 'antd'
-import { useMemo, useState, type FC } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FC, type MouseEvent } from 'react'
 
 import type {
   Repository,
   RepositoryEngine,
   ReviewEvent,
-  UpdateRepositoryInput,
   WaitForCi,
 } from '../../../entities/repository'
+import {
+  ENABLE_AUTO_REVIEW_LABEL,
+  KEEP_AUTO_REVIEW_OFF_LABEL,
+} from '../../../features/repository-settings'
 import { GITHUB_APP_SLUG, GITHUB_CLIENT_ID, isMockMode } from '../../../shared/config/env'
 import { safeHttpUrl } from '../../../shared/lib/safeHttpUrl'
 import { DataTable, IconSettings, PageHeader, Tag } from '../../../shared/ui'
@@ -55,9 +57,149 @@ export interface RepositoryListProps {
   accessRefreshStatus?: 'idle' | 'waiting' | 'timedOut'
   updatingRepoIds?: string[] | ReadonlySet<string>
   onToggleEnabled?: (id: string, enabled: boolean) => Promise<void> | void
-  onUpdateRepository?: (id: string, patch: UpdateRepositoryInput) => Promise<void> | void
+  /** Address of the settings page of a repository; «Настроить» is a link to it. */
+  settingsHref: (repository: Repository) => string
+  /**
+   * Opens the settings page without a page load. When nobody handles navigation, or the click
+   * carries a modifier key, the link simply works (new tab, copy address).
+   */
+  onOpenSettings?: (repository: Repository) => void
   onRefresh?: () => void
   onSyncAccess: () => void
+}
+
+const CHOICE_ITEMS: MenuProps['items'] = [
+  { key: 'enable', label: ENABLE_AUTO_REVIEW_LABEL },
+  { key: 'keepOff', label: KEEP_AUTO_REVIEW_OFF_LABEL },
+]
+
+interface StatusCellProps {
+  repository: Repository
+  updating: boolean
+  onToggleEnabled?: (id: string, enabled: boolean) => Promise<void> | void
+}
+
+/**
+ * The status of a row: a switch with its label. While the GitHub App has no access to the
+ * repository the api serves `enabled: false` whatever was stored (api PR #156, SD §6.9), so the
+ * row has no switch (D13) and reads «Нет доступа» on one line with a trigger whose menu holds the
+ * two choices (D10, as on the settings page): the stored preference is write-only and never shown.
+ */
+const StatusCell: FC<StatusCellProps> = ({ repository, updating, onToggleEnabled }) => {
+  const { id, fullName, enabled, installationAvailable } = repository
+  const [menuOpen, setMenuOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
+  const switchRef = useRef<HTMLButtonElement>(null)
+  // Whether the trigger held the focus when the menu opened, and whether the focus is to be put
+  // back on it once the choice is saved.
+  const triggerHadFocus = useRef(false)
+  const returnFocus = useRef(false)
+  // The trigger leaves the page when a refetch says the access is back. It is marked as it leaves,
+  // while it is still in the document and `activeElement` tells whether it held the focus. A node
+  // that attaches again (the ref is composed by `Dropdown`) cancels the mark.
+  const switchTakesFocus = useRef(false)
+  const trackTrigger = useCallback((node: HTMLButtonElement | null) => {
+    if (node !== null) {
+      switchTakesFocus.current = false
+    } else if (document.activeElement === triggerRef.current) {
+      switchTakesFocus.current = true
+    }
+    triggerRef.current = node
+  }, [])
+
+  // The menu closes on a choice and takes the focus with it. The pick itself moves the focus to the
+  // trigger (below); this is the second guard: once the save is over, the focus goes back to the
+  // trigger if it was to return and the user has not moved on.
+  useEffect(() => {
+    if (updating || !returnFocus.current) {
+      return
+    }
+    returnFocus.current = false
+    if (document.activeElement === document.body) {
+      triggerRef.current?.focus()
+    }
+  }, [updating])
+
+  // Access is back while the trigger held the focus: the switch of the row takes it, unless the
+  // user has moved on (the focus is not on <body>).
+  useEffect(() => {
+    if (!installationAvailable || !switchTakesFocus.current) {
+      return
+    }
+    switchTakesFocus.current = false
+    if (document.activeElement === document.body) {
+      switchRef.current?.focus()
+    }
+  }, [installationAvailable])
+
+  if (installationAvailable) {
+    return (
+      <Flex align="center" gap={10}>
+        <Switch
+          aria-label={`Ревью для ${fullName}`}
+          checked={enabled}
+          disabled={updating}
+          loading={updating}
+          onChange={(checked) => void onToggleEnabled?.(id, checked)}
+          ref={switchRef}
+        />
+        <Text className={styles.switchLabel} type="secondary">
+          {enabled ? 'Активен' : 'Пауза'}
+        </Text>
+      </Flex>
+    )
+  }
+
+  return (
+    <Flex align="center" gap={10}>
+      {/* No switch: its state would only repeat «Нет доступа» (D13). The spinner of a saving choice
+          is the trigger's. */}
+      <Text className={styles.switchLabel} type="secondary">
+        Нет доступа
+      </Text>
+      <Dropdown
+        menu={{
+          items: CHOICE_ITEMS,
+          onClick: ({ key, domEvent }) => {
+            // An Enter pick arrives here on the `keydown`. The focus moves to the trigger below, and
+            // the browser would deliver the same key's `keypress` there: Enter on a button clicks it
+            // and the menu opens again. Cancelling the `keydown` stops that; a mouse pick is not
+            // affected.
+            domEvent.preventDefault()
+            setMenuOpen(false)
+            returnFocus.current = triggerHadFocus.current
+            // The item keeps the focus until the closing motion ends (about 250 ms), and a save
+            // can be over sooner: the focus moves to the trigger now, not when the save is done.
+            if (triggerHadFocus.current) {
+              triggerRef.current?.focus()
+            }
+            void onToggleEnabled?.(id, key === 'enable')
+          },
+        }}
+        onOpenChange={(open) => {
+          setMenuOpen(open)
+          if (open) {
+            triggerHadFocus.current = document.activeElement === triggerRef.current
+          }
+        }}
+        open={menuOpen}
+        trigger={['click']}
+      >
+        <Button
+          aria-expanded={menuOpen}
+          aria-haspopup="menu"
+          aria-label={`Выбрать авто-ревью для ${fullName}, когда доступ вернётся`}
+          icon={<DownOutlined />}
+          iconPlacement="end"
+          loading={updating}
+          ref={trackTrigger}
+          size="small"
+        >
+          Выбрать
+        </Button>
+      </Dropdown>
+    </Flex>
+  )
 }
 
 export const RepositoryList: FC<RepositoryListProps> = ({
@@ -67,15 +209,13 @@ export const RepositoryList: FC<RepositoryListProps> = ({
   accessRefreshStatus = 'idle',
   updatingRepoIds,
   onToggleEnabled,
-  onUpdateRepository,
+  settingsHref,
+  onOpenSettings,
   onRefresh,
   onSyncAccess,
 }) => {
   const [search, setSearch] = useState('')
   const [filterActive, setFilterActive] = useState<'all' | 'active'>('all')
-  const [editingRepo, setEditingRepo] = useState<Repository | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [form] = Form.useForm<UpdateRepositoryInput>()
 
   const isAppConfigured = Boolean(GITHUB_APP_SLUG)
   const isSyncConfigured = Boolean(GITHUB_CLIENT_ID || isMockMode())
@@ -94,45 +234,14 @@ export const RepositoryList: FC<RepositoryListProps> = ({
     })
   }, [repositories, search, filterActive])
 
-  const openSettings = (repo: Repository) => {
-    setEditingRepo(repo)
-    form.setFieldsValue({
-      enabled: repo.enabled,
-      defaultEngine: repo.defaultEngine,
-      waitForCi: repo.waitForCi,
-      maxComments: repo.maxComments,
-      reviewEvent: repo.reviewEvent,
-    })
-  }
-
-  const handleSaveSettings = async () => {
-    if (!editingRepo) return
-    try {
-      const values = await form.validateFields()
-      const patch: UpdateRepositoryInput = {}
-      if (values.enabled !== undefined && values.enabled !== editingRepo.enabled) {
-        patch.enabled = values.enabled
-      }
-      if (values.waitForCi !== undefined && values.waitForCi !== editingRepo.waitForCi) {
-        patch.waitForCi = values.waitForCi
-      }
-      if (values.maxComments !== undefined && values.maxComments !== editingRepo.maxComments) {
-        patch.maxComments = values.maxComments
-      }
-      if (values.reviewEvent !== undefined && values.reviewEvent !== editingRepo.reviewEvent) {
-        patch.reviewEvent = values.reviewEvent
-      }
-
-      if (Object.keys(patch).length > 0) {
-        setSaving(true)
-        await onUpdateRepository?.(editingRepo.id, patch)
-      }
-      setEditingRepo(null)
-    } catch {
-      // Keep modal open if validation or update fails
-    } finally {
-      setSaving(false)
+  const goToSettings = (event: MouseEvent, repo: Repository): void => {
+    // A click with a modifier belongs to the browser: it opens the link in a new tab.
+    // So does any click when nobody handles navigation: the link then simply works.
+    if (onOpenSettings === undefined || event.metaKey || event.ctrlKey || event.shiftKey) {
+      return
     }
+    event.preventDefault()
+    onOpenSettings(repo)
   }
 
   const connectButton = (
@@ -198,6 +307,21 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       },
     },
     {
+      title: 'Статус',
+      dataIndex: 'enabled',
+      key: 'enabled',
+      render: (_: boolean, record: Repository) => {
+        const updating = updatingRepoIds
+          ? Array.isArray(updatingRepoIds)
+            ? updatingRepoIds.includes(record.id)
+            : updatingRepoIds.has(record.id)
+          : false
+        return (
+          <StatusCell onToggleEnabled={onToggleEnabled} repository={record} updating={updating} />
+        )
+      },
+    },
+    {
       title: 'Ветка',
       dataIndex: 'defaultBranch',
       key: 'defaultBranch',
@@ -239,41 +363,18 @@ export const RepositoryList: FC<RepositoryListProps> = ({
         ),
     },
     {
-      title: 'Статус',
-      dataIndex: 'enabled',
-      key: 'enabled',
-      render: (enabled: boolean, record: Repository) => {
-        const updating = updatingRepoIds
-          ? Array.isArray(updatingRepoIds)
-            ? updatingRepoIds.includes(record.id)
-            : updatingRepoIds.has(record.id)
-          : false
-        return (
-          <Flex align="center" gap={10}>
-            <Switch
-              aria-label={`Ревью для ${record.fullName}`}
-              checked={enabled}
-              disabled={updating}
-              loading={updating}
-              onChange={(checked) => void onToggleEnabled?.(record.id, checked)}
-            />
-            <Text className={styles.switchLabel} type="secondary">
-              {enabled ? 'Активен' : 'Пауза'}
-            </Text>
-          </Flex>
-        )
-      },
-    },
-    {
       title: '',
       key: 'actions',
       align: 'right',
+      // D14: the table scrolls under the column, so «Настроить» is visible at any width.
+      fixed: 'right',
       render: (_: unknown, record: Repository) => (
         <Button
           aria-label={`Настройки ${record.fullName}`}
+          href={settingsHref(record)}
           icon={<IconSettings height={14} width={14} />}
-          onClick={() => {
-            openSettings(record)
+          onClick={(event) => {
+            goToSettings(event, record)
           }}
           size="small"
         >
@@ -386,71 +487,12 @@ export const RepositoryList: FC<RepositoryListProps> = ({
             pagination={{ pageSize: 10 }}
             rowKey="id"
             scroll={{ x: 900 }}
+            // A pinned column makes Ant Design lay the table out as `fixed`: equal column widths, and
+            // the long names run over the next column. `auto` keeps the widths the content asks for.
+            tableLayout="auto"
           />
         </>
       )}
-
-      <Modal
-        cancelText="Отмена"
-        confirmLoading={saving}
-        okText="Сохранить"
-        onCancel={() => {
-          setEditingRepo(null)
-        }}
-        onOk={() => void handleSaveSettings()}
-        open={Boolean(editingRepo)}
-        title={`Настройки репозитория ${editingRepo?.fullName ?? ''}`}
-        width={520}
-      >
-        <Form form={form} layout="vertical">
-          <Form.Item label="Активность ревью" name="enabled" valuePropName="checked">
-            <Switch checkedChildren="Активен" unCheckedChildren="Пауза" />
-          </Form.Item>
-
-          <Form.Item
-            extra="SandboxEngine (глубокий анализ в песочнице) появится в фазе 3"
-            label="Движок анализа"
-            name="defaultEngine"
-          >
-            <Select
-              options={[{ value: 'fast', label: 'DiffEngine (быстрый синтаксический анализ)' }]}
-            />
-          </Form.Item>
-
-          <Form.Item label="Ожидание CI" name="waitForCi" rules={[{ required: true }]}>
-            <Select
-              options={[
-                { value: 'auto', label: 'Авто (ожидать CI при наличии проверок)' },
-                { value: 'always', label: 'Всегда (всегда ждать успешного CI)' },
-                { value: 'never', label: 'Никогда (запускать ревью без ожидания CI)' },
-              ]}
-            />
-          </Form.Item>
-
-          <Form.Item
-            label="Лимит замечаний (1..10)"
-            name="maxComments"
-            rules={[
-              { required: true, message: 'Укажите лимит' },
-              { type: 'number', min: 1, max: 10, message: 'Число от 1 до 10' },
-            ]}
-          >
-            <InputNumber className={styles.fullWidth} max={10} min={1} precision={0} />
-          </Form.Item>
-
-          <Form.Item label="Публикация вердикта" name="reviewEvent" rules={[{ required: true }]}>
-            <Select
-              options={[
-                { value: 'COMMENT', label: 'Комментарий (при любых замечаниях)' },
-                {
-                  value: 'REQUEST_CHANGES',
-                  label: 'Запрос изменений (при блокирующих)',
-                },
-              ]}
-            />
-          </Form.Item>
-        </Form>
-      </Modal>
     </div>
   )
 }

@@ -1,0 +1,15 @@
+.form {
+  max-width: 560px;
+}
+
+.alert {
+  margin-bottom: 16px;
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+.actions {
+  margin-top: 24px;
+}

@@ -29,6 +29,25 @@
   border-bottom: 0;
 }
 
+/* Table: a pinned column (`fixed`) hides what scrolls under it, so its cells are opaque. The theme
+   makes the cells transparent (the frame above paints the surface) and the row hover colour is
+   translucent, so the pinned cells paint the surface themselves and take the hover on top of it:
+   one flat colour, not a gradient. Their `transition` is off: antd fades a background over .2s, so
+   on a live theme switch the frame above snaps while the pinned cells would still be fading. Sorted
+   cells: our rule outweighs antd's sort colour, so a pinned one shows the surface. Selected rows:
+   antd's `.ant-table-row-selected > .ant-table-cell` (5 classes) outweighs ours, so a pinned cell
+   would take its translucent colour and scrolled content would show through. Expanded rows: not
+   checked. No table uses these states today; extend the rules when one does. */
+.ant-table-wrapper .ant-table-thead > tr > th.ant-table-cell-fix,
+.ant-table-wrapper .ant-table-tbody > tr > td.ant-table-cell-fix {
+  background: var(--rv-bg-raised);
+  transition: none;
+}
+
+.ant-table-wrapper .ant-table-tbody > tr > td.ant-table-cell-fix.ant-table-cell-row-hover {
+  background: linear-gradient(var(--rv-hover), var(--rv-hover)), var(--rv-bg-raised);
+}
+
 .ant-table-wrapper .ant-table-pagination.ant-pagination {
   margin: 12px 0 0;
 }

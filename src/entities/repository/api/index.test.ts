@@ -31,6 +31,9 @@ describe('repository API client methods', () => {
     waitForCi: 'auto' as const,
     maxComments: 10,
     reviewEvent: 'COMMENT' as const,
+    branchFilter: [],
+    severityThreshold: 'all' as const,
+    installationAvailable: true,
   }
 
   it('fetchRepositories returns validated repositories', async () => {
@@ -117,6 +120,38 @@ describe('repository API client methods', () => {
       '/api/repos/a1b2c3d4-e5f6-7890-abcd-ef1234567890',
       expect.objectContaining({ method: 'PATCH' }),
     )
+  })
+
+  it('updateRepository sends the new fields and never installationAvailable', async () => {
+    let capturedBody: unknown
+    globalThis.fetch = vi.fn().mockImplementation((_url, init: RequestInit) => {
+      capturedBody = JSON.parse(init.body as string)
+      return Promise.resolve(new Response(JSON.stringify(sampleRepo), { status: 200 }))
+    })
+
+    await updateRepository('a1b2c3d4-e5f6-7890-abcd-ef1234567890', {
+      branchFilter: [],
+      severityThreshold: 'critical',
+      ...{ installationAvailable: false },
+    })
+
+    expect(capturedBody).toEqual({ branchFilter: [], severityThreshold: 'critical' })
+  })
+
+  it('updateRepository leaves a mask the client cannot judge to the server 422', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          detail: [{ loc: ['body', 'branchFilter', 0], msg: 'bad mask', type: 'value_error' }],
+        }),
+        { status: 422, statusText: 'Unprocessable Entity' },
+      ),
+    )
+
+    await expect(
+      updateRepository('a1b2c3d4-e5f6-7890-abcd-ef1234567890', { branchFilter: ['[oops'] }),
+    ).rejects.toMatchObject({ status: 422 })
+    expect(globalThis.fetch).toHaveBeenCalledOnce()
   })
 
   it('fetchRepositories throws error when response does not match repository schema', async () => {

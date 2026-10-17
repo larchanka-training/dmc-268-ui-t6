@@ -195,6 +195,41 @@ describe('mockRepositories', () => {
       })
     }
   })
+
+  it('covers every severityThreshold across the repositories', () => {
+    expect(mockRepositories.map((repo) => repo.severityThreshold)).toEqual([
+      'all',
+      'critical',
+      'warning',
+      'all',
+    ])
+  })
+
+  it('gives the ui repository a branch filter and the others the empty one', () => {
+    expect(mockRepositories.map((repo) => repo.branchFilter)).toEqual([
+      ['main', 'release/*'],
+      [],
+      [],
+      [],
+    ])
+  })
+
+  it('stores auto-review on for a repository the GitHub App cannot reach', () => {
+    const unreachable = mockRepositories.filter((repo) => !repo.installationAvailable)
+
+    expect(unreachable.map((repo) => repo.fullName)).toEqual([
+      'larchanka-training/dmc-268-infra-t6',
+    ])
+    expect(unreachable.every((repo) => repo.enabled)).toBe(true)
+  })
+
+  it('has a fourth repository for the missing rules file', () => {
+    expect(mockRepositories).toHaveLength(4)
+    expect(mockRepositories[3]?.id).toBe('22222222-2222-4222-8222-000000000004')
+    expect(mockRepositories[3]?.fullName).toBe('larchanka-training/dmc-268-docs-t6')
+    expect(new Set(mockRepositories.map((repo) => repo.id)).size).toBe(4)
+    expect(new Set(mockRepositories.map((repo) => repo.fullName)).size).toBe(4)
+  })
 })
 
 describe('mockCurrentUser', () => {

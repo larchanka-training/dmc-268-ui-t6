@@ -20,6 +20,11 @@ const RepositoriesPage = lazy(() =>
     default: m.RepositoriesPage,
   })),
 )
+const RepositorySettingsPage = lazy(() =>
+  import('../../pages/repositories/RepositorySettingsPage').then((m) => ({
+    default: m.RepositorySettingsPage,
+  })),
+)
 const RunsPage = lazy(() =>
   import('../../pages/runs/RunsPage').then((m) => ({ default: m.RunsPage })),
 )
@@ -32,6 +37,10 @@ const ReviewRedirect = lazy(() =>
 
 export const RoutedRepositoriesPage: FC = () => {
   return <RepositoriesPage />
+}
+
+export const RoutedRepositorySettingsPage: FC = () => {
+  return <RepositorySettingsPage />
 }
 
 export const RoutedRunsPage: FC = () => {

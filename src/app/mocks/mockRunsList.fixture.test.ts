@@ -32,4 +32,40 @@ describe('mockRunsList.fixture', () => {
     const numbers = active.map((run) => run.pullRequest.number)
     expect(new Set(numbers).size).toBe(numbers.length)
   })
+
+  it('lists 25 finished runs of the api repository, none of the infra repository', () => {
+    const api = mockRunsListPage.items.filter(
+      (run) => run.pullRequest.repo === 'larchanka-training/dmc-268-api-t6',
+    )
+    expect(api).toHaveLength(25)
+    expect(
+      api.every((run) => ['succeeded', 'failed', 'cancelled', 'skipped'].includes(run.status)),
+    ).toBe(true)
+    expect(
+      mockRunsListPage.items.some(
+        (run) => run.pullRequest.repo === 'larchanka-training/dmc-268-infra-t6',
+      ),
+    ).toBe(false)
+  })
+
+  it('runs the api repository only on the fast engine', () => {
+    // The product is fast-only since PR #71: the added history has no `deep` run.
+    const engines = mockRunsListPage.items
+      .filter((run) => run.pullRequest.repo === 'larchanka-training/dmc-268-api-t6')
+      .map((run) => run.engine)
+    expect(engines).toHaveLength(25)
+    expect(new Set(engines)).toEqual(new Set(['fast']))
+  })
+
+  it('gives every listed run its own id', () => {
+    const ids = mockRunsListPage.items.map((run) => run.id)
+    expect(new Set(ids).size).toBe(ids.length)
+  })
+
+  it('keeps the api runs newest first', () => {
+    const created = mockRunsListPage.items
+      .filter((run) => run.pullRequest.repo === 'larchanka-training/dmc-268-api-t6')
+      .map((run) => Date.parse(run.createdAt))
+    expect(created).toEqual([...created].sort((a, b) => b - a))
+  })
 })
