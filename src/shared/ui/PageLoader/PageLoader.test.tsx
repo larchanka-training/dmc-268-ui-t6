@@ -265,6 +265,39 @@ describe('PageLoaderHost timeline', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
+  it('leaves no frame pending when the host unmounts before the first frame of the window', () => {
+    const view = showRing()
+    view.rerender(<Screen markers={[]} />)
+    view.unmount()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('does not let the second frame of a cancelled window release the next fade early', () => {
+    const { rerender } = showRing()
+    rerender(<Screen markers={[]} />)
+    frames(1)
+    rerender(<Screen markers={['again']} />)
+    rerender(<Screen markers={[]} />)
+    // The stale second frame of the first window would be due now; the new window is one frame in.
+    frames(1)
+    expect(ring().dataset.state).toBe('shown')
+    frames(1)
+    expect(ring().dataset.state).toBe('hidden')
+  })
+
+  it('does not let the first frame of a cancelled window start the next one a frame early', () => {
+    const { rerender } = showRing()
+    rerender(<Screen markers={[]} />)
+    rerender(<Screen markers={['again']} />)
+    // The first frame of the cancelled window is due here and must do nothing.
+    frames(1)
+    rerender(<Screen markers={[]} />)
+    frames(1)
+    expect(ring().dataset.state).toBe('shown')
+    frames(1)
+    expect(ring().dataset.state).toBe('hidden')
+  })
+
   it('leaves no timer pending when the host unmounts during the fade-out', () => {
     const view = showRing()
     view.rerender(<Screen markers={[]} />)
@@ -402,6 +435,19 @@ describe('PageLoader.module.css', () => {
     )
     expect(declarations(".layer[data-state='shown']")).toContain('opacity: 1;')
     expect(css).not.toContain('animation')
+  })
+
+  it('fades in on the entering curve and out on the exit curve', () => {
+    // A transition runs on the curve of the state it moves to: the shown state is the target of
+    // the fade-in, the hidden one the target of the fade-out.
+    expect(declarations('.layer')).toContain(
+      'transition: opacity var(--rv-motion-fade) var(--rv-ease);',
+    )
+    expect(declarations(".layer[data-state='hidden']")).toContain(
+      'transition-timing-function: var(--rv-ease-exit);',
+    )
+    expect(declarations(".layer[data-state='shown']")).not.toContain('--rv-ease')
+    expect(css.match(/--rv-ease-exit/g)).toHaveLength(1)
   })
 
   it('drops the transition under reduced motion', () => {

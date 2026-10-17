@@ -578,6 +578,13 @@ describe('tokens.css', () => {
     expect(block("[data-rv-theme='light']")).not.toHaveProperty('--rv-motion-fade')
   })
 
+  it('declares the exit curve once, accelerating, for both modes', () => {
+    const dark = block(":root,\n[data-rv-theme='dark']")
+    expect(dark['--rv-ease-exit']).toBe('cubic-bezier(0.4, 0, 1, 1)')
+    expect(block("[data-rv-theme='light']")).not.toHaveProperty('--rv-ease-exit')
+    expect(css.match(/--rv-ease-exit:/g)).toHaveLength(1)
+  })
+
   it('lets a subtree force the dark palette inside a light page', () => {
     expect(css).toContain(":root,\n[data-rv-theme='dark'] {")
     expect(css).not.toContain(":root[data-rv-theme='light']")
