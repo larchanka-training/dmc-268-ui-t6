@@ -25,6 +25,14 @@ const RULES = {
     '.ant-table-wrapper .ant-table-tbody > tr > td.ant-table-cell-fix.ant-table-cell-row-hover',
 } as const
 
+// The pinned column's start-edge line while content scrolls under it. Ant Design marks the pinned
+// cells with `-shadow-show` then and draws its shadow in their `::after`, which ours replaces.
+const SHADOW_SHOW = 'ant-table-cell-fix-end-shadow-show'
+const CUE = [
+  `.ant-table-wrapper .ant-table-thead > tr > th.${SHADOW_SHOW}::after`,
+  `.ant-table-wrapper .ant-table-tbody > tr > td.${SHADOW_SHOW}::after`,
+] as const
+
 const CSS = readFileSync('src/shared/ui/styles/antd.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
 
 /** `selectors { declarations }` of every rule that names a pinned cell, whitespace collapsed. */
@@ -59,20 +67,34 @@ function heavier(a: [number, number], b: [number, number]): boolean {
   return a[0] !== b[0] ? a[0] > b[0] : a[1] > b[1]
 }
 
-/** The selectors of Ant Design's rules that set `property` and match `cell`, with their weights. */
+/** A selector without its `::after` (jsdom writes the library's as `:after`), which `Element.matches` cannot test. */
+function withoutPseudo(selector: string): string {
+  return selector.replace(/::?(?:after|before)\s*$/, '')
+}
+
+/**
+ * The selectors of Ant Design's rules that set `property` and match `cell`, with their weights. The
+ * rules of a pseudo-element (`::after`) are told apart: they style the pseudo-element of a cell
+ * (tested through the cell, the pseudo-element left off), not the cell.
+ */
 function libraryRulesFor(
   cell: Element | undefined,
   property: RegExp,
+  pseudoElement = false,
 ): ReturnType<typeof weightOf>[] {
   return injectedRules().flatMap(({ selectors, body: declarations }) =>
     property.test(declarations)
-      ? selectors.map(weightOf).filter(({ plain }) => cell?.matches(plain) === true)
+      ? selectors
+          .filter((selector) => /::?(?:after|before)\s*$/.test(selector.trim()) === pseudoElement)
+          .map((selector) => weightOf(withoutPseudo(selector.trim())))
+          .filter(({ plain }) => cell?.matches(plain) === true)
       : [],
   )
 }
 
 const PAINTS = /(^|[;\s])background(-color)?\s*:/
 const ANIMATES = /(^|[;\s])transition\s*:/
+const SHADOWS = /(^|[;\s])box-shadow\s*:/
 
 interface Row {
   id: number
@@ -112,10 +134,11 @@ afterEach(() => {
 })
 
 describe('the pinned-column rules of antd.css', () => {
-  it('are exactly these: an opaque surface for a pinned cell, no fade, and the hover laid over it', () => {
+  it('are exactly these: an opaque surface for a pinned cell, no fade, the hover laid over it and the line while content is under it', () => {
     expect(pinnedRules()).toEqual([
       `${RULES.surface.join(', ')} { background: var(--rv-bg-raised); transition: none; }`,
       `${RULES.hover} { background: linear-gradient(var(--rv-hover), var(--rv-hover)), var(--rv-bg-raised); }`,
+      `${CUE.join(', ')} { border-inline-end: 1px solid var(--rv-border-strong); box-shadow: none; }`,
     ])
   })
 
@@ -180,6 +203,47 @@ describe('the pinned-column rules of antd.css', () => {
       expect(contenders.length, rule).toBeGreaterThan(0)
       for (const { plain, weight } of contenders) {
         expect(heavier(weightOf(rule).weight, weight), `${rule} vs ${plain}`).toBe(true)
+      }
+    }
+  })
+
+  it('draw the start-edge line only on the pinned cells Ant Design marks as covering content', () => {
+    const container = renderPinnedTable()
+    const selector = CUE.map(withoutPseudo).join(', ')
+    const cells = [...container.querySelectorAll('th, td')]
+    // At the end of the scroll (or when the table fits) nothing is marked, so there is no line.
+    expect(cells.filter((cell) => cell.matches(selector))).toHaveLength(0)
+
+    // jsdom has no layout, so Ant Design never marks a cell: put its mark where it would.
+    for (const cell of container.querySelectorAll('.ant-table-cell-fix-end')) {
+      cell.classList.add(SHADOW_SHOW)
+    }
+    const drawn = cells.filter((cell) => cell.matches(selector))
+    expect(drawn.map((cell) => cell.textContent)).toEqual(['', 'Настроить', 'Настроить'])
+    expect(drawn.filter((cell) => cell.matches(withoutPseudo(CUE[0])))).toHaveLength(1)
+    expect(drawn.filter((cell) => cell.matches(withoutPseudo(CUE[1])))).toHaveLength(2)
+  })
+
+  it('are heavier than every rule of Ant Design that draws a shadow in that place', () => {
+    const container = renderPinnedTable()
+    for (const cell of container.querySelectorAll('.ant-table-cell-fix-end')) {
+      cell.classList.add(SHADOW_SHOW)
+    }
+    const header = container.querySelector('thead th.ant-table-cell-fix')
+    const body = container.querySelector('tbody td.ant-table-cell-fix')
+    const cases: [Element | undefined, string][] = [
+      [header ?? undefined, CUE[0]],
+      [body ?? undefined, CUE[1]],
+    ]
+    for (const [cell, rule] of cases) {
+      // Ant Design still draws its shadow in the `::after` of a marked pinned cell: that is what
+      // the line replaces. If the library moves it, this finds none and the rule is dead.
+      const contenders = libraryRulesFor(cell, SHADOWS, true)
+      expect(contenders.length, rule).toBeGreaterThan(0)
+      for (const { plain, weight } of contenders) {
+        expect(heavier(weightOf(withoutPseudo(rule)).weight, weight), `${rule} vs ${plain}`).toBe(
+          true,
+        )
       }
     }
   })

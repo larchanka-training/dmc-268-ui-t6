@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { Repository } from '../../../entities/repository'
 import { useAuthStore } from '../../../features/auth'
+import { stubViewport } from '../../../test/viewport'
 import { RepositoryList } from './RepositoryList'
 import styles from './RepositoryList.module.css'
 
@@ -26,8 +27,15 @@ vi.mock('../../../shared/config/env', async (importOriginal) => {
 
 const originalLoginWithGitHub = useAuthStore.getState().loginWithGitHub
 
+// The full column set shows from a 1366px window (D16); below it the line under the name carries
+// the details. jsdom answers no media query by itself, so a test sets the window width. The edge is
+// written out here and not imported: a test that reads the constant passes for any value.
+const WIDE = 1440
+const EDGE = 1366
+
 afterEach(() => {
   cleanup()
+  vi.restoreAllMocks()
   mockSlug = ''
   mockClientId = 'test-client'
   mockMode.enabled = false
@@ -171,6 +179,7 @@ describe('RepositoryList', () => {
   })
 
   it('renders repository items with branch tags, CI badges, and status switches', () => {
+    stubViewport(WIDE)
     const handleToggle = vi.fn()
 
     render(
@@ -343,7 +352,8 @@ describe('RepositoryList', () => {
     expect(container.querySelector('table')?.style.tableLayout).toBe('auto')
   })
 
-  it('lists «Статус» second, so the pinned actions column never covers it (D15)', () => {
+  it('lists «Ревью» second, so the pinned actions column never covers it (D15, D16)', () => {
+    stubViewport(WIDE)
     const { container } = render(
       <RepositoryList
         settingsHref={settingsHref}
@@ -352,12 +362,12 @@ describe('RepositoryList', () => {
       />,
     )
 
-    // At 1280 px the table is wider than its container: the informational columns scroll under the
-    // pinned actions column, so the switch and the no-access link sit right after the name.
+    // The informational columns scroll under the pinned actions column when the table is wider
+    // than its container, so the switch and the no-access link sit right after the name.
     const headers = [...container.querySelectorAll('thead th')].map((th) => th.textContent)
     expect(headers).toEqual([
       'Репозиторий',
-      'Статус',
+      'Ревью',
       'Ветка',
       'Движок',
       'Ожидание CI',
@@ -365,6 +375,38 @@ describe('RepositoryList', () => {
       'Вердикт',
       '',
     ])
+  })
+
+  it('hides «Ветка», «Движок», «Ожидание CI» and «Лимит» in a window narrower than 1366px, and not from it', () => {
+    stubViewport(EDGE - 1)
+    const narrow = render(
+      <RepositoryList
+        settingsHref={settingsHref}
+        onSyncAccess={vi.fn()}
+        repositories={mockRepos}
+      />,
+    )
+    // «Ревью», «Вердикт» and the actions stay columns.
+    expect([...narrow.container.querySelectorAll('thead th')].map((th) => th.textContent)).toEqual([
+      'Репозиторий',
+      'Ревью',
+      'Вердикт',
+      '',
+    ])
+    narrow.unmount()
+
+    vi.restoreAllMocks()
+    stubViewport(EDGE)
+    const wide = render(
+      <RepositoryList
+        settingsHref={settingsHref}
+        onSyncAccess={vi.fn()}
+        repositories={mockRepos}
+      />,
+    )
+    expect(
+      [...wide.container.querySelectorAll('thead th')].map((th) => th.textContent),
+    ).toHaveLength(8)
   })
 
   it('opens the settings through onOpenSettings and keeps the page from loading', () => {
@@ -629,12 +671,11 @@ describe('RepositoryList no-access row', () => {
     expect(screen.queryByRole('button', { name: /Выбрать/ })).toBeNull()
     expect(screen.queryByText('Выбрать')).toBeNull()
     expect(screen.queryByRole('menuitem')).toBeNull()
-    // The row with access keeps its switch and its status label.
+    // The row with access keeps its switch.
     expect(screen.getAllByRole('switch')).toHaveLength(1)
-    expect(screen.getByText('Активен')).toBeTruthy()
   })
 
-  it('keeps a row with access as it was: a working switch, «Активен» / «Пауза», no link', () => {
+  it('keeps a row with access as it was: a working switch, no link', () => {
     const onToggleEnabled = vi.fn()
     render(
       <RepositoryList
@@ -645,8 +686,6 @@ describe('RepositoryList no-access row', () => {
       />,
     )
 
-    expect(screen.getByText('Активен')).toBeTruthy()
-    expect(screen.getByText('Пауза')).toBeTruthy()
     expect(screen.queryByText('Нет доступа')).toBeNull()
     expect(screen.queryByRole('link', { name: /Нет доступа/ })).toBeNull()
     const active = screen.getByRole('switch', {
@@ -670,8 +709,6 @@ describe('RepositoryList no-access row', () => {
 
     expect(screen.getByRole('link', { name: NO_ACCESS_LINK })).toBeTruthy()
     expect(screen.queryByRole('switch')).toBeNull()
-    expect(screen.queryByText('Активен')).toBeNull()
-    expect(screen.queryByText('Пауза')).toBeNull()
   })
 
   it('opens the settings of a no-access row in-app on a plain click and leaves a modified click to the browser', () => {
@@ -692,5 +729,115 @@ describe('RepositoryList no-access row', () => {
     render(noAccessList())
 
     expect(clickIsTakenOver(screen.getByRole('link', { name: NO_ACCESS_LINK }))).toBe(false)
+  })
+})
+
+// D16: the compact table of the reviewer's sketch.
+describe('RepositoryList compact table', () => {
+  function list(): React.ReactElement {
+    return (
+      <RepositoryList
+        onSyncAccess={vi.fn()}
+        repositories={[...mockRepos, UNREACHABLE_REPO]}
+        settingsHref={settingsHref}
+      />
+    )
+  }
+
+  /** The parts of the first details line with this «CI: …» part; separators left out. */
+  function detailsLine(ci: string): (string | null)[] {
+    return [...(screen.getAllByText(ci)[0]?.parentElement?.children ?? [])]
+      .filter((part) => part.getAttribute('aria-hidden') !== 'true')
+      .map((part) => part.textContent)
+  }
+
+  it('names a repository by its full name and, under it, its short name: no GitHub icon, no id', () => {
+    stubViewport(WIDE)
+    const { container } = render(list())
+
+    expect(container.querySelector('.anticon-github')).toBeNull()
+    expect(screen.getByText('dmc-268-ui-t6')).toBeTruthy()
+    expect(screen.getByText('dmc-268-api-t6')).toBeTruthy()
+    expect(container.textContent).not.toContain(mockRepos[0]?.id)
+    expect(container.textContent).not.toContain('•')
+  })
+
+  it('shows the switch alone: no «Активен» / «Пауза», the accessible name stays', () => {
+    stubViewport(WIDE)
+    render(list())
+
+    expect(screen.queryByText('Активен')).toBeNull()
+    expect(screen.queryByText('Пауза')).toBeNull()
+    expect(screen.queryByText('Статус')).toBeNull()
+    const active = screen.getByRole('switch', {
+      name: 'Ревью для larchanka-training/dmc-268-ui-t6',
+    })
+    const paused = screen.getByRole('switch', {
+      name: 'Ревью для larchanka-training/dmc-268-api-t6',
+    })
+    expect(active.getAttribute('aria-checked')).toBe('true')
+    expect(paused.getAttribute('aria-checked')).toBe('false')
+    expect(active.closest('td')?.textContent).toBe('')
+  })
+
+  it('opens the settings with an icon-only button: the name is in aria-label, «Настроить» in a tooltip', async () => {
+    stubViewport(WIDE)
+    render(list())
+
+    const link = screen.getByRole('link', { name: 'Настройки larchanka-training/dmc-268-ui-t6' })
+    expect(link.textContent).toBe('')
+    expect(link.querySelector('svg')).not.toBeNull()
+    expect(screen.queryByText('Настроить')).toBeNull()
+
+    fireEvent.mouseEnter(link)
+    expect((await screen.findByText('Настроить')).closest('[role="tooltip"]')).not.toBeNull()
+  })
+
+  it('writes the verdict as plain text, not a tag', () => {
+    stubViewport(WIDE)
+    const { container } = render(list())
+
+    for (const label of ['Комментарий', 'Запрос изменений']) {
+      const verdict = screen.getAllByText(label)[0]
+      expect(verdict?.closest('td')?.textContent).toBe(label)
+      // A `Tag` carries `data-variant`: the branch is the only one left in a row.
+      expect(verdict?.closest('[data-variant]')).toBeNull()
+    }
+    expect(container.querySelectorAll('[data-variant="solid"]')).toHaveLength(0)
+    expect(container.querySelectorAll('[data-variant="dot"]')).toHaveLength(0)
+  })
+
+  it('puts branch, engine, CI wait and limit on a line under the name on a narrow screen', () => {
+    stubViewport(EDGE - 1)
+    render(list())
+
+    // The sketch: the line takes the place of the short name, and the branch keeps its tag.
+    expect(detailsLine('CI: авто')).toEqual([
+      'main',
+      'DiffEngine (быстрый)',
+      'CI: авто',
+      'лимит 10',
+    ])
+    expect(detailsLine('CI: никогда')).toEqual([
+      'master',
+      'DiffEngine (быстрый)',
+      'CI: никогда',
+      'лимит 5',
+    ])
+    expect(screen.getAllByText('main')[0]?.closest('[data-variant="outline"]')).not.toBeNull()
+    expect(screen.queryByText('dmc-268-ui-t6')).toBeNull()
+    // The rows without access have it too, next to the link.
+    expect(screen.getAllByText(/^CI: /)).toHaveLength(3)
+    expect(screen.getByRole('link', { name: /^Нет доступа/ })).toBeTruthy()
+  })
+
+  it('has no such line on a wide screen: the columns carry it', () => {
+    stubViewport(WIDE)
+    render(list())
+
+    expect(screen.queryByText(/^CI: /)).toBeNull()
+    expect(screen.queryByText(/^лимит /)).toBeNull()
+    expect(screen.getAllByText('Авто')).toHaveLength(2)
+    expect(screen.getAllByText('10 комм.')).toHaveLength(2)
   })
 })

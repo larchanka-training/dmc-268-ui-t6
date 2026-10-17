@@ -34,6 +34,7 @@ import {
   ACCESS_REFRESH_TIMEOUT_PROMPT,
   resolveAccessRefreshPresentation,
 } from '../lib/accessRefreshPresentation'
+import { useViewportAtLeast } from '../lib/useViewportAtLeast'
 import styles from './RepositoryList.module.css'
 
 const { Text, Link } = Typography
@@ -45,6 +46,16 @@ const REFRESH_TOOLTIP = 'После добавления репозиторие�
 
 const APP_INSTALL_TOOLTIP =
   'После установки GitHub App на новый аккаунт нажмите «Обновить доступ»: откроется GitHub, затем вы вернётесь сюда. Репозиторий может появиться с задержкой до нескольких минут'
+
+/**
+ * The window width from which the table shows every column (D16). The full set is 1027.2px wide
+ * with the names of the mock repositories (33 characters); the table's scroller is the window minus
+ * the 232px sidebar, the 64px page margins and the table's 2px frame (982px at 1280px), so the set
+ * fits from 1326px (under 1px to spare) and not at 1280px. 1366px leaves 41px for longer names.
+ * Below it, branch, engine, CI wait and limit move to a line under the name. Not an Ant Design
+ * breakpoint (1200px, 1600px): neither fits.
+ */
+const FULL_TABLE_MIN_WIDTH = 1366
 
 const EMPTY_REPOSITORIES_DESCRIPTION =
   'Репозитории ещё не подключены. После установки GitHub App на новый аккаунт или добавления репозиториев в уже подключённую установку нажмите «Обновить доступ»: откроется GitHub, затем вы вернётесь сюда. Репозиторий может появиться с задержкой до нескольких минут.'
@@ -78,10 +89,11 @@ interface StatusCellProps {
 }
 
 /**
- * The status of a row: a switch with its label. While the GitHub App has no access to the
- * repository the api serves `enabled: false` whatever was stored (api PR #156, SD §6.9), so the
- * row has no switch (D13): it shows a warning icon and the link «Нет доступа» to the settings
- * page, where the choice lives (D17); the stored preference is write-only and never shown.
+ * The review of a row: the switch alone, its accessible name says what it is (D16). While the
+ * GitHub App has no access to the repository the api serves `enabled: false` whatever was stored
+ * (api PR #156, SD §6.9), so the row has no switch (D13): it shows a warning icon and the link
+ * «Нет доступа» to the settings page, where the choice lives (D17); the stored preference is
+ * write-only and never shown.
  */
 const StatusCell: FC<StatusCellProps> = ({
   repository,
@@ -94,18 +106,13 @@ const StatusCell: FC<StatusCellProps> = ({
 
   if (installationAvailable) {
     return (
-      <Flex align="center" gap={10}>
-        <Switch
-          aria-label={`Ревью для ${fullName}`}
-          checked={enabled}
-          disabled={updating}
-          loading={updating}
-          onChange={(checked) => void onToggleEnabled?.(id, checked)}
-        />
-        <Text className={styles.switchLabel} type="secondary">
-          {enabled ? 'Активен' : 'Пауза'}
-        </Text>
-      </Flex>
+      <Switch
+        aria-label={`Ревью для ${fullName}`}
+        checked={enabled}
+        disabled={updating}
+        loading={updating}
+        onChange={(checked) => void onToggleEnabled?.(id, checked)}
+      />
     )
   }
 
@@ -141,6 +148,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
   )
   const [search, setSearch] = useState('')
   const [filterActive, setFilterActive] = useState<'all' | 'active'>('all')
+  const fullTable = useViewportAtLeast(FULL_TABLE_MIN_WIDTH)
 
   const isAppConfigured = Boolean(GITHUB_APP_SLUG)
   const isSyncConfigured = Boolean(GITHUB_CLIENT_ID || isMockMode())
@@ -204,56 +212,8 @@ export const RepositoryList: FC<RepositoryListProps> = ({
   const ENGINE_LABEL: Record<RepositoryEngine, string> = { fast: 'DiffEngine (быстрый)' }
   const activeCount = repositories.filter((r) => r.enabled).length
 
-  const columns: TableColumnsType<Repository> = [
-    {
-      title: 'Репозиторий',
-      dataIndex: 'fullName',
-      key: 'fullName',
-      render: (fullName: string, record: Repository) => {
-        const shortName = fullName.split('/')[1] ?? fullName
-        const href = safeHttpUrl(record.url)
-        return (
-          <Flex align="center" gap={10}>
-            <GithubOutlined className={styles.repoIcon} />
-            <div className={styles.repoName}>
-              {href ? (
-                <Link href={href} rel="noopener noreferrer" strong target="_blank">
-                  {fullName}
-                </Link>
-              ) : (
-                <Text strong>{fullName}</Text>
-              )}
-              <Text className={styles.repoMeta} type="secondary">
-                {shortName} • {record.id}
-              </Text>
-            </div>
-          </Flex>
-        )
-      },
-    },
-    {
-      title: 'Статус',
-      dataIndex: 'enabled',
-      key: 'enabled',
-      render: (_: boolean, record: Repository) => {
-        const updating = updatingRepoIds
-          ? Array.isArray(updatingRepoIds)
-            ? updatingRepoIds.includes(record.id)
-            : updatingRepoIds.has(record.id)
-          : false
-        return (
-          <StatusCell
-            onSettingsClick={(event) => {
-              goToSettings(event, record)
-            }}
-            onToggleEnabled={onToggleEnabled}
-            repository={record}
-            settingsHref={settingsHref(record)}
-            updating={updating}
-          />
-        )
-      },
-    },
+  // On a narrow window these four are not columns: the line under the name shows them instead.
+  const detailColumns: TableColumnsType<Repository> = [
     {
       title: 'Ветка',
       dataIndex: 'defaultBranch',
@@ -282,18 +242,78 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       key: 'maxComments',
       render: (count: number) => <Text>{count} комм.</Text>,
     },
+  ]
+
+  const columns: TableColumnsType<Repository> = [
+    {
+      title: 'Репозиторий',
+      dataIndex: 'fullName',
+      key: 'fullName',
+      render: (fullName: string, record: Repository) => {
+        const shortName = fullName.split('/')[1] ?? fullName
+        const href = safeHttpUrl(record.url)
+        return (
+          <div className={styles.repoName}>
+            {href ? (
+              <Link href={href} rel="noopener noreferrer" strong target="_blank">
+                {fullName}
+              </Link>
+            ) : (
+              <Text strong>{fullName}</Text>
+            )}
+            {fullTable ? (
+              <Text className={styles.repoMeta} type="secondary">
+                {shortName}
+              </Text>
+            ) : (
+              <div className={styles.repoDetails}>
+                <Tag icon={<BranchesOutlined />} variant="outline">
+                  {record.defaultBranch}
+                </Tag>
+                <span aria-hidden="true">·</span>
+                <span>{ENGINE_LABEL[record.defaultEngine]}</span>
+                <span aria-hidden="true">·</span>
+                <span>{`CI: ${WAIT_FOR_CI_LABEL[record.waitForCi].toLowerCase()}`}</span>
+                <span aria-hidden="true">·</span>
+                <span>{`лимит ${String(record.maxComments)}`}</span>
+              </div>
+            )}
+          </div>
+        )
+      },
+    },
+    {
+      title: 'Ревью',
+      dataIndex: 'enabled',
+      key: 'enabled',
+      render: (_: boolean, record: Repository) => {
+        const updating = updatingRepoIds
+          ? Array.isArray(updatingRepoIds)
+            ? updatingRepoIds.includes(record.id)
+            : updatingRepoIds.has(record.id)
+          : false
+        return (
+          <StatusCell
+            onSettingsClick={(event) => {
+              goToSettings(event, record)
+            }}
+            onToggleEnabled={onToggleEnabled}
+            repository={record}
+            settingsHref={settingsHref(record)}
+            updating={updating}
+          />
+        )
+      },
+    },
+    ...(fullTable ? detailColumns : []),
     {
       title: 'Вердикт',
       dataIndex: 'reviewEvent',
       key: 'reviewEvent',
-      render: (event: ReviewEvent) =>
-        event === 'REQUEST_CHANGES' ? (
-          <Tag tone="high" variant="solid">
-            Запрос изменений
-          </Tag>
-        ) : (
-          <Tag>Комментарий</Tag>
-        ),
+      // Plain text: a repository setting is not an alarm, and solid tags are for what needs action.
+      render: (event: ReviewEvent) => (
+        <Text>{event === 'REQUEST_CHANGES' ? 'Запрос изменений' : 'Комментарий'}</Text>
+      ),
     },
     {
       title: '',
@@ -303,17 +323,17 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       // D14: the table scrolls under the column, so «Настроить» is visible at any width.
       fixed: 'right',
       render: (_: unknown, record: Repository) => (
-        <Button
-          aria-label={`Настройки ${record.fullName}`}
-          href={settingsHref(record)}
-          icon={<IconSettings height={14} width={14} />}
-          onClick={(event) => {
-            goToSettings(event, record)
-          }}
-          size="small"
-        >
-          Настроить
-        </Button>
+        <Tooltip title="Настроить">
+          <Button
+            aria-label={`Настройки ${record.fullName}`}
+            href={settingsHref(record)}
+            icon={<IconSettings height={14} width={14} />}
+            onClick={(event) => {
+              goToSettings(event, record)
+            }}
+            size="small"
+          />
+        </Tooltip>
       ),
     },
   ]

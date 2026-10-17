@@ -48,6 +48,18 @@
   background: linear-gradient(var(--rv-hover), var(--rv-hover)), var(--rv-bg-raised);
 }
 
+/* Table: while content scrolls under a pinned column (antd marks it `...-fix-end-shadow-show`, and
+   drops the mark at the end of the scroll) the column's start edge shows it. Ant Design draws a soft
+   shadow there, in the pseudo-element that sits against the cell; surfaces are flat (DESIGN_SYSTEM
+   §6), so the pseudo-element draws a 1px line in the noticeable border colour instead: the same
+   box, nothing moves when the mark toggles. A pinned start column (`-fix-start-shadow-show`):
+   no table has one today. */
+.ant-table-wrapper .ant-table-thead > tr > th.ant-table-cell-fix-end-shadow-show::after,
+.ant-table-wrapper .ant-table-tbody > tr > td.ant-table-cell-fix-end-shadow-show::after {
+  border-inline-end: 1px solid var(--rv-border-strong);
+  box-shadow: none;
+}
+
 .ant-table-wrapper .ant-table-pagination.ant-pagination {
   margin: 12px 0 0;
 }

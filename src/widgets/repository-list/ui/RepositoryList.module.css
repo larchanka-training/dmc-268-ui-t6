@@ -37,11 +37,6 @@
   min-width: 0;
 }
 
-.repoIcon {
-  font-size: 18px;
-  opacity: 0.6;
-}
-
 .repoName {
   display: grid;
   min-width: 0;
@@ -55,8 +50,13 @@
   white-space: nowrap;
 }
 
-.switchLabel {
+.repoDetails {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--rv-text-2);
   font-size: var(--rv-fs-xs);
+  white-space: nowrap;
 }
 
 .noAccessIcon {
