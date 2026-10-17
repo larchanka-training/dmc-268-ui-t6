@@ -61,11 +61,15 @@ const activeRun: RunSession = {
   finishedAt: null,
 }
 
-function renderActiveControls() {
-  const router = createMemoryRouter([{ path: '/', element: <RunControls run={activeRun} /> }], {
+function renderControlsFor(run: RunSession) {
+  const router = createMemoryRouter([{ path: '/', element: <RunControls run={run} /> }], {
     initialEntries: ['/'],
   })
   return render(<RouterProvider router={router} />)
+}
+
+function renderActiveControls() {
+  return renderControlsFor(activeRun)
 }
 
 afterEach(() => {
@@ -166,5 +170,31 @@ describe('RunControls', () => {
       expect(screen.getByText(text)).toBeTruthy()
     })
     expect(screen.queryByText('run not found')).toBeNull()
+  })
+
+  it.each(['running', 'publishing'] as const)(
+    'replaces «Отменить» with a disabled «Отмена запрошена» on a %s run after a cancel request',
+    (status) => {
+      renderControlsFor({ ...activeRun, status, cancelRequested: true })
+
+      const button = screen.getByRole('button', { name: 'Отмена запрошена' })
+      expect((button as HTMLButtonElement).disabled).toBe(true)
+      fireEvent.click(button)
+      expect(mockCancelMutate).not.toHaveBeenCalled()
+      expect(screen.queryByText('Отменить')).toBeNull()
+    },
+  )
+
+  it('shows no cancel-side button on a terminal run even when cancelRequested is true', () => {
+    renderControlsFor({
+      ...terminalRun,
+      status: 'cancelled',
+      finishedAt: '2026-09-18T11:55:12.000Z',
+      cancelRequested: true,
+    })
+
+    expect(screen.queryByText('Отмена запрошена')).toBeNull()
+    expect(screen.queryByText('Отменить')).toBeNull()
+    expect(screen.getByText('Перезапустить')).toBeTruthy()
   })
 })
