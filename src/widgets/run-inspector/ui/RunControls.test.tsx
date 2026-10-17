@@ -170,7 +170,7 @@ describe('RunControls', () => {
   })
 
   it.each(['running', 'publishing'] as const)(
-    'turns «Отменить» into an aria-disabled «Отмена запрошена» on a %s run after a cancel request',
+    'shows an aria-disabled «Отмена запрошена» instead of «Отменить» on a %s run with a cancel request',
     (status) => {
       renderControlsFor({ ...activeRun, status, cancelRequested: true })
 
@@ -219,6 +219,8 @@ describe('RunControls', () => {
     const button = screen.getByRole('button', { name: 'Отменить' })
     expect((button as HTMLButtonElement).disabled).toBe(false)
     expect(button.hasAttribute('aria-disabled')).toBe(false)
+    expect(button.className).toContain('ant-btn-color-dangerous')
+    expect(button.className).not.toContain('ant-btn-disabled')
     expect(screen.queryByText('Отмена запрошена')).toBeNull()
   })
 
