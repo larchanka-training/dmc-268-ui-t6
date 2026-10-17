@@ -376,6 +376,8 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       key: 'actions',
       onHeaderCell: () => ({ 'aria-label': 'Настройки' }),
       align: 'right',
+      // D14: the table scrolls under the column, so «Настроить» is visible at any width.
+      fixed: 'right',
       render: (_: unknown, record: Repository) => (
         <Button
           aria-label={`Настройки ${record.fullName}`}
@@ -498,6 +500,9 @@ export const RepositoryList: FC<RepositoryListProps> = ({
             pagination={{ pageSize: 10 }}
             rowKey="id"
             scroll={{ x: 900 }}
+            // A pinned column makes Ant Design lay the table out as `fixed`: equal column widths, and
+            // the long names run over the next column. `auto` keeps the widths the content asks for.
+            tableLayout="auto"
           />
         </>
       )}

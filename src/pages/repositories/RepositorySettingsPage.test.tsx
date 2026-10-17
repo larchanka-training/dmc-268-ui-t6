@@ -373,8 +373,19 @@ describe('RepositorySettingsPage', () => {
 
     renderPage(settingsPath(UI_REPO.id))
 
-    expect(await screen.findByText(SERVER_500_TEXT)).toBeTruthy()
+    const errorText = await screen.findByText(SERVER_500_TEXT)
     expect(screen.queryByLabelText(LIMIT_LABEL)).toBeNull()
+    // Browser round 9, 5c: the button is under the error text, in the description, and not in the
+    // `action` slot, which lays an Alert out as a row beside the text (antd 6 names it
+    // `ant-alert-actions`).
+    expect(errorText.closest('.ant-alert')?.querySelector('.ant-alert-actions')).toBeNull()
+    const retry = retryButton()
+    expect(retry.closest('.ant-alert-description')).not.toBeNull()
+    expect(retry.closest('.ant-alert-description')).toBe(
+      errorText.closest('.ant-alert-description'),
+    )
+    expect(errorText.compareDocumentPosition(retry) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(retry.className).toContain('ant-btn-primary')
 
     backend.failList = false
     fireEvent.click(screen.getByRole('button', { name: 'Повторить попытку' }))
@@ -604,6 +615,15 @@ describe('RepositorySettingsPage', () => {
     expect(notice.closest('.ant-alert')?.classList.contains('ant-alert-warning')).toBe(true)
     // «Сохранить» stays the only primary button of the page.
     expect(retryButton().className).not.toContain('ant-btn-primary')
+    // Browser round 9, 5c: the button is under the text, in the description, and not in the
+    // `action` slot, which lays an Alert out as a row beside the text (antd 6 names it
+    // `ant-alert-actions`).
+    expect(notice.closest('.ant-alert')?.querySelector('.ant-alert-actions')).toBeNull()
+    expect(retryButton().closest('.ant-alert')).toBe(notice.closest('.ant-alert'))
+    expect(retryButton().closest('.ant-alert-description')).not.toBeNull()
+    expect(
+      notice.compareDocumentPosition(retryButton()) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
   })
 
   it('keeps the form while the list is refetched after a save', async () => {
