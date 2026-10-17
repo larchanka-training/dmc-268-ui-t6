@@ -88,6 +88,91 @@ describe('initMockTransport', () => {
       )
     })
 
+    it('persists cancellation of a rerun and permits its replacement', async () => {
+      const fixturesBefore = structuredClone(mockRunsListPage)
+      const created = await apiClient<RunSession>(endpoints.runs.rerun(completedRunId))
+
+      const cancelled = RunSessionSchema.parse(
+        await apiClient<unknown>(endpoints.runs.cancel(created.id)),
+      )
+      expect(cancelled).toMatchObject({ status: 'cancelled', cancelRequested: true })
+      cancelled.status = 'queued'
+      cancelled.cancelRequested = false
+      cancelled.pullRequest.number = 999
+
+      const detail = RunDetailSchema.parse(
+        await apiClient<unknown>(endpoints.runs.detail(created.id)),
+      )
+      expect(detail).toMatchObject({
+        status: 'cancelled',
+        cancelRequested: true,
+        pullRequest: { number: 34 },
+      })
+      const page = RunListPageSchema.parse(await apiClient<unknown>(endpoints.runs.list()))
+      expect(page.items.find((run) => run.id === created.id)).toMatchObject({
+        status: 'cancelled',
+        cancelRequested: true,
+      })
+
+      const replacement = RunSessionSchema.parse(
+        await apiClient<unknown>(endpoints.runs.rerun(completedRunId)),
+      )
+      expect(replacement.id).not.toBe(created.id)
+      expect(replacement).toMatchObject({ status: 'queued', cancelRequested: false })
+      await expect(apiClient(endpoints.runs.rerun(completedRunId))).rejects.toEqual(
+        new ApiError(409, 'Conflict', { detail: 'Active run already exists' }),
+      )
+      expect(mockRunsListPage).toEqual(fixturesBefore)
+    })
+
+    it('serves empty results for a created rerun before and after cancellation', async () => {
+      const created = await apiClient<RunSession>(endpoints.runs.rerun(completedRunId))
+
+      for (const cancelled of [false, true]) {
+        if (cancelled) await apiClient(endpoints.runs.cancel(created.id))
+        expect.soft(await apiClient<unknown>(endpoints.runs.actions(created.id))).toEqual([])
+        expect.soft(await apiClient<unknown>(endpoints.runs.comments(created.id))).toEqual([])
+        const detail = RunDetailSchema.parse(
+          await apiClient<unknown>(endpoints.runs.detail(created.id)),
+        )
+        expect(detail.actionCount).toBe(0)
+        expect(detail.findings).toEqual([])
+      }
+    })
+
+    it('preserves fixture results and walking progression after creating a rerun', async () => {
+      await apiClient(endpoints.runs.rerun(completedRunId))
+      const fixtureRerunId = '11111111-1111-4111-8111-000000000001'
+      const fixture = await apiClient<RunDetail>(endpoints.runs.detail(fixtureRerunId))
+      expect(fixture).toMatchObject({ status: 'queued', trigger: 'rerun' })
+      expect(await apiClient<unknown>(endpoints.runs.actions(fixtureRerunId))).toHaveLength(34)
+      expect(await apiClient<unknown>(endpoints.runs.comments(fixtureRerunId))).toHaveLength(3)
+      expect(await apiClient<unknown>(endpoints.runs.actions(completedRunId))).toHaveLength(34)
+      expect(await apiClient<unknown>(endpoints.runs.comments(completedRunId))).toHaveLength(3)
+
+      expect(await apiClient<unknown>(endpoints.runs.actions(WALKING_RUN_ID))).toEqual([])
+      expect(await apiClient<unknown>(endpoints.runs.comments(WALKING_RUN_ID))).toEqual([])
+      vi.advanceTimersByTime(2000)
+      expect(await apiClient<unknown>(endpoints.runs.actions(WALKING_RUN_ID))).toHaveLength(1)
+      expect(await apiClient<unknown>(endpoints.runs.comments(WALKING_RUN_ID))).toEqual([])
+      vi.advanceTimersByTime(12_000)
+      expect(await apiClient<unknown>(endpoints.runs.actions(WALKING_RUN_ID))).toHaveLength(9)
+      expect(await apiClient<unknown>(endpoints.runs.comments(WALKING_RUN_ID))).toHaveLength(3)
+    })
+
+    it('lists reruns newest first while preserving fixture order', async () => {
+      const before = await apiClient<RunListPage>(endpoints.runs.list())
+      const first = await apiClient<RunSession>(endpoints.runs.rerun(completedRunId))
+      vi.advanceTimersByTime(1000)
+      const second = await apiClient<RunSession>(
+        endpoints.runs.rerun('11111111-1111-4111-8111-000000000006'),
+      )
+
+      const page = RunListPageSchema.parse(await apiClient<unknown>(endpoints.runs.list()))
+      expect(page.items.slice(0, 2).map((run) => run.id)).toEqual([second.id, first.id])
+      expect(page.items.slice(2).map((run) => run.id)).toEqual(before.items.map((run) => run.id))
+    })
+
     it('gives different PRs unique UUIDs and resets previous errors and cancellation', async () => {
       const failed = RunSessionSchema.parse(
         await apiClient<unknown>(endpoints.runs.rerun('11111111-1111-4111-8111-000000000005')),

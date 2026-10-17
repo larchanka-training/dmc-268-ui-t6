@@ -42,6 +42,7 @@ export const MOCK_OAUTH_CODE = 'mock_code_123'
 // Working copy of the fixture: PATCH edits stay here, `mockRepositories` is never written.
 let repositories: Repository[] = structuredClone(mockRepositories)
 let runSessions: RunSession[] = structuredClone(mockRunsListPage.items)
+const createdRunIds = new Set<string>()
 
 function findRunSession(id: string) {
   const session =
@@ -171,6 +172,7 @@ function handleMockTransport(
     if (!runId || !findRunSession(runId)) {
       throw new ApiError(404, 'Not Found', { message: 'Run not found' })
     }
+    if (createdRunIds.has(runId)) return []
     return runId === FAILED_RUN_ID ? makeFailedRunActions() : makeDuoActions(runId)
   }
 
@@ -194,8 +196,9 @@ function handleMockTransport(
     if (!runId || !findRunSession(runId)) {
       throw new ApiError(404, 'Not Found', { message: 'Run not found' })
     }
-    // No review is published before the walking run succeeds, and the failed run never gets one.
+    // Created runs have no review; fixture reviews follow the existing timeline.
     const published =
+      createdRunIds.has(runId) ||
       runId === FAILED_RUN_ID ||
       (runId === WALKING_RUN_ID && currentWalkingRun().session.status !== 'succeeded')
         ? []
@@ -230,10 +233,15 @@ function handleMockTransport(
     if (!session) {
       throw new ApiError(404, 'Not Found', { message: 'Run not found' })
     }
+    session.cancelRequested = true
     if (session.status === 'queued') {
-      return { ...session, status: 'cancelled' as const, cancelRequested: true }
+      session.status = 'cancelled'
     }
-    return { ...session, cancelRequested: true }
+    if (runId !== WALKING_RUN_ID) {
+      const index = runSessions.findIndex((run) => run.id === runId)
+      runSessions[index] = structuredClone(session)
+    }
+    return session
   }
 
   const runRerunMatch = /^\/runs\/([^/]+)\/rerun$/.exec(endpoint.path)
@@ -270,7 +278,8 @@ function handleMockTransport(
       actionCount: 0,
       errorCode: null,
     }
-    runSessions.push(rerun)
+    runSessions.unshift(rerun)
+    createdRunIds.add(rerun.id)
     return structuredClone(rerun)
   }
 
@@ -282,6 +291,7 @@ export function initMockTransport(): void {
 
   repositories = structuredClone(mockRepositories)
   runSessions = structuredClone(mockRunsListPage.items)
+  createdRunIds.clear()
   resetWalkingRun()
 
   setMockAuthAdapter({

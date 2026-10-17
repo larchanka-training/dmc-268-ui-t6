@@ -98,3 +98,48 @@ localStorage, фильтрация/пагинация списка, fixture rede
 Reset is page reload or `initMockTransport()`; created sessions must disappear
 and original fixtures remain intact. If a change fails verification, revert only
 the issue's hunks, leaving preexisting untracked paths untouched. No open questions.
+
+## PR #124: follow-up по трём review comments (2026-10-17)
+
+Ветка rebased на `origin/main@6cf6139`. Пользователь поручил исправить все
+замечания и обновить этот же PR через agent-loop. Follow-up план и public test
+seams одобрены пользователем 2026-10-17: «Да, выполнить весь план».
+Следующий scope дополняет исходное исключение cancel: отмена должна
+сохранять состояние созданного rerun. UI, API contract и зависимости не меняются.
+Исходный untracked `.pnpm-store/` остаётся вне работы.
+
+Fixed baseline для follow-up review: `83e903e731face546a88b95b656d751525b338e7`.
+Ownership проверен координатором: открытый PR #123 не владеет mock transport и
+его тестом. Backend contract подтверждает persistent queued → cancelled и порядок
+`created_at DESC, id DESC`; backend edits не требуются.
+
+Подтверждаемые public test seams: `initMockTransport()`, `apiClient` + `endpoints`
+из существующего transport suite; экспортированные `rerunRun`, `cancelRun`,
+`fetchRunDetail`, `fetchRunList`, `fetchRunActions` доступны для проверки client
+contract. Внутреннее хранилище не экспортировать; comments проверять через
+существующий endpoint. In-memory transport не требует HTTP/Postman setup.
+
+1. **Сохранить отмену.** RED regression через public transport: rerun terminal
+   fixture → cancel созданного queued run → GET detail/list сохраняют
+   `status: 'cancelled'`, `cancelRequested: true` → следующий rerun того же PR
+   успешен. Сохранить изменение в рабочей коллекции без мутации fixtures/ответов;
+   walking session продолжает принадлежать timeline.
+2. **Не выдавать чужие результаты.** Созданные этим транспортом rerun sessions
+   получают пустые `/actions` и `/comments`; detail уже имеет пустые findings и
+   `actionCount: 0`. RED regression проверяет эти ответы до и после отмены;
+   отдельные assertions сохраняют существующие fixture results и walking
+   progression. Различать созданные sessions и fixtures по происхождению, а не
+   только по статусу или `trigger`.
+3. **Показывать новый run первым.** Добавлять rerun в начало рабочей коллекции.
+   RED regression создаёт два run разных PR и проверяет первые два ID в GET list
+   в обратном порядке создания, сохраняя относительный порядок fixtures.
+
+Все три исправления затрагивают общий transport, поэтому выполнять последовательно
+test-first в `src/app/mocks/mockTransport.ts` и co-located test; существующий
+walking timeline suite служит проверкой совместимости. После GREEN выполнить
+шесть frontend gates, независимые Standards/Spec reviews и повторную проверку
+после исправлений. Проверить ownership открытых PR перед product edits и повторно
+перед публикацией; rebase на свежий main. Publisher обновляет существующий PR #124
+с русским описанием и отвечает в каждом из трёх threads с SHA исправления,
+не разрешая threads и не выполняя merge/закрытие issue. Подробные AC и evidence
+продолжаются в [110-todo.md](110-todo.md).
