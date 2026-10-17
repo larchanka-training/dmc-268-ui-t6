@@ -343,6 +343,30 @@ describe('RepositoryList', () => {
     expect(container.querySelector('table')?.style.tableLayout).toBe('auto')
   })
 
+  it('lists «Статус» second, so the pinned actions column never covers it (D15)', () => {
+    const { container } = render(
+      <RepositoryList
+        settingsHref={settingsHref}
+        onSyncAccess={vi.fn()}
+        repositories={mockRepos}
+      />,
+    )
+
+    // At 1280 px the table is wider than its container: the informational columns scroll under the
+    // pinned actions column, so the switch and the no-access «Выбрать» sit right after the name.
+    const headers = [...container.querySelectorAll('thead th')].map((th) => th.textContent)
+    expect(headers).toEqual([
+      'Репозиторий',
+      'Статус',
+      'Ветка',
+      'Движок',
+      'Ожидание CI',
+      'Лимит',
+      'Вердикт',
+      '',
+    ])
+  })
+
   it('opens the settings through onOpenSettings and keeps the page from loading', () => {
     const onOpenSettings = vi.fn()
     render(
