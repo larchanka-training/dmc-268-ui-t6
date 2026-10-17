@@ -1,4 +1,9 @@
-import { parseRunUpdatedEvent, parseSseBuffer, runQueryKeys } from '../../entities/run'
+import {
+  invalidateRunLists,
+  parseRunUpdatedEvent,
+  parseSseBuffer,
+  runQueryKeys,
+} from '../../entities/run'
 import type { RunUpdatedEvent } from '../../entities/run'
 import { getAccessToken, refreshAccessToken } from '../../shared/api/client'
 import { API_BASE_URL } from '../../shared/config/env'
@@ -60,11 +65,12 @@ function invalidateRunQueries(runId: string): void {
 
 /**
  * Applies one `run.updated` event: the queries of that run, plus the runs list, whose status
- * column shows the new status. The resync after a reconnect does not touch the list.
+ * column shows the new status (a page of the list that is being loaded is kept, see
+ * `invalidateRunLists`). The resync after a reconnect does not touch the list.
  */
 export function applyRunUpdated(event: RunUpdatedEvent): void {
   invalidateRunQueries(event.runId)
-  void queryClient.invalidateQueries({ queryKey: runQueryKeys.list() })
+  invalidateRunLists(queryClient)
 }
 
 /**
