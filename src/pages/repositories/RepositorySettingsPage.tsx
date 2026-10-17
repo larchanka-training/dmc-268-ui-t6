@@ -2,7 +2,14 @@ import { RightOutlined } from '@ant-design/icons'
 import { useIsMutating } from '@tanstack/react-query'
 import { Alert, App, Breadcrumb, Button, Empty, Flex, Skeleton } from 'antd'
 import { useCallback, useEffect, useRef, useState, type FC, type ReactNode } from 'react'
-import { Link, useHref, useLinkClickHandler, useParams } from 'react-router'
+import {
+  Link,
+  useBlocker,
+  useHref,
+  useLinkClickHandler,
+  useParams,
+  type BlockerFunction,
+} from 'react-router'
 
 import {
   RepositoryIdSchema,
@@ -54,7 +61,7 @@ const NotAvailable: FC<{ description: string }> = ({ description }) => (
 )
 
 const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
   const { data: repository, isPending, isError, isFetching, error, refetch } = useRepository(repoId)
   const updateMutation = useUpdateRepository()
 
@@ -97,6 +104,61 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
       setNotice(null)
     }
   }, [notice, isFetching, isError, saving, repository])
+
+  // Leaving the page loses the draft (the form of this page is built once from the repository):
+  // a move to another page asks first (decision D12). A change of the search or the hash keeps
+  // the page, so it passes. The draft is asked of the form at the moment of the move, through the
+  // same handle as above; no form on screen (loading, an error) means nothing to lose. One
+  // dialog per block: its cleanup closes it, so a re-run of the effect cannot leave two.
+  const shouldBlockLeaving = useCallback<BlockerFunction>(
+    ({ currentLocation, nextLocation }) =>
+      currentLocation.pathname !== nextLocation.pathname &&
+      formRef.current?.hasUnsavedChanges() === true,
+    [],
+  )
+  const blocker = useBlocker(shouldBlockLeaving)
+  useEffect(() => {
+    if (blocker.state !== 'blocked') {
+      return
+    }
+    const dialog = modal.confirm({
+      title: 'Уйти без сохранения?',
+      content: 'Изменения настроек не сохранены и пропадут.',
+      okText: 'Уйти',
+      // The danger button of the design system is the outlined one (DESIGN_SYSTEM §8, `antd.css`),
+      // and «Сохранить» stays the only primary: the confirm's default OK would be a second one.
+      okType: 'default',
+      okButtonProps: { danger: true },
+      cancelText: 'Остаться',
+      onOk: () => {
+        blocker.proceed()
+      },
+      onCancel: () => {
+        blocker.reset()
+      },
+    })
+    return () => {
+      dialog.destroy()
+    }
+  }, [blocker, modal])
+
+  // A reload or a tab close loses the draft too: the browser asks, with its own words.
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent): void => {
+      if (formRef.current?.hasUnsavedChanges() !== true) {
+        return
+      }
+      event.preventDefault()
+      // Browsers that predate `preventDefault()` for this event show the prompt only when this
+      // is set; lib.dom marks it deprecated for that reason.
+      // eslint-disable-next-line @typescript-eslint/no-deprecated -- the legacy way to ask
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [])
 
   // The retry button goes away with the warning, and also because of a refetch it did not start
   // (a refocused window, the refetch after a save). If it held the focus, the control that takes
