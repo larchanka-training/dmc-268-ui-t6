@@ -159,3 +159,62 @@ scroll. Медленный коммит доказывают детермини�
 
 Блокирующих вопросов нет. Внутренний интерфейс адаптера выбирает development
 в рамках этих инвариантов и тестовой границы.
+
+## Review follow-up: PR #122 — исправление таймера upstream
+
+План подготовлен 2026-10-17 на head `dcda299`; пользователь одобрил реализацию
+и публикацию. Перед финальными проверками ветка безопасно rebased на
+`origin/main` = `120203c` (новый head до follow-up commit `4ccef32`).
+Основание: [комментарий reviewer](https://github.com/larchanka-training/dmc-268-ui-t6/pull/122#issuecomment-6235814747).
+Установленный `antd@6.6.5` требует `@rc-component/util: ^1.13.0`, исходный lockfile
+разрешал `1.13.0`; исходный `useDelayState` отменял предыдущий timer при
+новой записи, но не при unmount. [Upstream PR #806](https://github.com/react-component/util/pull/806)
+merged 2026-09-17 (`335e3cf8`): cleanup через `cancelPending`, regression для
+ms и RAF. Опубликованный `1.14.0` подтверждён через `pnpm view` в публичном npm registry;
+установленный hook содержит `React.useEffect(() => cancelPending, [cancelPending])`.
+GitHub tags для этой проверки не требуются.
+
+### Решение и границы
+
+- Обновить только транзитивный `@rc-component/util` до `1.14.0` штатной командой
+  pnpm для глубокой зависимости. Не добавлять direct dependency или override без
+  необходимости; не обновлять antd и другие пакеты. Просмотреть diff lockfile,
+  проверить отсутствие оставшихся `1.13.0` в используемом дереве.
+- Удалить весь `afterAll` с ожиданием 10ms из `src/test/setup.ts` и его import;
+  сохранить cleanup, mocks и существующие wait budgets.
+- Добавить один co-located regression на публичной границе Ant Design
+  `Form.Item`: unmount при ожидающем отложенном обновлении не оставляет таймер.
+  Доказать RED на util 1.13.0 без глобального wait и GREEN на 1.14.0; использовать
+  fake timers с восстановлением, без sleep/подавления unhandled errors. Точный
+  минимальный harness выбирает development, подтвердив, что старый util реально
+  ломает assertion. Исходный CI failure также остаётся evidence реальной гонки.
+- `navigationKey` не менять: фраза FA уже исправлена commit `1afee38`; автор
+  [ответил в thread](https://github.com/larchanka-training/dmc-268-ui-t6/pull/122#discussion_r4303092071).
+  Она соответствует раннему выходу effect при переданной подписке.
+
+### Порядок и checkpoints
+
+1. После одобрения плана освежить main/ownership; перед edit setup оставить
+   новый комментарий в #106 о замене ранее согласованного workaround upstream
+   cleanup. #106 владеет setup, #109 не пересекается; lockfile свободен.
+   Publisher безопасно rebases ветку на актуальный main перед финальными gates.
+2. RED regression → точечное обновление lockfile и удаление workaround → GREEN.
+   Checkpoint: установленный пакет содержит unmount cleanup, тест доказан
+   мутацией/возвратом 1.13.0, diff ограничен lockfile/setup/test/plans.
+3. Три запуска с обычными CI workers:
+   `CI=1 pnpm test src/widgets/diff-viewer/ui/RunDiff.filters.test.tsx src/features/finding-filters/model/queryNavigation.test.tsx src/pages/runs/RunDetailPage.search.test.tsx`
+   плюс новый regression; exit0 и отсутствие unhandled errors обязательны.
+   Затем все шесть gates: `pnpm lint`, `pnpm check-types`, `pnpm format:check`,
+   `pnpm test`, `pnpm build`, `pnpm verify:prod-bundle` после build.
+   Короткий browser smoke поиска/фильтров в обеих темах проверяет обновлённую
+   production dependency. Зафиксировать команды и результаты в todo.
+4. Независимые Standards/Spec reviews на финальном diff → publisher обновляет
+   существующий PR #122 (русский body What / Why / How to verify / Refs),
+   отмечает transitive dependency update, отвечает reviewer с SHA и evidence.
+   Автор не resolve thread; новый approve нужен на текущем head. CI дождаться;
+   не создавать новый PR, не merge, не закрывать issue.
+
+Риск: util используется многими antd компонентами, поэтому одного теста формы
+недостаточно — обязательны полный suite/build и browser smoke. Риск широкого
+lockfile churn снижается выбором версии 1.14.0 и просмотром diff. Новых direct
+зависимостей, изменения поведения фильтров или нового workaround не планируется.
