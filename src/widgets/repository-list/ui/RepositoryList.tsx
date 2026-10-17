@@ -82,8 +82,8 @@ interface StatusCellProps {
 /**
  * The status of a row: a switch with its label. While the GitHub App has no access to the
  * repository the api serves `enabled: false` whatever was stored (api PR #156, SD §6.9), so the
- * switch is disabled and reads off, and the two choices (D10, as on the settings page) sit in a
- * menu: the stored preference is write-only and never shown.
+ * row has no switch (D13) and reads «Нет доступа» on one line with a trigger whose menu holds the
+ * two choices (D10, as on the settings page): the stored preference is write-only and never shown.
  */
 const StatusCell: FC<StatusCellProps> = ({ repository, updating, onToggleEnabled }) => {
   const { id, fullName, enabled, installationAvailable } = repository
@@ -151,10 +151,9 @@ const StatusCell: FC<StatusCellProps> = ({ repository, updating, onToggleEnabled
   }
 
   return (
-    <Flex align="center" gap={10} wrap>
-      {/* Off like the served `enabled`, whatever the cache holds (the optimistic update keeps it off
-          too, this is the second guard); the spinner of a saving choice is the trigger's. */}
-      <Switch aria-label={`Ревью для ${fullName}`} checked={false} disabled />
+    <Flex align="center" gap={10}>
+      {/* No switch: its state would only repeat «Нет доступа» (D13). The spinner of a saving choice
+          is the trigger's. */}
       <Text className={styles.switchLabel} type="secondary">
         Нет доступа
       </Text>

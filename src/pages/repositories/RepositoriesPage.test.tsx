@@ -1200,10 +1200,11 @@ describe('RepositoriesPage', () => {
       })
     }
 
-    const infraSwitch = (): HTMLElement =>
-      screen.getByRole('switch', { name: `Ревью для ${INFRA_NAME}` })
+    // D13: a row without access has no switch at all, only «Нет доступа» and the choice trigger.
+    const infraSwitch = (): HTMLElement | null =>
+      screen.queryByRole('switch', { name: `Ревью для ${INFRA_NAME}` })
 
-    it('saves the choice both ways from the menu, tells so, and keeps the switch off and disabled', async () => {
+    it('saves the choice both ways from the menu, tells so, and keeps the row without a switch', async () => {
       const backend = stubBackend([INFRA_REPO])
       renderWithClient(<RepositoriesPage />)
 
@@ -1215,8 +1216,7 @@ describe('RepositoriesPage', () => {
       expect(backend.stored.get(INFRA_REPO.id)).toBe(true)
       expect(screen.queryByText(/Статус репозитория обновлен/)).toBeNull()
       await waitUntilIdle(INFRA_NAME)
-      expect(infraSwitch().getAttribute('aria-checked')).toBe('false')
-      expect(infraSwitch().hasAttribute('disabled')).toBe(true)
+      expect(infraSwitch()).toBeNull()
       expect(screen.getByText('Нет доступа')).toBeTruthy()
 
       await chooseFor(INFRA_NAME, 'Оставить выключенным')
@@ -1230,11 +1230,10 @@ describe('RepositoriesPage', () => {
       expect(backend.stored.get(INFRA_REPO.id)).toBe(false)
       expect(screen.queryByText(/Статус репозитория обновлен/)).toBeNull()
       await waitUntilIdle(INFRA_NAME)
-      expect(infraSwitch().getAttribute('aria-checked')).toBe('false')
-      expect(infraSwitch().hasAttribute('disabled')).toBe(true)
+      expect(infraSwitch()).toBeNull()
     })
 
-    it('keeps the switch off and without a spinner, and the trigger loading, while the PATCH is open', async () => {
+    it('keeps the row without a switch, and the trigger loading, while the PATCH is open', async () => {
       // The optimistic update keeps `enabled` off for this repository when the request starts.
       const backend = stubBackend([INFRA_REPO])
       let release = (): void => undefined
@@ -1252,16 +1251,14 @@ describe('RepositoriesPage', () => {
       await waitFor(() => {
         expect(trigger.className).toContain('ant-btn-loading')
       })
-      expect(infraSwitch().getAttribute('aria-checked')).toBe('false')
-      expect(infraSwitch().hasAttribute('disabled')).toBe(true)
-      expect(infraSwitch().className).not.toContain('ant-switch-loading')
+      expect(infraSwitch()).toBeNull()
       expect(screen.getByText('Нет доступа')).toBeTruthy()
       expect(screen.queryByText('Активен')).toBeNull()
 
       release()
       await screen.findByText(SAVED_ON_TEXT)
       await waitUntilIdle(INFRA_NAME)
-      expect(infraSwitch().getAttribute('aria-checked')).toBe('false')
+      expect(infraSwitch()).toBeNull()
     })
 
     it('does not count the repository in the counter or the «Активные» filter while the PATCH is open', async () => {
@@ -1337,7 +1334,7 @@ describe('RepositoriesPage', () => {
       expect(backend.patches).toEqual([{ id: INFRA_REPO.id, body: { enabled: false } }])
       expect(screen.queryByText(SAVED_OFF_TEXT)).toBeNull()
       await waitUntilIdle(INFRA_NAME)
-      expect(infraSwitch().getAttribute('aria-checked')).toBe('false')
+      expect(infraSwitch()).toBeNull()
     })
   })
 })
