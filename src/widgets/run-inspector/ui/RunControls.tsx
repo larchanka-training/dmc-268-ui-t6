@@ -33,7 +33,8 @@ export function RunControls(props: RunControlsProps): JSX.Element {
     <>
       {contextHolder}
       <Space wrap>
-        {canCancel ? (
+        {canCancel && run.cancelRequested ? <Button disabled>Отмена запрошена</Button> : null}
+        {canCancel && !run.cancelRequested ? (
           <Button
             danger
             loading={cancelMutation.isPending}
