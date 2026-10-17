@@ -66,6 +66,12 @@ describe('unavailableReason', () => {
   it('falls back to a general reason for a code it does not know', () => {
     expect(unavailableReason('something_new')).toBe('Сервер не смог прочитать файл правил')
   })
+
+  it('falls back for a code that is a property of every object, not a reason text', () => {
+    for (const code of ['constructor', 'toString', '__proto__']) {
+      expect(unavailableReason(code), code).toBe('Сервер не смог прочитать файл правил')
+    }
+  })
 })
 
 describe('isKnownUnavailableCode', () => {

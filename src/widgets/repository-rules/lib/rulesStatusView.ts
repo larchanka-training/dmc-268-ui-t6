@@ -44,7 +44,11 @@ export function isKnownUnavailableCode(code: string): boolean {
   return Object.keys(UNAVAILABLE_REASONS).includes(code)
 }
 
-/** The reason an `unavailable` status gives, by code: the server's `message` is not shown. */
+/**
+ * The reason an `unavailable` status gives, by code: the server's `message` is not shown. A code
+ * is looked up only where `isKnownUnavailableCode` says it is a key, so `constructor` is not.
+ */
 export function unavailableReason(code: string): string {
-  return UNAVAILABLE_REASONS[code] ?? 'Сервер не смог прочитать файл правил'
+  const reason = isKnownUnavailableCode(code) ? UNAVAILABLE_REASONS[code] : undefined
+  return reason ?? 'Сервер не смог прочитать файл правил'
 }
