@@ -51,15 +51,25 @@ export function PageLoading(): null {
 /**
  * The one loading ring of the app, mounted once inside the theme. It appears after the wait has
  * lasted 300 ms without a break, so a fast page never flashes it, fades in and out in 200 ms, and
- * sits in the middle of the window whichever screen asks. Under "reduce motion" it appears and
- * goes at once. The ring is decorative: the page is not delayed and nothing reads it aloud.
+ * sits in the middle of the window whichever screen asks. The fade-out starts two frames after the
+ * wait ends, once the page has painted. Under "reduce motion" it appears and goes at once. The ring
+ * is decorative: the page is not delayed and nothing reads it aloud.
  */
 export function PageLoaderHost(): JSX.Element | null {
   const waiting = useSyncExternalStore(subscribe, isWaiting, isNeverWaiting)
   const { token } = theme.useToken()
   const [mounted, setMounted] = useState(false)
   const [entered, setEntered] = useState(false)
+  const [released, setReleased] = useState(false)
   const fadeMs = token.motion ? RV_MOTION_FADE_MS : 0
+
+  // A new wait takes back a ring whose fade-out had been released.
+  if (waiting && released) {
+    setReleased(false)
+  }
+  // The ring leaves at once, no frames waited, when it has nothing to fade: motion is off, or it
+  // was never drawn opaque.
+  const leaving = released || !token.motion || !entered
 
   // The wait has lasted long enough: put the ring in the DOM.
   useEffect(() => {
@@ -75,8 +85,9 @@ export function PageLoaderHost(): JSX.Element | null {
   }, [waiting, mounted])
 
   // The ring is first drawn transparent; one frame later it turns opaque and the transition runs.
+  // A wait that ends first cancels the frame: the ring is not shown for a page that is ready.
   useEffect(() => {
-    if (!mounted) {
+    if (!mounted || !waiting) {
       return
     }
     const frame = requestAnimationFrame(() => {
@@ -85,12 +96,31 @@ export function PageLoaderHost(): JSX.Element | null {
     return () => {
       cancelAnimationFrame(frame)
     }
-  }, [mounted])
+  }, [mounted, waiting])
 
-  // The wait is over: the ring is already fading, take it out when the fade ends. A timer, not
-  // `transitionend`, which never fires without a transition. A new wait cancels it.
+  // The wait is over, but the page has just been committed and its first frame is a long one:
+  // fading now would be spent before it is drawn. Let two frames pass, then release the fade-out.
+  // A new wait cancels it, and the ring stays as it is.
   useEffect(() => {
-    if (waiting || !mounted) {
+    if (waiting || !mounted || leaving) {
+      return
+    }
+    let second = 0
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => {
+        setReleased(true)
+      })
+    })
+    return () => {
+      cancelAnimationFrame(first)
+      cancelAnimationFrame(second)
+    }
+  }, [waiting, mounted, leaving])
+
+  // The ring is fading: take it out when the fade ends. A timer, not `transitionend`, which never
+  // fires without a transition. A new wait cancels it.
+  useEffect(() => {
+    if (waiting || !mounted || !leaving) {
       return
     }
     const timer = setTimeout(() => {
@@ -100,13 +130,13 @@ export function PageLoaderHost(): JSX.Element | null {
     return () => {
       clearTimeout(timer)
     }
-  }, [waiting, mounted, fadeMs])
+  }, [waiting, mounted, leaving, fadeMs])
 
   if (!mounted) {
     return null
   }
   // Without motion there is nothing to fade in, so the ring does not wait for the frame.
-  const shown = waiting && (entered || !token.motion)
+  const shown = (waiting || !leaving) && (entered || !token.motion)
   return (
     <div className={styles.layer} data-state={shown ? 'shown' : 'hidden'} data-testid="page-loader">
       <Spinner label={null} size="lg" />
