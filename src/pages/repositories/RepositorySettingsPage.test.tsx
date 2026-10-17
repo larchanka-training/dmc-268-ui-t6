@@ -239,6 +239,10 @@ function saveButton(): HTMLButtonElement {
   return screen.getByRole('button', { name: 'Сохранить' })
 }
 
+function cancelButton(): HTMLButtonElement {
+  return screen.getByRole('button', { name: 'Отменить изменения' })
+}
+
 function retryButton(): HTMLElement {
   return screen.getByRole('button', { name: RETRY_LABEL })
 }
@@ -439,6 +443,28 @@ describe('RepositorySettingsPage', () => {
     })
     expect(inputValue(LIMIT_LABEL)).toBe('10')
     expect(selectedText(CI_LABEL)).toBe('Авто (ожидать CI при наличии проверок)')
+    expect(backend.patches).toEqual([])
+  })
+
+  it('lets «Отменить изменения» undo an emptied limit that «Сохранить» cannot send', async () => {
+    const backend = stubBackend([UI_REPO])
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    fireEvent.change(screen.getByLabelText(LIMIT_LABEL), { target: { value: '' } })
+
+    // Emptying the limit is a draft (Cancel can undo it) but no change a PATCH could carry.
+    expect(inputValue(LIMIT_LABEL)).toBe('')
+    expect(saveButton().disabled).toBe(true)
+    expect(cancelButton().disabled).toBe(false)
+
+    fireEvent.click(cancelButton())
+
+    await waitFor(() => {
+      expect(inputValue(LIMIT_LABEL)).toBe('10')
+    })
+    expect(cancelButton().disabled).toBe(true)
+    expect(saveButton().disabled).toBe(true)
     expect(backend.patches).toEqual([])
   })
 
@@ -1630,6 +1656,27 @@ describe('RepositorySettingsPage: branch filter and severity threshold', () => {
     })
     expect(branchFilterField().value).toBe('main\nrelease/*')
     expect(screen.getByRole<HTMLInputElement>('radio', { name: RADIO_ALL }).checked).toBe(true)
+    expect(backend.patches).toEqual([])
+  })
+
+  it('lets «Отменить изменения» undo a branch filter edited only by whitespace', async () => {
+    const backend = stubBackend([FULL_REPO])
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    // A blank line and trailing spaces: the same two masks, so no PATCH, but the text differs.
+    fireEvent.change(branchFilterField(), { target: { value: 'main\n\nrelease/*  ' } })
+
+    expect(branchFilterField().value).toBe('main\n\nrelease/*  ')
+    expect(saveButton().disabled).toBe(true)
+    expect(cancelButton().disabled).toBe(false)
+
+    fireEvent.click(cancelButton())
+
+    await waitFor(() => {
+      expect(branchFilterField().value).toBe('main\nrelease/*')
+    })
+    expect(cancelButton().disabled).toBe(true)
     expect(backend.patches).toEqual([])
   })
 
