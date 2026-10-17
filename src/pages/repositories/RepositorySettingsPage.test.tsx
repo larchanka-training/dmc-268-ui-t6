@@ -1901,6 +1901,39 @@ describe('RepositorySettingsPage: leaving with a draft', () => {
     })
   })
 
+  it('opens the dialog without a deprecation warning from Ant Design', async () => {
+    stubBackend([UI_REPO])
+    // Ant Design 6 reports a deprecated prop through `console.error` (the `warning` of
+    // @rc-component/util) and, under an `App` that is not strict, through `console.warn`; browser
+    // round 10 caught `autoFocusButton` this way. The warning is logged while the `Modal` renders.
+    const spies = [
+      vi.spyOn(console, 'error').mockImplementation(() => undefined),
+      vi.spyOn(console, 'warn').mockImplementation(() => undefined),
+    ]
+    try {
+      renderLeavingPage()
+      await screen.findByLabelText(LIMIT_LABEL)
+      fireEvent.change(screen.getByLabelText(LIMIT_LABEL), { target: { value: '5' } })
+
+      fireEvent.click(screen.getByRole('link', { name: 'История проверок' }))
+      await screen.findByRole('dialog', { name: LEAVE_TITLE })
+      await waitFor(() => {
+        expect(document.activeElement).toBe(leaveDialogButton('Остаться'))
+      })
+
+      const deprecations = spies.flatMap((spy) =>
+        spy.mock.calls
+          .map((args) => args.map(String).join(' '))
+          .filter((line) => line.toLowerCase().includes('deprecated')),
+      )
+      expect(deprecations).toEqual([])
+    } finally {
+      for (const spy of spies) {
+        spy.mockRestore()
+      }
+    }
+  })
+
   it('takes the dialog out of the document when the page goes while it is open', async () => {
     stubBackend([UI_REPO])
     // The `App` that holds the dialog stays when the page is taken out, as it does in the app:
