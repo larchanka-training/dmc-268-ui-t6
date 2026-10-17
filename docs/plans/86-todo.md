@@ -225,7 +225,7 @@ commit/push development не выполнял.
       unmount; обновление узкое, без новой direct зависимости/override.
 - [x] Global `afterAll` wait и unused import удалены; публичный Form.Item
       regression RED на 1.13.0 и GREEN на 1.14.0 без sleep/suppress.
-- [ ] Все шесть gates, повторные CI runs и browser smoke PASS; PR #122 обновлён
+- [x] Все шесть gates, повторные CI runs и browser smoke PASS; PR #122 обновлён
       и reviewer получил ответ с SHA/evidence; CI на новом head завершён.
 
 **Ordered checklist / verification:**
@@ -253,8 +253,8 @@ commit/push development не выполнял.
 - [x] `pnpm verify:prod-bundle` после build
 - [x] Browser smoke поиска/фильтров в обеих темах; записать evidence.
 - [x] Независимые Standards/Spec reviews на финальном diff без findings.
-- [ ] Commit `(#86)`, hooks не обходить; push в существующую ветку/PR #122.
-- [ ] Обновить русский PR body, упомянуть transitive update и проверки;
+- [x] Commit `(#86)`, hooks не обходить; push в существующую ветку/PR #122.
+- [x] Обновить русский PR body, упомянуть transitive update и проверки;
       ответить reviewer с SHA/evidence, thread не resolve, проверить новый CI.
 
 **Dependencies:** Task 1 выполнен; follow-up plan approval → coordination →
@@ -334,3 +334,20 @@ co-located Form.Item regression в `src/shared/ui`, `docs/plans/86-plan.md`,
   PR готов к review (`isDraft=false`). Rebase уже выполнен development;
   publication использует точный `--force-with-lease` этого remote head.
   Статус PR и reviewer не меняются. Публикационные пункты и новый CI пока открыты.
+
+- Publication завершена: implementation commit `9205df84cff18f9562b1bf47929fe205c12b84c3`
+  отправлен в существующую ветку/PR #122 с точным lease ожидаемого `dcda299`.
+  Pre-commit eslint/prettier и pre-push tsc/eslint/stylelint PASS; hooks не обходились.
+  Body на русском описывает весь PR, включая adapter/fallback/canary,
+  `navigationKey`, transitive update и замену 10ms wait regression-тестом.
+- [Ответ reviewer с SHA и evidence](https://github.com/larchanka-training/dmc-268-ui-t6/pull/122#issuecomment-6236118017)
+  опубликован как общий PR comment в ответ на замечание `6235814747`.
+  Ответ в уже исправленном navigationKey thread не дублировался; threads автор не resolve.
+- [CI implementation head 9205df8, run 39046885177](https://github.com/larchanka-training/dmc-268-ui-t6/actions/runs/39046885177)
+  завершён SUCCESS: UI quality (включая landing typecheck/test/build), Docker image
+  build и Docker image security scan PASS; publish/deploy/promote jobs штатно SKIPPED.
+  PR остаётся OPEN, `isDraft=false`, reviewer не назначен. Issue не закрывалась,
+  merge и Development link не выполнялись. PR прикреплён к чату.
+- Task 2 завершён. Эта финальная запись — только docs evidence commit;
+  implementation source и lockfile после успешного CI не меняются. После её push
+  publisher отдельно дожидается CI финального head и сообщает итог координатору.
