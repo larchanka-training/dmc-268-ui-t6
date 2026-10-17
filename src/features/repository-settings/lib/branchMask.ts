@@ -8,8 +8,7 @@ const FORBIDDEN_CHARACTERS = /[?[\]{}!\\~^:]/
  * (`app/common/application/branch_patterns.py`): the first rule a mask fails names the reason.
  * Two checks of the API are not here. A blank line never reaches this function (the textarea text
  * is cleaned first), and the 255 limit stays on the Zod schema of `Repository.branchFilter`,
- * which counts UTF-16 units: stricter than the API (it counts code points) only for a mask with
- * astral characters, such as an emoji.
+ * which counts code points, as the API does.
  *
  * The client mirrors the grammar so a refused mask is named by its line before any request; the
  * 422 of the server stays as the fallback if the two drift.

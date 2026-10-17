@@ -113,6 +113,11 @@ describe('validateBranchFilterText', () => {
     expect(validateBranchFilterText(text)).toBe('Маска в строке 2 длиннее 255 символов')
   })
 
+  it('counts the length in code points, as the API does: 255 emoji pass, 256 do not', () => {
+    expect(validateBranchFilterText('🚀'.repeat(255))).toBeNull()
+    expect(validateBranchFilterText('🚀'.repeat(256))).toBe('Маска в строке 1 длиннее 255 символов')
+  })
+
   it('names the visible line when the text has blank lines before the mask', () => {
     const text = `\nmain\n\n${'a'.repeat(256)}`
     expect(validateBranchFilterText(text)).toBe('Маска в строке 4 длиннее 255 символов')

@@ -86,6 +86,7 @@ describe('branchMaskError', () => {
 
   it.each([
     { mask: 'a b..c', reason: WHITESPACE, order: 'whitespace before the double dot' },
+    { mask: 'a ***', reason: WHITESPACE, order: 'whitespace before three stars' },
     { mask: 'a***?', reason: STARS, order: 'three stars before the forbidden characters' },
     { mask: 'a?..', reason: CHARACTERS, order: 'forbidden characters before the double dot' },
     { mask: '.a..b', reason: DOTS_AND_SLASHES, order: 'double dot before the dot segment' },

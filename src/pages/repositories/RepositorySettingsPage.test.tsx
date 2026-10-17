@@ -1867,6 +1867,129 @@ describe('RepositorySettingsPage: leaving with a draft', () => {
     expect(screen.queryByTestId('runs-route')).toBeNull()
   })
 
+  it('puts the focus on «Остаться» when the dialog opens, so an Enter keeps the draft', async () => {
+    stubBackend([UI_REPO])
+    renderLeavingPage()
+    await screen.findByLabelText(LIMIT_LABEL)
+    fireEvent.change(screen.getByLabelText(LIMIT_LABEL), { target: { value: '5' } })
+
+    fireEvent.click(screen.getByRole('link', { name: 'История проверок' }))
+    await screen.findByRole('dialog', { name: LEAVE_TITLE })
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(leaveDialogButton('Остаться'))
+    })
+  })
+
+  it('takes the dialog out of the document when the page goes while it is open', async () => {
+    stubBackend([UI_REPO])
+    // The `App` that holds the dialog stays when the page is taken out, as it does in the app:
+    // where the whole tree goes, the dialog goes with it, and the test would prove nothing.
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const router = createMemoryRouter(
+      [
+        {
+          path: '/repositories/:repoId/settings',
+          element: <RepositorySettingsPage />,
+        },
+      ],
+      { initialEntries: [settingsPath(UI_REPO.id)] },
+    )
+    const tree = (withPage: boolean) => (
+      <QueryClientProvider client={client}>
+        <ConfigProvider theme={{ token: { motion: false } }}>
+          <App>{withPage ? <RouterProvider router={router} /> : null}</App>
+        </ConfigProvider>
+      </QueryClientProvider>
+    )
+    const { rerender } = render(tree(true))
+    await screen.findByLabelText(LIMIT_LABEL)
+    fireEvent.change(screen.getByLabelText(LIMIT_LABEL), { target: { value: '5' } })
+    fireEvent.click(screen.getByRole('link', { name: 'История проверок' }))
+    await screen.findByRole('dialog', { name: LEAVE_TITLE })
+
+    rerender(tree(false))
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: LEAVE_TITLE })).toBeNull()
+    })
+    expect(screen.queryByText(LEAVE_TITLE)).toBeNull()
+  })
+
+  it('asks after a failed save too: the draft is still on the page', async () => {
+    const backend = stubBackend([UI_REPO])
+    backend.failPatch = true
+    renderLeavingPage()
+    await screen.findByLabelText(LIMIT_LABEL)
+    fireEvent.change(screen.getByLabelText(LIMIT_LABEL), { target: { value: '5' } })
+    fireEvent.click(saveButton())
+    expect(await screen.findByText(SERVER_500_TEXT)).toBeTruthy()
+    expect(backend.patches).toHaveLength(1)
+
+    fireEvent.click(screen.getByRole('link', { name: 'История проверок' }))
+
+    expect(await screen.findByRole('dialog', { name: LEAVE_TITLE })).toBeTruthy()
+    expect(screen.queryByTestId('runs-route')).toBeNull()
+  })
+
+  it('asks when a draft sits over other values of the server (the info notice is shown)', async () => {
+    const { backend, client } = await openWithFailedRefresh()
+    await chooseOption(CI_LABEL, NEVER_OPTION)
+    backend.failList = false
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: REPOSITORIES_QUERY_KEY })
+    })
+    await screen.findByText(DIFFERS_NOTICE)
+
+    fireEvent.click(screen.getByRole('link', { name: 'История проверок' }))
+
+    expect(await screen.findByRole('dialog', { name: LEAVE_TITLE })).toBeTruthy()
+    expect(screen.queryByTestId('runs-route')).toBeNull()
+  })
+
+  describe('on the browser Back button', () => {
+    /** The settings page one step above `/runs` in the history, with a draft typed. */
+    async function openWithDraftAboveRuns() {
+      stubBackend([UI_REPO])
+      const rendered = renderPage('/runs', undefined, { withoutMotion: true })
+      await act(async () => {
+        await rendered.router.navigate(settingsPath(UI_REPO.id))
+      })
+      await screen.findByLabelText(LIMIT_LABEL)
+      fireEvent.change(screen.getByLabelText(LIMIT_LABEL), { target: { value: '5' } })
+      await act(async () => {
+        await rendered.router.navigate(-1)
+      })
+      await screen.findByRole('dialog', { name: LEAVE_TITLE })
+      return rendered
+    }
+
+    it('asks, and «Остаться» keeps the page and the draft', async () => {
+      const { router } = await openWithDraftAboveRuns()
+      expect(router.state.location.pathname).toBe(settingsPath(UI_REPO.id))
+      expect(screen.queryByTestId('runs-route')).toBeNull()
+
+      fireEvent.click(leaveDialogButton('Остаться'))
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog', { name: LEAVE_TITLE })).toBeNull()
+      })
+      expect(blockerStates(router)).toEqual(['unblocked'])
+      expect(router.state.location.pathname).toBe(settingsPath(UI_REPO.id))
+      expect(screen.queryByTestId('runs-route')).toBeNull()
+      expect(inputValue(LIMIT_LABEL)).toBe('5')
+    })
+
+    it('asks, and «Уйти» goes back', async () => {
+      const { router } = await openWithDraftAboveRuns()
+
+      fireEvent.click(leaveDialogButton('Уйти'))
+
+      expect(await screen.findByTestId('runs-route')).toBeTruthy()
+      expect(router.state.location.pathname).toBe('/runs')
+    })
+  })
+
   it('leaves at once, without a dialog, when nothing was typed', async () => {
     stubBackend([UI_REPO])
     const { router } = renderLeavingPage()
