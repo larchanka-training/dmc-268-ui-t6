@@ -70,7 +70,8 @@ describe('RepositoriesPage', () => {
     expect(status.textContent).toBe('')
 
     await screen.findByText('Ошибка загрузки данных')
-    expect(screen.getAllByRole('status')).toEqual([status])
+    expect(screen.getAllByRole('status')).toHaveLength(1)
+    expect(screen.getByRole('status')).toBe(status)
     expect(status.getAttribute('aria-atomic')).toBe('true')
     expect(status.textContent).toBe('')
     expect(screen.queryByRole('heading', { name: 'Репозитории' })).toBeNull()
@@ -91,6 +92,8 @@ describe('RepositoriesPage', () => {
 
     renderWithClient(<RepositoriesPage />)
     const status = screen.getByRole('status')
+    expect(screen.getAllByRole('status')).toHaveLength(1)
+    expect(screen.getByRole('status')).toBe(status)
     expect(status.textContent).toBe('')
     await act(async () => {
       await vi.advanceTimersByTimeAsync(16)
@@ -100,12 +103,15 @@ describe('RepositoriesPage', () => {
       await vi.advanceTimersByTimeAsync(16)
     })
     expect(status.textContent).toBe('Загрузка репозиториев')
-    expect(screen.getAllByRole('status')).toEqual([status])
+    expect(screen.getAllByRole('status')).toHaveLength(1)
+    expect(screen.getByRole('status')).toBe(status)
 
     await act(async () => {
       resolveGet(new Response('[]', { status: 200 }))
       await vi.advanceTimersByTimeAsync(1)
     })
+    expect(screen.getAllByRole('status')).toHaveLength(1)
+    expect(screen.getByRole('status')).toBe(status)
     expect(status.textContent).toBe('')
     await act(async () => {
       await vi.advanceTimersByTimeAsync(5000)
@@ -113,6 +119,7 @@ describe('RepositoriesPage', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(32)
     })
+    expect(screen.getAllByRole('status')).toHaveLength(1)
     expect(screen.getByRole('status')).toBe(status)
     expect(status.textContent).toBe('Загрузка репозиториев')
 
@@ -122,7 +129,8 @@ describe('RepositoriesPage', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(32)
     })
-    expect(screen.getAllByRole('status')).toEqual([status])
+    expect(screen.getAllByRole('status')).toHaveLength(1)
+    expect(screen.getByRole('status')).toBe(status)
     expect(status.textContent).toBe('Нужного репозитория нет? Обновите список.')
   })
 
