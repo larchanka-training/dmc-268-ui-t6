@@ -55,25 +55,18 @@ function findingsOutsideVisibleDiff(files: FileDiff[], findings: FindingView[]):
 }
 
 /**
- * Every finding the page shows: the run findings plus the comments of files that render a diff
+ * Every finding the page shows: the run findings plus all comments
  * (a summary-only run renders no comments).
  */
 function displayedFindings(
   summaryOnly: boolean,
-  files: FileDiff[],
   findings: FindingView[],
   comments: ReviewComment[],
 ): FindingView[] {
   if (summaryOnly) {
     return findings
   }
-  const withDiff = new Set(
-    files.filter((file) => file.hasPatch && file.chunks.length > 0).map((file) => file.filename),
-  )
-  return mergeFindings(
-    findings,
-    comments.filter((comment) => withDiff.has(comment.file)),
-  )
+  return mergeFindings(findings, comments)
 }
 
 function outsideCards(findings: FindingView[], searchActive: boolean): JSX.Element[] {
@@ -106,7 +99,7 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
   } = props
 
   const activeFilters = onFiltersChange === undefined ? EMPTY_FINDING_FILTERS : filters
-  const displayed = displayedFindings(summaryOnly, files, findings, comments)
+  const displayed = displayedFindings(summaryOnly, findings, comments)
   const runFiles = [
     ...new Set([...files.map((file) => file.filename), ...displayed.map((f) => f.file)]),
   ]
