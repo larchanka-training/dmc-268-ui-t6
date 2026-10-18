@@ -136,6 +136,7 @@ describe('RepositoryList', () => {
     const slot = getSlot()
     expect(slot).not.toBeNull()
     expect(slot?.textContent).toBe('Загрузка репозиториев')
+    expect(container.querySelector('[role="status"]')).toBeNull()
     rerender(<RepositoryList {...props} accessRefreshStatus="waiting" />)
     expect(getSlot()).toBe(slot)
     expect(slot?.textContent).toBe('')
