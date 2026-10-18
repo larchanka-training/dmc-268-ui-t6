@@ -287,6 +287,8 @@ describe('RunControls', () => {
 
     expect(fireEvent.keyDown(button, { key: 'Enter', repeat: true })).toBe(false)
     expect(fireEvent.keyDown(button, { key: 'Enter' })).toBe(true)
+    // A held Tab repeats keydown too: it must keep moving the focus on, not stop on the button.
+    expect(fireEvent.keyDown(button, { key: 'Tab', repeat: true })).toBe(true)
   })
 
   it('does not touch a focus held elsewhere when the run turns terminal', () => {

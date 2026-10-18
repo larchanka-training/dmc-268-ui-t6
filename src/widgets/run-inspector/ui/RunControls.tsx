@@ -75,10 +75,11 @@ export function RunControls(props: RunControlsProps): JSX.Element {
         {buttonProps ? (
           <Button
             {...buttonProps}
-            // A held key repeats keydown and the browser would click the button again: after a
-            // cancel that ended the run that is «Перезапустить» (frontend.md §3b item 4).
+            // A held Enter repeats keydown into clicks and the browser would click the button
+            // again: after a cancel that ended the run that is «Перезапустить» (frontend.md §3b
+            // item 4). Only Enter: Space clicks on keyup, and a held Tab or arrow must still move on.
             onKeyDown={(event) => {
-              if (event.repeat) {
+              if (event.key === 'Enter' && event.repeat) {
                 event.preventDefault()
               }
             }}
