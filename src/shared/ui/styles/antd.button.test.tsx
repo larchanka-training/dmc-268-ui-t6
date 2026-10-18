@@ -232,5 +232,14 @@ describe('the disabled class of useDisabledButtonClass', () => {
         OUTLINE.test(body) && ruleMatches(classed, selectors) && !ruleMatches(native, selectors),
     )
     expect(rings.length).toBeGreaterThan(0)
+    // jsdom never focuses a natively disabled button, so the rule itself must leave it out: the
+    // selector that matches the focused class button carries `:not(:disabled)`.
+    const matching = rings.flatMap(({ selectors }) =>
+      selectors.filter((selector) => classed.matches(classesOf(selector).plain)),
+    )
+    expect(matching.length).toBeGreaterThan(0)
+    for (const selector of matching) {
+      expect(selector).toContain(':not(:disabled)')
+    }
   })
 })

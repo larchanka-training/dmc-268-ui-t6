@@ -64,14 +64,25 @@ export function RunControls(props: RunControlsProps): JSX.Element {
     children: 'Перезапустить',
   }
 
+  const buttonProps = canCancel ? cancelButtonProps : canRerun ? rerunButtonProps : null
+
   return (
     <>
       {contextHolder}
       <Space wrap>
         {/* One button in one slot: the node must survive a terminal transition so the focus
             stays on it instead of falling to the body (frontend.md §3b item 3). */}
-        {canCancel || canRerun ? (
-          <Button {...(canCancel ? cancelButtonProps : rerunButtonProps)} />
+        {buttonProps ? (
+          <Button
+            {...buttonProps}
+            // A held key repeats keydown and the browser would click the button again: after a
+            // cancel that ended the run that is «Перезапустить» (frontend.md §3b item 4).
+            onKeyDown={(event) => {
+              if (event.repeat) {
+                event.preventDefault()
+              }
+            }}
+          />
         ) : null}
       </Space>
     </>

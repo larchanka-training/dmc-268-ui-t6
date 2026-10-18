@@ -180,7 +180,7 @@ describe('RunControls', () => {
       expect((button as HTMLButtonElement).disabled).toBe(false)
       // Ant Design's own disabled class gives its disabled look; the button stays a plain
       // default one: no danger or primary style.
-      expect(button.className).toContain('ant-btn-disabled')
+      expect(button.classList.contains('ant-btn-disabled')).toBe(true)
       expect(button.className).toContain('ant-btn-color-default')
       expect(button.className).not.toContain('ant-btn-color-dangerous')
       fireEvent.click(button)
@@ -221,6 +221,16 @@ describe('RunControls', () => {
     expect(document.activeElement).toBe(rerunButton)
     // jsdom keeps the focus on a natively disabled button; a real browser drops it.
     expect((rerunButton as HTMLButtonElement).disabled).toBe(false)
+    // The node is the rerun button itself, with none of the cancel button's props left on it.
+    expect(rerunButton.hasAttribute('aria-disabled')).toBe(false)
+    expect(rerunButton.classList.contains('ant-btn-disabled')).toBe(false)
+    expect(rerunButton.classList.contains('ant-btn-color-primary')).toBe(true)
+    expect(rerunButton.classList.contains('ant-btn-color-dangerous')).toBe(false)
+    mockCancelMutate.mockClear()
+    mockRerunMutate.mockClear()
+    fireEvent.click(rerunButton)
+    expect(mockRerunMutate).toHaveBeenCalledTimes(1)
+    expect(mockCancelMutate).not.toHaveBeenCalled()
   }
 
   it('keeps the focus on the button when a queued run is cancelled', () => {
@@ -266,6 +276,18 @@ describe('RunControls', () => {
       expectFocusKeptOnRerun(requestedButton)
     },
   )
+
+  // A held Enter repeats keydown and the browser turns each one into a click on the focused
+  // button: after a cancel that ended the run, that would be rerun after rerun (frontend.md §3b
+  // item 4). Space activates on keyup, which does not repeat.
+  it('ignores an auto-repeated keydown on «Перезапустить» so a held key is one press', () => {
+    renderControls()
+
+    const button = screen.getByRole('button', { name: 'Перезапустить' })
+
+    expect(fireEvent.keyDown(button, { key: 'Enter', repeat: true })).toBe(false)
+    expect(fireEvent.keyDown(button, { key: 'Enter' })).toBe(true)
+  })
 
   it('does not touch a focus held elsewhere when the run turns terminal', () => {
     const { rerender } = render(
