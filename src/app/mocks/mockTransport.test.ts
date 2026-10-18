@@ -155,8 +155,8 @@ describe('initMockTransport', () => {
       vi.advanceTimersByTime(2000)
       expect(await apiClient<unknown>(endpoints.runs.actions(WALKING_RUN_ID))).toHaveLength(1)
       expect(await apiClient<unknown>(endpoints.runs.comments(WALKING_RUN_ID))).toEqual([])
-      vi.advanceTimersByTime(12_000)
-      expect(await apiClient<unknown>(endpoints.runs.actions(WALKING_RUN_ID))).toHaveLength(9)
+      vi.advanceTimersByTime(15_000)
+      expect(await apiClient<unknown>(endpoints.runs.actions(WALKING_RUN_ID))).toHaveLength(11)
       expect(await apiClient<unknown>(endpoints.runs.comments(WALKING_RUN_ID))).toHaveLength(3)
     })
 
@@ -247,7 +247,7 @@ describe('initMockTransport', () => {
       expect(running.status).toBe('running')
       expect(running.actionCount).toBe(1)
 
-      vi.advanceTimersByTime(12_000)
+      vi.advanceTimersByTime(15_000)
       const page = await apiClient<RunListPage>(endpoints.runs.list())
       expect(page.items.find((run) => run.id === WALKING_RUN_ID)?.status).toBe('succeeded')
       const walkingRerun = await apiClient<RunSession>(endpoints.runs.rerun(WALKING_RUN_ID))

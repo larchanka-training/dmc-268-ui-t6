@@ -12,6 +12,7 @@ vi.mock('../../shared/config/env', () => ({
 vi.mock('../providers/runStreamConnect', () => ({ applyRunUpdated: vi.fn() }))
 
 import type { RunAction, RunDetail, RunListPage, RunSession } from '../../entities/run'
+import { runProgress } from '../../entities/run'
 import { apiClient, setMockTransport } from '../../shared/api/client'
 import { endpoints } from '../../shared/api/endpoints'
 import { applyRunUpdated } from '../providers/runStreamConnect'
@@ -66,17 +67,42 @@ describe('the walking run in the mock transport', () => {
     expect((await detail(WALKING_ID)).status).toBe('queued')
     await vi.advanceTimersByTimeAsync(1)
     expect((await detail(WALKING_ID)).status).toBe('running')
-    expect((await actions(WALKING_ID)).map((action) => action.tool)).toEqual(['vcs.fetch_diff'])
+    expect((await actions(WALKING_ID)).map((action) => action.tool)).toEqual(['policy.load'])
 
     await vi.advanceTimersByTimeAsync(4500)
     const running = await detail(WALKING_ID)
     expect(running.status).toBe('running')
     expect(running.actionCount).toBe(4)
     expect((await actions(WALKING_ID)).map((action) => action.tool)).toEqual([
+      'policy.load',
       'vcs.fetch_diff',
+      'context.build',
+      'llm.call',
+    ])
+
+    expect(runProgress(running, await actions(WALKING_ID))?.map((stage) => stage.state)).toEqual([
+      'process',
+      'wait',
+      'wait',
+    ])
+
+    await vi.advanceTimersByTimeAsync(3000)
+    const promptReady = await detail(WALKING_ID)
+    const promptLog = await actions(WALKING_ID)
+    expect(promptReady.status).toBe('running')
+    expect(promptReady.actionCount).toBe(6)
+    expect(promptLog.map((action) => action.tool)).toEqual([
+      'policy.load',
+      'vcs.fetch_diff',
+      'context.build',
       'llm.call',
       'llm.repo_conventions',
       'context.build',
+    ])
+    expect(runProgress(promptReady, promptLog)?.map((stage) => stage.state)).toEqual([
+      'finish',
+      'process',
+      'wait',
     ])
 
     await vi.advanceTimersByTimeAsync(4500)
@@ -116,7 +142,7 @@ describe('the walking run in the mock transport', () => {
     await detail(WALKING_ID)
     await vi.advanceTimersByTimeAsync(2000)
     expect(await listedStatus(WALKING_ID)).toBe('running')
-    await vi.advanceTimersByTimeAsync(9000)
+    await vi.advanceTimersByTimeAsync(12_000)
     expect(await listedStatus(WALKING_ID)).toBe('publishing')
     await vi.advanceTimersByTimeAsync(3000)
     expect(await listedStatus(WALKING_ID)).toBe('succeeded')
@@ -130,7 +156,7 @@ describe('the walking run in the mock transport', () => {
     )
     expect(await apiClient<unknown[]>(endpoints.runs.comments(WALKING_ID))).toEqual([])
 
-    await vi.advanceTimersByTimeAsync(14_000)
+    await vi.advanceTimersByTimeAsync(17_000)
     expect(await apiClient<unknown[]>(endpoints.runs.comments(WALKING_ID))).toHaveLength(3)
   })
 
@@ -158,12 +184,14 @@ describe('the failed run in the mock transport', () => {
 
     const log = await actions(FAILED_ID)
     expect(log.map((action) => action.tool)).toEqual([
+      'policy.load',
       'vcs.fetch_diff',
+      'context.build',
       'llm.repo_conventions',
       'context.build',
       'llm.call',
     ])
-    expect(log[3]?.response).toHaveProperty('error')
+    expect(log[5]?.response).toHaveProperty('error')
 
     const diff = await apiClient<unknown[]>(endpoints.runs.diff(FAILED_ID))
     expect(diff.length).toBeGreaterThan(0)
@@ -173,7 +201,7 @@ describe('the failed run in the mock transport', () => {
   it('does not change over time', async () => {
     await vi.advanceTimersByTimeAsync(60_000)
     expect((await detail(FAILED_ID)).status).toBe('failed')
-    expect(await actions(FAILED_ID)).toHaveLength(4)
+    expect(await actions(FAILED_ID)).toHaveLength(6)
   })
 })
 
