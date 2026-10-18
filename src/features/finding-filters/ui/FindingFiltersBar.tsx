@@ -133,7 +133,13 @@ export function FindingFiltersBar(props: FindingFiltersBarProps): JSX.Element {
             maxTagTextLength={FILE_TAG_MAX_LENGTH}
             mode="multiple"
             onChange={(files: string[]) => {
-              onChange({ files, query: takePending() })
+              onChange({
+                files: [
+                  ...files,
+                  ...filters.files.filter((file) => !effectiveFiles.includes(file)),
+                ],
+                query: takePending(),
+              })
             }}
             options={fileSelectOptions}
             placeholder="Все файлы"

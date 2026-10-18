@@ -74,3 +74,25 @@ Proposed #109/#106 comment, only if still open when editing FA: “#116 needs a 
 | Staging after-fix screenshots unavailable pre-merge             | Keep evidence AC open, record precise deployment/auth/run blocker, request only the concrete missing capability |
 
 Checkpoint after tasks 1–2: focused suites pass and review the pending/effective-filter contract. Checkpoint after task 3: regression mutation checks and browser QA pass. Final checkpoint: six gates pass, docs match behavior, required real staging evidence exists (or explicitly remains blocked), independent standards/spec review is addressed, and the PR accurately distinguishes mocked, browser and staging evidence.
+
+## Review round 1 follow-up (2026-10-18)
+
+Approved scope remains #116. Review fixed point: `40dbe32787e4ca4b5b3c74ee09bf91c269f68a4b`.
+Before follow-up edits, rebased onto `origin/main@6f5a122` (rebased implementation `8df4775`).
+Main's #115 selection-state removal requires removing only the obsolete page-test fixture property.
+
+- P2: distinguish selected-value assertions (all non-rest tags, independent of opacity) from visual
+  responsive-chip assertions. Drain initial React work before negative assertions; prove the exact
+  `value={effectiveFiles}` → `value={filters.files}` mutation fails all six affected bar cases.
+- P2: preserve parsed unknown file values across visible Files selection changes and clearing, as
+  severity changes already do. Keep unknown values hidden until file options make them known. Global
+  Reset retains its existing contract and removes all filter params, including unknown files.
+  Verify through the bar callback and routed page URLs, including a findings-only file becoming known.
+- P3: add the direct bar pending-status test and settle `/comments` in the success-transition test.
+  Correct delayed-diff bookkeeping: that regression existed and was extended with a chip assertion.
+  Issue is On Review; current-head approval and all review threads resolved remain merge prerequisites.
+- Deferred P3 suggestions: mock active-comment fixtures, terminal empty findings and stale/cancel copy
+  are separate behavior changes. Patched pending rendering already has page coverage; do not edit
+  `RunDiff.filters.test.tsx`, currently owned by #138, for a nonblocking duplicate test.
+- Real fixed-build staging screenshots remain open: no authenticated session and no deployed fix.
+  No merge, deployment or issue closure is authorized by this review iteration.

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import {
+  act,
   cleanup,
   createEvent,
   fireEvent,
@@ -26,6 +27,7 @@ interface RenderOptions {
   shown?: number
   total?: number
   empty?: boolean
+  findingsPending?: boolean
   navigationKey?: number
 }
 
@@ -39,6 +41,7 @@ function renderBar(options: RenderOptions = {}) {
         empty={next.empty}
         fileOptions={next.fileOptions ?? FILE_OPTIONS}
         filters={next.filters ?? EMPTY_FINDING_FILTERS}
+        findingsPending={next.findingsPending}
         navigationKey={next.navigationKey}
         onChange={onChange}
         onQueryChange={onQueryChange}
@@ -98,6 +101,16 @@ function resetButton(): HTMLElement {
   return screen.getByRole('button', { name: 'Сбросить фильтры' })
 }
 
+/** All selected values, including tags temporarily hidden by responsive layout measurement. */
+function selectedValues(name: string): string[] {
+  const selector = screen.getByRole('combobox', { name }).closest('.ant-select')
+  return [
+    ...(selector?.querySelectorAll(
+      '.ant-select-content-item:not(.ant-select-content-item-rest) .ant-select-selection-item',
+    ) ?? []),
+  ].map((item) => item.textContent)
+}
+
 /** The shown chips of a select: neither the «+N» chip nor the chips folded into it. */
 function chips(name: string): Element[] {
   const selector = screen.getByRole('combobox', { name }).closest('.ant-select')
@@ -138,6 +151,19 @@ describe('FindingFiltersBar', () => {
     expect(screen.getByRole('combobox', { name: 'Критичность' })).toBeTruthy()
     expect(screen.getByRole('textbox', { name: 'Поиск по замечаниям' })).toBeTruthy()
     expect(screen.getByText('Показано 3 из 8 замечаний')).toBeTruthy()
+  })
+
+  it('announces pending findings in the status region until the final count is ready', () => {
+    const { rerender } = renderBar({ findingsPending: true, shown: 0, total: 0 })
+
+    expect(screen.getByRole('status').textContent).toBe(
+      'Замечания появятся после завершения прогона',
+    )
+    expect(screen.queryByText('Показано 0 из 0 замечаний')).toBeNull()
+
+    rerender({ findingsPending: false, shown: 3, total: 8 })
+    expect(screen.getByRole('status').textContent).toBe('Показано 3 из 8 замечаний')
+    expect(screen.queryByText('Замечания появятся после завершения прогона')).toBeNull()
   })
 
   it('says in the placeholders what an empty field means and what the search matches', () => {
@@ -199,6 +225,19 @@ describe('FindingFiltersBar', () => {
     expect(onChange).toHaveBeenCalledWith({ files: ['src/a.ts', 'README.md'], query: '' })
   })
 
+  it('preserves unknown URL files when the visible file selection changes', () => {
+    const { onChange } = renderBar({
+      filters: { ...EMPTY_FINDING_FILTERS, files: ['gone.ts', 'README.md'] },
+    })
+    openSelect('Файлы')
+    clickOption('src/a.ts (6)')
+
+    expect(onChange).toHaveBeenCalledWith({
+      files: ['README.md', 'src/a.ts', 'gone.ts'],
+      query: '',
+    })
+  })
+
   it('pushes a severity selection', () => {
     const { onChange } = renderBar()
     openSelect('Критичность')
@@ -223,16 +262,19 @@ describe('FindingFiltersBar', () => {
     renderBar({ filters: { ...EMPTY_FINDING_FILTERS, files: ['README.md', 'gone.ts'] } })
 
     await waitFor(() => {
-      expect(chips('Файлы').map((chip) => chip.textContent)).toEqual(['README.md'])
+      expect(selectedValues('Файлы')).toEqual(['README.md'])
     })
   })
 
-  it('ignores unknown-only file selection in chips and reset without emitting a change', () => {
+  it('ignores unknown-only file selection in chips and reset without emitting a change', async () => {
     const { onChange, onQueryChange, onReset } = renderBar({
       filters: { ...EMPTY_FINDING_FILTERS, files: ['gone.ts'] },
     })
 
-    expect(chips('Файлы')).toEqual([])
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(selectedValues('Файлы')).toEqual([])
     expect(resetButton()).toHaveProperty('disabled', true)
     expect(onChange).not.toHaveBeenCalled()
     expect(onQueryChange).not.toHaveBeenCalled()
@@ -244,10 +286,13 @@ describe('FindingFiltersBar', () => {
     ['severity', { ...EMPTY_FINDING_FILTERS, files: ['gone.ts'], severities: ['critical'] }],
     ['query', { ...EMPTY_FINDING_FILTERS, files: ['gone.ts'], query: 'unsafe' }],
     ['whitespace query', { ...EMPTY_FINDING_FILTERS, files: ['gone.ts'], query: '   ' }],
-  ])('allows reset for unknown files combined with %s', (_name, filters) => {
+  ])('allows reset for unknown files combined with %s', async (_name, filters) => {
     renderBar({ filters })
 
-    expect(chips('Файлы').some((chip) => chip.textContent === 'gone.ts')).toBe(false)
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(selectedValues('Файлы')).not.toContain('gone.ts')
     expect(resetButton()).toHaveProperty('disabled', false)
   })
 
