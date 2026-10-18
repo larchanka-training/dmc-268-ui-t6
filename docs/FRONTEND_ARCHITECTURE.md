@@ -46,6 +46,7 @@ antd, TanStack Query и jsdom — патчи от 2026-09-24.
 | Ф-18 | Синхронная подсветка диффа — бюджет ~1000 строк на файл и на весь дифф; выше — без `tokenize` (worker — follow-up)                                                   | AC ui#65 ч. 1; API `summary_only` >3000 строк; замеры в `docs/plans/65-plan.md` (Refs ui#65).                                                                                                                              |
 | Ф-19 | Список PR репозитория (`GET /repos/{id}/pulls`) в UI **не** входит в scope #65; навигация — со страницы репозиториев / внешняя ссылка на GitHub                      | Открытый вопрос плана закрыт: follow-up issue при появлении API в продукте (Refs ui#65).                                                                                                                                   |
 | Ф-20 | Дизайн-система Flat Console поверх antd: тема, свои компоненты и правила в `src/shared/ui`, витрина в Storybook; спецификация [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) | Единый вид всех экранов без смены UI-кита: Ф-2 и Ф-13 остаются в силе, antd получает нашу тему, а то, что токенами не выражается, собрано в одном файле. Базовые компоненты берутся только из дизайн-системы (Refs ui#98). |
+| Ф-22 | Обновление доступа: опрос 5 с / 120 с, постоянный резерв статуса и live region на странице (§2)                                                                      | Запаздывающий репозиторий появляется без блокировки действий строки; поиск и таблица не сдвигаются, status сохраняется между GET и при ошибке без данных (Refs ui#92, ui#120).                                             |
 
 Ф-11 уточнено 2026-09-24 (#49): TypeScript поднят 5.9.3 → 6.0.3. Потолок — именно 6.0.x, а не
 «6.x»: у TypeScript 7.0 нет JS API компилятора, поэтому peer typescript-eslint остаётся
@@ -255,6 +256,7 @@ src/pages/repositories/RepositoriesPage.test.tsx
 src/pages/repositories/RepositoriesPage.tsx
 src/pages/repositories/lib/formatError.test.ts
 src/pages/repositories/lib/formatError.ts
+src/pages/repositories/lib/useRepositoryAccessRefresh.ts
 src/pages/review/.gitkeep
 src/pages/review/ReviewRedirect.test.tsx
 src/pages/review/ReviewRedirect.tsx
@@ -356,6 +358,7 @@ src/widgets/run-inspector/ui/RunProgressBar.tsx
 
 | Данное                                | Где живёт                                                                                                                  | Инвалидация                                        |
 | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| Список репозиториев                   | TanStack Query, ключ `['repos']` (`useRepositories`)                                                                       | «Обновить доступ»: сразу + 5 с / 120 с; см. ниже   |
 | Список прогонов                       | TanStack Query, ключ `['runs', 'list']` (дефолтный query)                                                                  | по времени (`staleTime: 30s`) + `run.updated`      |
 | Прогон (детали)                       | TanStack Query, ключ `['runs', id]`                                                                                        | `run.updated` для этого `runId`                    |
 | Действия прогона                      | TanStack Query, ключ `['runs', id, 'actions']`                                                                             | `run.updated` + опрос 3 с, пока прогон активен     |
@@ -367,6 +370,37 @@ src/widgets/run-inspector/ui/RunProgressBar.tsx
 | `expandedKeys`, `selectedActionIndex` | Zustand, `widgets/run-inspector/model/store.ts`                                                                            | —                                                  |
 | Фильтры замечаний                     | URL search params `file`, `severity` (повторяются), `q`; хук `useFindingFiltersParams` (`features/finding-filters`)        | — (источник — URL; другой прогон начинает чисто)   |
 | Черновики комментариев                | —                                                                                                                          | future (не реализовано в этом спринте)             |
+
+**Обновление доступа к репозиториям (Ф-22, ui#92, ui#120).** Данные остаются в Query,
+не копируются в Zustand. Страница после успешного «Обновить доступ» запускает немедленный
+`refetch`, затем опрашивает список раз в 5 с в течение 120 с. Хук
+[`useRepositoryAccessRefresh`](../src/pages/repositories/lib/useRepositoryAccessRefresh.ts)
+пропускает вызов, если `queryClient.isMutating` по `UPDATE_REPOSITORY_MUTATION_KEY`
+(`['updateRepo']`) показывает незавершённый PATCH. Дедлайн при этом не продлевается.
+`refetch({ cancelRefetch: false })` не заменяет уже выполняющийся GET. По истечении окна
+автоматический опрос прекращается; «Обновить список» выполняет один ручной refetch.
+
+При уходе cleanup хука очищает интервал и таймаут, а флаг активности не даёт отложенному
+микротаску выполнить первый refetch. Отмена транспорта принадлежит TanStack Query: когда у запроса
+не остаётся наблюдателей, он отменяет `AbortSignal`, который
+[`useRepositories` → `fetchRepositories`](../src/entities/repository/api/index.ts)
+передают в fetch-клиент. Пока другой наблюдатель использует тот же запрос, GET сохраняется.
+
+Intent хранится отдельно от сессии в `sessionStorage` (`dmc_auth_access_refresh`), функции и
+проверка значения — в [`returnTo.ts`](../src/features/auth/lib/returnTo.ts). Кнопка
+«Обновить доступ» сохраняет `pending` и маршрут возврата `/repositories`, затем запускает
+GitHub authorization. Только успешный `handleCallback` переводит `pending → ready` до
+перехода со страницы callback; при ошибке callback intent очищается. Обычная кнопка входа
+через GitHub тоже очищает intent. Страница репозиториев читает только `ready`, фиксирует
+дедлайн, а эффект хука потребляет intent: повторный визит не запускает окно заново.
+
+Визуальный слот `RepositoryList` резервирует 32 px (56 px при ширине до 575 px) в `idle`,
+между GET, во время GET и после таймаута. Текст ожидания виден только во время GET активного
+окна, текст таймаута — до ухода со страницы. Единственный атомарный `role="status"` живёт на
+уровне `RepositoriesPage`, включая ошибку без данных; он визуально обрезан, но не скрыт из
+дерева доступности. Два отменяемых animation frame откладывают только текст объявления,
+чтобы пустой регион успел зарегистрироваться до первого сообщения; таймеры опроса от этого
+не зависят. Действия строки доступны при GET, переключатель блокируется на время своего PATCH.
 
 **Состояние в URL.** Вид, которым делятся ссылкой, живёт в `location.search`, а не в сторе. Сейчас
 это фильтры замечаний страницы прогона (§6): `file` (повторяется), `severity` (повторяется;

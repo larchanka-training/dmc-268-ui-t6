@@ -1,6 +1,6 @@
 import { useMutationState } from '@tanstack/react-query'
 import { Alert, App, Button, Flex } from 'antd'
-import { useMemo, type FC } from 'react'
+import { useEffect, useMemo, useRef, type FC } from 'react'
 
 import {
   UPDATE_REPOSITORY_MUTATION_KEY,
@@ -33,6 +33,31 @@ export const RepositoriesPage: FC = () => {
     refetch,
   } = useRepositories()
   const accessRefreshStatus = useRepositoryAccessRefresh(refetch)
+  const statusRef = useRef<HTMLDivElement>(null)
+  const accessRefreshMessage =
+    accessRefreshStatus === 'waiting' && isFetching
+      ? 'Загрузка репозиториев'
+      : accessRefreshStatus === 'timedOut'
+        ? 'Нужного репозитория нет? Обновите список.'
+        : ''
+
+  useEffect(() => {
+    const status = statusRef.current
+    if (!status) return
+    status.textContent = ''
+    if (!accessRefreshMessage) return
+
+    // Paint the empty region before its first message so assistive technology can register it.
+    // This only synchronizes presentation; the query and polling timers remain independent.
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => {
+        status.textContent = accessRefreshMessage
+      })
+    })
+    return () => {
+      cancelAnimationFrame(frame)
+    }
+  }, [accessRefreshMessage])
 
   const updateMutation = useUpdateRepository()
 
@@ -68,6 +93,18 @@ export const RepositoriesPage: FC = () => {
 
   return (
     <Flex gap="middle" vertical>
+      <div
+        aria-atomic="true"
+        ref={statusRef}
+        role="status"
+        style={{
+          position: 'absolute',
+          width: 1,
+          height: 1,
+          overflow: 'hidden',
+          clipPath: 'inset(50%)',
+        }}
+      />
       {isError ? (
         <Alert
           action={

@@ -60,6 +60,33 @@ const mockRepos: Repository[] = [
 ]
 
 describe('RepositoryList', () => {
+  it('keeps visual refresh messages and the manual action across status transitions', () => {
+    const onRefresh = vi.fn()
+    const props = { repositories: mockRepos, onSyncAccess: vi.fn(), onRefresh }
+    const { rerender } = render(<RepositoryList {...props} />)
+    expect(screen.queryByText('Загрузка репозиториев')).toBeNull()
+    expect(screen.queryByText('Нужного репозитория нет?')).toBeNull()
+
+    rerender(<RepositoryList {...props} accessRefreshStatus="waiting" refreshing />)
+    expect(screen.getByText('Загрузка репозиториев')).toBeDefined()
+    rerender(<RepositoryList {...props} accessRefreshStatus="waiting" />)
+    expect(screen.queryByText('Загрузка репозиториев')).toBeNull()
+    rerender(<RepositoryList {...props} accessRefreshStatus="waiting" refreshing />)
+    expect(screen.getByText('Загрузка репозиториев')).toBeDefined()
+
+    rerender(<RepositoryList {...props} accessRefreshStatus="timedOut" />)
+    expect(screen.queryByText('Загрузка репозиториев')).toBeNull()
+    expect(screen.getByText('Нужного репозитория нет?')).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: 'Обновить список' }))
+    expect(onRefresh).toHaveBeenCalledOnce()
+    rerender(<RepositoryList {...props} accessRefreshStatus="timedOut" refreshing />)
+    expect(screen.getByText('Нужного репозитория нет?')).toBeDefined()
+    expect(screen.queryByText('Загрузка репозиториев')).toBeNull()
+
+    rerender(<RepositoryList {...props} />)
+    expect(screen.queryByText('Нужного репозитория нет?')).toBeNull()
+  })
+
   it('renders repository items with branch tags, CI badges, and status switches', () => {
     const handleToggle = vi.fn()
 

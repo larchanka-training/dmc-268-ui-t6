@@ -323,7 +323,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
         title="Репозитории"
       />
 
-      <div aria-atomic="true" className={styles.accessRefreshStatus} role="status">
+      <div className={styles.accessRefreshStatus}>
         {accessRefreshStatus === 'waiting' && refreshing ? (
           <span className={styles.accessRefreshLoading}>
             <Spin aria-hidden="true" size="small" />

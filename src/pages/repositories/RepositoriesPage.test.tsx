@@ -63,6 +63,69 @@ describe('RepositoriesPage', () => {
     sessionStorage.clear()
   })
 
+  it('keeps one empty status through an idle error without exposing an empty list', async () => {
+    globalThis.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
+    renderWithClient(<RepositoriesPage />)
+    const status = screen.getByRole('status')
+    expect(status.textContent).toBe('')
+
+    await screen.findByText('Ошибка загрузки данных')
+    expect(screen.getAllByRole('status')).toEqual([status])
+    expect(status.getAttribute('aria-atomic')).toBe('true')
+    expect(status.textContent).toBe('')
+    expect(screen.queryByRole('heading', { name: 'Репозитории' })).toBeNull()
+    expect(screen.queryByText(/ещё не подключены/i)).toBeNull()
+  })
+
+  it('updates an already empty status for the first GET and retains it through polling and timeout', async () => {
+    vi.useFakeTimers()
+    saveAccessRefreshIntent()
+    activateAccessRefreshIntent()
+    let resolveGet!: (response: Response) => void
+    globalThis.fetch = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveGet = resolve
+        }),
+    )
+
+    renderWithClient(<RepositoriesPage />)
+    const status = screen.getByRole('status')
+    expect(status.textContent).toBe('')
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(16)
+    })
+    expect(status.textContent).toBe('')
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(16)
+    })
+    expect(status.textContent).toBe('Загрузка репозиториев')
+    expect(screen.getAllByRole('status')).toEqual([status])
+
+    await act(async () => {
+      resolveGet(new Response('[]', { status: 200 }))
+      await vi.advanceTimersByTimeAsync(1)
+    })
+    expect(status.textContent).toBe('')
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000)
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(32)
+    })
+    expect(screen.getByRole('status')).toBe(status)
+    expect(status.textContent).toBe('Загрузка репозиториев')
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(120000)
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(32)
+    })
+    expect(screen.getAllByRole('status')).toEqual([status])
+    expect(status.textContent).toBe('Нужного репозитория нет? Обновите список.')
+  })
+
   it.each(['empty', 'populated'] as const)(
     'shows loading only for pending GETs while polling a previously %s list',
     async (initialList) => {
@@ -101,7 +164,7 @@ describe('RepositoriesPage', () => {
 
       renderWithClient(<RepositoriesPage />, client)
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(1)
+        await vi.advanceTimersByTimeAsync(33)
       })
       const status = screen.getByRole('status')
       expect(within(status).getByText('Загрузка репозиториев')).toBeDefined()
@@ -112,9 +175,6 @@ describe('RepositoriesPage', () => {
       expect(within(status).queryByText('Загрузка репозиториев')).toBeNull()
       if (initialList === 'populated') {
         expect(screen.getByText('org/old-repo')).toBeDefined()
-        expect(
-          screen.getByRole('button', { name: 'Настройки org/old-repo' }).hasAttribute('disabled'),
-        ).toBe(false)
       } else {
         expect(screen.getByText(/Репозитории ещё не подключены/)).toBeDefined()
       }
@@ -123,6 +183,9 @@ describe('RepositoriesPage', () => {
         await vi.advanceTimersByTimeAsync(4999)
       })
       expect(globalThis.fetch).toHaveBeenCalledTimes(2)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(32)
+      })
       expect(within(status).getByText('Загрузка репозиториев')).toBeDefined()
       await act(async () => {
         resolveGet(
@@ -183,9 +246,6 @@ describe('RepositoriesPage', () => {
       await vi.advanceTimersByTimeAsync(1000)
     })
     expect(within(status).queryByText('Загрузка репозиториев')).toBeNull()
-    expect(
-      screen.getByRole('button', { name: 'Настройки org/old-repo' }).hasAttribute('disabled'),
-    ).toBe(false)
     expect(requests).toBe(1)
     expect(screen.getByText('org/old-repo')).toBeDefined()
     expect(screen.queryByText('org/new-repo')).toBeNull()
@@ -198,6 +258,89 @@ describe('RepositoriesPage', () => {
       await vi.advanceTimersByTimeAsync(1)
     })
     expect(screen.getByText('org/new-repo')).toBeDefined()
+  })
+
+  it('keeps row settings and toggle working during a pending polling GET', async () => {
+    vi.useFakeTimers()
+    saveAccessRefreshIntent()
+    activateAccessRefreshIntent()
+    const repository: Repository = {
+      id: '11111111-1111-4111-8111-111111111111',
+      fullName: 'org/old-repo',
+      url: 'https://github.com/org/old-repo',
+      defaultBranch: 'main',
+      enabled: true,
+      defaultEngine: 'fast',
+      waitForCi: 'auto',
+      maxComments: 10,
+      reviewEvent: 'COMMENT',
+    }
+    const confirmedRepository = { ...repository, enabled: false }
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
+    })
+    client.setQueryData(REPOSITORIES_QUERY_KEY, [repository])
+    let resolvePatch!: (response: Response) => void
+    const patch = new Promise<Response>((resolve) => {
+      resolvePatch = resolve
+    })
+    let gets = 0
+    globalThis.fetch = vi.fn((_url, options?: RequestInit) => {
+      if (options?.method === 'PATCH') return patch
+      gets += 1
+      if (gets === 1) {
+        return new Promise<Response>((_resolve, reject) => {
+          options?.signal?.addEventListener('abort', () => {
+            reject(new DOMException('Aborted', 'AbortError'))
+          })
+        })
+      }
+      return Promise.resolve(new Response(JSON.stringify([confirmedRepository]), { status: 200 }))
+    })
+
+    renderWithClient(
+      <ConfigProvider theme={{ token: { motion: false } }}>
+        <RepositoriesPage />
+      </ConfigProvider>,
+      client,
+    )
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1)
+    })
+    expect(client.isFetching({ queryKey: REPOSITORIES_QUERY_KEY })).toBe(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Настройки org/old-repo' }))
+    const settings = screen.getByRole('dialog', { name: 'Настройки репозитория org/old-repo' })
+    expect(
+      within(settings)
+        .getByRole('spinbutton', { name: 'Лимит замечаний (1..10)' })
+        .getAttribute('value'),
+    ).toBe('10')
+    fireEvent.click(within(settings).getByRole('button', { name: 'Отмена' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(client.isFetching({ queryKey: REPOSITORIES_QUERY_KEY })).toBe(1)
+
+    const toggle = screen.getByRole('switch', { name: 'Ревью для org/old-repo' })
+    expect(toggle.getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(toggle)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1)
+    })
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/repos/11111111-1111-4111-8111-111111111111',
+      expect.objectContaining({ method: 'PATCH', body: '{"enabled":false}' }),
+    )
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
+    expect(toggle.hasAttribute('disabled')).toBe(true)
+
+    await act(async () => {
+      resolvePatch(new Response(JSON.stringify(confirmedRepository), { status: 200 }))
+      await patch
+      await vi.advanceTimersByTimeAsync(1)
+    })
+    expect(gets).toBe(2)
+    expect(
+      screen.getByRole('switch', { name: 'Ревью для org/old-repo' }).getAttribute('aria-checked'),
+    ).toBe('false')
   })
 
   it('starts GitHub authorization with repositories as the return route without logout', async () => {
