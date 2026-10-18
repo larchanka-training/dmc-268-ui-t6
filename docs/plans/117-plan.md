@@ -2,7 +2,7 @@
 
 ## Overview
 
-Implement [issue #117](https://github.com/larchanka-training/dmc-268-ui-t6/issues/117): make every runs-table column reachable at 390px without page overflow, give run metadata four equal desktop tracks with a monospace commit hash, add visible change signs in Unified and Split diffs, and keep finding titles/ranges readable on phones. The user approved this plan on 2026-10-18 and authorized implementation through a published PR. Development is proceeding in an isolated checkout; baseline testing/capture and Tasks 1–5 and the final Task 6 browser/verification matrix are complete. Publication and PR screenshot attachments remain for the publisher.
+Implement [issue #117](https://github.com/larchanka-training/dmc-268-ui-t6/issues/117): make every runs-table column reachable at 390px without page overflow, give run metadata four equal desktop tracks with a monospace commit hash, add visible change signs in Unified and Split diffs, and keep finding titles/ranges readable on phones. The user approved this plan on 2026-10-18 and authorized implementation through a published PR. Tasks 1–6 and final verification are complete in the isolated checkout. [PR #141](https://github.com/larchanka-training/dmc-268-ui-t6/pull/141) is published ready for review with no reviewer assigned, as explicitly requested by the user; its body embeds the actual screenshots and links the complete committed evidence index.
 
 ## Evidence and starting point
 
@@ -128,7 +128,7 @@ No currently open PR owns the planned implementation paths below. If a real-brow
 
 - [x] Every implementation AC has concrete final browser measurements and matched before/after screenshots in both themes and viewport sizes; PR attachment publication is pending.
 - [x] Six gates pass on the final isolated branch; all review findings are addressed, ownership was refreshed before publication, and the branch is current with main (`9382f9e`).
-- [ ] The eventual PR attaches the screenshots and explains manual browser checks, unchanged data contracts, and the table default decision under `What` / `Why` / `How to verify` / `Refs`, referencing #117 without closing keywords or a Development link.
+- [x] [PR #141](https://github.com/larchanka-training/dmc-268-ui-t6/pull/141) embeds actual screenshots and explains browser checks, unchanged data contracts, and the table default under `What` / `Why` / `How to verify` / `Refs`, referencing #117 without closing keywords or a Development link.
 
 **Verification:** Use the matrix below, preserve evidence paths and commands in the todo file, and hand off to the agent-loop reviewer/publisher only after implementation verification. Creating a PR, approving it, resolving another reviewer's threads, board updates, and merging are not planning actions. One current-head approval and resolved threads remain merge requirements; the tech lead closes the issue after AC acceptance.
 
