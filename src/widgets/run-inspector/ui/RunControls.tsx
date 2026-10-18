@@ -1,5 +1,5 @@
 import { useContext, type JSX } from 'react'
-import { Button, ConfigProvider, Space, message } from 'antd'
+import { Button, ConfigProvider, Space, message, type ButtonProps } from 'antd'
 import { useNavigate } from 'react-router'
 
 import {
@@ -30,49 +30,47 @@ export function RunControls(props: RunControlsProps): JSX.Element {
     void messageApi.error(runMutationErrorMessage(error, action))
   }
 
+  const cancelButtonProps: ButtonProps = {
+    // aria-disabled, not disabled: a natively disabled button would drop the focus.
+    'aria-disabled': run.cancelRequested ? true : undefined,
+    className: run.cancelRequested ? `${getPrefixCls('btn')}-disabled` : undefined,
+    danger: !run.cancelRequested,
+    loading: cancelMutation.isPending,
+    onClick: run.cancelRequested
+      ? undefined
+      : () => {
+          cancelMutation.mutate(undefined, {
+            onError: (error) => {
+              showError(error, 'cancel')
+            },
+          })
+        },
+    children: run.cancelRequested ? 'Отмена запрошена' : 'Отменить',
+  }
+  const rerunButtonProps: ButtonProps = {
+    loading: rerunMutation.isPending,
+    onClick: () => {
+      rerunMutation.mutate(undefined, {
+        onError: (error) => {
+          showError(error, 'rerun')
+        },
+        onSuccess: (session) => {
+          void navigate(`/runs/${session.id}`)
+        },
+      })
+    },
+    type: 'primary',
+    children: 'Перезапустить',
+  }
+
   return (
     <>
       {contextHolder}
       <Space wrap>
-        {canCancel ? (
-          // aria-disabled, not disabled: a natively disabled button would drop the focus.
-          <Button
-            aria-disabled={run.cancelRequested ? true : undefined}
-            className={run.cancelRequested ? `${getPrefixCls('btn')}-disabled` : undefined}
-            danger={!run.cancelRequested}
-            loading={cancelMutation.isPending}
-            onClick={
-              run.cancelRequested
-                ? undefined
-                : () => {
-                    cancelMutation.mutate(undefined, {
-                      onError: (error) => {
-                        showError(error, 'cancel')
-                      },
-                    })
-                  }
-            }
-          >
-            {run.cancelRequested ? 'Отмена запрошена' : 'Отменить'}
-          </Button>
-        ) : null}
-        {canRerun ? (
-          <Button
-            loading={rerunMutation.isPending}
-            onClick={() => {
-              rerunMutation.mutate(undefined, {
-                onError: (error) => {
-                  showError(error, 'rerun')
-                },
-                onSuccess: (session) => {
-                  void navigate(`/runs/${session.id}`)
-                },
-              })
-            }}
-            type="primary"
-          >
-            Перезапустить
-          </Button>
+        {/* One button in one slot: the node must survive a terminal transition so the focus
+            stays on it instead of falling to the body (frontend.md §3b item 3). */}
+        {canCancel || canRerun ? (
+          <Button {...(canCancel ? cancelButtonProps : rerunButtonProps)} />
         ) : null}
       </Space>
     </>

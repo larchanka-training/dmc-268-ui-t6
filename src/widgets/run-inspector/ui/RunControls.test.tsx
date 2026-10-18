@@ -213,6 +213,82 @@ describe('RunControls', () => {
     expect((requestedButton as HTMLButtonElement).disabled).toBe(false)
   })
 
+  // The cancel and «Перезапустить» buttons are one node: when the run turns terminal it
+  // keeps the focus instead of the page falling back to the body (frontend.md §3b item 3).
+  function expectFocusKeptOnRerun(before: HTMLElement): void {
+    const rerunButton = screen.getByRole('button', { name: 'Перезапустить' })
+    expect(rerunButton).toBe(before)
+    expect(document.activeElement).toBe(rerunButton)
+    // jsdom keeps the focus on a natively disabled button; a real browser drops it.
+    expect((rerunButton as HTMLButtonElement).disabled).toBe(false)
+  }
+
+  it('keeps the focus on the button when a queued run is cancelled', () => {
+    const { rerender } = render(
+      <MemoryRouter>
+        <RunControls run={{ ...activeRun, status: 'queued' }} />
+      </MemoryRouter>,
+    )
+    const cancelButton = screen.getByRole('button', { name: 'Отменить' })
+    cancelButton.focus()
+    expect(document.activeElement).toBe(cancelButton)
+
+    rerender(
+      <MemoryRouter>
+        <RunControls run={{ ...terminalRun, status: 'cancelled', cancelRequested: true }} />
+      </MemoryRouter>,
+    )
+
+    expectFocusKeptOnRerun(cancelButton)
+  })
+
+  it.each([
+    { from: 'running', to: 'cancelled' },
+    { from: 'publishing', to: 'failed' },
+  ] as const)(
+    'keeps the focus on «Отмена запрошена» when a $from run turns $to',
+    ({ from, to }) => {
+      const { rerender } = render(
+        <MemoryRouter>
+          <RunControls run={{ ...activeRun, status: from, cancelRequested: true }} />
+        </MemoryRouter>,
+      )
+      const requestedButton = screen.getByRole('button', { name: 'Отмена запрошена' })
+      requestedButton.focus()
+      expect(document.activeElement).toBe(requestedButton)
+
+      rerender(
+        <MemoryRouter>
+          <RunControls run={{ ...terminalRun, status: to, cancelRequested: true }} />
+        </MemoryRouter>,
+      )
+
+      expectFocusKeptOnRerun(requestedButton)
+    },
+  )
+
+  it('does not touch a focus held elsewhere when the run turns terminal', () => {
+    const { rerender } = render(
+      <MemoryRouter>
+        <RunControls run={{ ...activeRun, status: 'queued' }} />
+        <button type="button">Рядом</button>
+      </MemoryRouter>,
+    )
+    const outsideButton = screen.getByRole('button', { name: 'Рядом' })
+    outsideButton.focus()
+    expect(document.activeElement).toBe(outsideButton)
+
+    rerender(
+      <MemoryRouter>
+        <RunControls run={{ ...terminalRun, status: 'cancelled', cancelRequested: true }} />
+        <button type="button">Рядом</button>
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('button', { name: 'Перезапустить' })).toBeTruthy()
+    expect(document.activeElement).toBe(outsideButton)
+  })
+
   it('shows only an enabled «Отменить» on an active run without a cancel request', () => {
     renderActiveControls()
 
