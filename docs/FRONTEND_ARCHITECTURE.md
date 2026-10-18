@@ -1064,9 +1064,15 @@ React, без `innerHTML`.
 «Отменить» на активном прогоне, «Перезапустить» на терминальном. На `running`/`publishing` отмена
 статус не меняет: API ставит `cancelRequested: true` на `RunSession`, пока воркер не остановится.
 Тогда та же кнопка становится неактивной «Отмена запрошена»: без `danger` — это уже не действие
-(DESIGN_SYSTEM §8), с `aria-disabled` и классом отключённой кнопки antd вместо `disabled`, чтобы
-фокус остался на ней (`.agents/rules/frontend.md` §3b п. 3). `attempt: number` (номер попытки при
-retry) `RunHeader` показывает в поле «Попытка».
+(DESIGN_SYSTEM §8), с `aria-disabled` и классом отключённой кнопки antd (`useDisabledButtonClass`
+из `shared/ui`, DESIGN_SYSTEM §11) вместо `disabled`, чтобы фокус остался на ней
+(`.agents/rules/frontend.md` §3b п. 3). По той же причине отмена и «Перезапустить» — одна кнопка в
+одном слоте: когда прогон становится терминальным (отмена `queued`, завершение запрошенной отмены или
+обычный конец прогона), она становится «Перезапустить», и фокус, стоявший на ней, остаётся на ней же;
+фокус в другом месте не трогается. Автоповтор зажатого Enter кнопка гасит
+(`event.key === 'Enter' && event.repeat`): иначе он после отмены `queued` запускал бы «Перезапустить»
+(§3b п. 4). Space нажимает кнопку на keyup и не повторяется, Tab и стрелки идут дальше; отдельное
+второе нажатие Enter — новое действие. `attempt: number` (номер попытки при retry) `RunHeader` показывает в поле «Попытка».
 
 Запросы уже реализованы: `endpoints.runs.cancel` / `endpoints.runs.rerun` в
 `src/shared/api/endpoints.ts`, функции `cancelRun` / `rerunRun` и mutation-хуки `useCancelRun` /

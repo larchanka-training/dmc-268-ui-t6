@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
-import { cleanup, render } from '@testing-library/react'
+import { cleanup, render, renderHook } from '@testing-library/react'
 import { Button, ConfigProvider } from 'antd'
+import type { JSX, ReactNode } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'
 
+import { useDisabledButtonClass } from '../lib/useDisabledButtonClass'
 import { buildTheme } from '../theme/buildTheme'
 import { RV_PALETTE } from '../theme/palette'
 
@@ -139,5 +141,108 @@ describe('the Button theme', () => {
       selectors.some((selector) => /^\.css-var-[^.\s]+$/.test(selector.trim())),
     )
     expect(root?.body).toContain(`--ant-color-error-bg-active:${RV_PALETTE.dark.dangerBorder}`)
+  })
+})
+
+// RunControls' aria-disabled cancel relies on these antd rules; an antd upgrade that changes them
+// turns this red.
+describe('the disabled class of useDisabledButtonClass', () => {
+  /** The button that keeps the focus but looks disabled, as «Отмена запрошена» in RunControls. */
+  function ClassDisabledButton(): JSX.Element {
+    const disabledClass = useDisabledButtonClass()
+    return (
+      <Button aria-disabled className={disabledClass}>
+        Отмена запрошена
+      </Button>
+    )
+  }
+
+  /** A natively disabled default button next to a default one with the class, and the class. */
+  function renderPair(): { native: HTMLElement; classed: HTMLElement; disabledClass: string } {
+    const wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
+      <ConfigProvider theme={buildTheme('light')}>{children}</ConfigProvider>
+    )
+    const { container } = render(
+      <>
+        <Button disabled>Отмена</Button>
+        <ClassDisabledButton />
+      </>,
+      { wrapper },
+    )
+    const { result } = renderHook(() => useDisabledButtonClass(), { wrapper })
+    const classed = only('button[aria-disabled="true"]', container)
+    expect(classed.classList.contains(result.current)).toBe(true)
+    return { native: only('button[disabled]', container), classed, disabledClass: result.current }
+  }
+
+  /**
+   * Whether the element matches any selector of a rule, `:where(…)` set aside as classesOf()
+   * does.
+   */
+  function ruleMatches(element: HTMLElement, selectors: string[]): boolean {
+    return selectors.some((selector) => element.matches(classesOf(selector).plain))
+  }
+
+  const NOT_ALLOWED = /cursor\s*:\s*not-allowed/
+  const OUTLINE = /(?:^|;)\s*outline\s*:/
+
+  it('gives the button the look of a natively disabled one', () => {
+    const { native, classed } = renderPair()
+    const rules = injectedRules().filter(
+      ({ selectors, body }) =>
+        NOT_ALLOWED.test(body) ||
+        (selectors.some((selector) => /:disabled|-disabled/.test(selector)) &&
+          (ruleMatches(native, selectors) || ruleMatches(classed, selectors))),
+    )
+    for (const { selectors } of rules) {
+      expect(ruleMatches(classed, selectors), selectors.join(',')).toBe(
+        ruleMatches(native, selectors),
+      )
+    }
+    // The disabled look itself is found, and it reaches both buttons.
+    expect(
+      rules.some(
+        ({ selectors, body }) =>
+          NOT_ALLOWED.test(body) &&
+          ruleMatches(native, selectors) &&
+          ruleMatches(classed, selectors),
+      ),
+    ).toBe(true)
+  })
+
+  it('leaves the button without hover and press, as a natively disabled one', () => {
+    const { disabledClass } = renderPair()
+    const selectors = injectedRules()
+      .flatMap((rule) => rule.selectors)
+      .filter(
+        (selector) => /:(hover|active)\b/.test(selector) && selector.includes(':not(:disabled)'),
+      )
+    // The library's hover and press selectors are found, and each one leaves out the class.
+    expect(selectors.length).toBeGreaterThan(0)
+    for (const selector of selectors) {
+      expect(selector).toContain(`:not(.${disabledClass})`)
+    }
+  })
+
+  it('keeps the focus ring that a natively disabled button never shows, as a focusable button must', () => {
+    const { native, classed } = renderPair()
+
+    classed.focus()
+
+    expect(document.activeElement).toBe(classed)
+    const rings = injectedRules().filter(
+      ({ selectors, body }) =>
+        OUTLINE.test(body) && ruleMatches(classed, selectors) && !ruleMatches(native, selectors),
+    )
+    expect(rings.length).toBeGreaterThan(0)
+    // jsdom never focuses a natively disabled button, so the rule itself must leave it out: the
+    // selector that matches the focused class button carries `:not(:disabled)`.
+    const matching = rings.flatMap(({ selectors }) =>
+      selectors.filter((selector) => classed.matches(classesOf(selector).plain)),
+    )
+    expect(matching.length).toBeGreaterThan(0)
+    for (const selector of matching) {
+      expect(selector).toContain(':not(:disabled)')
+    }
   })
 })
