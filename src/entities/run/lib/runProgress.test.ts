@@ -5,7 +5,7 @@ import { runProgress, runProgressReadsLog } from './runProgress'
 
 const RUN_ID = '11111111-1111-4111-8111-000000000000'
 
-type Step = string | [tool: string, response: unknown]
+type Step = string | readonly [tool: string, response: unknown]
 
 const FAILURE = { error: { type: 'LLMTimeout', message: 'the model call timed out' } }
 
@@ -30,13 +30,169 @@ function states(
   status: RunStatus,
   actions: RunAction[],
   errorCode: string | null = null,
+  attempt = 1,
 ): string[] | null {
-  const progress = runProgress({ status, errorCode }, actions)
+  const progress = runProgress({ status, errorCode, attempt }, actions)
   return progress === null ? null : progress.map((stage) => stage.state)
 }
 
+const ORDERS = [
+  {
+    name: 'current cache hit',
+    diff: 'vcs.fetch_diff',
+    steps: [
+      'context.build',
+      'llm.repo_conventions',
+      'context.build',
+      'llm.call',
+      'llm.review_output',
+      'review.postprocess',
+      'github.publish_review',
+    ],
+    running: ['context', 'context', 'analysis', 'analysis', 'analysis', 'analysis', 'analysis'],
+    stopped: [
+      'context',
+      'context',
+      'analysis',
+      'analysis',
+      'publishing',
+      'publishing',
+      'publishing',
+    ],
+  },
+  {
+    name: 'current cache miss',
+    diff: 'vcs.fetch_diff',
+    steps: [
+      'context.build',
+      'llm.call',
+      'llm.call',
+      'llm.repo_conventions',
+      'context.build',
+      'llm.call',
+      'llm.review_output',
+      'review.postprocess',
+      'gitlab.publish_review',
+    ],
+    running: [
+      'context',
+      'context',
+      'context',
+      'context',
+      'analysis',
+      'analysis',
+      'analysis',
+      'analysis',
+      'analysis',
+    ],
+    stopped: [
+      'context',
+      'context',
+      'context',
+      'context',
+      'analysis',
+      'analysis',
+      'publishing',
+      'publishing',
+      'publishing',
+    ],
+  },
+  {
+    name: 'canonical cache hit',
+    diff: 'vcs.fetch_diff',
+    steps: [
+      'llm.repo_conventions',
+      'context.build',
+      'llm.call',
+      'llm.review_output',
+      'review.postprocess',
+      'github.publish_review',
+    ],
+    running: ['context', 'analysis', 'analysis', 'analysis', 'analysis', 'analysis'],
+    stopped: ['context', 'analysis', 'analysis', 'publishing', 'publishing', 'publishing'],
+  },
+  {
+    name: 'canonical cache miss',
+    diff: 'vcs.fetch_diff',
+    steps: [
+      'llm.call',
+      'llm.repo_conventions',
+      'context.build',
+      'llm.call',
+      'llm.review_output',
+      'review.postprocess',
+      'gitlab.publish_review',
+    ],
+    running: ['context', 'context', 'analysis', 'analysis', 'analysis', 'analysis', 'analysis'],
+    stopped: [
+      'context',
+      'context',
+      'analysis',
+      'analysis',
+      'publishing',
+      'publishing',
+      'publishing',
+    ],
+  },
+  {
+    name: 'current summary-only cache miss',
+    diff: ['vcs.fetch_diff', { summary_only: true }],
+    steps: [
+      'context.build',
+      'llm.call',
+      'llm.repo_conventions',
+      'context.build',
+      'llm.call',
+      'llm.review_output',
+      'review.postprocess',
+      'github.publish_review',
+    ],
+    running: [
+      'context',
+      'context',
+      'context',
+      'analysis',
+      'analysis',
+      'analysis',
+      'analysis',
+      'analysis',
+    ],
+    stopped: [
+      'context',
+      'context',
+      'context',
+      'analysis',
+      'analysis',
+      'publishing',
+      'publishing',
+      'publishing',
+    ],
+  },
+] as const
+
+const runningStates = {
+  context: ['process', 'wait', 'wait'],
+  analysis: ['finish', 'process', 'wait'],
+}
+const failedStates = {
+  context: ['error', 'wait', 'wait'],
+  analysis: ['finish', 'error', 'wait'],
+  publishing: ['finish', 'finish', 'error'],
+}
+const cancelledStates = {
+  context: ['stopped', 'wait', 'wait'],
+  analysis: ['finish', 'stopped', 'wait'],
+  publishing: ['finish', 'finish', 'stopped'],
+}
+
+function orderSteps(order: (typeof ORDERS)[number], fetch = true): Step[] {
+  return ['policy.load', ...(fetch ? [order.diff] : []), ...order.steps]
+}
+
 const HAPPY_PATH = build(
+  'policy.load',
   'vcs.fetch_diff',
+  'context.build',
   'llm.call',
   'llm.repo_conventions',
   'context.build',
@@ -49,7 +205,7 @@ const HAPPY_PATH = build(
 
 describe('runProgress stages', () => {
   it('lists the three stages in order with the Russian labels', () => {
-    const progress = runProgress({ status: 'queued', errorCode: null }, [])
+    const progress = runProgress({ attempt: 1, status: 'queued', errorCode: null }, [])
     expect(progress?.map((stage) => [stage.key, stage.label])).toEqual([
       ['context', 'Сбор контекста'],
       ['analysis', 'Анализ LLM'],
@@ -74,7 +230,9 @@ describe('runProgress by status', () => {
   })
 
   it('returns null for skipped regardless of errorCode', () => {
-    expect(runProgress({ status: 'skipped', errorCode: 'draft_pr' }, HAPPY_PATH)).toBeNull()
+    expect(
+      runProgress({ attempt: 1, status: 'skipped', errorCode: 'draft_pr' }, HAPPY_PATH),
+    ).toBeNull()
   })
 })
 
@@ -141,6 +299,319 @@ describe('runProgress while running', () => {
       'process',
       'wait',
     ])
+  })
+})
+
+describe('runProgress with modern single-attempt orders', () => {
+  it.each(ORDERS)('keeps every $name prefix on its literal phase', (order) => {
+    const actions = build(...orderSteps(order))
+    const running = ['context', 'context', 'context', ...order.running] as const
+    const stopped = ['context', 'context', 'context', ...order.stopped] as const
+    for (let cut = 0; cut <= actions.length; cut += 1) {
+      const prefix = actions.slice(0, cut)
+      const runningPhase = running[cut]
+      const stoppedPhase = stopped[cut]
+      if (runningPhase === undefined || stoppedPhase === undefined)
+        throw new Error('Missing literal phase')
+      expect(states('running', prefix), `${order.name}/${String(cut)}`).toEqual(
+        runningStates[runningPhase],
+      )
+      expect(states('failed', prefix), `${order.name}/${String(cut)}`).toEqual(
+        failedStates[stoppedPhase],
+      )
+      expect(
+        states('cancelled', prefix, 'cancelled_by_user'),
+        `${order.name}/${String(cut)}`,
+      ).toEqual(cancelledStates[stoppedPhase])
+    }
+  })
+
+  it.each(ORDERS)('places each failed $name step and its error on the actual phase', (order) => {
+    const steps = orderSteps(order)
+    const failedPhases = ['context', 'context', ...order.stopped] as const
+    for (let index = 0; index < steps.length; index += 1) {
+      const step = steps[index]
+      const tool = typeof step === 'string' ? step : step?.[0]
+      if (tool === undefined) throw new Error('Missing step')
+      const phase = tool === 'context.build' ? 'context' : failedPhases[index]
+      if (phase === undefined) throw new Error('Missing literal phase')
+      const progress = runProgress(
+        { attempt: 1, status: 'failed', errorCode: 'step_failed' },
+        build(...steps.slice(0, index), [tool, FAILURE]),
+      )
+      expect(
+        progress?.map((stage) => stage.state),
+        `${order.name}/${tool}`,
+      ).toEqual(failedStates[phase])
+      expect(
+        progress?.filter((stage) => stage.errorCode !== null).map((stage) => stage.key),
+      ).toEqual([phase])
+    }
+  })
+
+  it.each(['failed', 'cancelled'] as const)(
+    '%s after successful prompt context hands off before the first saved review call',
+    (status) => {
+      expect(
+        states(
+          status,
+          build('policy.load', 'context.build', 'llm.repo_conventions', 'context.build'),
+        ),
+      ).toEqual(['finish', status === 'failed' ? 'error' : 'stopped', 'wait'])
+    },
+  )
+
+  it('continues after a soft first-build failure and locates a later review failure on analysis', () => {
+    const actions = build(
+      'policy.load',
+      'vcs.fetch_diff',
+      ['context.build', FAILURE],
+      'llm.call',
+      'llm.repo_conventions',
+      'context.build',
+      ['llm.call', FAILURE],
+    )
+    expect(states('running', actions.slice(0, 3))).toEqual(['process', 'wait', 'wait'])
+    expect(states('running', actions.slice(0, 6))).toEqual(['finish', 'process', 'wait'])
+    expect(states('failed', actions, 'llm_timeout')).toEqual(['finish', 'error', 'wait'])
+  })
+})
+
+describe('runProgress with policy-marked retries', () => {
+  it.each(['running', 'failed', 'cancelled'] as const)(
+    '%s starts a newly claimed attempt in context before its first saved row',
+    (status) => {
+      const actions = build(
+        'policy.load',
+        'llm.repo_conventions',
+        'context.build',
+        'llm.call',
+        'llm.review_output',
+        'github.publish_review',
+      )
+      expect(states(status, actions, null, 2)).toEqual([
+        status === 'running' ? 'process' : status === 'failed' ? 'error' : 'stopped',
+        'wait',
+        'wait',
+      ])
+    },
+  )
+
+  it.each(['llm.call', 'github.publish_review'])(
+    'records a real policy failure after previous %s on context',
+    (tail) => {
+      const actions = build('policy.load', 'llm.repo_conventions', 'context.build', tail, [
+        'policy.load',
+        { error: { type: 'PolicyRateLimited', message: 'policy fetch limited' } },
+      ])
+      expect(states('failed', actions, 'policy_rate_limited', 2)).toEqual(['error', 'wait', 'wait'])
+    },
+  )
+
+  it.each(['running', 'failed', 'cancelled'] as const)(
+    '%s recovers a latest segment after a historical missing policy row using the current LLM attempt',
+    (status) => {
+      const actions = build('policy.load', 'llm.repo_conventions', 'context.build', 'llm.call').map(
+        (action) => ({
+          ...action,
+          request: action.tool === 'llm.call' ? { attempt: 2, kind: 'primary' } : {},
+        }),
+      )
+      expect(states(status, actions, null, 2)).toEqual([
+        'finish',
+        status === 'running' ? 'process' : status === 'failed' ? 'error' : 'stopped',
+        'wait',
+      ])
+    },
+  )
+
+  it.each([
+    { name: 'missing', request: {} },
+    { name: 'stale', request: { attempt: 1 } },
+    { name: 'string', request: { attempt: '2' } },
+    { name: 'fractional', request: { attempt: 2.5 } },
+    { name: 'negative', request: { attempt: -2 } },
+    { name: 'zero', request: { attempt: 0 } },
+    { name: 'null', request: { attempt: null } },
+    { name: 'future', request: { attempt: 3 } },
+    { name: 'unrelated try', request: { try: 2 } },
+  ])('does not let $name call metadata expose a stale completed segment', ({ request }) => {
+    const actions = build(
+      'policy.load',
+      'llm.repo_conventions',
+      'context.build',
+      'llm.call',
+      'llm.review_output',
+    ).map((action) => ({
+      ...action,
+      request: action.tool === 'llm.call' ? request : {},
+    }))
+    expect(states('running', actions, null, 2)).toEqual(['process', 'wait', 'wait'])
+    expect(states('failed', actions, 'retry_failed', 2)).toEqual(['error', 'wait', 'wait'])
+    expect(states('cancelled', actions, 'cancelled_by_user', 2)).toEqual([
+      'stopped',
+      'wait',
+      'wait',
+    ])
+  })
+
+  it.each(['context.build', 'llm.repo_conventions', 'constructor', 'foo.bar'])(
+    'does not corroborate the current attempt from %s request metadata',
+    (tool) => {
+      const actions = build(
+        'policy.load',
+        'llm.repo_conventions',
+        'context.build',
+        'llm.call',
+        'llm.review_output',
+        tool,
+      ).map((action) => ({
+        ...action,
+        request: action.tool === tool ? { attempt: 2 } : {},
+      }))
+      expect(states('failed', actions, 'retry_failed', 2)).toEqual(['error', 'wait', 'wait'])
+    },
+  )
+
+  it('does not borrow a matching call before the latest policy boundary', () => {
+    const actions = build(
+      'policy.load',
+      'llm.call',
+      'policy.load',
+      'llm.repo_conventions',
+      'context.build',
+      'llm.review_output',
+    ).map((action) => ({
+      ...action,
+      request: action.tool === 'llm.call' ? { attempt: 3 } : {},
+    }))
+    expect(states('failed', actions, 'retry_failed', 3)).toEqual(['error', 'wait', 'wait'])
+  })
+
+  it('delays a call-free cache-hit segment after a missing policy row until corroboration', () => {
+    const actions = build('policy.load', 'llm.repo_conventions', 'context.build')
+    expect(states('running', actions, null, 2)).toEqual(['process', 'wait', 'wait'])
+    const withCall = build('policy.load', 'llm.repo_conventions', 'context.build', 'llm.call').map(
+      (action) => ({
+        ...action,
+        request: action.tool === 'llm.call' ? { attempt: 2 } : {},
+      }),
+    )
+    expect(states('running', withCall, null, 2)).toEqual(['finish', 'process', 'wait'])
+  })
+
+  it.each(ORDERS)('isolates every retry prefix after every $name prefix', (first) => {
+    const firstTools = orderSteps(first)
+    for (let cut = 1; cut <= firstTools.length; cut += 1) {
+      for (const next of ORDERS) {
+        for (const fetch of [false, true]) {
+          const tools = orderSteps(next, fetch)
+          const running = [
+            'context',
+            ...(fetch ? (['context'] as const) : []),
+            ...next.running,
+          ] as const
+          const stopped = [
+            'context',
+            ...(fetch ? (['context'] as const) : []),
+            ...next.stopped,
+          ] as const
+          for (let nextCut = 0; nextCut <= tools.length; nextCut += 1) {
+            const actions = build(...firstTools.slice(0, cut), ...tools.slice(0, nextCut))
+            const message = `${first.name}/${String(cut)} -> ${next.name}/${String(nextCut)}, fetch=${String(fetch)}`
+            const runningStage = nextCut === 0 ? 'context' : running[nextCut - 1]
+            const stoppedStage = nextCut === 0 ? 'context' : stopped[nextCut - 1]
+            if (runningStage === undefined || stoppedStage === undefined) {
+              throw new Error('Missing literal phase expectation')
+            }
+            expect(states('running', actions, null, 2), message).toEqual(
+              runningStates[runningStage],
+            )
+            expect(states('failed', actions, 'retry_failed', 2), message).toEqual(
+              failedStates[stoppedStage],
+            )
+            expect(states('cancelled', actions, 'cancelled_by_user', 2), message).toEqual(
+              cancelledStates[stoppedStage],
+            )
+          }
+        }
+      }
+    }
+  })
+
+  it('keeps a third cache-miss attempt in context without inheriting earlier prompt builds', () => {
+    const actions = build(
+      'policy.load',
+      'llm.repo_conventions',
+      'context.build',
+      'llm.call',
+      'policy.load',
+      'context.build',
+      'llm.call',
+      'llm.repo_conventions',
+      'context.build',
+      'llm.call',
+      'llm.review_output',
+      'github.publish_review',
+      'policy.load',
+      'context.build',
+      ['llm.call', FAILURE],
+    )
+    expect(states('running', actions)).toEqual(['process', 'wait', 'wait'])
+    expect(states('failed', actions, 'llm_timeout')).toEqual(['error', 'wait', 'wait'])
+    expect(states('cancelled', actions)).toEqual(['stopped', 'wait', 'wait'])
+  })
+
+  it('sorts policy boundaries by index without mutating the supplied log', () => {
+    const shuffled = build(
+      'policy.load',
+      'llm.repo_conventions',
+      'context.build',
+      'llm.call',
+      'policy.load',
+      'context.build',
+      'llm.call',
+    ).reverse()
+    expect(states('running', shuffled, null, 2)).toEqual(['process', 'wait', 'wait'])
+    expect(states('failed', shuffled, 'llm_timeout', 2)).toEqual(['error', 'wait', 'wait'])
+    expect(shuffled.map((action) => action.index)).toEqual([6, 5, 4, 3, 2, 1, 0])
+  })
+
+  it('restarts context at policy.load even when the previous attempt ended in context tools', () => {
+    const actions = build('policy.load', 'llm.repo_conventions', 'context.build', 'policy.load')
+    expect(states('running', actions)).toEqual(['process', 'wait', 'wait'])
+    expect(states('failed', actions, 'interrupted')).toEqual(['error', 'wait', 'wait'])
+  })
+})
+
+describe('runProgress historical compatibility', () => {
+  const legacy = build(
+    'vcs.fetch_diff',
+    'llm.call',
+    'llm.repo_conventions',
+    'context.build',
+    'llm.call',
+    'llm.review_output',
+    'review.postprocess',
+    'github.publish_review',
+  )
+
+  it.each<[RunStatus, string[] | null]>([
+    ['queued', ['wait', 'wait', 'wait']],
+    ['running', ['finish', 'process', 'wait']],
+    ['publishing', ['finish', 'finish', 'process']],
+    ['succeeded', ['finish', 'finish', 'finish']],
+    ['failed', ['finish', 'finish', 'error']],
+    ['cancelled', ['finish', 'finish', 'stopped']],
+    ['skipped', null],
+  ])('retains the full no-policy legacy path for %s despite attempt number', (status, expected) => {
+    expect(states(status, legacy, null, 3)).toEqual(expected)
+  })
+
+  it('keeps the legacy build-only review handoff', () => {
+    expect(
+      states('failed', build('context.build', ['llm.call', FAILURE]), 'llm_timeout', 3),
+    ).toEqual(['finish', 'error', 'wait'])
   })
 })
 
@@ -248,14 +719,17 @@ describe('runProgress with a repeated llm.repo_conventions', () => {
 
   it('failed in the new attempt context: error on context, not on analysis', () => {
     const actions = lostLease('llm.repo_conventions', ['context.build', FAILURE])
-    const progress = runProgress({ status: 'failed', errorCode: 'context_failed' }, actions)
+    const progress = runProgress(
+      { attempt: 1, status: 'failed', errorCode: 'context_failed' },
+      actions,
+    )
     expect(progress?.map((stage) => stage.state)).toEqual(['error', 'wait', 'wait'])
     expect(progress?.map((stage) => stage.errorCode)).toEqual(['context_failed', null, null])
   })
 
   it('cancelled right after the new attempt started: stopped on context', () => {
     const progress = runProgress(
-      { status: 'cancelled', errorCode: 'cancelled_by_user' },
+      { attempt: 1, status: 'cancelled', errorCode: 'cancelled_by_user' },
       lostLease('llm.repo_conventions'),
     )
     expect(progress?.map((stage) => stage.state)).toEqual(['stopped', 'wait', 'wait'])
@@ -312,6 +786,29 @@ describe('runProgress with summary-only runs', () => {
 })
 
 describe('runProgress ignores unknown tools', () => {
+  it.each(['foo.bar', 'constructor', 'toString', '__proto__'])(
+    'ignores %s inside the latest policy segment at every phase',
+    (unknown) => {
+      for (const order of ORDERS) {
+        const steps = orderSteps(order)
+        for (let cut = 1; cut <= steps.length; cut += 1) {
+          const prefix = steps.slice(0, cut)
+          const runningPhase = (['context', 'context', ...order.running] as const)[cut - 1]
+          const stoppedPhase = (['context', 'context', ...order.stopped] as const)[cut - 1]
+          if (runningPhase === undefined || stoppedPhase === undefined) {
+            throw new Error('Missing literal phase')
+          }
+          for (let position = 0; position <= prefix.length; position += 1) {
+            const injected = build(...prefix.slice(0, position), unknown, ...prefix.slice(position))
+            expect(states('running', injected)).toEqual(runningStates[runningPhase])
+            expect(states('failed', injected)).toEqual(failedStates[stoppedPhase])
+            expect(states('cancelled', injected)).toEqual(cancelledStates[stoppedPhase])
+          }
+        }
+      }
+    },
+  )
+
   // A retry after an analysis error: the unknown tool must not hide the stage regression.
   const base: Step[] = [
     'vcs.fetch_diff',
@@ -368,6 +865,7 @@ describe('runProgress tool-to-stage map', () => {
   // (-> process/wait/wait). A tool of the same or a higher stage keeps it (-> finish/process/wait).
   // The tool's own response is an error, so a context.build under test never marks context done.
   it.each<[tool: string, afterPublishRow: string[], afterLlmCall: string[]]>([
+    ['policy.load', ['process', 'wait', 'wait'], ['process', 'wait', 'wait']],
     ['vcs.fetch_diff', ['process', 'wait', 'wait'], ['process', 'wait', 'wait']],
     ['context.build', ['process', 'wait', 'wait'], ['process', 'wait', 'wait']],
     ['llm.repo_conventions', ['process', 'wait', 'wait'], ['process', 'wait', 'wait']],
@@ -376,6 +874,7 @@ describe('runProgress tool-to-stage map', () => {
     ['review.postprocess', ['process', 'wait', 'wait'], ['finish', 'process', 'wait']],
     ['engine.fallback', ['process', 'wait', 'wait'], ['finish', 'process', 'wait']],
     ['github.publish_review', ['finish', 'process', 'wait'], ['finish', 'process', 'wait']],
+    ['gitlab.publish_review', ['finish', 'process', 'wait'], ['finish', 'process', 'wait']],
     ['foo.bar', ['finish', 'process', 'wait'], ['finish', 'process', 'wait']],
   ])('%s', (tool, afterPublishRow, afterLlmCall) => {
     expect(
@@ -393,7 +892,10 @@ describe('runProgress on failure and cancellation', () => {
       'llm.call',
       FAILURE,
     ])
-    const progress = runProgress({ status: 'failed', errorCode: 'llm_timeout' }, actions)
+    const progress = runProgress(
+      { attempt: 1, status: 'failed', errorCode: 'llm_timeout' },
+      actions,
+    )
     expect(progress?.map((stage) => stage.state)).toEqual(['finish', 'error', 'wait'])
     expect(progress?.map((stage) => stage.errorCode)).toEqual([null, 'llm_timeout', null])
   })
@@ -408,13 +910,16 @@ describe('runProgress on failure and cancellation', () => {
       'review.postprocess',
       ['github.publish_review', FAILURE],
     )
-    const progress = runProgress({ status: 'failed', errorCode: 'github_forbidden' }, actions)
+    const progress = runProgress(
+      { attempt: 1, status: 'failed', errorCode: 'github_forbidden' },
+      actions,
+    )
     expect(progress?.map((stage) => stage.state)).toEqual(['finish', 'finish', 'error'])
     expect(progress?.map((stage) => stage.errorCode)).toEqual([null, null, 'github_forbidden'])
   })
 
   it('failed with no actions stops on context', () => {
-    const progress = runProgress({ status: 'failed', errorCode: 'queue_lost' }, [])
+    const progress = runProgress({ attempt: 1, status: 'failed', errorCode: 'queue_lost' }, [])
     expect(progress?.map((stage) => stage.state)).toEqual(['error', 'wait', 'wait'])
     expect(progress?.map((stage) => stage.errorCode)).toEqual(['queue_lost', null, null])
   })
@@ -438,12 +943,12 @@ describe('runProgress on failure and cancellation', () => {
   )
 
   it('failed keeps a null errorCode as null', () => {
-    const progress = runProgress({ status: 'failed', errorCode: null }, [])
+    const progress = runProgress({ attempt: 1, status: 'failed', errorCode: null }, [])
     expect(progress?.map((stage) => stage.errorCode)).toEqual([null, null, null])
   })
 
   it('cancelled from queued (no actions) stops on context', () => {
-    const progress = runProgress({ status: 'cancelled', errorCode: null }, [])
+    const progress = runProgress({ attempt: 1, status: 'cancelled', errorCode: null }, [])
     expect(progress?.map((stage) => stage.state)).toEqual(['stopped', 'wait', 'wait'])
   })
 
@@ -456,7 +961,10 @@ describe('runProgress on failure and cancellation', () => {
       'llm.review_output',
       'review.postprocess',
     )
-    const progress = runProgress({ status: 'cancelled', errorCode: 'cancelled_by_user' }, actions)
+    const progress = runProgress(
+      { attempt: 1, status: 'cancelled', errorCode: 'cancelled_by_user' },
+      actions,
+    )
     expect(progress?.map((stage) => stage.state)).toEqual(['finish', 'finish', 'stopped'])
     expect(progress?.map((stage) => stage.errorCode)).toEqual([null, null, 'cancelled_by_user'])
   })
@@ -468,7 +976,7 @@ describe('runProgress on failure and cancellation', () => {
 
   it('attaches no errorCode to non-failed statuses', () => {
     for (const status of ['queued', 'running', 'publishing', 'succeeded'] as const) {
-      const progress = runProgress({ status, errorCode: 'leftover' }, HAPPY_PATH)
+      const progress = runProgress({ attempt: 1, status, errorCode: 'leftover' }, HAPPY_PATH)
       expect(progress?.map((stage) => stage.errorCode)).toEqual([null, null, null])
     }
   })
@@ -479,7 +987,7 @@ describe('runProgress purity', () => {
     const actions = build('vcs.fetch_diff', 'context.build', 'llm.call')
     const reversed = [...actions].reverse()
     const before = reversed.map((a) => a.index)
-    runProgress({ status: 'running', errorCode: null }, reversed)
+    runProgress({ attempt: 1, status: 'running', errorCode: null }, reversed)
     expect(reversed.map((a) => a.index)).toEqual(before)
   })
 })
@@ -514,7 +1022,9 @@ describe('runProgressReadsLog', () => {
       build('vcs.fetch_diff', 'llm.repo_conventions', 'context.build', ['llm.call', FAILURE]),
       HAPPY_PATH,
     ]
-    const outputs = logs.map((log) => JSON.stringify(runProgress({ status, errorCode: 'x' }, log)))
+    const outputs = logs.map((log) =>
+      JSON.stringify(runProgress({ attempt: 1, status, errorCode: 'x' }, log)),
+    )
     expect(new Set(outputs).size > 1).toBe(runProgressReadsLog(status))
   })
 })
