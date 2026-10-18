@@ -278,7 +278,7 @@ describe('RepositoriesPage', () => {
     expect(screen.getByText('org/new-repo')).toBeDefined()
   })
 
-  it('keeps row settings and toggle working during a pending polling GET', async () => {
+  it('keeps the settings link and the toggle working during a pending polling GET without cancelling it', async () => {
     vi.useFakeTimers()
     saveAccessRefreshIntent()
     activateAccessRefreshIntent()
@@ -319,7 +319,9 @@ describe('RepositoriesPage', () => {
       return Promise.resolve(new Response(JSON.stringify([confirmedRepository]), { status: 200 }))
     })
 
-    // The stub route sits beside the page, so the navigation leaves the list mounted.
+    // The stub route sits beside the page, so the navigation leaves the list mounted. In the app the
+    // settings link opens another page: the list unmounts and the access-refresh window ends (Ф-21,
+    // Ф-22); polling is not resumed when coming back.
     renderWithClient(
       <ConfigProvider theme={{ token: { motion: false } }}>
         <RepositoriesPage />
