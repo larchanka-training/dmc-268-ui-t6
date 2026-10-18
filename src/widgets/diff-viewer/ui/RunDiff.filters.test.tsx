@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import type { ComponentProps, JSX } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { diffApi, fromPatch } from '../../../entities/diff'
+import { diffApi, fromPatch, type FileDiff } from '../../../entities/diff'
 import type { FindingView, ReviewComment } from '../../../entities/review'
 import { EMPTY_FINDING_FILTERS, type FindingFilters } from '../../../features/finding-filters'
 import { SAMPLE_PATCH_A, SAMPLE_PATCH_B } from '../../../shared/fixtures/sample.patch'
@@ -111,13 +111,24 @@ const COMMENTS: ReviewComment[] = [
   makeComment('000000000001', {}),
   // does not count twice: same id as the finding fA2
   makeComment('000000000099', { id: fA2.id, newLine: 3, title: 'Duplicate of console' }),
-  // do not count and are not rendered: the file is absent from /diff / has no patch
-  makeComment('000000000003', { file: 'src/not-in-diff.ts', title: 'Comment on missing file' }),
-  makeComment('000000000004', { file: 'docs/huge.md', newLine: 1, title: 'Comment on patchless' }),
+  // count and render outside the diff: the file is absent from /diff / has no patch
+  makeComment('000000000003', {
+    file: 'src/not-in-diff.ts',
+    title: 'Comment on missing file',
+    body: 'Review the absent source file',
+    ruleName: 'missing-file-review',
+  }),
+  makeComment('000000000004', {
+    file: 'docs/huge.md',
+    newLine: 1,
+    title: 'Comment on patchless',
+    body: 'Review the omitted patch',
+    ruleName: 'patchless-file-review',
+  }),
 ]
 
-// Displayed set M = 8: fA1 fA2 fA3 fA4 fR1 fH1 fX1 + the Magic number comment.
-const TOTAL = 8
+// Displayed set M = 10: seven run findings plus three comments with distinct ids.
+const TOTAL = 10
 const ALL_TITLES = [
   'SQL injection',
   'Console statement',
@@ -127,6 +138,8 @@ const ALL_TITLES = [
   'Huge file hint',
   'Missing file finding',
   'Magic number',
+  'Comment on missing file',
+  'Comment on patchless',
 ]
 
 function filtersOf(overrides: Partial<FindingFilters>): FindingFilters {
@@ -236,6 +249,8 @@ describe('RunDiff filters: wiring', () => {
       'Huge file hint',
       'Missing file finding',
       'Magic number',
+      'Comment on missing file',
+      'Comment on patchless',
     ])
   })
 
@@ -254,7 +269,7 @@ describe('RunDiff filters: wiring', () => {
     expectCards(ALL_TITLES)
   })
 
-  it('counts a comment that repeats a finding id once and skips comments that are not rendered', () => {
+  it('counts a repeated finding id once and includes comments outside the diff', () => {
     render(runDiff({ filters: EMPTY_FINDING_FILTERS }))
 
     expectCards([
@@ -266,10 +281,12 @@ describe('RunDiff filters: wiring', () => {
       'Huge file hint',
       'Missing file finding',
       'Magic number',
+      'Comment on missing file',
+      'Comment on patchless',
     ])
     expect(screen.queryByText('Duplicate of console')).toBeNull()
-    expect(screen.queryByText('Comment on missing file')).toBeNull()
-    expect(screen.queryByText('Comment on patchless')).toBeNull()
+    expect(screen.getByText('Comment on missing file')).toBeTruthy()
+    expect(screen.getByText('Comment on patchless')).toBeTruthy()
     expect(screen.getByText(counter(TOTAL, TOTAL))).toBeTruthy()
   })
 
@@ -362,14 +379,14 @@ describe('RunDiff filters: each filter alone', () => {
   it('file: several files are OR-ed', () => {
     render(runDiff({ filters: filtersOf({ files: ['README.md', 'src/not-in-diff.ts'] }) }))
 
-    expectCards(['Typo in docs', 'Missing file finding'])
-    expect(screen.getByText(counter(2, TOTAL))).toBeTruthy()
+    expectCards(['Typo in docs', 'Missing file finding', 'Comment on missing file'])
+    expect(screen.getByText(counter(3, TOTAL))).toBeTruthy()
   })
 
   it('file: a finding outside the diff is selectable and shown without any diff', () => {
     const { container } = render(runDiff({ filters: filtersOf({ files: ['src/not-in-diff.ts'] }) }))
 
-    expectCards(['Missing file finding'])
+    expectCards(['Missing file finding', 'Comment on missing file'])
     expect(diffCount(container)).toBe(0)
     expect(fileNameShown('src/a.ts')).toBe(false)
     expect(fileNameShown('docs/huge.md')).toBe(false)
@@ -378,10 +395,10 @@ describe('RunDiff filters: each filter alone', () => {
     expect(runLevel).toHaveLength(1)
   })
 
-  it('file: a patchless file in /diff keeps its placeholder and its run-level finding', () => {
+  it('file: a patchless file in /diff keeps its placeholder and its run-level findings', () => {
     render(runDiff({ filters: filtersOf({ files: ['docs/huge.md'] }) }))
 
-    expectCards(['Huge file hint'])
+    expectCards(['Huge file hint', 'Comment on patchless'])
     expect(screen.getByText('Без диффа')).toBeTruthy()
     expect(fileNameShown('src/a.ts')).toBe(false)
   })
@@ -467,7 +484,186 @@ describe('RunDiff filters: file options', () => {
 
     expect(
       [...document.querySelectorAll('.ant-select-item-option')].map((option) => option.textContent),
-    ).toEqual(['src/a.ts (5)', 'README.md (1)', 'docs/huge.md (1)', 'src/not-in-diff.ts (1)'])
+    ).toEqual(['src/a.ts (5)', 'README.md (1)', 'docs/huge.md (2)', 'src/not-in-diff.ts (2)'])
+  })
+})
+
+describe('RunDiff filters: recovered outside comments', () => {
+  const files: FileDiff[] = [
+    ...FILES.slice(0, 1),
+    { filename: 'docs/huge.md', hasPatch: false, chunks: [] },
+    { filename: 'src/chunkless.ts', hasPatch: true, chunks: [] },
+  ]
+  const comments = [
+    makeComment('000000000021', {
+      file: 'src/comment-only.ts',
+      severity: 'high',
+      title: 'Comment-only missing file',
+      body: 'Unique missing body needle',
+      ruleName: 'missing-only-rule',
+    }),
+    makeComment('000000000022', {
+      file: 'docs/huge.md',
+      severity: 'medium',
+      title: 'Patchless comment',
+      body: 'Unique patchless body needle',
+      ruleName: 'patchless-only-rule',
+    }),
+    makeComment('000000000023', {
+      file: 'src/chunkless.ts',
+      severity: 'info',
+      title: 'Chunkless comment',
+      body: 'Unique chunkless body needle',
+      ruleName: 'chunkless-only-rule',
+    }),
+  ]
+
+  function outsideComments(filters: FindingFilters = EMPTY_FINDING_FILTERS): JSX.Element {
+    return runDiff({ files, findings: [], comments, filters })
+  }
+
+  it('counts all comments and adds a file known only through a comment to the options', () => {
+    render(outsideComments())
+
+    expectCards(['Comment-only missing file', 'Patchless comment', 'Chunkless comment'])
+    expect(screen.getByText(counter(3, 3))).toBeTruthy()
+    expect(outsideBlocks().perFile).toHaveLength(0)
+    expect(within(only(outsideBlocks().runLevel)).getAllByTestId('inline-comment')).toHaveLength(3)
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Файлы' }))
+    expect(
+      [...document.querySelectorAll('.ant-select-item-option')].map((option) => option.textContent),
+    ).toEqual([
+      'src/a.ts (0)',
+      'docs/huge.md (1)',
+      'src/chunkless.ts (1)',
+      'src/comment-only.ts (1)',
+    ])
+  })
+
+  it('applies a comment-only file link when pending comments make that file known', () => {
+    const filters = filtersOf({ files: ['src/comment-only.ts'] })
+    const { rerender } = render(
+      runDiff({ files, findings: [fA1], comments: [], filters, commentsPending: true }),
+    )
+
+    expectCards(['SQL injection'])
+    expect(screen.getByText(counter(1, 1))).toBeTruthy()
+
+    rerender(runDiff({ files, findings: [fA1], comments, filters, commentsPending: false }))
+
+    expectCards(['Comment-only missing file'])
+    expect(screen.getByText(counter(1, 4))).toBeTruthy()
+  })
+
+  it.each([
+    { file: 'src/comment-only.ts', title: 'Comment-only missing file' },
+    { file: 'docs/huge.md', title: 'Patchless comment' },
+    { file: 'src/chunkless.ts', title: 'Chunkless comment' },
+  ])('includes $file only while its file filter matches', ({ file, title }) => {
+    const { rerender } = render(outsideComments(filtersOf({ files: [file] })))
+
+    expectCards([title])
+    expect(screen.getByText(counter(1, 3))).toBeTruthy()
+    expect(within(only(outsideBlocks().runLevel)).getByText(title)).toBeTruthy()
+
+    rerender(outsideComments(filtersOf({ files: ['src/a.ts'] })))
+
+    expectCards([])
+    expect(screen.getByText(counter(0, 3))).toBeTruthy()
+    expect(outsideBlocks().runLevel).toHaveLength(0)
+    expect(screen.getByTestId('findings-filter-empty')).toBeTruthy()
+  })
+
+  it.each<{ severity: FindingFilters['severities'][number]; title: string }>([
+    { severity: 'critical', title: 'Comment-only missing file' },
+    { severity: 'warning', title: 'Patchless comment' },
+    { severity: 'info', title: 'Chunkless comment' },
+  ])('includes only the outside comment in the $severity severity group', ({ severity, title }) => {
+    render(outsideComments(filtersOf({ severities: [severity] })))
+
+    expectCards([title])
+    expect(screen.getByText(counter(1, 3))).toBeTruthy()
+    expect(within(only(outsideBlocks().runLevel)).getByText(title)).toBeTruthy()
+  })
+
+  it.each([
+    {
+      query: 'missing BODY needle',
+      title: 'Comment-only missing file',
+      body: 'Unique missing body needle',
+      rule: 'правило: missing-only-rule',
+    },
+    {
+      query: 'MISSING-ONLY-RULE',
+      title: 'Comment-only missing file',
+      body: 'Unique missing body needle',
+      rule: 'правило: missing-only-rule',
+    },
+    {
+      query: 'patchless BODY needle',
+      title: 'Patchless comment',
+      body: 'Unique patchless body needle',
+      rule: 'правило: patchless-only-rule',
+    },
+    {
+      query: 'PATCHLESS-ONLY-RULE',
+      title: 'Patchless comment',
+      body: 'Unique patchless body needle',
+      rule: 'правило: patchless-only-rule',
+    },
+    {
+      query: 'chunkless BODY needle',
+      title: 'Chunkless comment',
+      body: 'Unique chunkless body needle',
+      rule: 'правило: chunkless-only-rule',
+    },
+    {
+      query: 'CHUNKLESS-ONLY-RULE',
+      title: 'Chunkless comment',
+      body: 'Unique chunkless body needle',
+      rule: 'правило: chunkless-only-rule',
+    },
+  ])('searches and expands the outside card for $query', ({ query, title, body, rule }) => {
+    const { rerender } = render(outsideComments(filtersOf({ query })))
+
+    expectCards([title])
+    expect(screen.getByText(counter(1, 3))).toBeTruthy()
+    const outside = only(outsideBlocks().runLevel)
+    expect(within(outside).getByText(body)).toBeTruthy()
+    expect(within(outside).getByText(rule)).toBeTruthy()
+    expect(within(outside).getByRole('button').getAttribute('aria-expanded')).toBe('true')
+
+    rerender(outsideComments(filtersOf({ query: 'no outside comment matches this' })))
+
+    expectCards([])
+    expect(screen.getByText(counter(0, 3))).toBeTruthy()
+    expect(outsideBlocks().runLevel).toHaveLength(0)
+  })
+
+  it('requires file, severity and query to match the same recovered comment', () => {
+    const { rerender } = render(
+      outsideComments(
+        filtersOf({
+          files: ['src/comment-only.ts'],
+          severities: ['critical'],
+          query: 'missing-only',
+        }),
+      ),
+    )
+
+    expectCards(['Comment-only missing file'])
+    expect(screen.getByText(counter(1, 3))).toBeTruthy()
+    expect(screen.getByText('Unique missing body needle')).toBeTruthy()
+
+    rerender(
+      outsideComments(
+        filtersOf({ files: ['src/comment-only.ts'], severities: ['info'], query: 'missing-only' }),
+      ),
+    )
+
+    expectCards([])
+    expect(screen.getByText(counter(0, 3))).toBeTruthy()
+    expect(outsideBlocks().runLevel).toHaveLength(0)
   })
 })
 
@@ -504,8 +700,12 @@ describe('RunDiff filters: outside blocks', () => {
 
     const { runLevel } = outsideBlocks()
     expect(runLevel).toHaveLength(1)
-    expect(within(only(runLevel)).getByText('Missing file finding')).toBeTruthy()
-    expect(within(only(runLevel)).queryByText('Huge file hint')).toBeNull()
+    expect(
+      within(only(runLevel))
+        .getAllByTestId('inline-comment')
+        .map((card) => card.querySelector('[aria-expanded] strong')?.textContent)
+        .sort(),
+    ).toEqual(['Comment on missing file', 'Comment on patchless', 'Missing file finding'])
   })
 
   it('run-level block: not rendered when nothing in it passes', () => {
@@ -794,6 +994,26 @@ describe('RunDiff filters: summary-only run', () => {
     expect(fileNameShown('src/big-two.ts')).toBe(true)
     expectCards(['Big one critical', 'Big two info', 'Big one low'])
     expect(screen.queryByText('Never rendered comment')).toBeNull()
+  })
+
+  it('keeps missing, patchless and chunkless comments out of cards, M and file options', () => {
+    const files: FileDiff[] = [
+      ...SUMMARY_FILES,
+      { filename: 'src/chunkless.ts', hasPatch: true, chunks: [] },
+    ]
+    const comments = [
+      makeComment('000000000021', { file: 'src/comment-only.ts' }),
+      makeComment('000000000022', { file: 'src/big-one.ts' }),
+      makeComment('000000000023', { file: 'src/chunkless.ts' }),
+    ]
+    render(runDiff({ files, findings: [sOne], comments, summaryOnly: true }))
+
+    expectCards(['Big one critical'])
+    expect(screen.getByText(counter(1, 1))).toBeTruthy()
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Файлы' }))
+    expect(
+      [...document.querySelectorAll('.ant-select-item-option')].map((option) => option.textContent),
+    ).toEqual(['src/big-one.ts (1)', 'src/big-two.ts (0)', 'src/chunkless.ts (0)'])
   })
 
   it('does not count or render comments even for a file that has a patch', () => {

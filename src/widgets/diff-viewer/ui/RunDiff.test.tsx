@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { theme } from 'antd'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { diffApi, expandContext, fromPatch, toHunks } from '../../../entities/diff'
+import { diffApi, expandContext, fromPatch, toHunks, type FileDiff } from '../../../entities/diff'
+import type { FindingView, ReviewComment } from '../../../entities/review'
 import { RunSessionSchema } from '../../../entities/run'
 import { SAMPLE_PATCH_A, SAMPLE_PATCHES } from '../../../shared/fixtures/sample.patch'
 import {
@@ -60,6 +61,20 @@ const SUMMARY_ONLY_DIFF_WIRE = [
   { filename: 'src/big-one.ts', patch: null },
   { filename: 'src/big-two.ts', patch: null },
 ]
+
+const OUTSIDE_COMMENT: ReviewComment = {
+  id: '55555555-5555-4555-8555-000000000001',
+  file: 'src/comment-only.ts',
+  oldLine: null,
+  newLine: 10,
+  endLine: null,
+  body: 'Comment body outside the available patch',
+  ruleName: 'outside-comment',
+  severity: 'medium',
+  category: 'correctness',
+  title: 'Comment outside the available patch',
+  createdAt: '2026-09-18T00:00:00.000Z',
+}
 
 beforeEach(() => {
   useDiffViewerStore.setState({ viewType: 'unified' })
@@ -300,6 +315,71 @@ describe('RunDiff', () => {
 
     expect(screen.getByTestId('findings-outside-diff')).toBeTruthy()
     expect(screen.getByText('Missing file finding')).toBeTruthy()
+  })
+
+  it.each<{ label: string; files: FileDiff[] }>([
+    {
+      label: 'the file is absent from /diff',
+      files: diffApi.diff.response.parse(SAMPLE_PATCHES).map(fromPatch),
+    },
+    {
+      label: 'the file has no patch',
+      files: [{ filename: 'src/comment-only.ts', hasPatch: false, chunks: [] }],
+    },
+    {
+      label: 'the file has a patch but no chunks',
+      files: [{ filename: 'src/comment-only.ts', hasPatch: true, chunks: [] }],
+    },
+  ])('renders a comment exactly once in the run-level outside block when $label', ({ files }) => {
+    render(<RunDiff comments={[OUTSIDE_COMMENT]} files={files} findings={[]} summaryOnly={false} />)
+
+    const outside = screen.getByTestId('findings-outside-diff')
+    expect(outside.closest('.diff-theme')).toBeNull()
+    expect(within(outside).getByText('Comment outside the available patch')).toBeTruthy()
+    expect(screen.getAllByTestId('inline-comment')).toHaveLength(1)
+    fireEvent.click(within(outside).getByText('Comment outside the available patch'))
+    expect(within(outside).getByText('Comment body outside the available patch')).toBeTruthy()
+    expect(within(outside).getByText('правило: outside-comment')).toBeTruthy()
+  })
+
+  it('keeps the outside finding for a repeated id and a distinct comment at the same anchor', () => {
+    const finding: FindingView = {
+      id: OUTSIDE_COMMENT.id,
+      file: 'src/comment-only.ts',
+      oldLine: null,
+      newLine: 10,
+      endLine: null,
+      side: 'RIGHT',
+      severity: 'high',
+      category: 'security',
+      title: 'Original outside finding',
+      body: 'Original finding content wins',
+      suggestion: null,
+      confidence: 0.5,
+      ruleName: 'original-rule',
+    }
+    render(
+      <RunDiff
+        comments={[
+          { ...OUTSIDE_COMMENT, title: 'Duplicate outside comment' },
+          { ...OUTSIDE_COMMENT, id: '55555555-5555-4555-8555-000000000002' },
+        ]}
+        files={[]}
+        findings={[finding]}
+        onFiltersChange={vi.fn()}
+        summaryOnly={false}
+      />,
+    )
+
+    const outside = screen.getByTestId('findings-outside-diff')
+    expect(within(outside).getAllByTestId('inline-comment')).toHaveLength(2)
+    expect(screen.getAllByTestId('inline-comment')).toHaveLength(2)
+    expect(screen.getByText('Показано 2 из 2 замечаний')).toBeTruthy()
+    expect(screen.queryByText('Duplicate outside comment')).toBeNull()
+    expect(within(outside).getByText('Comment outside the available patch')).toBeTruthy()
+    fireEvent.click(within(outside).getByText('Original outside finding'))
+    expect(within(outside).getByText('Original finding content wins')).toBeTruthy()
+    expect(within(outside).getByText('правило: original-rule')).toBeTruthy()
   })
 
   it('renders a per-file "no diff" placeholder alongside full diffs in the same normal run', () => {

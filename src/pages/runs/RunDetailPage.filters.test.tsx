@@ -33,8 +33,8 @@ import { useRunInspectorStore } from '../../widgets/run-inspector'
 import { stubResponsiveSelectLayout } from '../../test/responsiveSelectLayout'
 import { RunDetailPage } from './RunDetailPage'
 
-// Demo run (hand-counted from the mocks): 8 findings + 3 published comments, all on files with a
-// diff, so the displayed set is 11. By badge group: Critical 3 (critical + 2 high), Warning 6
+// Demo run (hand-counted from the mocks): 8 findings + 3 published comments with distinct ids,
+// so the merged displayed set is 11. By badge group: Critical 3 (critical + 2 high), Warning 6
 // (3 medium + 1 low finding, 1 medium + 1 low comment), Info 2 (1 finding + 1 comment).
 // By file: src/a.ts 8, README.md 2, src/utils/retry.ts 1; app/notify.py and package.json 0.
 const DEMO = `/runs/${DEMO_RUN_ID}`
@@ -458,6 +458,85 @@ describe('RunDetailPage filters in the URL', () => {
     expect(router.state.location.search).toBe(
       '?file=README.md&file=src%2Fa.ts&file=later.ts&severity=critical',
     )
+  })
+
+  it('recovers a pending comment-only file into chips while preserving unknown URL files', async () => {
+    let run = runWithStatus('running')
+    const firstComment = mockReviewComments[0]
+    if (firstComment === undefined) {
+      throw new Error('demo comment is missing')
+    }
+    const comment = {
+      ...firstComment,
+      file: 'src/later.ts',
+      severity: 'high',
+      title: 'Recovered comment outside diff',
+      body: 'Recovered comment body',
+    }
+    const release: { open: () => void } = { open: () => undefined }
+    const gate = new Promise<void>((resolve) => {
+      release.open = resolve
+    })
+    withMockTransportOverlay((endpoint) => {
+      if (endpoint.method === 'GET' && endpoint.path === `/runs/${DEMO_RUN_ID}`) {
+        return run
+      }
+      if (endpoint.method === 'GET' && endpoint.path === `/runs/${DEMO_RUN_ID}/comments`) {
+        return gate.then(() => [comment])
+      }
+      return undefined
+    })
+    const initial = '?tab=x&file=src%2Flater.ts&file=gone.ts&severity=critical&q=recovered'
+    const { client, container, router } = renderRunDetail(`${DEMO}${initial}`)
+
+    await findBar()
+    expect(container.querySelectorAll('.diff-theme')).toHaveLength(4)
+    expect(selectedTags('Файлы')).toEqual([])
+    expect(screen.getByRole('status').textContent).toBe(
+      'Замечания появятся после завершения прогона',
+    )
+    expect(screen.queryByTestId('findings-filter-empty')).toBeNull()
+    expect(router.state.location.search).toBe(initial)
+
+    pick('Файлы', 'README.md (0)')
+    await waitFor(() => {
+      const params = new URLSearchParams(router.state.location.search)
+      expect(params.getAll('file')).toEqual(['README.md', 'src/later.ts', 'gone.ts'])
+      expect(selectedTags('Файлы')).toEqual(['README.md'])
+    })
+    const selectedUrl = router.state.location.search
+    expect(container.querySelectorAll('.diff-theme')).toHaveLength(1)
+
+    release.open()
+    await screen.findByText('Recovered comment outside diff')
+    await waitFor(() => {
+      expect(selectedTags('Файлы')).toEqual(['README.md', 'later.ts'])
+    })
+    expect(cardTitles()).toEqual(['Recovered comment outside diff'])
+    expect(screen.getByText('Recovered comment body')).toBeTruthy()
+    expect(container.querySelectorAll('.diff-theme')).toHaveLength(1)
+    expect(screen.getByRole('status').textContent).toBe(
+      'Замечания появятся после завершения прогона',
+    )
+    expect(router.state.location.search).toBe(selectedUrl)
+
+    run = { ...run, status: 'succeeded' }
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: runQueryKeys.detail(DEMO_RUN_ID), exact: true })
+    })
+
+    await screen.findByText(counter(1, 1))
+    expect(container.querySelectorAll('.diff-theme')).toHaveLength(0)
+    expect(cardTitles()).toEqual(['Recovered comment outside diff'])
+    expect(selectedTags('Файлы')).toEqual(['README.md', 'later.ts'])
+    expect(router.state.location.search).toBe(selectedUrl)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Очистить выбор файлов' }))
+    await waitFor(() => {
+      expect(new URLSearchParams(router.state.location.search).getAll('file')).toEqual(['gone.ts'])
+      expect(selectedTags('Файлы')).toEqual([])
+    })
+    expect(screen.getByText(counter(1, 1))).toBeTruthy()
   })
 
   it('writes a file selection to the URL as a repeatable file param', async () => {
