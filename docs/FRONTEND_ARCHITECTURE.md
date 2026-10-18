@@ -1129,12 +1129,12 @@ React, без `innerHTML`.
 `useRerunRun` в `src/entities/run/api/index.ts`. `RunDetailPage` передаёт прогон в `RunControls`;
 после успешного повторного запуска кнопка переводит на `/runs/${session.id}` нового прогона.
 
-### Прогресс-бар (Refs ui#84)
+### Прогресс-бар (Refs ui#84, ui#112)
 
 Под карточкой прогона, во всю ширину над журналом действий и диффом, — три этапа: «Сбор контекста»
 (`context`), «Анализ LLM» (`analysis`), «Публикация» (`publishing`). Модель — чистая функция
 `runProgress(run, actions)` (`src/entities/run/lib/runProgress.ts`, экспорт через `entities/run`):
-`Pick<RunSession, 'status' | 'errorCode'>` и `RunAction[]` → `RunProgress | null`; для `skipped` — `null`,
+`Pick<RunSession, 'status' | 'errorCode' | 'attempt'>` и `RunAction[]` → `RunProgress | null`; для `skipped` — `null`,
 бара нет. Этап — `{ key, label, state, errorCode }`, `state` — `wait`, `process`, `finish`, `error` или
 `stopped`; `errorCode` (из `run.errorCode`) есть только у этапа `error`/`stopped`. Отрисовка —
 `RunProgressBar` (`src/widgets/run-inspector/ui/RunProgressBar.tsx`) через `ProgressSteps` из
@@ -1145,15 +1145,39 @@ React, без `innerHTML`.
 и снизу — `gap: 18px` этой сетки, своего отступа у бара нет. `Tag` статуса и строка «Ошибка» в шапке
 остаются.
 
-Карта «инструмент → этап» (поле `tool` журнала `/actions`; `RunActionSchema.tool` остаётся `z.string()`):
+Порядок инструментов и этапы согласованы в
+[api#165](https://github.com/larchanka-training/dmc-268-api-t6/issues/165#issuecomment-6239860269);
+[слитый api PR #194](https://github.com/larchanka-training/dmc-268-api-t6/pull/194)
+зафиксировал этот порядок. Текущая попытка выполняется так:
 
-| Этап         | `tool`                                                                   |
-| ------------ | ------------------------------------------------------------------------ |
-| `context`    | `vcs.fetch_diff`, `context.build`, `llm.repo_conventions`                |
-| `analysis`   | `llm.call`, `llm.review_output`, `review.postprocess`, `engine.fallback` |
-| `publishing` | `github.publish_review`                                                  |
+`policy.load → [vcs.fetch_diff] → context.build → [llm.call за conventions…] →
+llm.repo_conventions → context.build → llm.call за review… → llm.review_output,
+review.postprocess → github.publish_review | gitlab.publish_review`.
 
-Любой другой `tool` игнорируется целиком: не двигает бар и не делит попытки.
+Квадратные скобки обозначают условные шаги: fetch отсутствует при готовом снимке диффа, вызовы
+conventions — при попадании в кэш. Первый `context.build` временный: после его удаления в api#168,
+часть 6, тот же UI поддерживает канонический порядок с одним build после `llm.repo_conventions`.
+
+Базовая классификация известных `tool` журнала `/actions` (`RunActionSchema.tool` остаётся
+`z.string()`), которую историческая эвристика использует для сравнения этапов:
+
+| Этап         | Инструменты                                                                                |
+| ------------ | ------------------------------------------------------------------------------------------ |
+| `context`    | `policy.load`, `vcs.fetch_diff`, `context.build`, `llm.repo_conventions`                   |
+| `analysis`   | `llm.call`, `llm.review_output`, `review.postprocess`, зарезервированный `engine.fallback` |
+| `publishing` | `github.publish_review`, `gitlab.publish_review`                                           |
+
+Текущий API пишет девять инструментов из таблицы. `engine.fallback` зарезервирован для api#107;
+его распознавание не доказывает, что текущий worker или исторический production его записывал.
+Неизвестный `tool`, в том числе имя свойства прототипа, не двигает бар и не делит попытки.
+Базовая классификация не равна свидетельству публикации: `llm.review_output` и
+`review.postprocess` относятся к `analysis` в карте, но API сохраняет их вместе с переходом в
+`publishing`, поэтому они, как и оба provider publish tool, подтверждают достижение публикации.
+
+В современной попытке conventions-вызовы `llm.call` остаются сбором контекста; анализ начинается
+после успешного prompt `context.build` за `llm.repo_conventions`. `llm.call.request.kind` —
+`primary | retry | repair | fallback`, а не назначение вызова. Этот бар не требует нового поля
+назначения и не выводит фазу из `kind`.
 
 Состояния по статусу `RunSession`:
 
@@ -1167,24 +1191,52 @@ React, без `innerHTML`.
 | `failed` / `cancelled`                       | см. «Остановка» ниже | см. «Остановка» ниже | см. «Остановка» ниже |
 | `skipped` (бара нет, `runProgress` → `null`) | —                    | —                    | —                    |
 
-Остановка (`failed`, `cancelled`): этап остановки — `publishing`, если в текущей попытке есть
-`llm.review_output`, `review.postprocess` или `github.publish_review`; иначе `analysis`, если контекст
-готов; иначе `context`. Этапы до него — `finish`, после — `wait`, сам этап — `error` (`failed`) или
-`stopped` (`cancelled`). Контекст готов, если в текущей попытке есть `context.build`, чей `response` не
-объект с ключом `error` (так api пишет упавший шаг, `run_trace`); больше ничто контекст готовым не
-делает — в том числе `llm.call` за conventions до `context.build`.
+Готовность контекста для `running`: в современной попытке с `policy.load` нужен успешный
+`context.build` **после** `llm.repo_conventions`. Первый временный build и conventions-вызовы LLM
+сами по себе не переводят бар на анализ. Успех — `response` не является объектом с ключом `error`
+(так API пишет упавший шаг, `run_trace`); `null` тоже не ошибка. У исторических журналов без policy
+сохраняется прежний переход на анализ после успешного build, включая старые build-only фикстуры.
 
-Текущая попытка. В `RunAction` нет номера попытки, а `RunSession.startedAt` ставится только при первом
-захвате и границей попытки быть не может. Поэтому журнал читается по `index`, только известные `tool`, и
-новая попытка начинается с действия, которое либо относится к более раннему этапу, чем предыдущее
-известное действие (регресс этапа), либо является вторым `llm.repo_conventions` в текущем отрезке; берётся
-последний отрезок. Второе правило — по коду api: шаг conventions выполняется при каждом захвате
-(`process_run.py`, `prepare()`, в том числе когда снимок диффа уже есть), а `conventions_unit_of_work.py`
-пишет ровно одну строку `llm.repo_conventions` на вызов, то есть по одной на попытку. Без него ретрай,
-у которого прежняя попытка остановилась сразу после успешного `context.build` (например, потеряна
-аренда), не давал регресса этапа, и старый `context.build` держал «контекст готов» для новой попытки:
-`failed` или `cancelled` показывали `analysis` вместо `context`. Ретрай (T9/T12) идёт
-`running → queued → running`, действия прежних попыток остаются в списке.
+Остановка (`failed`, `cancelled`): при свидетельстве публикации остановлен `publishing`;
+иначе при готовом контексте — `analysis`, без него — `context`. Упавший prompt `context.build`
+не делает контекст готовым, даже если временный первый build прошёл успешно. Ошибка первого
+временного build, если она не policy/fatal, записывается и допускает продолжение: последующий
+успешный prompt build переводит бар на анализ. `traced_step` сохраняет завершение и ошибку
+`context.build`; best-effort относится к `llm.call`, а не к этому build.
+
+Успешный prompt build перед первой review-строкой уже передаёт управление анализу, в том числе
+при последующем `failed`/`cancelled`: строка `llm.call` появляется после завершения вызова, поэтому
+при остановке во время вызова последним записанным действием может остаться prompt build.
+Этапы до остановки — `finish`, после — `wait`, сам этап — `error` (`failed`) или `stopped`
+(`cancelled`); только он получает `run.errorCode`.
+
+Текущая попытка: модель и `RunProgressBar` требуют `RunSession.attempt`; `RunInspector` передаёт
+полную сессию. При claim API увеличивает `attempt` до появления строк новой попытки. Функция
+сортирует копию журнала по `index`, считает `policy.load` и берёт отрезок от последней такой строки
+включительно. Внутри него conventions-вызовы и последующие context-инструменты не создают ретрай.
+Если число policy-строк не меньше `run.attempt`, используется этот отрезок. Если строк меньше,
+по умолчанию текущий отрезок считается пустым: новый `running` показывает `process/wait/wait`,
+`failed` — `error/wait/wait`, `cancelled` — `stopped/wait/wait`, даже пока в журнале только старые
+анализ или публикация. Это покрывает нулевой префикс ретрая; fetch для границы не требуется.
+
+Ранее захваченная попытка могла не дойти до `policy.load`, поэтому дефицит строк не всегда означает
+устаревший последний отрезок. В таком случае настоящий `llm.call` внутри последнего policy-отрезка
+с `request.attempt === run.attempt` подтверждает его актуальность. Модель читает неизвестные значения
+через Zod `safeParse` с положительным целым `attempt`. Данные других инструментов, неверный номер,
+строка вместо числа, дробь или вызов перед последней policy-границей не подтверждают попытку.
+Массив вызывающей стороны не меняется. Статусы `queued`, `publishing`, `succeeded` и `skipped`
+по-прежнему определяют бар независимо от журнала.
+
+Реальная ошибка подготовки policy записывается как неуспешный `policy.load` перед повторным
+выбросом исключения; вместе с предыдущим анализом/публикацией такой ретрай останавливается на
+контексте. Если не удалось сохранить сам trace, API классифицирует ошибку записи как
+`internal_error`. Отдельного приоритета для списка policy-кодов над журналом нет. Потеря процесса,
+checkpoint или ошибка до входа в `traced_step` могут оставить захваченную попытку без policy-строки.
+
+Если policy-строк нет вообще, сохранена ограниченная историческая эвристика: возврат к более раннему
+этапу базовой карты либо повтор `llm.repo_conventions` начинает новый отрезок. Повтор conventions
+отделяет ретрай даже после context-инструментов без регресса этапа. Это совместимость со старыми
+журналами, а не надёжный идентификатор попытки.
 
 Вид. Бар только переводит этапы в шаги `ProgressSteps` — `{ key, title, state, note }`: `state` этапа
 совпадает с состоянием шага, `note` у `error` — `errorCode`, у `stopped` — «Остановлено» (с
@@ -1237,38 +1289,20 @@ React, без `innerHTML`.
 
 Ограничения:
 
-- **Граница попытки видна по журналу, а не по номеру.** После повторного захвата, пока новая попытка не
-  записала строку, которая режет отрезок (строку более раннего этапа или свой `llm.repo_conventions`),
-  бар показывает этап прежней попытки (`queued` между попытками — все `wait`). Порядок записи в попытке:
-  `vcs.fetch_diff` (на ретрае его нет — снимок есть), при промахе кэша `llm.call` за conventions, затем
-  `llm.repo_conventions`, затем `context.build`. Поэтому при промахе кэша первая строка новой попытки —
-  `llm.call` за conventions (тоже `analysis`): если последняя строка прежней попытки этапа `analysis`
-  (включая `llm.review_output` и `review.postprocess`), регресса нет и бар остаётся на прежнем этапе до
-  `llm.repo_conventions` новой попытки. При попадании в кэш первой строкой идёт сам `llm.repo_conventions`
-  и режет отрезок сразу. Если прежняя попытка кончилась строкой этапа `publishing`
-  (`github.publish_review`), разрыв закрывает любая первая строка новой; если строкой этапа `context`, кроме
-  успешного `context.build`, — разрыва нет, бар и так на `context`; успешный `context.build` разобран в
-  следующем пункте.
-- **Ретрай после успешного `context.build` при промахе кэша conventions.** Прежняя попытка кончилась
-  успешным `context.build` (аренда потеряна сразу после него), а на ретрае кэш conventions не сработал
-  (изменился его ключ, например `agents.md` или версия промпта; если ключ тот же, кэш уже записан первой
-  попыткой, и первой строкой идёт `llm.repo_conventions`, который режет отрезок сразу). Тогда первая строка
-  новой попытки — `llm.call` за conventions (`analysis`), регресса нет, и старый `context.build` держит
-  «контекст готов»: пока идёт `running`, бар показывает `analysis` до `llm.repo_conventions` новой попытки.
-  Если эта попытка упала или была отменена внутри `llm.call` за conventions, `llm.repo_conventions` не
-  появится, и итоговый бар покажет `analysis` вместо `context` (`finish`/`error`/`wait` или
-  `finish`/`stopped`/`wait`). По строкам журнала это неотличимо от настоящей ошибки анализа
-  (`vcs.fetch_diff`, `llm.repo_conventions`, `context.build`, `llm.call` с `response.error`), поэтому
-  исправить это в UI нельзя: нужен маркер попытки на каждом действии в api.
-- По той же карте при промахе кэша внутри одной попытки порядок `vcs.fetch_diff` → `llm.call` →
-  `llm.repo_conventions` — регресс `analysis → context`: отрезок режется на `llm.repo_conventions`.
-  Безвредно: отброшенные строки не отмечают ни «контекст готов», ни выход на публикацию.
-- `llm.review_output` и `review.postprocess` api фиксирует в той же транзакции, что и переход в
-  `publishing`, поэтому при `running` их в журнале нет.
-- Склеенные события (`running → succeeded` без `publishing`, пропущенный `queued`) — норма: бар строится по
-  текущему статусу, не по истории событий.
-- Прогон, застрявший в `publishing` (например, без GitHub App), — не ошибка UI: бар честно показывает
-  публикацию «в работе».
+- При дефиците policy-строк после исторической пропущенной попытки свежий отрезок до
+  подтверждающего текущего `llm.call` может быть неотличим от старого. Пока такого вызова нет,
+  либо его best-effort trace потерян, модель консервативно остаётся на контексте и может позже
+  показать анализ. В частности, call-free префикс с кэшированными conventions не устраняет этот
+  дефицит даже после prompt build. Универсального точного восстановления попытки эти поля не дают.
+- Старый журнал без policy-маркеров использует эвристику и сохраняет её неоднозначности при ретрае;
+  `run.attempt` не превращает такой журнал в надёжно размеченный. `RunSession.startedAt` хранит
+  первый захват, а не последний. Сравнение времён и publish `request.try` не заменяют policy-границу.
+- `llm.review_output` и `review.postprocess` фиксируются вместе с `publishing`; при `running` их нет в
+  нормальном журнале. Summary-only прогон использует тот же порядок с вызовами conventions и review;
+  его `vcs.fetch_diff.response` содержит `summary_only: true`. Склеенные события
+  (`running → succeeded` без наблюдаемого `publishing`, пропущенный `queued`) допустимы: итоговый бар
+  строится по текущему статусу и показывает три `finish` у `succeeded`.
+- Застрявший в `publishing` прогон (например, без GitHub App) показывает публикацию «в работе».
 
 ---
 
@@ -1303,7 +1337,7 @@ React, без `innerHTML`.
 }
 ```
 
-### Идущий и упавший прогоны (Refs ui#84)
+### Идущий и упавший прогоны (Refs ui#84, ui#112)
 
 Файл `src/app/mocks/mockRunTimeline.ts`. Оба прогона в `mockRunSessions` не входят (там по-прежнему 7), а
 добавлены в `mockRunsListPage.items` (`mockRunsList.fixture.ts`); тесты `app-state.test.ts` с 7 сессиями и
@@ -1316,9 +1350,13 @@ React, без `innerHTML`.
 
 - **Идущий прогон** `11111111-1111-4111-8111-000000000011` (PR #41): чистая `walkingRunAt(elapsedMs, originMs?)`
   → `{ session, actions }`. Шкала: `queued` до 2 с; `running` с 2 с, по новому действию каждые 1,5 с —
-  `vcs.fetch_diff`, `llm.call`, `llm.repo_conventions`, `context.build`, `llm.call`, `llm.call`; `publishing`
-  с 11 с (в этот момент появляются сразу `llm.review_output` и `review.postprocess`); `github.publish_review`
-  в 12,5 с; `succeeded` с 14 с. `finishedAt` задан только у терминального, `actionCount = actions.length`,
+  `policy.load` (2 с), `vcs.fetch_diff` (3,5 с), первый `context.build` (5 с), conventions `llm.call`
+  (6,5 с), `llm.repo_conventions` (8 с), prompt `context.build` (9,5 с), review `llm.call` (11 и 12,5 с).
+  Бар остаётся на контексте через первый build и conventions, в 9,5 с переходит на анализ.
+  `publishing` с 14 с: одновременно появляются `llm.review_output` и `review.postprocess`;
+  `github.publish_review` в 15,5 с; `succeeded` с 17 с, всего 11 действий. LLM-запросы используют
+  `kind: 'primary'`, `attempt: 1`; отдельного дискриминатора назначения вызова нет.
+  `finishedAt` задан только у терминального, `actionCount = actions.length`,
   `attempt: 1`, `trigger: 'webhook'`, `createdAt` — начало шкалы (раньше `startedAt` на 2 с очереди).
   Метки времени отсчитываются от реального старта, поэтому «зависшим» (§7) прогон не выглядит.
 - **Часы** стартуют на первом запросе деталей или `/actions` этого прогона (`startWalkingRun`; повторный
@@ -1329,9 +1367,12 @@ React, без `innerHTML`.
   `succeeded`, затем — 8 демо-находок и вердикт `blocking`. **Комментарии ревью** — `[]` до `succeeded`,
   затем 3 демо-комментария: до публикации инлайн-комментариев быть не должно.
 - **Упавший прогон** `11111111-1111-4111-8111-000000000012` (PR #42), статичный: `failed`,
-  `errorCode: 'llm_timeout'`, действия `vcs.fetch_diff`, `llm.repo_conventions`, `context.build` и `llm.call`
-  с `response.error`; бар — `finish` / `error` / `wait`. `trigger: 'webhook'`, `createdAt` за минуту до
-  `startedAt`, как у остальных мок-прогонов (#96). Комментариев нет.
+  `errorCode: 'llm_timeout'`, шесть действий: `policy.load`, `vcs.fetch_diff`, первый `context.build`,
+  кэшированный `llm.repo_conventions`, prompt `context.build`, review `llm.call` с `response.error`.
+  Действия начинаются каждые 15 с от 10:00:00 до 10:01:15; завершение в 10:01:30 остаётся позже
+  последнего действия с его длительностью. Бар — `finish` / `error` / `wait`, код только на анализе.
+  `trigger: 'webhook'`, `createdAt` за минуту до `startedAt`, как у остальных мок-прогонов (#96).
+  Комментариев нет.
 - **`startMockRunEvents()`** (`mockTransport.ts`) стоит вместо SSE-потока, который на моках не открывается:
   интервал 500 мс (`MOCK_RUN_EVENTS_INTERVAL_MS`) и на каждую смену статуса идущего прогона вызов
   `applyRunUpdated({ runId, status })` из `runStreamConnect.ts`. Первое событие — начальный `queued`, затем
@@ -1446,9 +1487,10 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
 - **Прогресс-бар шагов и живой список прогонов (ui#84)** — реализовано (§2, §7, §8): три этапа по статусу и
   журналу `/actions`, опрос `/actions` раз в 3 с, пока прогон активен, `run.updated` обновляет и список.
   Остаётся: событие шага пайплайна — его в api пока нет (api#97), до контракта ход виден по опросу;
-  граница попытки определяется по журналу — регресс этапа или второй `llm.repo_conventions` (§7,
-  «Ограничения»); список после переподключения SSE обновляется только со следующим `run.updated` или по
-  `staleTime`.
+  современная граница попытки — последний `policy.load` с проверкой `run.attempt`: при дефиците
+  policy-строк нужен подтверждающий текущий `llm.call.request.attempt`, иначе бар консервативно на
+  контексте. Журналы совсем без policy-строк сохраняют историческую эвристику (§7, «Ограничения»).
+  Список после переподключения SSE обновляется только со следующим `run.updated` или по `staleTime`.
 - **Очистка diff-viewer (ui#115, Ф-7)** — неиспользуемые `selectedFile`/`selectFile` удалены из
   `useDiffViewerStore`, поле выбора файла удалено из mock UI state. Недостижимая
   `pages/review/ReviewPage.tsx` и её CSS Module удалены: это заменяет решение ui#65 о сохранении
