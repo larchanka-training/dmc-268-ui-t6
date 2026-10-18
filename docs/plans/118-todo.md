@@ -1,6 +1,6 @@
 # #118 — список задач
 
-План: [118-plan.md](118-plan.md). Статус: **approval получен 2026-10-18; T0–T9 прошли review Standards0 / Spec0; T10 приёмка и gates завершены; финальное review Standards0 / Spec0; публикация выполняется**.
+План: [118-plan.md](118-plan.md). Статус: **approval получен 2026-10-18; T0–T9 прошли review Standards0 / Spec0; T10 приёмка и gates завершены; финальное review Standards0 / Spec0; опубликован draft PR #142**.
 Сверенная база: `origin/main` `9382f9e`; документы созданы в старой ветке #110 без реализации.
 
 ## Подготовка
@@ -66,9 +66,9 @@
 - [x] `pnpm build-storybook`.
 - [x] Review: Standards0 / Spec0 findings; при findings вернуть development и повторить review.
 - [x] Publisher: проверить scope diff и статус; коммитить только #118, не чужие планы/store.
-- [ ] Publisher: rebase от актуального main, gates, Conventional Commit(#118), push и PR
+- [x] Publisher: rebase от актуального main, gates, Conventional Commit(#118), push и PR
       с What/Why/How to verify/Refs, перечнем code/spec решений и browser evidence.
-- [ ] Прикрепить созданный PR к чату; вернуть URL. Не закрывать issue и не делать merge автоматически.
+- [x] Прикрепить созданный PR к чату; вернуть URL. Не закрывать issue и не делать merge автоматически.
 
 ## Журнал доказательств
 
@@ -553,3 +553,18 @@ src/shared/ui/theme/buildTheme.test.ts`: **39 passed**,2files.
   подтверждены выше; неизменная база не требует повторного полного test/build.
 - Commit/push/PR на этой точке ещё не созданы. После публикации coordinator фиксирует
   URL и текущий head; issue остаётся открытым, merge не выполняется.
+
+### Publisher — публикация
+
+- Source commit `c97b21a9c77cc2972c9a6f11be100c24871ccfea`:
+  `fix(ui): align design system states and focus (#118)`. Commit выполнен без
+  `--no-verify`; `git rebase origin/main` подтвердил актуальную базу без изменений.
+- Branch `fix/118-design-system-gaps` опубликована; создан
+  [draft PR #142](https://github.com/larchanka-training/dmc-268-ui-t6/pull/142) и прикреплён к чату.
+  Reviewer не назначен: по согласованному optional default до ответа пользователя — draft.
+- PR body включает все решения code/spec, 7gates, browser evidence, предел reduced-motion
+  проверки и координацию #106/#109/#141. Нет closing keyword и Development-link.
+- Этот финальный docs-only commit фиксирует публикацию; его SHA сообщается отдельно,
+  чтобы журнал не требовал самоссылки. Source после review/gates не менялся.
+  CI и человеческий approve на актуальном head проверяются перед merge;
+  issue не закрыт, merge не выполнялся.

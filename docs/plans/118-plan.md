@@ -5,7 +5,8 @@
 T10 приёмка и gates завершены; browser evidence и согласованная automation-only
 проверка reduced motion записаны в todo.
 Финальное независимое review всего diff: **Standards0 / Spec0**. Publisher проверил scope
-и свежий `origin/main` (база не изменилась); публикация выполняется. Репозиторий: `larchanka-training/dmc-268-ui-t6`.
+и свежий `origin/main` (база не изменилась); создан [draft PR #142](https://github.com/larchanka-training/dmc-268-ui-t6/pull/142)
+без назначенного reviewer. Репозиторий: `larchanka-training/dmc-268-ui-t6`.
 
 ## Источники и исходное состояние
 
