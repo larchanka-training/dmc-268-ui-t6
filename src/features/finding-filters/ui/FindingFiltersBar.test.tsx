@@ -22,6 +22,7 @@ const FILE_OPTIONS = [
 
 interface RenderOptions {
   filters?: FindingFilters
+  fileOptions?: typeof FILE_OPTIONS
   shown?: number
   total?: number
   empty?: boolean
@@ -36,7 +37,7 @@ function renderBar(options: RenderOptions = {}) {
     return (
       <FindingFiltersBar
         empty={next.empty}
-        fileOptions={FILE_OPTIONS}
+        fileOptions={next.fileOptions ?? FILE_OPTIONS}
         filters={next.filters ?? EMPTY_FINDING_FILTERS}
         navigationKey={next.navigationKey}
         onChange={onChange}
@@ -218,12 +219,44 @@ describe('FindingFiltersBar', () => {
     expect(onChange).toHaveBeenCalledWith({ severities: ['critical', 'info'], query: '' })
   })
 
-  it('shows the selected files as tags by file name, including one the run does not have', async () => {
+  it('shows only effective selected files as tags when known and unknown values are mixed', async () => {
     renderBar({ filters: { ...EMPTY_FINDING_FILTERS, files: ['README.md', 'gone.ts'] } })
 
     await waitFor(() => {
-      expect(chips('Файлы').map((chip) => chip.textContent)).toEqual(['README.md', 'gone.ts'])
+      expect(chips('Файлы').map((chip) => chip.textContent)).toEqual(['README.md'])
     })
+  })
+
+  it('ignores unknown-only file selection in chips and reset without emitting a change', () => {
+    const { onChange, onQueryChange, onReset } = renderBar({
+      filters: { ...EMPTY_FINDING_FILTERS, files: ['gone.ts'] },
+    })
+
+    expect(chips('Файлы')).toEqual([])
+    expect(resetButton()).toHaveProperty('disabled', true)
+    expect(onChange).not.toHaveBeenCalled()
+    expect(onQueryChange).not.toHaveBeenCalled()
+    expect(onReset).not.toHaveBeenCalled()
+  })
+
+  it.each<[string, FindingFilters]>([
+    ['a real file', { ...EMPTY_FINDING_FILTERS, files: ['gone.ts', 'README.md'] }],
+    ['severity', { ...EMPTY_FINDING_FILTERS, files: ['gone.ts'], severities: ['critical'] }],
+    ['query', { ...EMPTY_FINDING_FILTERS, files: ['gone.ts'], query: 'unsafe' }],
+    ['whitespace query', { ...EMPTY_FINDING_FILTERS, files: ['gone.ts'], query: '   ' }],
+  ])('allows reset for unknown files combined with %s', (_name, filters) => {
+    renderBar({ filters })
+
+    expect(chips('Файлы').some((chip) => chip.textContent === 'gone.ts')).toBe(false)
+    expect(resetButton()).toHaveProperty('disabled', false)
+  })
+
+  it('allows clearing a local search draft with only unknown files in the URL', () => {
+    renderBar({ filters: { ...EMPTY_FINDING_FILTERS, files: ['gone.ts'] } })
+    expect(resetButton()).toHaveProperty('disabled', true)
+
+    type('   ')
+    expect(resetButton()).toHaveProperty('disabled', false)
   })
 
   it('shows a selected file by its name, the whole path in the tooltip and in the list', async () => {
@@ -241,6 +274,9 @@ describe('FindingFiltersBar', () => {
 
   it('cuts a long file name in its chip', async () => {
     renderBar({
+      fileOptions: [
+        { file: 'src/features/finding-filters/model/useFindingFiltersParams.ts', count: 1 },
+      ],
       filters: {
         ...EMPTY_FINDING_FILTERS,
         files: ['src/features/finding-filters/model/useFindingFiltersParams.ts'],

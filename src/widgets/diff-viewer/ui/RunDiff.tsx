@@ -37,6 +37,8 @@ interface RunDiffProps {
   onFiltersQueryChange?: (query: string) => void
   /** `/comments` has not answered yet: the set is still incomplete, so "nothing matches" is not shown. */
   commentsPending?: boolean
+  /** The active run has not finished producing findings; content filters must keep its files visible. */
+  findingsPending?: boolean
   /** Changes when the URL was changed by a navigation the page did not make (back, a link). */
   filtersNavigationKey?: number
 }
@@ -99,6 +101,7 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
     onFiltersReset,
     onFiltersQueryChange,
     commentsPending = false,
+    findingsPending = false,
     filtersNavigationKey,
   } = props
 
@@ -118,7 +121,7 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
   const visibleFiles = files.filter(
     (file) =>
       (effectiveFiles.length === 0 || effectiveFiles.includes(file.filename)) &&
-      (!contentFilter || filesWithHits.has(file.filename)),
+      (findingsPending || !contentFilter || filesWithHits.has(file.filename)),
   )
 
   const outsideFindings = findingsOutsideVisibleDiff(files, shownFindings)
@@ -142,12 +145,13 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
     : undefined
   const filtersBar = controls ? (
     <FindingFiltersBar
-      empty={filtering && shownFindings.length === 0 && !commentsPending}
+      empty={filtering && shownFindings.length === 0 && !commentsPending && !findingsPending}
       fileOptions={runFiles.map((file) => ({
         file,
         count: displayed.filter((finding) => finding.file === file).length,
       }))}
       filters={filters}
+      findingsPending={findingsPending}
       navigationKey={filtersNavigationKey}
       onChange={controls.onChange}
       onQueryChange={controls.onQueryChange}
