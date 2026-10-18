@@ -4,7 +4,7 @@
 
 Implement [ui#115](https://github.com/larchanka-training/dmc-268-ui-t6/issues/115): remove unused diff-viewer selection state and the unreachable `ReviewPage`, retain `/review` redirects and all run-page behavior, and align `FRONTEND_ARCHITECTURE.md` (FA) with the current application. No dependencies or API behavior changes are needed.
 
-Status: approved by the user ("делай") on 2026-10-18; implementation and verification complete; publishing pending.
+Status: approved by the user ("делай") on 2026-10-18; implementation and verification complete; [PR #134](https://github.com/larchanka-training/dmc-268-ui-t6/pull/134) is ready for review and attached to the chat. The user will assign the reviewer.
 
 ## Baseline and isolation
 
@@ -106,4 +106,6 @@ Task 5 independent review: Standards 0 / Spec 0. Production browser preview at `
 
 Final independent full-patch review: Standards 0 / Spec 0. Browser environment limitation: the development server denied font-file reads through the external `node_modules` symlink under its filesystem allow-list; behavior/theme checks are valid, but exact font/visual parity was not established. Production refresh could not reach a backend session, consistent with the observed login redirect. No application changes were made for these local environment limitations.
 
-Final quality gates (2026-10-18): `pnpm lint`, `pnpm check-types`, `pnpm format:check`, `pnpm test`, `pnpm build`, and `pnpm verify:prod-bundle` all passed. Full tests: 105 files / 1270 tests, 522.94s; this resolves Task 2 post-cleanup verification. Bundle check: 22 clean asset files. Durable local logs: `/private/tmp/115-gate-{lint,types,format,test,build,bundle}.log`. Final independent full-patch review reported Standards 0 / Spec 0. All source changes are complete; only publishing and attachment remain.
+Final quality gates (2026-10-18): `pnpm lint`, `pnpm check-types`, `pnpm format:check`, `pnpm test`, `pnpm build`, and `pnpm verify:prod-bundle` all passed. Full tests: 105 files / 1270 tests, 522.94s; this resolves Task 2 post-cleanup verification. Bundle check: 22 clean asset files. Durable local logs: `/private/tmp/115-gate-{lint,types,format,test,build,bundle}.log`. Final independent full-patch review reported Standards 0 / Spec 0.
+
+Publication (2026-10-18): fetched current `main`, still `c1535766faae454c8a52a91ca1b82894b43b99ea`; no rebase changes were needed. Rechecked open-PR ownership: #106/#109/#122 remain covered by the coordination comments above. Created implementation commit `8e5cb80`, pushed with normal typecheck/lint hooks and opened [PR #134](https://github.com/larchanka-training/dmc-268-ui-t6/pull/134). The user requested ready-for-review status and will assign the reviewer; none was selected automatically. The coordinator verified the PR attachment in the main chat and moved issue #115 to On Review on the course board. No merge, issue closure or Development-panel link was performed. Only the intended 18 source/documentation paths were committed; the local dependency symlink and unrelated checkout files were excluded.

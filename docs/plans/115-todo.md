@@ -1,6 +1,6 @@
 # Todo: Remove obsolete diff-viewer state (#115)
 
-Implementation follows [115-plan.md](115-plan.md). Status: approved by the user ("делай") on 2026-10-18; implementation and verification complete; publishing pending.
+Implementation follows [115-plan.md](115-plan.md). Status: approved by the user ("делай") on 2026-10-18; implementation and verification complete; [PR #134](https://github.com/larchanka-training/dmc-268-ui-t6/pull/134) is ready for review and attached to the chat. The user will assign the reviewer.
 
 ## Preparation
 
@@ -159,7 +159,7 @@ Evidence: FA §2/source tree/§11 reconciled with final source; cancel/rerun con
 
 - [x] All issue criteria and both source searches satisfied; all six gates green.
 - [x] Independent Standards/Spec review has zero findings after any correction loop; both-theme/browser behavior checks recorded.
-- [ ] Publisher opens PR with standard metadata and `Refs #115`, returns URL; no merge/issue closure.
+- [x] Publisher opens PR with standard metadata and `Refs #115`, returns URL; no merge/issue closure.
 
 **Verification and delivery:**
 
@@ -172,10 +172,10 @@ Evidence: FA §2/source tree/§11 reconciled with final source; cancel/rerun con
 - [x] Browser checks recorded: mock `/review` → demo run in both themes, run-detail filters and diff modes work; unauthenticated production `/review` → `/login`. Authenticated production `/review` → `/runs` is unit-verified and source-verified; browser verification requires a backend session. Local font-serving limitation is recorded in the plan.
 - [x] Review final `git diff` and `git status`; no unrelated #110 commits/cache files included.
 - [x] Fresh code-review agent reports Standards and Spec results; developer resolves findings and reviewer reruns if needed.
-- [ ] Publisher follows pull-request skill, rebases on main, stages explicit paths/tracked updates, creates Conventional Commit/PR (≤72-character title, What/Why/How to verify/Refs, no closing keywords), and returns PR URL.
-- [ ] Coordinator attaches created PR to this chat.
+- [x] Publisher follows pull-request skill, rebases on main, stages explicit paths/tracked updates, creates Conventional Commit/PR (≤72-character title, What/Why/How to verify/Refs, no closing keywords), and returns PR URL.
+- [x] Created PR is attached to the main chat (publisher and coordinator called `attach_artifact`); coordinator verified issue #115 is On Review on the course board.
 
-Evidence: all six gates passed on 2026-10-18; complete Vitest suite passed 105 files / 1270 tests in 522.94s. Production bundle check found 22 clean asset files. Final independent review: Standards 0 / Spec 0. Source searches are empty, and only intended source/docs changes are present. Publishing and PR attachment remain pending.
+Evidence: all six gates passed on 2026-10-18; complete Vitest suite passed 105 files / 1270 tests in 522.94s. Production bundle check found 22 clean asset files. Final independent review: Standards 0 / Spec 0. Source searches are empty, and only intended source/docs changes are present. Fetched current main (`c153576`); no rebase changes were needed. Commit `8e5cb80` was pushed with normal typecheck/lint hooks, and [PR #134](https://github.com/larchanka-training/dmc-268-ui-t6/pull/134) was opened ready for review and attached. The user will assign the reviewer. No merge or issue closure was performed.
 
 **Dependencies:** Tasks 1–5.
 
