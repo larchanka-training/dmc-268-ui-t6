@@ -6,8 +6,9 @@
       regression; no changes to the manifest, global setup, or error handling.
 - [x] Verify lifecycle, existing Form, and RunDiff filter tests on 1.14.0: 3 files,
       56 tests passed; unmount leaves zero timers.
-- [ ] Pass `pnpm lint`, `pnpm check-types`, `pnpm format:check`, `pnpm test`,
-      `pnpm build`, and `pnpm verify:prod-bundle`.
+- [x] Pass `pnpm lint`, `pnpm check-types`, `pnpm format:check`, `pnpm test`,
+      `pnpm build`, and `pnpm verify:prod-bundle`: 106 test files / 1,271 tests;
+      no unhandled errors; 22 clean production assets.
 - [x] Complete independent Standards and Spec reviews: both report zero findings.
 
 Publication evidence belongs in the separate PR body: `Refs #119`, the dependency
