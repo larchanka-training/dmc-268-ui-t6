@@ -10,6 +10,27 @@ import { DiffViewer } from './DiffViewer'
 
 const FILE = fromPatch(SAMPLE_PATCH_A)
 
+// react-diff-view displays an ASCII space in an otherwise empty code cell.
+const MARKER_FILE = fromPatch({
+  filename: 'src/markers.ts',
+  patch: [
+    'diff --git a/src/markers.ts b/src/markers.ts',
+    'index 1111111..2222222 100644',
+    '--- a/src/markers.ts',
+    '+++ b/src/markers.ts',
+    '@@ -1,6 +1,7 @@',
+    ' const unchanged = true',
+    '-const before = 1',
+    '-',
+    '+const after = 2',
+    '+',
+    '+const extra = 3',
+    ' return unchanged',
+    ' ',
+    ' // end',
+  ].join('\n'),
+})
+
 const TS_HIGHLIGHT_FILE = fromPatch({
   filename: 'src/app.ts',
   patch: [
@@ -110,6 +131,114 @@ describe('DiffViewer', () => {
     expect(container.querySelectorAll('table.diff-split')).toHaveLength(2)
     fireEvent.keyDown(within(second).getByRole('radio', { name: 'Split' }), { key: 'ArrowLeft' })
     expect(container.querySelectorAll('table.diff-unified')).toHaveLength(2)
+  })
+
+  it('keeps full long line numbers in the scoped marker table', () => {
+    useDiffViewerStore.getState().setViewType('split')
+    const file = fromPatch({
+      filename: 'src/long-lines.ts',
+      patch: [
+        'diff --git a/src/long-lines.ts b/src/long-lines.ts',
+        'index 1111111..2222222 100644',
+        '--- a/src/long-lines.ts',
+        '+++ b/src/long-lines.ts',
+        '@@ -12345 +23456 @@',
+        '-const before = 1',
+        '+const after = 2',
+      ].join('\n'),
+    })
+    const { container } = render(<DiffViewer file={file} />)
+    expect(container.querySelector('table.diff-with-change-markers')).not.toBeNull()
+    expect(
+      Array.from(container.querySelectorAll('.diff-gutter-number')).map(
+        (number) => number.textContent,
+      ),
+    ).toEqual(['12345', '23456'])
+    expect(
+      Array.from(container.querySelectorAll('.diff-change-marker')).map(
+        (marker) => marker.textContent,
+      ),
+    ).toEqual(['-', '+'])
+  })
+
+  it('marks actual old and new split changes, including blanks, without marking empty counterparts', () => {
+    useDiffViewerStore.getState().setViewType('split')
+    const { container } = render(<DiffViewer file={MARKER_FILE} />)
+    const changes = (selector: string): (string | null | undefined)[][] =>
+      Array.from(container.querySelectorAll(selector)).map((cell) => [
+        cell.previousElementSibling?.querySelector('.diff-change-marker')?.textContent,
+        cell.textContent,
+      ])
+    expect(changes('.diff-code-delete')).toEqual([
+      ['-', 'const before = 1'],
+      ['-', ' '],
+    ])
+    expect(changes('.diff-code-insert')).toEqual([
+      ['+', 'const after = 2'],
+      ['+', ' '],
+      ['+', 'const extra = 3'],
+    ])
+    expect(container.querySelectorAll('.diff-change-marker-delete')).toHaveLength(2)
+    expect(container.querySelectorAll('.diff-change-marker-insert')).toHaveLength(3)
+    expect(
+      Array.from(container.querySelectorAll('.diff-change-marker-normal')).map(
+        (marker) => marker.textContent,
+      ),
+    ).toEqual(['', '', '', '', '', '', '', ''])
+    expect(container.querySelectorAll('.diff-gutter-omit').length).toBeGreaterThan(0)
+    expect(container.querySelectorAll('.diff-gutter-omit .diff-change-marker')).toHaveLength(0)
+    expect(
+      Array.from(container.querySelectorAll('.diff-line > td:first-child .diff-gutter-number')).map(
+        (number) => number.textContent,
+      ),
+    ).toEqual(['1', '2', '3', '4', '5', '6'])
+    expect(
+      Array.from(
+        container.querySelectorAll('.diff-line > td:nth-child(3) .diff-gutter-number'),
+      ).map((number) => number.textContent),
+    ).toEqual(['1', '2', '3', '4', '5', '6', '7'])
+    expect(
+      container.querySelectorAll('.diff-change-marker:not([aria-hidden="true"])'),
+    ).toHaveLength(0)
+  })
+
+  it('shows one decorative change sign after the new gutter without changing unified code', () => {
+    const { container } = render(<DiffViewer file={MARKER_FILE} />)
+    const markers = Array.from(container.querySelectorAll('.diff-change-marker'))
+    expect(markers.map((marker) => marker.textContent)).toEqual([
+      '',
+      '-',
+      '-',
+      '+',
+      '+',
+      '+',
+      '',
+      '',
+      '',
+    ])
+    expect(markers.every((marker) => marker.getAttribute('aria-hidden') === 'true')).toBe(true)
+    expect(
+      container.querySelectorAll('.diff-line > td:first-child .diff-change-marker'),
+    ).toHaveLength(0)
+    expect(
+      Array.from(container.querySelectorAll('.diff-code')).map((cell) => [
+        cell.previousElementSibling?.querySelector('.diff-change-marker')?.textContent,
+        cell.textContent,
+      ]),
+    ).toEqual([
+      ['', 'const unchanged = true'],
+      ['-', 'const before = 1'],
+      ['-', ' '],
+      ['+', 'const after = 2'],
+      ['+', ' '],
+      ['+', 'const extra = 3'],
+      ['', 'return unchanged'],
+      ['', ' '],
+      ['', '// end'],
+    ])
+    expect(
+      container.querySelectorAll('.diff-gutter a, .diff-change-marker[tabindex]'),
+    ).toHaveLength(0)
   })
 
   it('highlights TypeScript in unified view (span.token in .diff-code)', () => {

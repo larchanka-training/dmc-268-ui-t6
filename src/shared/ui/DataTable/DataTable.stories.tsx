@@ -65,6 +65,23 @@ type Story = StoryObj<typeof DataTable<Row>>
 /** A table is the one place that gets a frame. The page title and the toolbar stay outside it. */
 export const Default: Story = {}
 
+/** The default intrinsic width keeps every column reachable inside a narrow frame. */
+export const Narrow: Story = {
+  decorators: [
+    (Story) => (
+      <div style={{ width: 320, maxWidth: '100%' }}>
+        <Story />
+      </div>
+    ),
+  ],
+}
+
+/** A caller's explicit width wins over the default intrinsic width. */
+export const ExplicitScrollWidth: Story = { args: { scroll: { x: 900 } } }
+
+/** Wrapping is the opt-out for tables whose content should fit the available width. */
+export const Wrapping: Story = { args: { nowrap: false } }
+
 export const WithPagination: Story = { args: { pagination: { pageSize: 2 } } }
 
 export const Empty: Story = {

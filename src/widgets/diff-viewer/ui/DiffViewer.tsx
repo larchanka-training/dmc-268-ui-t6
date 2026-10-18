@@ -3,7 +3,7 @@ import { useMemo } from 'react'
 import { FileOutlined } from '@ant-design/icons'
 import { Alert, Typography } from 'antd'
 import { Decoration, Diff, Hunk } from 'react-diff-view'
-import type { HunkData } from 'react-diff-view'
+import type { HunkData, RenderGutter } from 'react-diff-view'
 import 'react-diff-view/style/index.css'
 import './diff-theme.css'
 import './diff-layout.css'
@@ -32,6 +32,20 @@ interface DiffViewerProps {
   searchActive?: boolean
   onLoadMore?: (gap: ContextGap) => void
 }
+
+const renderChangeGutter: RenderGutter = ({ change, renderDefault, wrapInAnchor }) => (
+  <span className="diff-gutter-with-marker">
+    <span className="diff-gutter-number">{wrapInAnchor(renderDefault())}</span>
+    <span aria-hidden="true" className={`diff-change-marker diff-change-marker-${change.type}`}>
+      {change.type === 'insert' ? '+' : change.type === 'delete' ? '-' : ''}
+    </span>
+  </span>
+)
+
+const renderUnifiedGutter: RenderGutter = (options) =>
+  options.side === 'new'
+    ? renderChangeGutter(options)
+    : options.wrapInAnchor(options.renderDefault())
 
 const VIEW_OPTIONS = [
   { label: 'Unified', value: 'unified' as const },
@@ -210,7 +224,15 @@ export function DiffViewer(props: DiffViewerProps): JSX.Element {
             value={viewType}
           />
         </div>
-        <Diff diffType="modify" hunks={hunks} tokens={tokens} viewType={viewType} widgets={widgets}>
+        <Diff
+          className="diff-with-change-markers"
+          diffType="modify"
+          hunks={hunks}
+          renderGutter={viewType === 'unified' ? renderUnifiedGutter : renderChangeGutter}
+          tokens={tokens}
+          viewType={viewType}
+          widgets={widgets}
+        >
           {renderHunks}
         </Diff>
       </div>

@@ -30,6 +30,61 @@ afterEach(() => {
 })
 
 describe('InlineComment', () => {
+  it('keeps one native finding button with title and range layout hooks', () => {
+    render(
+      <InlineComment
+        file={FILE}
+        finding={{
+          ...finding,
+          severity: 'info',
+          newLine: 4,
+          endLine: 5,
+          title: 'Variable rename looks correct',
+        }}
+      />,
+    )
+    const button = screen.getByRole('button', {
+      name: /Info\s*Variable rename looks correct\s*L4–5/,
+    })
+    expect(button.tagName).toBe('BUTTON')
+    expect(button.classList.contains('inline-comment-row')).toBe(true)
+    expect(
+      screen.getByText('Variable rename looks correct').closest('.inline-comment-title'),
+    ).not.toBeNull()
+    expect(screen.getByText('L4–5').classList.contains('inline-comment-range')).toBe(true)
+    expect(button.getAttribute('aria-expanded')).toBe('false')
+    button.focus()
+    fireEvent.click(button)
+    expect(button.getAttribute('aria-expanded')).toBe('true')
+    expect(document.activeElement).toBe(button)
+    fireEvent.click(button)
+    expect(button.getAttribute('aria-expanded')).toBe('false')
+    expect(document.activeElement).toBe(button)
+  })
+
+  it('keeps a complete long title and the native expanded button when no range is available', () => {
+    const { container } = render(
+      <InlineComment
+        defaultExpanded
+        finding={{
+          ...finding,
+          severity: 'critical',
+          newLine: null,
+          title:
+            'Variable rename looks correct while preserving a detailed explanation of the surrounding review context',
+        }}
+      />,
+    )
+    const button = screen.getByRole('button', {
+      name: /Variable rename looks correct while preserving a detailed explanation of the surrounding review context/,
+    })
+    expect(button.tagName).toBe('BUTTON')
+    expect(container.querySelector('.inline-comment-range')).toBeNull()
+    expect(button.getAttribute('aria-expanded')).toBe('true')
+    fireEvent.click(button)
+    expect(button.getAttribute('aria-expanded')).toBe('false')
+  })
+
   it('renders HTML in body and suggestion as plain text', () => {
     render(<InlineComment file={FILE} finding={finding} />)
     fireEvent.click(screen.getByText('XSS probe'))
