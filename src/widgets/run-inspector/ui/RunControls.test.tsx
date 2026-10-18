@@ -180,7 +180,7 @@ describe('RunControls', () => {
       expect((button as HTMLButtonElement).disabled).toBe(false)
       // Ant Design's own disabled class gives its disabled look; the button stays a plain
       // default one: no danger or primary style.
-      expect(button.className).toContain('ant-btn-disabled')
+      expect(button.classList.contains('ant-btn-disabled')).toBe(true)
       expect(button.className).toContain('ant-btn-color-default')
       expect(button.className).not.toContain('ant-btn-color-dangerous')
       fireEvent.click(button)
@@ -212,6 +212,125 @@ describe('RunControls', () => {
     // jsdom keeps the focus on a button that turns disabled; a real browser drops it.
     expect((requestedButton as HTMLButtonElement).disabled).toBe(false)
   })
+
+  // The cancel and «Перезапустить» buttons are one node: when the run turns terminal it
+  // keeps the focus instead of the page falling back to the body (frontend.md §3b item 3).
+  function expectFocusKeptOnRerun(before: HTMLElement): void {
+    const rerunButton = screen.getByRole('button', { name: 'Перезапустить' })
+    expect(rerunButton).toBe(before)
+    expect(document.activeElement).toBe(rerunButton)
+    // jsdom keeps the focus on a natively disabled button; a real browser drops it.
+    expect((rerunButton as HTMLButtonElement).disabled).toBe(false)
+    // The node is the rerun button itself, with none of the cancel button's props left on it.
+    expect(rerunButton.hasAttribute('aria-disabled')).toBe(false)
+    expect(rerunButton.classList.contains('ant-btn-disabled')).toBe(false)
+    expect(rerunButton.classList.contains('ant-btn-color-primary')).toBe(true)
+    expect(rerunButton.classList.contains('ant-btn-color-dangerous')).toBe(false)
+    mockCancelMutate.mockClear()
+    mockRerunMutate.mockClear()
+    fireEvent.click(rerunButton)
+    expect(mockRerunMutate).toHaveBeenCalledTimes(1)
+    expect(mockCancelMutate).not.toHaveBeenCalled()
+  }
+
+  it('keeps the focus on the button when a queued run is cancelled', () => {
+    const { rerender } = render(
+      <MemoryRouter>
+        <RunControls run={{ ...activeRun, status: 'queued' }} />
+      </MemoryRouter>,
+    )
+    const cancelButton = screen.getByRole('button', { name: 'Отменить' })
+    cancelButton.focus()
+    expect(document.activeElement).toBe(cancelButton)
+
+    rerender(
+      <MemoryRouter>
+        <RunControls run={{ ...terminalRun, status: 'cancelled', cancelRequested: true }} />
+      </MemoryRouter>,
+    )
+
+    expectFocusKeptOnRerun(cancelButton)
+  })
+
+  it.each([
+    { from: 'running', to: 'cancelled' },
+    { from: 'publishing', to: 'failed' },
+  ] as const)(
+    'keeps the focus on «Отмена запрошена» when a $from run turns $to',
+    ({ from, to }) => {
+      const { rerender } = render(
+        <MemoryRouter>
+          <RunControls run={{ ...activeRun, status: from, cancelRequested: true }} />
+        </MemoryRouter>,
+      )
+      const requestedButton = screen.getByRole('button', { name: 'Отмена запрошена' })
+      requestedButton.focus()
+      expect(document.activeElement).toBe(requestedButton)
+
+      rerender(
+        <MemoryRouter>
+          <RunControls run={{ ...terminalRun, status: to, cancelRequested: true }} />
+        </MemoryRouter>,
+      )
+
+      expectFocusKeptOnRerun(requestedButton)
+    },
+  )
+
+  // A held Enter repeats keydown and the browser turns each one into a click on the focused
+  // button: after a cancel that ended the run, that would be rerun after rerun (frontend.md §3b
+  // item 4). Space activates on keyup, which does not repeat.
+  it('ignores an auto-repeated keydown on «Перезапустить» so a held key is one press', () => {
+    renderControls()
+
+    const button = screen.getByRole('button', { name: 'Перезапустить' })
+
+    expect(fireEvent.keyDown(button, { key: 'Enter', repeat: true })).toBe(false)
+    expect(fireEvent.keyDown(button, { key: 'Enter' })).toBe(true)
+    // A held Tab repeats keydown too: it must keep moving the focus on, not stop on the button.
+    expect(fireEvent.keyDown(button, { key: 'Tab', repeat: true })).toBe(true)
+  })
+
+  // The guard sits on the one button element, so it holds for the live «Отменить» as well.
+  it('ignores an auto-repeated keydown on «Отменить» so a held key is one press', () => {
+    renderActiveControls()
+
+    const button = screen.getByRole('button', { name: 'Отменить' })
+
+    expect(fireEvent.keyDown(button, { key: 'Enter', repeat: true })).toBe(false)
+    expect(fireEvent.keyDown(button, { key: 'Enter' })).toBe(true)
+  })
+
+  // The requested-cancel path (running / publishing with cancelRequested) is a different render
+  // of the same slot than the queued one, so a focus held elsewhere is pinned on all three.
+  it.each([
+    { from: 'queued', cancelRequested: false, to: 'cancelled' },
+    { from: 'running', cancelRequested: true, to: 'cancelled' },
+    { from: 'publishing', cancelRequested: true, to: 'failed' },
+  ] as const)(
+    'does not touch a focus held elsewhere when a $from run turns $to',
+    ({ from, cancelRequested, to }) => {
+      const { rerender } = render(
+        <MemoryRouter>
+          <RunControls run={{ ...activeRun, status: from, cancelRequested }} />
+          <button type="button">Рядом</button>
+        </MemoryRouter>,
+      )
+      const outsideButton = screen.getByRole('button', { name: 'Рядом' })
+      outsideButton.focus()
+      expect(document.activeElement).toBe(outsideButton)
+
+      rerender(
+        <MemoryRouter>
+          <RunControls run={{ ...terminalRun, status: to, cancelRequested: true }} />
+          <button type="button">Рядом</button>
+        </MemoryRouter>,
+      )
+
+      expect(screen.getByRole('button', { name: 'Перезапустить' })).toBeTruthy()
+      expect(document.activeElement).toBe(outsideButton)
+    },
+  )
 
   it('shows only an enabled «Отменить» on an active run without a cancel request', () => {
     renderActiveControls()

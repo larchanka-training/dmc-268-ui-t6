@@ -8,6 +8,7 @@ import {
   type SeverityBadgeGroup,
 } from '../../../entities/review'
 import {
+  effectiveFileFilter,
   hasActiveFindingFilters,
   QUERY_MAX_LENGTH,
   type FindingFilters,
@@ -28,6 +29,8 @@ export interface FindingFiltersBarProps {
   shown: number
   /** Findings of the run before filtering. */
   total: number
+  /** The active run is still producing findings, so no final count is shown. */
+  findingsPending?: boolean
   /** The filters are in effect and nothing passes: shows the message with its own reset button. */
   empty?: boolean
   /**
@@ -74,6 +77,7 @@ export function FindingFiltersBar(props: FindingFiltersBarProps): JSX.Element {
     fileOptions,
     shown,
     total,
+    findingsPending = false,
     empty = false,
     onChange,
     onQueryChange,
@@ -97,8 +101,15 @@ export function FindingFiltersBar(props: FindingFiltersBarProps): JSX.Element {
     label: `${file} (${String(count)})`,
     title: file,
   }))
+  const effectiveFiles = effectiveFileFilter(
+    filters.files,
+    fileOptions.map(({ file }) => file),
+  )
   // A whitespace-only query is not "active" for the filter, but it is in the URL and must be clearable.
-  const canReset = hasActiveFindingFilters(filters) || filters.query !== '' || text !== ''
+  const canReset =
+    hasActiveFindingFilters({ ...filters, files: effectiveFiles }) ||
+    filters.query !== '' ||
+    text !== ''
   // Both reset buttons empty the search text here as well: it is local, the URL alone cannot clear it.
   // The focus goes to the start of the bar: the bar's button turns disabled and the empty message
   // with its button goes away, so the focus would otherwise fall back to the page.
@@ -122,12 +133,18 @@ export function FindingFiltersBar(props: FindingFiltersBarProps): JSX.Element {
             maxTagTextLength={FILE_TAG_MAX_LENGTH}
             mode="multiple"
             onChange={(files: string[]) => {
-              onChange({ files, query: takePending() })
+              onChange({
+                files: [
+                  ...files,
+                  ...filters.files.filter((file) => !effectiveFiles.includes(file)),
+                ],
+                query: takePending(),
+              })
             }}
             options={fileSelectOptions}
             placeholder="Все файлы"
             ref={filesRef}
-            value={filters.files}
+            value={effectiveFiles}
           />
         </Form.Item>
         <Form.Item className={styles.severity} htmlFor={severityId} label="Критичность">
@@ -167,7 +184,9 @@ export function FindingFiltersBar(props: FindingFiltersBarProps): JSX.Element {
         {/* One group: the reset button wraps with the counter, never alone. */}
         <Flex align="center" className={styles.summary} gap="small">
           <Typography.Text role="status" type="secondary">
-            {`Показано ${String(shown)} из ${String(total)} замечаний`}
+            {findingsPending
+              ? 'Замечания появятся после завершения прогона'
+              : `Показано ${String(shown)} из ${String(total)} замечаний`}
           </Typography.Text>
           <Button disabled={!canReset} onClick={reset}>
             Сбросить фильтры

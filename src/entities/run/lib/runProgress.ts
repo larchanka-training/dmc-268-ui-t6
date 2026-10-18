@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 import type { RunAction, RunSession } from '../model/schemas'
 
 export type RunProgressStageKey = 'context' | 'analysis' | 'publishing'
@@ -27,6 +29,7 @@ const PUBLISHING = 2
 
 // A Map, not an object literal: a tool named `constructor` must stay unknown.
 const TOOL_STAGE = new Map<string, number>([
+  ['policy.load', CONTEXT],
   ['vcs.fetch_diff', CONTEXT],
   ['context.build', CONTEXT],
   ['llm.repo_conventions', CONTEXT],
@@ -35,6 +38,7 @@ const TOOL_STAGE = new Map<string, number>([
   ['review.postprocess', ANALYSIS],
   ['engine.fallback', ANALYSIS],
   ['github.publish_review', PUBLISHING],
+  ['gitlab.publish_review', PUBLISHING],
 ])
 
 // The api commits the review output and the postprocess row in the same transaction as the
@@ -43,6 +47,7 @@ const PUBLISHING_MARKERS = new Set([
   'llm.review_output',
   'review.postprocess',
   'github.publish_review',
+  'gitlab.publish_review',
 ])
 
 // A failed step is recorded as `response = { error: { type, message } }` (api run_trace).
@@ -51,14 +56,34 @@ function isFailedStep(action: RunAction): boolean {
   return typeof response === 'object' && response !== null && 'error' in response
 }
 
-// The actions of the latest attempt, known tools only. The API gives no attempt marker per
-// action, so a new attempt is detected two ways: a stage regression (a retry goes back to context
-// after the previous attempt got further), and a second `llm.repo_conventions`, which the api writes
-// exactly once per attempt (process_run.py `prepare()` runs the step on every claim, also when the
-// diff snapshot exists; conventions_unit_of_work.py writes one row per call), so the second one
-// opens a new attempt even when no stage went backwards.
-function currentAttempt(actions: readonly RunAction[]): RunAction[] {
+const LlmCallAttemptSchema = z.object({ attempt: z.int().positive() })
+
+// Read only the latest attempt and known tools. Policy rows delimit modern logs;
+// legacy logs use stage regressions or repeated conventions rows.
+function currentAttempt(actions: readonly RunAction[], runAttempt: number): RunAction[] {
   const ordered = [...actions].sort((a, b) => a.index - b.index)
+  const policyIndexes = ordered.flatMap((action, index) =>
+    action.tool === 'policy.load' ? [index] : [],
+  )
+  const latestPolicy = policyIndexes[policyIndexes.length - 1]
+  if (latestPolicy !== undefined) {
+    const latest = ordered.slice(latestPolicy)
+    if (policyIndexes.length < runAttempt) {
+      // Earlier claims can leave no policy row. A current call corroborates this
+      // segment, but until then prefer context over leaking an older attempt.
+      const corroborated = latest.some((action) => {
+        if (action.tool !== 'llm.call') {
+          return false
+        }
+        const request = LlmCallAttemptSchema.safeParse(action.request)
+        return request.success && request.data.attempt === runAttempt
+      })
+      if (!corroborated) {
+        return []
+      }
+    }
+    return latest.filter((action) => TOOL_STAGE.has(action.tool))
+  }
   let segment: RunAction[] = []
   let previousStage = -1
   for (const action of ordered) {
@@ -82,8 +107,15 @@ function stageStates(
   status: Exclude<RunSession['status'], 'skipped'>,
   attempt: readonly RunAction[],
 ): RunProgressStageState[] {
+  const conventionsIndex = attempt.findIndex((action) => action.tool === 'llm.repo_conventions')
+  // Modern logs can have an initial build before conventions and a prompt build afterwards.
+  // Historical context-build-only logs retain their immediate handoff to analysis.
+  const hasPolicy = attempt.some((action) => action.tool === 'policy.load')
   const contextDone = attempt.some(
-    (action) => action.tool === 'context.build' && !isFailedStep(action),
+    (action, index) =>
+      action.tool === 'context.build' &&
+      !isFailedStep(action) &&
+      (!hasPolicy || (conventionsIndex !== -1 && index > conventionsIndex)),
   )
   const reachedPublishing = attempt.some((action) => PUBLISHING_MARKERS.has(action.tool))
 
@@ -116,13 +148,14 @@ export function runProgressReadsLog(status: RunSession['status']): boolean {
 }
 
 export function runProgress(
-  run: Pick<RunSession, 'status' | 'errorCode'>,
+  run: Pick<RunSession, 'status' | 'errorCode' | 'attempt'>,
   actions: RunAction[],
 ): RunProgress | null {
   if (run.status === 'skipped') {
     return null
   }
-  const states = stageStates(run.status, currentAttempt(actions))
+  const attempt = currentAttempt(actions, run.attempt)
+  const states = stageStates(run.status, attempt)
   return STAGES.map((stage, index) => {
     const state = states[index] ?? 'wait'
     return {

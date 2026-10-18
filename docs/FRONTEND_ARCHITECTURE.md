@@ -46,6 +46,7 @@ antd, TanStack Query и jsdom — патчи от 2026-09-24.
 | Ф-18 | Синхронная подсветка диффа — бюджет ~1000 строк на файл и на весь дифф; выше — без `tokenize` (worker — follow-up)                                                   | AC ui#65 ч. 1; API `summary_only` >3000 строк; замеры в `docs/plans/65-plan.md` (Refs ui#65).                                                                                                                              |
 | Ф-19 | Список PR репозитория (`GET /repos/{id}/pulls`) в UI **не** входит в scope #65; навигация — со страницы репозиториев / внешняя ссылка на GitHub                      | Открытый вопрос плана закрыт: follow-up issue при появлении API в продукте (Refs ui#65).                                                                                                                                   |
 | Ф-20 | Дизайн-система Flat Console поверх antd: тема, свои компоненты и правила в `src/shared/ui`, витрина в Storybook; спецификация [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) | Единый вид всех экранов без смены UI-кита: Ф-2 и Ф-13 остаются в силе, antd получает нашу тему, а то, что токенами не выражается, собрано в одном файле. Базовые компоненты берутся только из дизайн-системы (Refs ui#98). |
+| Ф-22 | Обновление доступа: опрос 5 с / 120 с, резерв статуса вне idle и постоянный live region на странице (§2)                                                             | Запаздывающий репозиторий появляется без блокировки действий строки; поиск и таблица не сдвигаются, status сохраняется между GET и при ошибке без данных (Refs ui#92, ui#120).                                             |
 
 Ф-11 уточнено 2026-09-24 (#49): TypeScript поднят 5.9.3 → 6.0.3. Потолок — именно 6.0.x, а не
 «6.x»: у TypeScript 7.0 нет JS API компилятора, поэтому peer typescript-eslint остаётся
@@ -251,10 +252,12 @@ src/pages/auth/oauthErrors.ts
 src/pages/login/LoginPage.module.css
 src/pages/login/LoginPage.test.tsx
 src/pages/login/LoginPage.tsx
+src/pages/repositories/RepositoriesPage.module.css
 src/pages/repositories/RepositoriesPage.test.tsx
 src/pages/repositories/RepositoriesPage.tsx
 src/pages/repositories/lib/formatError.test.ts
 src/pages/repositories/lib/formatError.ts
+src/pages/repositories/lib/useRepositoryAccessRefresh.ts
 src/pages/review/.gitkeep
 src/pages/review/ReviewRedirect.test.tsx
 src/pages/review/ReviewRedirect.tsx
@@ -322,6 +325,8 @@ src/widgets/diff-viewer/ui/RunDiff.test.tsx
 src/widgets/diff-viewer/ui/RunDiff.tsx
 src/widgets/diff-viewer/ui/diff-theme.css
 src/widgets/repository-list/index.ts
+src/widgets/repository-list/lib/accessRefreshPresentation.test.ts
+src/widgets/repository-list/lib/accessRefreshPresentation.ts
 src/widgets/repository-list/ui/RepositoryList.module.css
 src/widgets/repository-list/ui/RepositoryList.test.tsx
 src/widgets/repository-list/ui/RepositoryList.tsx
@@ -354,19 +359,64 @@ src/widgets/run-inspector/ui/RunProgressBar.tsx
 
 ## 2. Состояние
 
-| Данное                                | Где живёт                                                                                                                  | Инвалидация                                        |
-| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| Список прогонов                       | TanStack Query, ключ `['runs', 'list']` (дефолтный query)                                                                  | по времени (`staleTime: 30s`) + `run.updated`      |
-| Прогон (детали)                       | TanStack Query, ключ `['runs', id]`                                                                                        | `run.updated` для этого `runId`                    |
-| Действия прогона                      | TanStack Query, ключ `['runs', id, 'actions']`                                                                             | `run.updated` + опрос 3 с, пока прогон активен     |
-| Дифф прогона                          | TanStack Query, ключ `['runs', id, 'diff']`                                                                                | `run.updated` / SSE (Refs ui#65)                   |
-| Комментарии ревью                     | TanStack Query, ключ `['runs', id, 'comments']`                                                                            | вместе с прогоном                                  |
-| Событие шага пайплайна                | нет: события шага в api пока нет (api#97); ход прогона виден по опросу `/actions`                                          | —                                                  |
-| Дочитанные срезы файла                | `useState` на `RunDetailPage` (слияние в `FileDiff`); ключ Query `diffQueryKeys.fileSlice` зарезервирован, не используется | не инвалидируется (append-only, живёт с страницей) |
-| `viewType` (unified/split)            | Zustand, `widgets/diff-viewer/model/store.ts`                                                                              | — (UI-состояние, не сервер)                        |
-| `expandedKeys`, `selectedActionIndex` | Zustand, `widgets/run-inspector/model/store.ts`                                                                            | —                                                  |
-| Фильтры замечаний                     | URL search params `file`, `severity` (повторяются), `q`; хук `useFindingFiltersParams` (`features/finding-filters`)        | — (источник — URL; другой прогон начинает чисто)   |
-| Черновики комментариев                | —                                                                                                                          | future (не реализовано в этом спринте)             |
+| Данное                                | Где живёт                                                                                                                  | Инвалидация                                                                                                                                                                     |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Список репозиториев                   | TanStack Query, ключ `['repos']` (`useRepositories`)                                                                       | «Обновить доступ»: сразу + 5 с / 120 с; тик пропускается при незавершённом PATCH (`UPDATE_REPOSITORY_MUTATION_KEY`); GET отменяется при уходе последнего наблюдателя (см. ниже) |
+| Список прогонов                       | TanStack Query, ключ `['runs', 'list']` (дефолтный query)                                                                  | по времени (`staleTime: 30s`) + `run.updated`                                                                                                                                   |
+| Прогон (детали)                       | TanStack Query, ключ `['runs', id]`                                                                                        | `run.updated` для этого `runId`                                                                                                                                                 |
+| Действия прогона                      | TanStack Query, ключ `['runs', id, 'actions']`                                                                             | `run.updated` + опрос 3 с, пока прогон активен                                                                                                                                  |
+| Дифф прогона                          | TanStack Query, ключ `['runs', id, 'diff']`                                                                                | `run.updated` / SSE (Refs ui#65)                                                                                                                                                |
+| Комментарии ревью                     | TanStack Query, ключ `['runs', id, 'comments']`                                                                            | вместе с прогоном                                                                                                                                                               |
+| Событие шага пайплайна                | нет: события шага в api пока нет (api#97); ход прогона виден по опросу `/actions`                                          | —                                                                                                                                                                               |
+| Дочитанные срезы файла                | `useState` на `RunDetailPage` (слияние в `FileDiff`); ключ Query `diffQueryKeys.fileSlice` зарезервирован, не используется | не инвалидируется (append-only, живёт с страницей)                                                                                                                              |
+| `viewType` (unified/split)            | Zustand, `widgets/diff-viewer/model/store.ts`                                                                              | — (UI-состояние, не сервер)                                                                                                                                                     |
+| `expandedKeys`, `selectedActionIndex` | Zustand, `widgets/run-inspector/model/store.ts`                                                                            | —                                                                                                                                                                               |
+| Фильтры замечаний                     | URL search params `file`, `severity` (повторяются), `q`; хук `useFindingFiltersParams` (`features/finding-filters`)        | — (источник — URL; другой прогон начинает чисто)                                                                                                                                |
+| Черновики комментариев                | —                                                                                                                          | future (не реализовано в этом спринте)                                                                                                                                          |
+
+**Обновление доступа к репозиториям (Ф-22, ui#92, ui#120).** Данные остаются в Query,
+не копируются в Zustand. Страница после успешного «Обновить доступ» запускает немедленный
+`refetch`, затем опрашивает список раз в 5 с в течение 120 с. Хук
+[`useRepositoryAccessRefresh`](../src/pages/repositories/lib/useRepositoryAccessRefresh.ts)
+пропускает вызов, если `queryClient.isMutating` по `UPDATE_REPOSITORY_MUTATION_KEY`
+(`['updateRepo']`) показывает незавершённый PATCH. Дедлайн при этом не продлевается.
+`refetch({ cancelRefetch: false })` не заменяет уже выполняющийся GET. По истечении окна
+автоматический опрос прекращается; «Обновить список» выполняет один ручной refetch.
+
+При уходе cleanup хука очищает интервал и таймаут, а флаг активности не даёт отложенному
+микротаску выполнить первый refetch. Отмена транспорта принадлежит TanStack Query: когда у запроса
+не остаётся наблюдателей, он отменяет `AbortSignal`, который
+[`useRepositories` → `fetchRepositories`](../src/entities/repository/api/index.ts)
+передают в fetch-клиент. Пока другой наблюдатель использует тот же запрос, GET сохраняется.
+
+Intent хранится отдельно от сессии в `sessionStorage` (`dmc_auth_access_refresh`), функции и
+проверка значения — в [`returnTo.ts`](../src/features/auth/lib/returnTo.ts). Кнопка
+«Обновить доступ» сохраняет `pending` и маршрут возврата `/repositories`, затем запускает
+GitHub authorization. Только успешный `handleCallback` переводит `pending → ready` до
+перехода со страницы callback; при ошибке callback intent очищается. Обычная кнопка входа
+через GitHub тоже очищает intent. Страница репозиториев читает только `ready`, фиксирует
+дедлайн, а эффект хука потребляет intent: повторный визит не запускает окно заново.
+
+Визуальный слот `RepositoryList` существует только вне `idle`: резервирует 32 px (56 px
+при ширине до 575 px) во время GET окна ожидания, в пустых промежутках между GET и после
+таймаута, включая ручной GET. Обычный визит в `idle` не добавляет пустого блока и сохраняет
+межблочный grid gap 18 px; при новом входе в ожидание после OAuth допустимо начальное отличие раскладки от idle. Текст ожидания
+виден только во время GET активного окна, текст таймаута — до ухода со страницы. Чистый
+[`resolveAccessRefreshPresentation`](../src/widgets/repository-list/lib/accessRefreshPresentation.ts)
+и константы текста из публичного API виджета задают одинаковую презентацию странице и списку;
+таймаут имеет приоритет над выполняющимся ручным GET.
+
+Единственный атомарный `role="status"` живёт на уровне `RepositoriesPage`, включая ошибку
+без данных; он визуально обрезан CSS Module (в том числе `white-space: nowrap`), но не скрыт
+из дерева доступности. Два отменяемых animation frame откладывают только текст объявления,
+чтобы пустой регион успел зарегистрироваться до первого сообщения; таймеры опроса от этого
+не зависят. Принята существующая политика: если GET завершается раньше двух кадров, cleanup
+может отменить назначение текста, и сообщения загрузки не будет. Каждый достаточно медленный
+GET может снова добавить сообщение — примерно до 24 раз за окно 120 с / 5 с; это не гарантия
+озвучивания каждого GET. Сообщение таймаута сохраняется. DOM/AX подтверждают регистрацию и
+содержимое региона, но не реальную речь; первая речь и таймаут остаются открытыми для ручной
+приёмки скринридером. Действия строки доступны при GET, переключатель блокируется на время
+своего PATCH.
 
 **Состояние в URL.** Вид, которым делятся ссылкой, живёт в `location.search`, а не в сторе. Сейчас
 это фильтры замечаний страницы прогона (§6): `file` (повторяется), `severity` (повторяется;
@@ -703,13 +753,13 @@ off; }` для SSE, либо в документе фиксируется cross-
 
 Компоненты (`src/widgets/diff-viewer/`):
 
-| Компонент         | Файл                     | Props                                                                                                                                                                                                                                                                                                                                               |
-| ----------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DiffViewer`      | `ui/DiffViewer.tsx`      | `file: FileDiff`, `findings?: FindingView[]`, `comments?: ReviewComment[]`, `totalLines?: number`, `diffTotalLines?: number`, `searchActive?: boolean`, `onLoadMore?: (gap: ContextGap) => void`                                                                                                                                                    |
-| `InlineComment`   | `ui/InlineComment.tsx`   | `finding: FindingView`, `file?: FileDiff`, `defaultExpanded?: boolean` — находка или комментарий, привязанный к строке диффа (виджет `react-diff-view`); свёрнут, пока не раскрыт или не задан `defaultExpanded`                                                                                                                                    |
-| `DiffSuggestion`  | `ui/DiffSuggestion.tsx`  | `filename: string`, `removedLines: string[]`, `addedText: string` — правка из `suggestion` находки, через `<Diff>`                                                                                                                                                                                                                                  |
-| `LoadMoreContext` | `ui/LoadMoreContext.tsx` | кнопка дочитывания контекста в зазоре между хунками                                                                                                                                                                                                                                                                                                 |
-| `RunDiff`         | `ui/RunDiff.tsx`         | `summaryOnly: boolean`, `files: FileDiff[]`, `findings: FindingView[]`, `comments?: ReviewComment[]`, `budgetFiles?: FileDiff[]`, `fileTotalLines?`, `onLoadMore?`, `filters?: FindingFilters`, `onFiltersChange?`, `onFiltersQueryChange?`, `onFiltersReset?`, `commentsPending?: boolean`, `filtersNavigationKey?: number` — дифф прогона целиком |
+| Компонент         | Файл                     | Props                                                                                                                                                                                                                                                                                                                                                                            |
+| ----------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DiffViewer`      | `ui/DiffViewer.tsx`      | `file: FileDiff`, `findings?: FindingView[]`, `comments?: ReviewComment[]`, `totalLines?: number`, `diffTotalLines?: number`, `searchActive?: boolean`, `onLoadMore?: (gap: ContextGap) => void`                                                                                                                                                                                 |
+| `InlineComment`   | `ui/InlineComment.tsx`   | `finding: FindingView`, `file?: FileDiff`, `defaultExpanded?: boolean` — находка или комментарий, привязанный к строке диффа (виджет `react-diff-view`); свёрнут, пока не раскрыт или не задан `defaultExpanded`                                                                                                                                                                 |
+| `DiffSuggestion`  | `ui/DiffSuggestion.tsx`  | `filename: string`, `removedLines: string[]`, `addedText: string` — правка из `suggestion` находки, через `<Diff>`                                                                                                                                                                                                                                                               |
+| `LoadMoreContext` | `ui/LoadMoreContext.tsx` | кнопка дочитывания контекста в зазоре между хунками                                                                                                                                                                                                                                                                                                                              |
+| `RunDiff`         | `ui/RunDiff.tsx`         | `summaryOnly: boolean`, `files: FileDiff[]`, `findings: FindingView[]`, `comments?: ReviewComment[]`, `budgetFiles?: FileDiff[]`, `fileTotalLines?`, `onLoadMore?`, `filters?: FindingFilters`, `onFiltersChange?`, `onFiltersQueryChange?`, `onFiltersReset?`, `commentsPending?: boolean`, `findingsPending?: boolean`, `filtersNavigationKey?: number` — дифф прогона целиком |
 
 Поток данных:
 
@@ -738,6 +788,9 @@ Summary-only прогон рисует `RunDiff`: при `summaryOnly: true` —
 (больше 3 000 строк, построчного ревью нет) и список имён файлов, без `DiffViewer` и хунков; при
 `false` — `DiffViewer` на каждый файл (имя файла он выводит, находки по `finding.file` отбирает сам;
 комментарии ревью `RunDiff` заранее сливает с находками через `mergeFindings`, `lib/mergeFindings.ts`).
+В обычном прогоне сливаются все комментарии: если файла нет в `/diff`, `hasPatch: false` или
+чанки пусты, карточка попадает в общий блок «Замечания вне диффа» ровно один раз (#114).
+У файлов с чанками сохраняются инлайн-карточки и отдельный блок вне строк конкретного файла.
 `RunDiff` получает флаг, а не весь `RunSession`, — виджет не зависит от
 `entities/run`. Страница `RunDetailPage` (`/runs/:runId`) передаёт `run.summaryOnly` и
 `findings` из `RunDetail` в `RunDiff` (TanStack Query, ключи §2).
@@ -798,10 +851,14 @@ next.newStart - startLine }`; хвостовой зазор после посл�
 хуком `useFindingFiltersParams` и передаёт `filters` / `onFiltersChange` / `onFiltersQueryChange` /
 `onFiltersReset` / `filtersNavigationKey` (его `navigationKey`, §2) (без `onFiltersReset` сброс — `onFiltersChange(EMPTY_FINDING_FILTERS)`; без
 `onFiltersQueryChange` текст поиска уходит в `onFiltersChange({ ...filters, query }, { replace: true })`)
-и `commentsPending` — `/comments` ещё не ответил.
+и два независимых признака: `commentsPending` — `/comments` ещё не ответил; `findingsPending` —
+прогон ещё активен (`isActive(run.status)`). Если ссылка содержит `file` для файла,
+известного только из комментария, до ответа этот файл неизвестен и его фильтр не действует;
+после ответа файл входит в варианты и фильтр начинает сужать результат. Значение в URL
+сохраняется, пока загружаются комментарии.
 
 Панель (`FindingFiltersBar`, props: `filters`, `fileOptions: { file; count }[]`, `shown`, `total`,
-`empty?`, `navigationKey?`, `onChange(change: Partial<FindingFilters>, { replace? })`,
+`empty?`, `findingsPending?`, `navigationKey?`, `onChange(change: Partial<FindingFilters>, { replace? })`,
 `onQueryChange(query)`, `onReset`) — antd `Form layout="inline"` без своего состояния: поля
 по-прежнему ведут хуки URL, экземпляра `form` и `name` у полей нет. У каждого поля видимая подпись
 (DESIGN_SYSTEM §8 «Поля»): `Form.Item label` «Файлы», «Критичность», «Поиск», связанная с контролом
@@ -819,9 +876,10 @@ Enter в поле поиска страницу не перезагружает.
   варианта), так что первый выбранный файл читается при любой ширине панели; список вариантов
   показывает полные пути. N — число показываемых замечаний файла, не зависит от остальных фильтров.
   Файлы прогона — файлы `/diff` ∪ `finding.file`, поэтому файл, которого в диффе нет, тоже можно
-  выбрать. `file=` файла, которого в прогоне нет, остаётся чипом в селекте, хотя ничего не
-  фильтрует: санитайзинг только при чтении (§2); варианта у него нет, поэтому и подсказка у его чипа
-  — только имя;
+  выбрать. Выбранные чипы — пересечение `filters.files` с вариантами панели
+  (`effectiveFileFilter`). Неизвестный `file=` остаётся в URL (§2), но не появляется чипом и
+  ничего не фильтрует; в смешанном выборе показываются только файлы прогона. При загрузке
+  `/diff` и после неё панель не переписывает URL;
 - «Критичность» — `Select mode="multiple"` по группам D3 (Critical = critical + high, Warning =
   medium + low, Info), подписи — `SEVERITY_BADGE_LABEL`, порядок — `SEVERITY_BADGE_GROUPS`. Селект,
   а не `Checkbox.Group`, хотя вариантов всего три, — осознанное исключение из таблицы выбора
@@ -836,9 +894,11 @@ Enter в поле поиска страницу не перезагружает.
 - счётчик «Показано N из M замечаний» — вторичным текстом (`type="secondary"`: на палитре
   дизайн-системы контраст 7,6:1 в обеих темах; прежние 3,32:1 были у палитры antd до неё) и с
   `role="status"` (вежливая live-region: скринридер озвучивает число после паузы). Счётчик следует
-  за URL, поэтому меняется после паузы, а не на каждый символ;
-- «Сбросить фильтры»: кнопка выключена, пока ничего не задано — ни в URL, ни в поле; поиск из одних
-  пробелов считается заданным, иначе его нельзя было бы очистить. Сброс очищает и поле, и отложенную
+  за URL, поэтому меняется после паузы, а не на каждый символ. Для активного прогона вместо
+  итогового счётчика та же live-region показывает «Замечания появятся после завершения прогона»;
+- «Сбросить фильтры»: кнопка включена при эффективном выборе файлов, критичности, непустом `q`
+  в URL или тексте в поле. Один неизвестный `file=` её не включает; поиск из одних пробелов
+  считается заданным, иначе его нельзя было бы очистить. Сброс очищает и поле, и отложенную
   запись. Кнопка и счётчик — одна группа (`Flex`), которая переносится целиком, поэтому кнопка
   никогда не остаётся одна в строке. После сброса любой из двух кнопок фокус переходит в «Файлы»,
   в начало панели: кнопка панели становится неактивной, а сообщение с его кнопкой исчезает, и
@@ -870,30 +930,40 @@ Enter в поле поиска страницу не перезагружает.
 Фильтр файлов — `effectiveFileFilter(file, файлы прогона)`; если пересечение пусто (в прогоне нет
 ни одного из выбранных файлов), он не действует, а `file=` остаётся в URL (§2).
 
-Множество M — то, что показывается без фильтров, ровно то, что рисовалось и раньше:
+Множество M — все замечания, которые показываются без фильтров:
 
-- обычный прогон: `run.findings` ∪ комментарии ревью (`/comments`) файлов, у которых есть патч и
-  чанки, слитые по `id` (`mergeFindings`; находка из `findings` важнее комментария с тем же `id`).
-  Комментарии к файлам без диффа или отсутствующим в `/diff` по-прежнему не рисуются и в M не входят;
+- обычный прогон: `run.findings` ∪ все комментарии ревью (`/comments`), слитые по `id`
+  (`mergeFindings`; находка из `findings` важнее комментария с тем же `id`). Комментарии к
+  отсутствующим в `/diff` файлам, файлам без патча или без чанков входят в M и общий блок
+  «Замечания вне диффа» (#114). Имя файла, известное только из комментария, входит в варианты
+  фильтра файлов; счётчик варианта берётся из M до применения любых фильтров;
 - summary-only прогон: только `run.findings` — эта ветка комментариев не рисует.
+
+Страница определяет `findingsPending` через `isActive(run.status)` (`queued`, `running`,
+`publishing`) и передаёт его в `RunDiff` и панель. Это состояние отдельно от ожидания `/comments`;
+для остальных вызывающих компонентов оно по умолчанию `false`. После перехода прогона в
+терминальный статус исходные фильтры URL применяются автоматически, без навигации.
 
 Что рисуется под фильтром:
 
 - выбран файл (эффективный фильтр не пуст) — дифф и находки только этих файлов;
-- задан содержательный фильтр (критичность или непустой поиск) — файлы без подходящей находки
-  скрыты: дифф, блок «Замечания вне диффа» и строка в списке summary-only. Если скрыты все
+- пока `findingsPending`, содержательный фильтр (критичность или непустой поиск) сохраняется
+  в панели и URL, но не скрывает файлы без находок; эффективный выбор файлов продолжает
+  ограничивать дифф и список summary-only. Уже доступные карточки фильтруются как обычно;
+- после завершения прогона содержательный фильтр скрывает файлы без подходящей находки: дифф, блок «Замечания вне диффа» и строка в списке summary-only. Если скрыты все
   строки, списка нет вовсе — второго пустого состояния antd `List` не появляется;
 - блок «Замечания вне диффа» (у файла и общий по прогону) рисуется, только когда в нём есть
   подходящая находка;
 - поиск задан — все показанные карточки развёрнуты: `InlineComment` получает `defaultExpanded`, ключ
   карточки — `${id}:q` при поиске и `${id}:` без него, поэтому включение и выключение поиска
-  перемонтирует карточки, а ввод следующих символов — нет (ручное сворачивание сохраняется);
+  перемонтирует карточки, а ввод следующих символов и переход pending → terminal — нет
+  (ручное сворачивание сохраняется);
 - ничего не подходит, а фильтр действует (эффективный фильтр файлов не пуст или задан содержательный
   фильтр) — сообщение «Нет замечаний, подходящих под фильтры» с кнопкой сброса; рисует его сама
   панель (`empty`), чтобы кнопка в сообщении очищала и поле поиска. Одинокий `file=` неизвестного
   файла и прогон без замечаний при пустых фильтрах сообщения не вызывают. В summary-only ветке
-  сообщение стоит под панелью, выше «Дифф слишком большой». Пока `/comments` не
-  ответил, сообщения нет: набор ещё неполон, и запрос, который подходит только комментарию, не
+  сообщение стоит под панелью, выше «Дифф слишком большой». Пока `findingsPending`, итогового
+  пустого состояния нет. Пока `/comments` не ответил, сообщения тоже нет: набор ещё неполон, и запрос, который подходит только комментарию, не
   должен мигать «ничего нет» (счётчик при этом может поменяться, когда комментарии придут);
 - бюджет подсветки Ф-18 считается по всем файлам, как пришли (`budgetFiles ?? files`), а не по
   видимым: фильтр не включает и не выключает подсветку.
@@ -904,8 +974,9 @@ Enter в поле поиска страницу не перезагружает.
 одной группой; в jsdom нет раскладки, поэтому ширину для чипов `Select` даёт
 `src/test/responsiveSelectLayout.ts`, в узкий селект — один чип и «+N»),
 `widgets/diff-viewer/ui/RunDiff.filters.test.tsx` (каждый фильтр, сочетания, блоки «вне диффа»,
-summary-only, бюджет подсветки), `pages/runs/RunDetailPage.filters.test.tsx` (URL: загрузка,
-мусор, `push` / `replace`, другой прогон, сброс, ожидание `/comments`),
+summary-only, сохранение ручного сворачивания при завершении прогона, бюджет подсветки), `pages/runs/RunDetailPage.filters.test.tsx` (URL: загрузка,
+мусор, `push` / `replace`, другой прогон, сброс, ожидание `/comments`, все три активных статуса
+с severity/search URL, переход к успеху, неизвестные и смешанные файлы без переписывания URL),
 `pages/runs/RunDetailPage.search.test.tsx` (поле поиска на `RouterProvider` из `react-router/dom` —
 роутер приложения: два нативных `input` подряд без `act`, каретка при вставке в середину, «назад»,
 сброс, выбор при ещё не записанном тексте, «назад» / «вперёд» и чужая навигация при наборе) и
@@ -1064,21 +1135,27 @@ React, без `innerHTML`.
 «Отменить» на активном прогоне, «Перезапустить» на терминальном. На `running`/`publishing` отмена
 статус не меняет: API ставит `cancelRequested: true` на `RunSession`, пока воркер не остановится.
 Тогда та же кнопка становится неактивной «Отмена запрошена»: без `danger` — это уже не действие
-(DESIGN_SYSTEM §8), с `aria-disabled` и классом отключённой кнопки antd вместо `disabled`, чтобы
-фокус остался на ней (`.agents/rules/frontend.md` §3b п. 3). `attempt: number` (номер попытки при
-retry) `RunHeader` показывает в поле «Попытка».
+(DESIGN_SYSTEM §8), с `aria-disabled` и классом отключённой кнопки antd (`useDisabledButtonClass`
+из `shared/ui`, DESIGN_SYSTEM §11) вместо `disabled`, чтобы фокус остался на ней
+(`.agents/rules/frontend.md` §3b п. 3). По той же причине отмена и «Перезапустить» — одна кнопка в
+одном слоте: когда прогон становится терминальным (отмена `queued`, завершение запрошенной отмены или
+обычный конец прогона), она становится «Перезапустить», и фокус, стоявший на ней, остаётся на ней же;
+фокус в другом месте не трогается. Автоповтор зажатого Enter кнопка гасит
+(`event.key === 'Enter' && event.repeat`): иначе он после отмены `queued` запускал бы «Перезапустить»
+(§3b п. 4). Space нажимает кнопку на keyup и не повторяется, Tab и стрелки идут дальше; отдельное
+второе нажатие Enter — новое действие. `attempt: number` (номер попытки при retry) `RunHeader` показывает в поле «Попытка».
 
 Запросы уже реализованы: `endpoints.runs.cancel` / `endpoints.runs.rerun` в
 `src/shared/api/endpoints.ts`, функции `cancelRun` / `rerunRun` и mutation-хуки `useCancelRun` /
 `useRerunRun` в `src/entities/run/api/index.ts`. `RunDetailPage` передаёт прогон в `RunControls`;
 после успешного повторного запуска кнопка переводит на `/runs/${session.id}` нового прогона.
 
-### Прогресс-бар (Refs ui#84)
+### Прогресс-бар (Refs ui#84, ui#112)
 
 Под карточкой прогона, во всю ширину над журналом действий и диффом, — три этапа: «Сбор контекста»
 (`context`), «Анализ LLM» (`analysis`), «Публикация» (`publishing`). Модель — чистая функция
 `runProgress(run, actions)` (`src/entities/run/lib/runProgress.ts`, экспорт через `entities/run`):
-`Pick<RunSession, 'status' | 'errorCode'>` и `RunAction[]` → `RunProgress | null`; для `skipped` — `null`,
+`Pick<RunSession, 'status' | 'errorCode' | 'attempt'>` и `RunAction[]` → `RunProgress | null`; для `skipped` — `null`,
 бара нет. Этап — `{ key, label, state, errorCode }`, `state` — `wait`, `process`, `finish`, `error` или
 `stopped`; `errorCode` (из `run.errorCode`) есть только у этапа `error`/`stopped`. Отрисовка —
 `RunProgressBar` (`src/widgets/run-inspector/ui/RunProgressBar.tsx`) через `ProgressSteps` из
@@ -1089,15 +1166,39 @@ retry) `RunHeader` показывает в поле «Попытка».
 и снизу — `gap: 18px` этой сетки, своего отступа у бара нет. `Tag` статуса и строка «Ошибка» в шапке
 остаются.
 
-Карта «инструмент → этап» (поле `tool` журнала `/actions`; `RunActionSchema.tool` остаётся `z.string()`):
+Порядок инструментов и этапы согласованы в
+[api#165](https://github.com/larchanka-training/dmc-268-api-t6/issues/165#issuecomment-6239860269);
+[слитый api PR #194](https://github.com/larchanka-training/dmc-268-api-t6/pull/194)
+зафиксировал этот порядок. Текущая попытка выполняется так:
 
-| Этап         | `tool`                                                                   |
-| ------------ | ------------------------------------------------------------------------ |
-| `context`    | `vcs.fetch_diff`, `context.build`, `llm.repo_conventions`                |
-| `analysis`   | `llm.call`, `llm.review_output`, `review.postprocess`, `engine.fallback` |
-| `publishing` | `github.publish_review`                                                  |
+`policy.load → [vcs.fetch_diff] → context.build → [llm.call за conventions…] →
+llm.repo_conventions → context.build → llm.call за review… → llm.review_output,
+review.postprocess → github.publish_review | gitlab.publish_review`.
 
-Любой другой `tool` игнорируется целиком: не двигает бар и не делит попытки.
+Квадратные скобки обозначают условные шаги: fetch отсутствует при готовом снимке диффа, вызовы
+conventions — при попадании в кэш. Первый `context.build` временный: после его удаления в api#168,
+часть 6, тот же UI поддерживает канонический порядок с одним build после `llm.repo_conventions`.
+
+Базовая классификация известных `tool` журнала `/actions` (`RunActionSchema.tool` остаётся
+`z.string()`), которую историческая эвристика использует для сравнения этапов:
+
+| Этап         | Инструменты                                                                                |
+| ------------ | ------------------------------------------------------------------------------------------ |
+| `context`    | `policy.load`, `vcs.fetch_diff`, `context.build`, `llm.repo_conventions`                   |
+| `analysis`   | `llm.call`, `llm.review_output`, `review.postprocess`, зарезервированный `engine.fallback` |
+| `publishing` | `github.publish_review`, `gitlab.publish_review`                                           |
+
+Текущий API пишет девять инструментов из таблицы. `engine.fallback` зарезервирован для api#107;
+его распознавание не доказывает, что текущий worker или исторический production его записывал.
+Неизвестный `tool`, в том числе имя свойства прототипа, не двигает бар и не делит попытки.
+Базовая классификация не равна свидетельству публикации: `llm.review_output` и
+`review.postprocess` относятся к `analysis` в карте, но API сохраняет их вместе с переходом в
+`publishing`, поэтому они, как и оба provider publish tool, подтверждают достижение публикации.
+
+В современной попытке conventions-вызовы `llm.call` остаются сбором контекста; анализ начинается
+после успешного prompt `context.build` за `llm.repo_conventions`. `llm.call.request.kind` —
+`primary | retry | repair | fallback`, а не назначение вызова. Этот бар не требует нового поля
+назначения и не выводит фазу из `kind`.
 
 Состояния по статусу `RunSession`:
 
@@ -1111,24 +1212,52 @@ retry) `RunHeader` показывает в поле «Попытка».
 | `failed` / `cancelled`                       | см. «Остановка» ниже | см. «Остановка» ниже | см. «Остановка» ниже |
 | `skipped` (бара нет, `runProgress` → `null`) | —                    | —                    | —                    |
 
-Остановка (`failed`, `cancelled`): этап остановки — `publishing`, если в текущей попытке есть
-`llm.review_output`, `review.postprocess` или `github.publish_review`; иначе `analysis`, если контекст
-готов; иначе `context`. Этапы до него — `finish`, после — `wait`, сам этап — `error` (`failed`) или
-`stopped` (`cancelled`). Контекст готов, если в текущей попытке есть `context.build`, чей `response` не
-объект с ключом `error` (так api пишет упавший шаг, `run_trace`); больше ничто контекст готовым не
-делает — в том числе `llm.call` за conventions до `context.build`.
+Готовность контекста для `running`: в современной попытке с `policy.load` нужен успешный
+`context.build` **после** `llm.repo_conventions`. Первый временный build и conventions-вызовы LLM
+сами по себе не переводят бар на анализ. Успех — `response` не является объектом с ключом `error`
+(так API пишет упавший шаг, `run_trace`); `null` тоже не ошибка. У исторических журналов без policy
+сохраняется прежний переход на анализ после успешного build, включая старые build-only фикстуры.
 
-Текущая попытка. В `RunAction` нет номера попытки, а `RunSession.startedAt` ставится только при первом
-захвате и границей попытки быть не может. Поэтому журнал читается по `index`, только известные `tool`, и
-новая попытка начинается с действия, которое либо относится к более раннему этапу, чем предыдущее
-известное действие (регресс этапа), либо является вторым `llm.repo_conventions` в текущем отрезке; берётся
-последний отрезок. Второе правило — по коду api: шаг conventions выполняется при каждом захвате
-(`process_run.py`, `prepare()`, в том числе когда снимок диффа уже есть), а `conventions_unit_of_work.py`
-пишет ровно одну строку `llm.repo_conventions` на вызов, то есть по одной на попытку. Без него ретрай,
-у которого прежняя попытка остановилась сразу после успешного `context.build` (например, потеряна
-аренда), не давал регресса этапа, и старый `context.build` держал «контекст готов» для новой попытки:
-`failed` или `cancelled` показывали `analysis` вместо `context`. Ретрай (T9/T12) идёт
-`running → queued → running`, действия прежних попыток остаются в списке.
+Остановка (`failed`, `cancelled`): при свидетельстве публикации остановлен `publishing`;
+иначе при готовом контексте — `analysis`, без него — `context`. Упавший prompt `context.build`
+не делает контекст готовым, даже если временный первый build прошёл успешно. Ошибка первого
+временного build, если она не policy/fatal, записывается и допускает продолжение: последующий
+успешный prompt build переводит бар на анализ. `traced_step` сохраняет завершение и ошибку
+`context.build`; best-effort относится к `llm.call`, а не к этому build.
+
+Успешный prompt build перед первой review-строкой уже передаёт управление анализу, в том числе
+при последующем `failed`/`cancelled`: строка `llm.call` появляется после завершения вызова, поэтому
+при остановке во время вызова последним записанным действием может остаться prompt build.
+Этапы до остановки — `finish`, после — `wait`, сам этап — `error` (`failed`) или `stopped`
+(`cancelled`); только он получает `run.errorCode`.
+
+Текущая попытка: модель и `RunProgressBar` требуют `RunSession.attempt`; `RunInspector` передаёт
+полную сессию. При claim API увеличивает `attempt` до появления строк новой попытки. Функция
+сортирует копию журнала по `index`, считает `policy.load` и берёт отрезок от последней такой строки
+включительно. Внутри него conventions-вызовы и последующие context-инструменты не создают ретрай.
+Если число policy-строк не меньше `run.attempt`, используется этот отрезок. Если строк меньше,
+по умолчанию текущий отрезок считается пустым: новый `running` показывает `process/wait/wait`,
+`failed` — `error/wait/wait`, `cancelled` — `stopped/wait/wait`, даже пока в журнале только старые
+анализ или публикация. Это покрывает нулевой префикс ретрая; fetch для границы не требуется.
+
+Ранее захваченная попытка могла не дойти до `policy.load`, поэтому дефицит строк не всегда означает
+устаревший последний отрезок. В таком случае настоящий `llm.call` внутри последнего policy-отрезка
+с `request.attempt === run.attempt` подтверждает его актуальность. Модель читает неизвестные значения
+через Zod `safeParse` с положительным целым `attempt`. Данные других инструментов, неверный номер,
+строка вместо числа, дробь или вызов перед последней policy-границей не подтверждают попытку.
+Массив вызывающей стороны не меняется. Статусы `queued`, `publishing`, `succeeded` и `skipped`
+по-прежнему определяют бар независимо от журнала.
+
+Реальная ошибка подготовки policy записывается как неуспешный `policy.load` перед повторным
+выбросом исключения; вместе с предыдущим анализом/публикацией такой ретрай останавливается на
+контексте. Если не удалось сохранить сам trace, API классифицирует ошибку записи как
+`internal_error`. Отдельного приоритета для списка policy-кодов над журналом нет. Потеря процесса,
+checkpoint или ошибка до входа в `traced_step` могут оставить захваченную попытку без policy-строки.
+
+Если policy-строк нет вообще, сохранена ограниченная историческая эвристика: возврат к более раннему
+этапу базовой карты либо повтор `llm.repo_conventions` начинает новый отрезок. Повтор conventions
+отделяет ретрай даже после context-инструментов без регресса этапа. Это совместимость со старыми
+журналами, а не надёжный идентификатор попытки.
 
 Вид. Бар только переводит этапы в шаги `ProgressSteps` — `{ key, title, state, note }`: `state` этапа
 совпадает с состоянием шага, `note` у `error` — `errorCode`, у `stopped` — «Остановлено» (с
@@ -1181,38 +1310,20 @@ retry) `RunHeader` показывает в поле «Попытка».
 
 Ограничения:
 
-- **Граница попытки видна по журналу, а не по номеру.** После повторного захвата, пока новая попытка не
-  записала строку, которая режет отрезок (строку более раннего этапа или свой `llm.repo_conventions`),
-  бар показывает этап прежней попытки (`queued` между попытками — все `wait`). Порядок записи в попытке:
-  `vcs.fetch_diff` (на ретрае его нет — снимок есть), при промахе кэша `llm.call` за conventions, затем
-  `llm.repo_conventions`, затем `context.build`. Поэтому при промахе кэша первая строка новой попытки —
-  `llm.call` за conventions (тоже `analysis`): если последняя строка прежней попытки этапа `analysis`
-  (включая `llm.review_output` и `review.postprocess`), регресса нет и бар остаётся на прежнем этапе до
-  `llm.repo_conventions` новой попытки. При попадании в кэш первой строкой идёт сам `llm.repo_conventions`
-  и режет отрезок сразу. Если прежняя попытка кончилась строкой этапа `publishing`
-  (`github.publish_review`), разрыв закрывает любая первая строка новой; если строкой этапа `context`, кроме
-  успешного `context.build`, — разрыва нет, бар и так на `context`; успешный `context.build` разобран в
-  следующем пункте.
-- **Ретрай после успешного `context.build` при промахе кэша conventions.** Прежняя попытка кончилась
-  успешным `context.build` (аренда потеряна сразу после него), а на ретрае кэш conventions не сработал
-  (изменился его ключ, например `agents.md` или версия промпта; если ключ тот же, кэш уже записан первой
-  попыткой, и первой строкой идёт `llm.repo_conventions`, который режет отрезок сразу). Тогда первая строка
-  новой попытки — `llm.call` за conventions (`analysis`), регресса нет, и старый `context.build` держит
-  «контекст готов»: пока идёт `running`, бар показывает `analysis` до `llm.repo_conventions` новой попытки.
-  Если эта попытка упала или была отменена внутри `llm.call` за conventions, `llm.repo_conventions` не
-  появится, и итоговый бар покажет `analysis` вместо `context` (`finish`/`error`/`wait` или
-  `finish`/`stopped`/`wait`). По строкам журнала это неотличимо от настоящей ошибки анализа
-  (`vcs.fetch_diff`, `llm.repo_conventions`, `context.build`, `llm.call` с `response.error`), поэтому
-  исправить это в UI нельзя: нужен маркер попытки на каждом действии в api.
-- По той же карте при промахе кэша внутри одной попытки порядок `vcs.fetch_diff` → `llm.call` →
-  `llm.repo_conventions` — регресс `analysis → context`: отрезок режется на `llm.repo_conventions`.
-  Безвредно: отброшенные строки не отмечают ни «контекст готов», ни выход на публикацию.
-- `llm.review_output` и `review.postprocess` api фиксирует в той же транзакции, что и переход в
-  `publishing`, поэтому при `running` их в журнале нет.
-- Склеенные события (`running → succeeded` без `publishing`, пропущенный `queued`) — норма: бар строится по
-  текущему статусу, не по истории событий.
-- Прогон, застрявший в `publishing` (например, без GitHub App), — не ошибка UI: бар честно показывает
-  публикацию «в работе».
+- При дефиците policy-строк после исторической пропущенной попытки свежий отрезок до
+  подтверждающего текущего `llm.call` может быть неотличим от старого. Пока такого вызова нет,
+  либо его best-effort trace потерян, модель консервативно остаётся на контексте и может позже
+  показать анализ. В частности, call-free префикс с кэшированными conventions не устраняет этот
+  дефицит даже после prompt build. Универсального точного восстановления попытки эти поля не дают.
+- Старый журнал без policy-маркеров использует эвристику и сохраняет её неоднозначности при ретрае;
+  `run.attempt` не превращает такой журнал в надёжно размеченный. `RunSession.startedAt` хранит
+  первый захват, а не последний. Сравнение времён и publish `request.try` не заменяют policy-границу.
+- `llm.review_output` и `review.postprocess` фиксируются вместе с `publishing`; при `running` их нет в
+  нормальном журнале. Summary-only прогон использует тот же порядок с вызовами conventions и review;
+  его `vcs.fetch_diff.response` содержит `summary_only: true`. Склеенные события
+  (`running → succeeded` без наблюдаемого `publishing`, пропущенный `queued`) допустимы: итоговый бар
+  строится по текущему статусу и показывает три `finish` у `succeeded`.
+- Застрявший в `publishing` прогон (например, без GitHub App) показывает публикацию «в работе».
 
 ---
 
@@ -1247,7 +1358,7 @@ retry) `RunHeader` показывает в поле «Попытка».
 }
 ```
 
-### Идущий и упавший прогоны (Refs ui#84)
+### Идущий и упавший прогоны (Refs ui#84, ui#112)
 
 Файл `src/app/mocks/mockRunTimeline.ts`. Оба прогона в `mockRunSessions` не входят (там по-прежнему 7), а
 добавлены в `mockRunsListPage.items` (`mockRunsList.fixture.ts`); тесты `app-state.test.ts` с 7 сессиями и
@@ -1260,9 +1371,13 @@ retry) `RunHeader` показывает в поле «Попытка».
 
 - **Идущий прогон** `11111111-1111-4111-8111-000000000011` (PR #41): чистая `walkingRunAt(elapsedMs, originMs?)`
   → `{ session, actions }`. Шкала: `queued` до 2 с; `running` с 2 с, по новому действию каждые 1,5 с —
-  `vcs.fetch_diff`, `llm.call`, `llm.repo_conventions`, `context.build`, `llm.call`, `llm.call`; `publishing`
-  с 11 с (в этот момент появляются сразу `llm.review_output` и `review.postprocess`); `github.publish_review`
-  в 12,5 с; `succeeded` с 14 с. `finishedAt` задан только у терминального, `actionCount = actions.length`,
+  `policy.load` (2 с), `vcs.fetch_diff` (3,5 с), первый `context.build` (5 с), conventions `llm.call`
+  (6,5 с), `llm.repo_conventions` (8 с), prompt `context.build` (9,5 с), review `llm.call` (11 и 12,5 с).
+  Бар остаётся на контексте через первый build и conventions, в 9,5 с переходит на анализ.
+  `publishing` с 14 с: одновременно появляются `llm.review_output` и `review.postprocess`;
+  `github.publish_review` в 15,5 с; `succeeded` с 17 с, всего 11 действий. LLM-запросы используют
+  `kind: 'primary'`, `attempt: 1`; отдельного дискриминатора назначения вызова нет.
+  `finishedAt` задан только у терминального, `actionCount = actions.length`,
   `attempt: 1`, `trigger: 'webhook'`, `createdAt` — начало шкалы (раньше `startedAt` на 2 с очереди).
   Метки времени отсчитываются от реального старта, поэтому «зависшим» (§7) прогон не выглядит.
 - **Часы** стартуют на первом запросе деталей или `/actions` этого прогона (`startWalkingRun`; повторный
@@ -1273,9 +1388,12 @@ retry) `RunHeader` показывает в поле «Попытка».
   `succeeded`, затем — 8 демо-находок и вердикт `blocking`. **Комментарии ревью** — `[]` до `succeeded`,
   затем 3 демо-комментария: до публикации инлайн-комментариев быть не должно.
 - **Упавший прогон** `11111111-1111-4111-8111-000000000012` (PR #42), статичный: `failed`,
-  `errorCode: 'llm_timeout'`, действия `vcs.fetch_diff`, `llm.repo_conventions`, `context.build` и `llm.call`
-  с `response.error`; бар — `finish` / `error` / `wait`. `trigger: 'webhook'`, `createdAt` за минуту до
-  `startedAt`, как у остальных мок-прогонов (#96). Комментариев нет.
+  `errorCode: 'llm_timeout'`, шесть действий: `policy.load`, `vcs.fetch_diff`, первый `context.build`,
+  кэшированный `llm.repo_conventions`, prompt `context.build`, review `llm.call` с `response.error`.
+  Действия начинаются каждые 15 с от 10:00:00 до 10:01:15; завершение в 10:01:30 остаётся позже
+  последнего действия с его длительностью. Бар — `finish` / `error` / `wait`, код только на анализе.
+  `trigger: 'webhook'`, `createdAt` за минуту до `startedAt`, как у остальных мок-прогонов (#96).
+  Комментариев нет.
 - **`startMockRunEvents()`** (`mockTransport.ts`) стоит вместо SSE-потока, который на моках не открывается:
   интервал 500 мс (`MOCK_RUN_EVENTS_INTERVAL_MS`) и на каждую смену статуса идущего прогона вызов
   `applyRunUpdated({ runId, status })` из `runStreamConnect.ts`. Первое событие — начальный `queued`, затем
@@ -1390,9 +1508,10 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
 - **Прогресс-бар шагов и живой список прогонов (ui#84)** — реализовано (§2, §7, §8): три этапа по статусу и
   журналу `/actions`, опрос `/actions` раз в 3 с, пока прогон активен, `run.updated` обновляет и список.
   Остаётся: событие шага пайплайна — его в api пока нет (api#97), до контракта ход виден по опросу;
-  граница попытки определяется по журналу — регресс этапа или второй `llm.repo_conventions` (§7,
-  «Ограничения»); список после переподключения SSE обновляется только со следующим `run.updated` или по
-  `staleTime`.
+  современная граница попытки — последний `policy.load` с проверкой `run.attempt`: при дефиците
+  policy-строк нужен подтверждающий текущий `llm.call.request.attempt`, иначе бар консервативно на
+  контексте. Журналы совсем без policy-строк сохраняют историческую эвристику (§7, «Ограничения»).
+  Список после переподключения SSE обновляется только со следующим `run.updated` или по `staleTime`.
 - **Очистка diff-viewer (ui#115, Ф-7)** — неиспользуемые `selectedFile`/`selectFile` удалены из
   `useDiffViewerStore`, поле выбора файла удалено из mock UI state. Недостижимая
   `pages/review/ReviewPage.tsx` и её CSS Module удалены: это заменяет решение ui#65 о сохранении
@@ -1427,9 +1546,11 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
 - **Summary-only прогоны** (diff > 3000 строк, [SD §12][sd-12]) — схемы, адаптер и `RunDiff` поддерживают
   с #42 (§4, §6); страница `/runs/:runId` (`RunDetailPage`) передаёт `run.summaryOnly` и findings в `RunDiff`.
 - **Фильтры замечаний** (ui#84, часть про фильтры) — реализованы: файлы, критичность D3 и поиск над
-  диффом, состояние в URL (§2, §6). Остаются как были и в эту задачу не входят: комментарии к файлам
-  без диффа или отсутствующим в `/diff` по-прежнему не рисуются. Во время набора страница не
-  перерисовывается: рисуется только поле, а страница — раз
+  диффом, состояние в URL (§2, §6). С #114 обычный прогон включает все комментарии, в том числе
+  к файлам без патча, без чанков или отсутствующим в `/diff`: общий блок вне диффа, M,
+  варианты файлов и все три фильтра используют один слитый набор. Summary-only по-прежнему
+  использует только `run.findings`. Во время набора страница не перерисовывается: рисуется
+  только поле, а страница — раз
   за паузу, когда `q` записан в URL (все `DiffViewer` без мемоизации); замеров на больших диффах не
   делали.
 - **antd `List` на summary-only прогоне** пишет в консоль предупреждение об устаревании. Так было

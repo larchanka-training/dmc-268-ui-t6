@@ -5,7 +5,7 @@ import { runProgress, runProgressReadsLog } from '../../../entities/run'
 import { ProgressSteps, type ProgressStep } from '../../../shared/ui'
 
 interface RunProgressBarProps {
-  run: Pick<RunSession, 'status' | 'errorCode'>
+  run: Pick<RunSession, 'status' | 'errorCode' | 'attempt'>
   actions: RunAction[]
   /** The action log failed to load and there is none to show: the bar must not guess from `[]`. */
   actionsUnavailable?: boolean

@@ -32,12 +32,13 @@ function renderBar(
   actions: RunAction[] = [],
   errorCode: string | null = null,
   actionsUnavailable = false,
+  attempt = 1,
 ) {
   return render(
     <RunProgressBar
       actions={actions}
       actionsUnavailable={actionsUnavailable}
-      run={{ status, errorCode }}
+      run={{ status, errorCode, attempt }}
     />,
   )
 }
@@ -72,6 +73,66 @@ afterEach(() => {
 })
 
 describe('RunProgressBar', () => {
+  it('resets the rendered bar when attempt advances before policy.load is saved', () => {
+    const actions = build(
+      'policy.load',
+      'llm.repo_conventions',
+      'context.build',
+      'llm.call',
+      'llm.review_output',
+    )
+    const first = { status: 'running' as const, errorCode: null, attempt: 1 }
+    const second = { ...first, attempt: 2 }
+    const { rerender } = render(<RunProgressBar run={first} actions={actions} />)
+    expect(stages().map((stage) => stage.state)).toEqual(['finish', 'process', 'wait'])
+    rerender(<RunProgressBar run={second} actions={actions} />)
+    expect(stages().map((stage) => stage.state)).toEqual(['process', 'wait', 'wait'])
+  })
+
+  it('keeps a cancellation note on current conventions context after retry', () => {
+    renderBar(
+      'cancelled',
+      build(
+        'policy.load',
+        'llm.repo_conventions',
+        'context.build',
+        'llm.call',
+        'llm.review_output',
+        'policy.load',
+        'context.build',
+        'llm.call',
+      ),
+      'cancelled_by_user',
+      false,
+      2,
+    )
+    expect(stages().map((stage) => stage.state)).toEqual(['stopped', 'wait', 'wait'])
+    expect(within(stageItem('context')).getByText('Остановлено: cancelled_by_user')).toBeTruthy()
+    expect(screen.getAllByText('Остановлено: cancelled_by_user')).toHaveLength(1)
+  })
+
+  it('puts a real failed policy.load after previous publishing on context', () => {
+    renderBar(
+      'failed',
+      build(
+        'policy.load',
+        'llm.repo_conventions',
+        'context.build',
+        'llm.call',
+        'llm.review_output',
+        'github.publish_review',
+        ['policy.load', { error: { type: 'PolicyRateLimited', message: 'policy fetch limited' } }],
+      ),
+      'policy_rate_limited',
+      false,
+      2,
+    )
+    expect(stages().map((stage) => stage.state)).toEqual(['error', 'wait', 'wait'])
+    expect(within(stageItem('context')).getByText('policy_rate_limited')).toBeTruthy()
+    expect(screen.getAllByText('policy_rate_limited')).toHaveLength(1)
+    expect(within(stageItem('publishing')).queryByText('policy_rate_limited')).toBeNull()
+  })
+
   it('shows exactly the three stage labels, in order', () => {
     renderBar('queued')
     expect(stages().map((stage) => stage.label)).toEqual([
@@ -329,9 +390,13 @@ describe('RunProgressBar', () => {
   it('follows the run as it progresses', () => {
     const { rerender } = renderBar('queued')
     expect(stages().map((stage) => stage.state)).toEqual(['wait', 'wait', 'wait'])
-    rerender(<RunProgressBar actions={[]} run={{ status: 'publishing', errorCode: null }} />)
+    rerender(
+      <RunProgressBar actions={[]} run={{ attempt: 1, status: 'publishing', errorCode: null }} />,
+    )
     expect(stages().map((stage) => stage.state)).toEqual(['finish', 'finish', 'process'])
-    rerender(<RunProgressBar actions={[]} run={{ status: 'skipped', errorCode: null }} />)
+    rerender(
+      <RunProgressBar actions={[]} run={{ attempt: 1, status: 'skipped', errorCode: null }} />,
+    )
     expect(screen.queryByTestId('run-progress')).toBeNull()
   })
 })

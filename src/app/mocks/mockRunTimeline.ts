@@ -30,22 +30,24 @@ interface TimelineStep extends PipelineStep {
 }
 
 const RUNNING_STEPS: readonly PipelineStep[] = [
+  { tool: 'policy.load', request: {}, response: { ok: true } },
   { tool: 'vcs.fetch_diff', request: { repo: REPO, number: WALKING_PR }, response: { files: 2 } },
+  { tool: 'context.build', request: { files: 2 }, response: { files: 2, tokens: 800 } },
   {
     tool: 'llm.call',
-    request: { purpose: 'repo_conventions' },
+    request: { kind: 'primary', attempt: 1 },
     response: { tokensIn: 820, tokensOut: 140 },
   },
   { tool: 'llm.repo_conventions', request: { repo: REPO }, response: { cached: false } },
   { tool: 'context.build', request: { files: 2 }, response: { files: 2, tokens: 4200 } },
   {
     tool: 'llm.call',
-    request: { purpose: 'review', file: 'src/a.ts' },
+    request: { kind: 'primary', attempt: 1 },
     response: { tokensIn: 5100, tokensOut: 900 },
   },
   {
     tool: 'llm.call',
-    request: { purpose: 'review', file: 'README.md' },
+    request: { kind: 'primary', attempt: 1 },
     response: { tokensIn: 2300, tokensOut: 310 },
   },
 ]
@@ -181,19 +183,21 @@ export const mockFailedRun: RunSession = {
     url: pullRequestUrl(FAILED_PR),
     headSha: 'dddd4242dddd4242dddd4242dddd4242dddd4242',
   },
-  actionCount: 4,
+  actionCount: 6,
   errorCode: 'llm_timeout',
 }
 
 /** A failed step is recorded as `response = { error: { type, message } }` (api run_trace). */
 export function makeFailedRunActions(): RunAction[] {
   const steps: PipelineStep[] = [
+    { tool: 'policy.load', request: {}, response: { ok: true } },
     { tool: 'vcs.fetch_diff', request: { repo: REPO, number: FAILED_PR }, response: { files: 2 } },
+    { tool: 'context.build', request: { files: 2 }, response: { files: 2, tokens: 800 } },
     { tool: 'llm.repo_conventions', request: { repo: REPO }, response: { cached: true } },
     { tool: 'context.build', request: { files: 2 }, response: { files: 2, tokens: 3900 } },
     {
       tool: 'llm.call',
-      request: { purpose: 'review', file: 'src/a.ts' },
+      request: { kind: 'primary', attempt: 1 },
       response: { error: { type: 'LLMTimeout', message: 'the model call timed out' } },
     },
   ]
@@ -206,7 +210,7 @@ export function makeFailedRunActions(): RunAction[] {
     request: step.request,
     response: step.response,
     responseRef: null,
-    startedAt: new Date(startedAt + index * 20_000).toISOString(),
+    startedAt: new Date(startedAt + index * 15_000).toISOString(),
     durationMs: 400,
   }))
 }

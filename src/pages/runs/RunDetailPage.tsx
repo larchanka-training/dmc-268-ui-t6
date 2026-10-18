@@ -6,7 +6,7 @@ import { Link, useParams } from 'react-router'
 
 import { expandContext, fetchRunFileSlice, useRunDiff } from '../../entities/diff'
 import type { FileDiff } from '../../entities/diff'
-import { useRunActions, useRunDetail } from '../../entities/run'
+import { isActive, useRunActions, useRunDetail } from '../../entities/run'
 import { useRunComments } from '../../entities/review'
 import { useFindingFiltersParams } from '../../features/finding-filters'
 import { PageHeader } from '../../shared/ui'
@@ -147,6 +147,7 @@ const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
               filters={filters}
               filtersNavigationKey={navigationKey}
               findings={Array.isArray(run.findings) ? run.findings : []}
+              findingsPending={isActive(run.status)}
               onFiltersChange={setFilters}
               onFiltersQueryChange={setQuery}
               onFiltersReset={resetFilters}

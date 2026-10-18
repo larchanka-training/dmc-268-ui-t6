@@ -15,8 +15,14 @@ vi.mock('../../shared/config/env', async (importOriginal) => {
 })
 
 import { RawFileDiffSchema } from '../../entities/diff'
-import { mockReviewComments, mockSummaryOnlyDiff } from '../../app/mocks/app-state'
-import { mockRawDiffForRun, REVIEW_ATTENTION_RUN_ID } from '../../app/mocks/mockRunReview'
+import { runQueryKeys, type RunDetail, type RunStatus } from '../../entities/run'
+import { mockReviewComments, mockRunSessions, mockSummaryOnlyDiff } from '../../app/mocks/app-state'
+import {
+  buildMockRunDetail,
+  mockRawDiffForRun,
+  mockReviewFindings,
+  REVIEW_ATTENTION_RUN_ID,
+} from '../../app/mocks/mockRunReview'
 import { initMockTransport, withMockTransportOverlay } from '../../app/mocks/mockTransport'
 import { SAMPLE_PATCHES } from '../../shared/fixtures/sample.patch'
 import { DEMO_RUN_ID } from '../../shared/config/demoRun'
@@ -27,8 +33,8 @@ import { useRunInspectorStore } from '../../widgets/run-inspector'
 import { stubResponsiveSelectLayout } from '../../test/responsiveSelectLayout'
 import { RunDetailPage } from './RunDetailPage'
 
-// Demo run (hand-counted from the mocks): 8 findings + 3 published comments, all on files with a
-// diff, so the displayed set is 11. By badge group: Critical 3 (critical + 2 high), Warning 6
+// Demo run (hand-counted from the mocks): 8 findings + 3 published comments with distinct ids,
+// so the merged displayed set is 11. By badge group: Critical 3 (critical + 2 high), Warning 6
 // (3 medium + 1 low finding, 1 medium + 1 low comment), Info 2 (1 finding + 1 comment).
 // By file: src/a.ts 8, README.md 2, src/utils/retry.ts 1; app/notify.py and package.json 0.
 const DEMO = `/runs/${DEMO_RUN_ID}`
@@ -44,7 +50,23 @@ function renderRunDetail(path: string) {
       <RouterProvider router={router} />
     </QueryClientProvider>,
   )
-  return { router, ...view }
+  return { client, router, ...view }
+}
+
+function runWithStatus(status: RunStatus): RunDetail {
+  const session = mockRunSessions.find((run) => run.id === DEMO_RUN_ID)
+  if (session === undefined) {
+    throw new Error('demo session is missing')
+  }
+  return {
+    ...buildMockRunDetail(session),
+    status,
+    finishedAt: null,
+    findings: [],
+    verdict: null,
+    summary: null,
+    severityCounts: { critical: 0, high: 0, medium: 0, low: 0, info: 0 },
+  }
 }
 
 async function findBar(): Promise<HTMLElement> {
@@ -104,7 +126,7 @@ describe('RunDetailPage filters in the URL', () => {
       error: null,
     })
     useDiffViewerStore.setState({ viewType: 'unified' })
-    useRunInspectorStore.setState({ expandedKeys: [], selectedActionIndex: null })
+    useRunInspectorStore.setState({ expandedKeys: [] })
     stubResponsiveSelectLayout()
   })
 
@@ -115,6 +137,100 @@ describe('RunDetailPage filters in the URL', () => {
     setAccessToken(null)
     setMockTransport(null)
   })
+
+  it.each(
+    (['queued', 'running', 'publishing'] as const).flatMap((status) =>
+      ['?severity=critical', '?q=unmatched'].map((query) => ({ status, query })),
+    ),
+  )('retains the diff and $query while $status has no findings yet', async ({ status, query }) => {
+    withMockTransportOverlay((endpoint) => {
+      if (endpoint.method === 'GET' && endpoint.path === `/runs/${DEMO_RUN_ID}`) {
+        return runWithStatus(status)
+      }
+      if (endpoint.method === 'GET' && endpoint.path === `/runs/${DEMO_RUN_ID}/comments`) {
+        return []
+      }
+      return undefined
+    })
+    const initial = query
+    const { client, container, router } = renderRunDetail(`${DEMO}${initial}`)
+
+    await findBar()
+    await waitFor(() => {
+      expect(client.getQueryState(runQueryKeys.comments(DEMO_RUN_ID))?.status).toBe('success')
+    })
+    expect(container.querySelectorAll('.diff-theme')).toHaveLength(4)
+    expect(screen.getByRole('status').textContent).toBe(
+      'Замечания появятся после завершения прогона',
+    )
+    expect(screen.queryByText(counter(0, 0))).toBeNull()
+    expect(screen.queryByTestId('findings-filter-empty')).toBeNull()
+    expect(selectedTags('Критичность')).toEqual(query.includes('severity') ? ['Critical'] : [])
+    expect(searchInput().value).toBe(query.includes('q=') ? 'unmatched' : '')
+    expect(router.state.location.search).toBe(initial)
+  })
+
+  it('keeps an effective file filter during pending even without any content match', async () => {
+    withMockTransportOverlay((endpoint) => {
+      if (endpoint.method === 'GET' && endpoint.path === `/runs/${DEMO_RUN_ID}`) {
+        return runWithStatus('running')
+      }
+      if (endpoint.method === 'GET' && endpoint.path === `/runs/${DEMO_RUN_ID}/comments`) {
+        return []
+      }
+      return undefined
+    })
+    const initial = '?file=README.md&severity=critical&q=unmatched'
+    const { client, container, router } = renderRunDetail(`${DEMO}${initial}`)
+
+    await findBar()
+    await waitFor(() => {
+      expect(client.getQueryState(runQueryKeys.comments(DEMO_RUN_ID))?.status).toBe('success')
+    })
+    expect(container.querySelectorAll('.diff-theme')).toHaveLength(1)
+    expect(container.querySelector('.diff-theme strong')?.textContent).toBe('README.md')
+    expect(screen.queryByText('src/a.ts')).toBeNull()
+    expect(selectedTags('Файлы')).toEqual(['README.md'])
+    expect(screen.queryByTestId('findings-filter-empty')).toBeNull()
+    expect(router.state.location.search).toBe(initial)
+  })
+
+  it.each([
+    { query: '?severity=critical', shown: 3, files: 1 },
+    { query: '?q=unmatched', shown: 0, files: 0 },
+  ])(
+    'applies $query without navigation when the same run succeeds',
+    async ({ query, shown, files }) => {
+      let run = runWithStatus('running')
+      withMockTransportOverlay((endpoint) => {
+        if (endpoint.method === 'GET' && endpoint.path === `/runs/${DEMO_RUN_ID}`) {
+          return run
+        }
+        if (endpoint.method === 'GET' && endpoint.path === `/runs/${DEMO_RUN_ID}/comments`) {
+          return []
+        }
+        return undefined
+      })
+      const { client, container, router } = renderRunDetail(`${DEMO}${query}`)
+      await findBar()
+      await screen.findByText('Замечания появятся после завершения прогона')
+      await waitFor(() => {
+        expect(client.getQueryState(runQueryKeys.comments(DEMO_RUN_ID))?.status).toBe('success')
+      })
+      expect(container.querySelectorAll('.diff-theme')).toHaveLength(4)
+
+      run = { ...run, status: 'succeeded', findings: mockReviewFindings }
+      await act(async () => {
+        await client.invalidateQueries({ queryKey: runQueryKeys.detail(DEMO_RUN_ID), exact: true })
+      })
+
+      await screen.findByText(counter(shown, 8))
+      expect(screen.queryByText('Замечания появятся после завершения прогона')).toBeNull()
+      expect(container.querySelectorAll('.diff-theme')).toHaveLength(files)
+      expect(screen.queryByTestId('findings-filter-empty') !== null).toBe(shown === 0)
+      expect(router.state.location.search).toBe(query)
+    },
+  )
 
   it('shows empty filters and every finding for a URL without filter params', async () => {
     const { router } = renderRunDetail(DEMO)
@@ -224,17 +340,203 @@ describe('RunDetailPage filters in the URL', () => {
     await screen.findByText('Retry without backoff')
     expect(router.state.location.search).toBe(initial)
     expect(cardTitles()).toEqual(['Retry without backoff'])
+    expect(selectedTags('Файлы')).toEqual(['retry.ts'])
   })
 
   it('keeps file= of a file the run does not have in the URL and hides nothing', async () => {
     const initial = '?file=gone.ts'
-    const { router } = renderRunDetail(`${DEMO}${initial}`)
+    const { container, router } = renderRunDetail(`${DEMO}${initial}`)
 
     await findBar()
     await screen.findByText('Critical: unsafe pattern')
+    expect(container.querySelectorAll('.diff-theme')).toHaveLength(4)
     expect(router.state.location.search).toBe(initial)
     expect(screen.getByText(counter(TOTAL, TOTAL))).toBeTruthy()
-    expect(selectedTags('Файлы')).toEqual(['gone.ts'])
+    expect(selectedTags('Файлы')).toEqual([])
+    expect(screen.getByRole('button', { name: 'Сбросить фильтры' })).toHaveProperty(
+      'disabled',
+      true,
+    )
+  })
+
+  it('selects and applies only known files in a mixed URL without rewriting it', async () => {
+    const initial = '?file=gone.ts&file=README.md'
+    const { container, router } = renderRunDetail(`${DEMO}${initial}`)
+
+    await findBar()
+    await screen.findByText(counter(2, TOTAL))
+    expect(selectedTags('Файлы')).toEqual(['README.md'])
+    expect(container.querySelectorAll('.diff-theme')).toHaveLength(1)
+    expect(cardTitles()).toEqual(['Docs tone', 'Docs tone inconsistency'])
+    expect(screen.getByRole('button', { name: 'Сбросить фильтры' })).toHaveProperty(
+      'disabled',
+      false,
+    )
+    expect(router.state.location.search).toBe(initial)
+  })
+
+  it.each([
+    { action: 'add', files: ['README.md', 'src/a.ts', 'gone.ts'], tags: ['README.md', 'a.ts'] },
+    { action: 'clear', files: ['gone.ts'], tags: [] },
+    { action: 'severity', files: ['gone.ts', 'README.md'], tags: ['README.md'] },
+  ])(
+    'preserves unknown file params on a mixed URL when selecting $action',
+    async ({ action, files, tags }) => {
+      const { router } = renderRunDetail(`${DEMO}?tab=x&file=gone.ts&file=README.md`)
+      await findBar()
+      await screen.findByText(counter(2, TOTAL))
+
+      if (action === 'add') {
+        pick('Файлы', 'src/a.ts (8)')
+      } else if (action === 'clear') {
+        fireEvent.click(screen.getByRole('button', { name: 'Очистить выбор файлов' }))
+      } else {
+        pick('Критичность', 'Critical')
+      }
+
+      await waitFor(() => {
+        const params = new URLSearchParams(router.state.location.search)
+        expect(params.getAll('file')).toEqual(files)
+        expect(params.getAll('severity')).toEqual(action === 'severity' ? ['critical'] : [])
+        expect(params.get('tab')).toBe('x')
+        expect(selectedTags('Файлы')).toEqual(tags)
+      })
+      if (action === 'clear') {
+        expect(screen.getByRole('button', { name: 'Сбросить фильтры' })).toHaveProperty(
+          'disabled',
+          true,
+        )
+        expect(screen.getByText(counter(TOTAL, TOTAL))).toBeTruthy()
+      }
+    },
+  )
+
+  it('retains an unknown selected file through file changes until a finding makes it known', async () => {
+    let run = runWithStatus('running')
+    withMockTransportOverlay((endpoint) => {
+      if (endpoint.method === 'GET' && endpoint.path === `/runs/${DEMO_RUN_ID}`) {
+        return run
+      }
+      if (endpoint.method === 'GET' && endpoint.path === `/runs/${DEMO_RUN_ID}/comments`) {
+        return []
+      }
+      return undefined
+    })
+    const { client, router } = renderRunDetail(`${DEMO}?file=later.ts&file=README.md`)
+    await findBar()
+    await waitFor(() => {
+      expect(client.getQueryState(runQueryKeys.comments(DEMO_RUN_ID))?.status).toBe('success')
+    })
+    expect(selectedTags('Файлы')).toEqual(['README.md'])
+    pick('Файлы', 'src/a.ts (0)')
+    await waitFor(() => {
+      expect(router.state.location.search).toBe('?file=README.md&file=src%2Fa.ts&file=later.ts')
+    })
+    pick('Критичность', 'Critical')
+    await waitFor(() => {
+      expect(router.state.location.search).toBe(
+        '?file=README.md&file=src%2Fa.ts&file=later.ts&severity=critical',
+      )
+    })
+
+    const finding = mockReviewFindings[0]
+    if (finding === undefined) {
+      throw new Error('demo finding is missing')
+    }
+    run = {
+      ...run,
+      status: 'succeeded',
+      findings: [{ ...finding, file: 'later.ts', title: 'Late finding outside diff' }],
+    }
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: runQueryKeys.detail(DEMO_RUN_ID), exact: true })
+    })
+
+    await screen.findByText('Late finding outside diff')
+    expect(selectedTags('Файлы')).toEqual(['README.md', 'a.ts', 'later.ts'])
+    expect(screen.getByText(counter(1, 1))).toBeTruthy()
+    expect(router.state.location.search).toBe(
+      '?file=README.md&file=src%2Fa.ts&file=later.ts&severity=critical',
+    )
+  })
+
+  it('recovers a pending comment-only file into chips while preserving unknown URL files', async () => {
+    let run = runWithStatus('running')
+    const firstComment = mockReviewComments[0]
+    if (firstComment === undefined) {
+      throw new Error('demo comment is missing')
+    }
+    const comment = {
+      ...firstComment,
+      file: 'src/later.ts',
+      severity: 'high',
+      title: 'Recovered comment outside diff',
+      body: 'Recovered comment body',
+    }
+    const release: { open: () => void } = { open: () => undefined }
+    const gate = new Promise<void>((resolve) => {
+      release.open = resolve
+    })
+    withMockTransportOverlay((endpoint) => {
+      if (endpoint.method === 'GET' && endpoint.path === `/runs/${DEMO_RUN_ID}`) {
+        return run
+      }
+      if (endpoint.method === 'GET' && endpoint.path === `/runs/${DEMO_RUN_ID}/comments`) {
+        return gate.then(() => [comment])
+      }
+      return undefined
+    })
+    const initial = '?tab=x&file=src%2Flater.ts&file=gone.ts&severity=critical&q=recovered'
+    const { client, container, router } = renderRunDetail(`${DEMO}${initial}`)
+
+    await findBar()
+    expect(container.querySelectorAll('.diff-theme')).toHaveLength(4)
+    expect(selectedTags('Файлы')).toEqual([])
+    expect(screen.getByRole('status').textContent).toBe(
+      'Замечания появятся после завершения прогона',
+    )
+    expect(screen.queryByTestId('findings-filter-empty')).toBeNull()
+    expect(router.state.location.search).toBe(initial)
+
+    pick('Файлы', 'README.md (0)')
+    await waitFor(() => {
+      const params = new URLSearchParams(router.state.location.search)
+      expect(params.getAll('file')).toEqual(['README.md', 'src/later.ts', 'gone.ts'])
+      expect(selectedTags('Файлы')).toEqual(['README.md'])
+    })
+    const selectedUrl = router.state.location.search
+    expect(container.querySelectorAll('.diff-theme')).toHaveLength(1)
+
+    release.open()
+    await screen.findByText('Recovered comment outside diff')
+    await waitFor(() => {
+      expect(selectedTags('Файлы')).toEqual(['README.md', 'later.ts'])
+    })
+    expect(cardTitles()).toEqual(['Recovered comment outside diff'])
+    expect(screen.getByText('Recovered comment body')).toBeTruthy()
+    expect(container.querySelectorAll('.diff-theme')).toHaveLength(1)
+    expect(screen.getByRole('status').textContent).toBe(
+      'Замечания появятся после завершения прогона',
+    )
+    expect(router.state.location.search).toBe(selectedUrl)
+
+    run = { ...run, status: 'succeeded' }
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: runQueryKeys.detail(DEMO_RUN_ID), exact: true })
+    })
+
+    await screen.findByText(counter(1, 1))
+    expect(container.querySelectorAll('.diff-theme')).toHaveLength(0)
+    expect(cardTitles()).toEqual(['Recovered comment outside diff'])
+    expect(selectedTags('Файлы')).toEqual(['README.md', 'later.ts'])
+    expect(router.state.location.search).toBe(selectedUrl)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Очистить выбор файлов' }))
+    await waitFor(() => {
+      expect(new URLSearchParams(router.state.location.search).getAll('file')).toEqual(['gone.ts'])
+      expect(selectedTags('Файлы')).toEqual([])
+    })
+    expect(screen.getByText(counter(1, 1))).toBeTruthy()
   })
 
   it('writes a file selection to the URL as a repeatable file param', async () => {
@@ -327,7 +629,9 @@ describe('RunDetailPage filters in the URL', () => {
   })
 
   it('reset clears the filter params, keeps the others, and pushes', async () => {
-    const { router } = renderRunDetail(`${DEMO}?tab=x&file=src%2Fa.ts&severity=critical&q=unsafe`)
+    const { router } = renderRunDetail(
+      `${DEMO}?tab=x&file=gone.ts&file=src%2Fa.ts&severity=critical&q=unsafe`,
+    )
 
     await findBar()
     await screen.findByText('Critical: unsafe pattern')

@@ -37,6 +37,8 @@ interface RunDiffProps {
   onFiltersQueryChange?: (query: string) => void
   /** `/comments` has not answered yet: the set is still incomplete, so "nothing matches" is not shown. */
   commentsPending?: boolean
+  /** The active run has not finished producing findings; content filters must keep its files visible. */
+  findingsPending?: boolean
   /** Changes when the URL was changed by a navigation the page did not make (back, a link). */
   filtersNavigationKey?: number
 }
@@ -53,25 +55,18 @@ function findingsOutsideVisibleDiff(files: FileDiff[], findings: FindingView[]):
 }
 
 /**
- * Every finding the page shows: the run findings plus the comments of files that render a diff
+ * Every finding the page shows: the run findings plus all comments
  * (a summary-only run renders no comments).
  */
 function displayedFindings(
   summaryOnly: boolean,
-  files: FileDiff[],
   findings: FindingView[],
   comments: ReviewComment[],
 ): FindingView[] {
   if (summaryOnly) {
     return findings
   }
-  const withDiff = new Set(
-    files.filter((file) => file.hasPatch && file.chunks.length > 0).map((file) => file.filename),
-  )
-  return mergeFindings(
-    findings,
-    comments.filter((comment) => withDiff.has(comment.file)),
-  )
+  return mergeFindings(findings, comments)
 }
 
 function outsideCards(findings: FindingView[], searchActive: boolean): JSX.Element[] {
@@ -99,11 +94,12 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
     onFiltersReset,
     onFiltersQueryChange,
     commentsPending = false,
+    findingsPending = false,
     filtersNavigationKey,
   } = props
 
   const activeFilters = onFiltersChange === undefined ? EMPTY_FINDING_FILTERS : filters
-  const displayed = displayedFindings(summaryOnly, files, findings, comments)
+  const displayed = displayedFindings(summaryOnly, findings, comments)
   const runFiles = [
     ...new Set([...files.map((file) => file.filename), ...displayed.map((f) => f.file)]),
   ]
@@ -118,7 +114,7 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
   const visibleFiles = files.filter(
     (file) =>
       (effectiveFiles.length === 0 || effectiveFiles.includes(file.filename)) &&
-      (!contentFilter || filesWithHits.has(file.filename)),
+      (findingsPending || !contentFilter || filesWithHits.has(file.filename)),
   )
 
   const outsideFindings = findingsOutsideVisibleDiff(files, shownFindings)
@@ -142,12 +138,13 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
     : undefined
   const filtersBar = controls ? (
     <FindingFiltersBar
-      empty={filtering && shownFindings.length === 0 && !commentsPending}
+      empty={filtering && shownFindings.length === 0 && !commentsPending && !findingsPending}
       fileOptions={runFiles.map((file) => ({
         file,
         count: displayed.filter((finding) => finding.file === file).length,
       }))}
       filters={filters}
+      findingsPending={findingsPending}
       navigationKey={filtersNavigationKey}
       onChange={controls.onChange}
       onQueryChange={controls.onQueryChange}

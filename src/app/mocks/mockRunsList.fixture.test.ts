@@ -23,6 +23,7 @@ describe('mockRunsList.fixture', () => {
     expect(walking?.status).toBe('queued')
     expect(failed?.status).toBe('failed')
     expect(failed?.errorCode).toBe('llm_timeout')
+    expect(failed?.actionCount).toBe(6)
   })
 
   it('keeps every pull request number unique among the active runs', () => {
