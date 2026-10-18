@@ -1,5 +1,5 @@
-import { useContext, type JSX } from 'react'
-import { Button, ConfigProvider, Space, message, type ButtonProps } from 'antd'
+import type { JSX } from 'react'
+import { Button, Space, message, type ButtonProps } from 'antd'
 import { useNavigate } from 'react-router'
 
 import {
@@ -10,6 +10,7 @@ import {
   useRerunRun,
   type RunSession,
 } from '../../../entities/run'
+import { useDisabledButtonClass } from '../../../shared/ui'
 
 interface RunControlsProps {
   run: RunSession
@@ -21,7 +22,7 @@ export function RunControls(props: RunControlsProps): JSX.Element {
   const cancelMutation = useCancelRun(run.id)
   const rerunMutation = useRerunRun(run.id)
   const [messageApi, contextHolder] = message.useMessage()
-  const { getPrefixCls } = useContext(ConfigProvider.ConfigContext)
+  const disabledButtonClass = useDisabledButtonClass()
 
   const canCancel = ACTIVE_RUN_STATUSES.some((status) => status === run.status)
   const canRerun = TERMINAL_RUN_STATUSES.some((status) => status === run.status)
@@ -33,7 +34,7 @@ export function RunControls(props: RunControlsProps): JSX.Element {
   const cancelButtonProps: ButtonProps = {
     // aria-disabled, not disabled: a natively disabled button would drop the focus.
     'aria-disabled': run.cancelRequested ? true : undefined,
-    className: run.cancelRequested ? `${getPrefixCls('btn')}-disabled` : undefined,
+    className: run.cancelRequested ? disabledButtonClass : undefined,
     danger: !run.cancelRequested,
     loading: cancelMutation.isPending,
     onClick: run.cancelRequested
