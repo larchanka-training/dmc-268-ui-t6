@@ -43,6 +43,28 @@ describe('buildTheme', () => {
     }
   })
 
+  it.each(MODES)('sets body Typography to 13px with a 1.5 line height in %s', (mode) => {
+    const typography = buildTheme(mode).components?.Typography
+    expect(typography?.fontSize).toBe(13)
+    expect(typography?.lineHeight).toBe(1.5)
+  })
+
+  it.each(MODES)(
+    'keeps all Button sizes at 12.5px and their original control heights in %s',
+    (mode) => {
+      const { components, token } = buildTheme(mode)
+      const button = components?.Button
+      expect([
+        button?.contentFontSizeSM,
+        button?.contentFontSize,
+        button?.contentFontSizeLG,
+      ]).toEqual([12.5, 12.5, 12.5])
+      expect([token?.controlHeightSM, token?.controlHeight, token?.controlHeightLG]).toEqual([
+        26, 32, 40,
+      ])
+    },
+  )
+
   it('keeps the accent and the status colours exactly as specified after the algorithm', () => {
     const dark = resolved('dark')
     expect(dark.colorPrimary).toBe('#2563eb')
@@ -115,6 +137,17 @@ describe('buildTheme', () => {
     expect(resolved('light').colorWarningOutline).toBe('#1d4ed8')
   })
 
+  it.each([
+    ['dark', '0 0 0 3px #60a5fa'],
+    ['light', '0 0 0 3px #1d4ed8'],
+  ] as const)('gives error and warning fields the 3px focus halo in %s', (mode, shadow) => {
+    const { Input, InputNumber } = buildTheme(mode).components ?? {}
+    for (const component of [Input, InputNumber]) {
+      expect(component?.errorActiveShadow).toBe(shadow)
+      expect(component?.warningActiveShadow).toBe(shadow)
+    }
+  })
+
   it('gives a primary button its own hover and press steps in both modes', () => {
     for (const mode of MODES) {
       const button = buildTheme(mode).components?.Button
@@ -122,6 +155,20 @@ describe('buildTheme', () => {
       expect(button?.colorPrimaryHover).toBe('#356eee')
       expect(button?.colorPrimaryActive).toBe('#1d4fd0')
     }
+  })
+
+  it.each([
+    ['dark', 'rgba(148, 163, 184, 0.06)'],
+    ['light', 'rgba(15, 23, 42, 0.04)'],
+  ] as const)('uses the neutral hover surface for Segmented in %s', (mode, background) => {
+    expect(buildTheme(mode).components?.Segmented?.itemHoverBg).toBe(background)
+  })
+
+  it.each([
+    ['dark', '0 8px 24px -12px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(148, 163, 184, 0.2)'],
+    ['light', '0 8px 24px -12px rgba(15, 23, 42, 0.2), 0 0 0 1px rgba(15, 23, 42, 0.16)'],
+  ] as const)('uses the popover shadow for Message in %s', (mode, shadow) => {
+    expect(buildTheme(mode).components?.Message?.boxShadow).toBe(shadow)
   })
 
   it('keeps a secondary button neutral on hover and press, text and border included', () => {

@@ -1,6 +1,7 @@
 import { theme } from 'antd'
 import { describe, expect, it } from 'vitest'
 
+import { buildTheme } from '../../../shared/ui'
 import { diffThemeVars } from './diffTheme'
 
 // No @types/node here and Vitest zeroes `.css?raw`: load `fs` untyped to read the real stylesheet.
@@ -54,10 +55,7 @@ function contrastRatio(a: Rgba, b: Rgba): number {
   return ((hi ?? 0) + 0.05) / ((lo ?? 0) + 0.05)
 }
 
-const ALGORITHMS = [
-  ['light', theme.defaultAlgorithm],
-  ['dark', theme.darkAlgorithm],
-] as const
+const MODES = ['light', 'dark'] as const
 
 /** Palette variables the highlight CSS must reference. */
 const TOKEN_CLASSES_REQUIRED = [
@@ -126,8 +124,8 @@ describe('contrast helper', () => {
   })
 })
 
-describe.each(ALGORITHMS)('diffThemeVars (%s algorithm)', (_name, algorithm) => {
-  const token = theme.getDesignToken({ algorithm })
+describe.each(MODES)('diffThemeVars (%s Flat Console theme)', (mode) => {
+  const token = theme.getDesignToken(buildTheme(mode))
   const vars = diffThemeVars(token)
   /** The page background the diff sits on: must be opaque, everything else is laid over it. */
   const container = (): Rgba => {
@@ -178,6 +176,32 @@ describe.each(ALGORITHMS)('diffThemeVars (%s algorithm)', (_name, algorithm) => 
     expect([...tokenVars].sort()).toEqual([...TOKEN_SLOTS].sort())
   })
 
+  it('pins the eight syntax slot colours of the application theme', () => {
+    const expected = {
+      light: [
+        '#c41d7f',
+        '#d46b08',
+        '#0958d9',
+        '#08979c',
+        '#d4380d',
+        '#1d39c4',
+        '#391085',
+        '#627289',
+      ],
+      dark: [
+        '#e0529c',
+        '#e89a3c',
+        '#3c89e8',
+        '#33bcb7',
+        '#e87040',
+        '#5273e0',
+        '#ab7ae0',
+        '#7786a0',
+      ],
+    }
+    expect(TOKEN_SLOTS.map((slot) => varOf(vars, slot))).toEqual(expected[mode])
+  })
+
   it.each(['container', 'code insert', 'code delete'])(
     'every syntax colour holds 3:1 on the %s background',
     (where) => {
@@ -214,11 +238,9 @@ describe.each(ALGORITHMS)('diffThemeVars (%s algorithm)', (_name, algorithm) => 
     }
   })
 
-  it('differs between algorithms', () => {
+  it('differs between application themes', () => {
     const other = diffThemeVars(
-      theme.getDesignToken({
-        algorithm: algorithm === theme.darkAlgorithm ? theme.defaultAlgorithm : theme.darkAlgorithm,
-      }),
+      theme.getDesignToken(buildTheme(mode === 'dark' ? 'light' : 'dark')),
     )
     expect(other['--diff-code-insert-background-color']).not.toBe(
       vars['--diff-code-insert-background-color'],

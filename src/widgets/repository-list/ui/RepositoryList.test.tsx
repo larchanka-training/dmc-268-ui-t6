@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { ConfigProvider } from 'antd'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -61,6 +61,26 @@ const mockRepos: Repository[] = [
 ]
 
 describe('RepositoryList', () => {
+  it('names the settings column for table navigation', () => {
+    render(<RepositoryList onSyncAccess={vi.fn()} repositories={mockRepos} />)
+    expect(screen.getByRole('columnheader', { name: 'Настройки' })).toBeTruthy()
+  })
+
+  it('names its keyboard filter and changes the visible repositories with arrow keys', () => {
+    render(<RepositoryList onSyncAccess={vi.fn()} repositories={mockRepos} />)
+    const filter = screen.getByRole('radiogroup', { name: 'Фильтр репозиториев' })
+    expect(filter.tabIndex).toBe(-1)
+    fireEvent.keyDown(within(filter).getByRole('radio', { name: 'Все (2)' }), {
+      key: 'ArrowRight',
+    })
+    expect(screen.getByText('larchanka-training/dmc-268-ui-t6')).toBeTruthy()
+    expect(screen.queryByText('larchanka-training/dmc-268-api-t6')).toBeNull()
+    fireEvent.keyDown(within(filter).getByRole('radio', { name: 'Активные (1)' }), {
+      key: 'ArrowLeft',
+    })
+    expect(screen.getByText('larchanka-training/dmc-268-api-t6')).toBeTruthy()
+  })
+
   it('reserves a visual slot only outside idle and retains it through polling intervals', () => {
     const props = { repositories: mockRepos, onSyncAccess: vi.fn() }
     const { container, rerender } = render(<RepositoryList {...props} />)

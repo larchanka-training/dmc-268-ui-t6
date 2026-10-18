@@ -59,3 +59,14 @@ export const PageResult: Story = {
     </div>
   ),
 }
+
+export const ServerError: Story = {
+  render: () => (
+    <Result
+      extra={<Button type="primary">Повторить</Button>}
+      status="500"
+      subTitle="Попробуйте обновить страницу позже."
+      title="Ошибка сервера"
+    />
+  ),
+}

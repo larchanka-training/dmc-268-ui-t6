@@ -43,6 +43,18 @@
   color: var(--rv-text);
 }
 
+/* Pagination's component lineWidthFocus override empties the library's CSS variable in 6.6.5.
+   Page and jump controls focus the li; previous/next focus it too, but draw on the inner link.
+   One class heavier than the library's focus rule. */
+.ant-pagination.ant-pagination:not(.ant-pagination-disabled)
+  :is(.ant-pagination-item, .ant-pagination-jump-prev, .ant-pagination-jump-next):focus-visible,
+.ant-pagination.ant-pagination:not(.ant-pagination-disabled)
+  :is(.ant-pagination-prev, .ant-pagination-next):focus-visible
+  .ant-pagination-item-link {
+  outline: 2px solid var(--rv-link);
+  outline-offset: 1px;
+}
+
 /* Segmented: a hairline around the track. Drawn inside, so the control keeps its height. */
 .ant-segmented {
   box-shadow: inset 0 0 0 1px var(--rv-border);

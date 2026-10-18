@@ -1,7 +1,7 @@
 import type { JSX, ReactElement, ReactNode } from 'react'
 import { useMemo } from 'react'
 import { FileOutlined } from '@ant-design/icons'
-import { Alert, Segmented, Typography } from 'antd'
+import { Alert, Typography } from 'antd'
 import { Decoration, Diff, Hunk } from 'react-diff-view'
 import type { HunkData } from 'react-diff-view'
 import 'react-diff-view/style/index.css'
@@ -11,6 +11,7 @@ import './diff-layout.css'
 import type { FileDiff } from '../../../entities/diff'
 import { commentKey, toHunks } from '../../../entities/diff'
 import type { FindingView, ReviewComment } from '../../../entities/review'
+import { Segmented } from '../../../shared/ui'
 import { useDiffThemeStyle } from '../lib/diffTheme'
 import { findingCardKey } from '../lib/findingCardKey'
 import { mergeFindings } from '../lib/mergeFindings'
@@ -200,6 +201,7 @@ export function DiffViewer(props: DiffViewerProps): JSX.Element {
             {file.filename}
           </Typography.Text>
           <Segmented
+            aria-label={`Вид диффа: ${file.filename}`}
             onChange={(value: DiffViewType) => {
               setViewType(value)
             }}

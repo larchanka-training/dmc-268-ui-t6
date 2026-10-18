@@ -24,6 +24,8 @@ export type {
 } from './ProgressSteps/ProgressSteps'
 export { RowButton } from './RowButton/RowButton'
 export type { RowButtonProps } from './RowButton/RowButton'
+export { Segmented } from './Segmented/Segmented'
+export type { SegmentedProps } from './Segmented/Segmented'
 export { Spinner } from './Spinner/Spinner'
 export type { SpinnerProps } from './Spinner/Spinner'
 export { Tag } from './Tag/Tag'

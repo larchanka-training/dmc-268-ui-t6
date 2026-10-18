@@ -3,12 +3,43 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { Tag } from './Tag'
+import styles from './Tag.module.css'
+
+const FS_MODULE = 'node:fs'
+const { readFileSync } = (await import(/* @vite-ignore */ FS_MODULE)) as {
+  readFileSync: (path: URL, encoding: 'utf8') => string
+}
+const STYLESHEET_PATH = './Tag.module.css'
+
+function tagRules(): CSSStyleRule[] {
+  const style = document.createElement('style')
+  style.textContent = readFileSync(new URL(STYLESHEET_PATH, import.meta.url), 'utf8')
+  document.head.append(style)
+  try {
+    return [...(style.sheet?.cssRules ?? [])].filter(
+      (rule): rule is CSSStyleRule => rule instanceof CSSStyleRule,
+    )
+  } finally {
+    style.remove()
+  }
+}
 
 afterEach(() => {
   cleanup()
 })
 
 describe('Tag', () => {
+  it('keeps the critical solid label at weight 500 while retaining its 22% tint', () => {
+    const rules = tagRules()
+    const base = rules.find((rule) => rule.selectorText === '.tag')
+    const critical = rules.find(
+      (rule) => rule.selectorText === ".tag[data-variant='solid'][data-tone='critical']",
+    )
+    const criticalWeight = critical?.style.fontWeight
+    expect(criticalWeight === '' ? base?.style.fontWeight : criticalWeight).toBe('500')
+    expect(critical?.style.background).toBe('color-mix(in srgb, var(--tone) 22%, transparent)')
+  })
+
   it('renders a dot by default and keeps the label as the carrier of meaning', () => {
     render(<Tag tone="success">succeeded</Tag>)
     const tag = screen.getByText('succeeded')
@@ -19,12 +50,15 @@ describe('Tag', () => {
 
   it('renders no dot for a solid tag', () => {
     render(
-      <Tag tone="critical" variant="solid">
+      <Tag className="caller-class" tone="critical" variant="solid">
         critical
       </Tag>,
     )
     const tag = screen.getByText('critical')
     expect(tag.dataset.variant).toBe('solid')
+    expect(tag.classList.contains('caller-class')).toBe(true)
+    expect(styles.tag).toBeTruthy()
+    expect(tag.classList.contains(styles.tag ?? '')).toBe(true)
     expect(tag.querySelector('[aria-hidden="true"]')).toBeNull()
   })
 

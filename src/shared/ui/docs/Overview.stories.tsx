@@ -6,7 +6,6 @@ import {
   Checkbox,
   Input,
   Radio,
-  Segmented,
   Select,
   Skeleton,
   Spin,
@@ -18,6 +17,7 @@ import type { JSX } from 'react'
 import { DataTable } from '../DataTable/DataTable'
 import { Logo } from '../Logo/Logo'
 import { PageHeader } from '../PageHeader/PageHeader'
+import { Segmented } from '../Segmented/Segmented'
 import { Tag } from '../Tag/Tag'
 import styles from './Overview.module.css'
 
@@ -218,6 +218,7 @@ function Overview(): JSX.Element {
             </div>
             <div>
               <Segmented
+                aria-label="Фильтр репозиториев"
                 defaultValue="all"
                 options={[
                   { value: 'all', label: 'Все (12)' },

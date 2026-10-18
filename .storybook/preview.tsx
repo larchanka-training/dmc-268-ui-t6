@@ -10,6 +10,7 @@ import { useEffect, useState, type JSX, type PropsWithChildren } from 'react'
 import { GLOBALS_UPDATED } from 'storybook/internal/core-events'
 import { addons } from 'storybook/preview-api'
 import { themes } from 'storybook/theming'
+import { z } from 'zod'
 
 import { DesignSystemProvider } from '../src/shared/ui'
 
@@ -38,19 +39,29 @@ const withDesignSystem: Decorator = (Story, context) => {
 
 type Mode = 'dark' | 'light'
 
+const globalsUpdatedSchema = z.object({ globals: z.object({ theme: z.enum(['dark', 'light']) }) })
+const cachedGlobalsSchema = z.tuple([globalsUpdatedSchema])
+
 function modeFromUrl(): Mode {
   const globals = new URLSearchParams(window.location.search).get('globals') ?? ''
   return globals.includes('theme:light') ? 'light' : 'dark'
 }
 
+function currentMode(): Mode {
+  // The channel survives docs → story → docs. The iframe URL may still contain an older theme.
+  const cached = cachedGlobalsSchema.safeParse(addons.getChannel().last(GLOBALS_UPDATED))
+  return cached.success ? cached.data[0].globals.theme : modeFromUrl()
+}
+
 // Documentation pages (the specification) have no story around them, so the decorator above does
 // not run there. This container gives them the same theme switch from the toolbar.
 function ThemedDocsContainer(props: PropsWithChildren<DocsContainerProps>): JSX.Element {
-  const [mode, setMode] = useState<Mode>(modeFromUrl)
+  const [mode, setMode] = useState<Mode>(currentMode)
   useEffect(() => {
     const channel = addons.getChannel()
-    const onGlobals = (event: { globals: { theme?: unknown } }): void => {
-      setMode(event.globals.theme === 'light' ? 'light' : 'dark')
+    const onGlobals = (event: unknown): void => {
+      const parsed = globalsUpdatedSchema.safeParse(event)
+      if (parsed.success) setMode(parsed.data.globals.theme)
     }
     channel.on(GLOBALS_UPDATED, onGlobals)
     return () => {

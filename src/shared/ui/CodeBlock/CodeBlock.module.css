@@ -3,5 +3,10 @@
   overflow-x: auto;
   font-family: var(--rv-font-mono);
   font-size: var(--rv-fs-xs);
-  line-height: 1.5;
+  line-height: 21px;
+}
+
+.code:focus-visible {
+  outline: 2px solid var(--rv-link);
+  outline-offset: 2px;
 }
