@@ -33,6 +33,12 @@ import type {
 import { GITHUB_APP_SLUG, GITHUB_CLIENT_ID, isMockMode } from '../../../shared/config/env'
 import { safeHttpUrl } from '../../../shared/lib/safeHttpUrl'
 import { DataTable, IconSettings, PageHeader, Tag } from '../../../shared/ui'
+import {
+  ACCESS_REFRESH_LOADING_TEXT,
+  ACCESS_REFRESH_TIMEOUT_ACTION_TEXT,
+  ACCESS_REFRESH_TIMEOUT_PROMPT,
+  resolveAccessRefreshPresentation,
+} from '../lib/accessRefreshPresentation'
 import styles from './RepositoryList.module.css'
 
 const { Text, Link } = Typography
@@ -71,6 +77,10 @@ export const RepositoryList: FC<RepositoryListProps> = ({
   onRefresh,
   onSyncAccess,
 }) => {
+  const accessRefreshPresentation = resolveAccessRefreshPresentation(
+    accessRefreshStatus,
+    refreshing,
+  )
   const [search, setSearch] = useState('')
   const [filterActive, setFilterActive] = useState<'all' | 'active'>('all')
   const [editingRepo, setEditingRepo] = useState<Repository | null>(null)
@@ -323,21 +333,23 @@ export const RepositoryList: FC<RepositoryListProps> = ({
         title="Репозитории"
       />
 
-      <div className={styles.accessRefreshStatus}>
-        {accessRefreshStatus === 'waiting' && refreshing ? (
-          <span className={styles.accessRefreshLoading}>
-            <Spin aria-hidden="true" size="small" />
-            <Text type="secondary">Загрузка репозиториев</Text>
-          </span>
-        ) : accessRefreshStatus === 'timedOut' ? (
-          <>
-            <Text type="secondary">Нужного репозитория нет?</Text>
-            <Button loading={refreshing} onClick={onRefresh} size="small">
-              Обновить список
-            </Button>
-          </>
-        ) : null}
-      </div>
+      {accessRefreshStatus !== 'idle' ? (
+        <div className={styles.accessRefreshStatus}>
+          {accessRefreshPresentation.kind === 'loading' ? (
+            <span className={styles.accessRefreshLoading}>
+              <Spin aria-hidden="true" size="small" />
+              <Text type="secondary">{ACCESS_REFRESH_LOADING_TEXT}</Text>
+            </span>
+          ) : accessRefreshPresentation.kind === 'timedOut' ? (
+            <>
+              <Text type="secondary">{ACCESS_REFRESH_TIMEOUT_PROMPT}</Text>
+              <Button loading={refreshing} onClick={onRefresh} size="small">
+                {ACCESS_REFRESH_TIMEOUT_ACTION_TEXT}
+              </Button>
+            </>
+          ) : null}
+        </div>
+      ) : null}
 
       {repositories.length === 0 && !loading ? (
         <div className={styles.empty}>

@@ -10,7 +10,8 @@ import {
   type UpdateRepositoryVariables,
 } from '../../entities/repository'
 import { saveAccessRefreshIntent, saveAuthReturnTo, useAuthStore } from '../../features/auth'
-import { RepositoryList } from '../../widgets/repository-list'
+import { RepositoryList, resolveAccessRefreshPresentation } from '../../widgets/repository-list'
+import styles from './RepositoriesPage.module.css'
 import { formatErrorMessage } from './lib/formatError'
 import { useRepositoryAccessRefresh } from './lib/useRepositoryAccessRefresh'
 
@@ -34,12 +35,10 @@ export const RepositoriesPage: FC = () => {
   } = useRepositories()
   const accessRefreshStatus = useRepositoryAccessRefresh(refetch)
   const statusRef = useRef<HTMLDivElement>(null)
-  const accessRefreshMessage =
-    accessRefreshStatus === 'waiting' && isFetching
-      ? 'Загрузка репозиториев'
-      : accessRefreshStatus === 'timedOut'
-        ? 'Нужного репозитория нет? Обновите список.'
-        : ''
+  const { announcement: accessRefreshMessage } = resolveAccessRefreshPresentation(
+    accessRefreshStatus,
+    isFetching,
+  )
 
   useEffect(() => {
     const status = statusRef.current
@@ -97,13 +96,7 @@ export const RepositoriesPage: FC = () => {
         aria-atomic="true"
         ref={statusRef}
         role="status"
-        style={{
-          position: 'absolute',
-          width: 1,
-          height: 1,
-          overflow: 'hidden',
-          clipPath: 'inset(50%)',
-        }}
+        className={styles.accessRefreshStatus}
       />
       {isError ? (
         <Alert

@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Repository } from '../../../entities/repository'
 import { useAuthStore } from '../../../features/auth'
 import { RepositoryList } from './RepositoryList'
+import styles from './RepositoryList.module.css'
 
 let mockSlug = ''
 let mockClientId = 'test-client'
@@ -60,6 +61,31 @@ const mockRepos: Repository[] = [
 ]
 
 describe('RepositoryList', () => {
+  it('reserves a visual slot only outside idle and retains it through polling intervals', () => {
+    const props = { repositories: mockRepos, onSyncAccess: vi.fn() }
+    const { container, rerender } = render(<RepositoryList {...props} />)
+    const getSlot = () => container.querySelector(`.${String(styles.accessRefreshStatus)}`)
+    expect(getSlot()).toBeNull()
+
+    rerender(<RepositoryList {...props} accessRefreshStatus="waiting" refreshing />)
+    const slot = getSlot()
+    expect(slot).not.toBeNull()
+    expect(slot?.textContent).toBe('Загрузка репозиториев')
+    rerender(<RepositoryList {...props} accessRefreshStatus="waiting" />)
+    expect(getSlot()).toBe(slot)
+    expect(slot?.textContent).toBe('')
+    rerender(<RepositoryList {...props} accessRefreshStatus="waiting" refreshing />)
+    expect(getSlot()).toBe(slot)
+    expect(slot?.textContent).toBe('Загрузка репозиториев')
+    rerender(<RepositoryList {...props} accessRefreshStatus="timedOut" />)
+    expect(getSlot()).toBe(slot)
+    expect(slot?.textContent).toBe('Нужного репозитория нет?Обновить список')
+    rerender(<RepositoryList {...props} accessRefreshStatus="timedOut" refreshing />)
+    expect(getSlot()).toBe(slot)
+    rerender(<RepositoryList {...props} />)
+    expect(getSlot()).toBeNull()
+  })
+
   it('keeps visual refresh messages and the manual action across status transitions', () => {
     const onRefresh = vi.fn()
     const props = { repositories: mockRepos, onSyncAccess: vi.fn(), onRefresh }
