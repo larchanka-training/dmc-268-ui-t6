@@ -631,6 +631,28 @@ describe('RunDiff filters: search expands the cards', () => {
     expect(runLevel).toHaveLength(1)
   })
 
+  it('keeps a manually collapsed matching card through pending completion and more search text', () => {
+    const filters = filtersOf({ query: 'sql' })
+    const { rerender } = render(runDiff({ filters, findingsPending: true }))
+    expect(screen.getByText('Query built from user input')).toBeTruthy()
+
+    fireEvent.click(screen.getByText('SQL injection'))
+    expect(screen.queryByText('Query built from user input')).toBeNull()
+
+    rerender(runDiff({ filters, findingsPending: false }))
+    expect(screen.getByText('SQL injection')).toBeTruthy()
+    expect(screen.queryByText('Query built from user input')).toBeNull()
+
+    rerender(runDiff({ filters: filtersOf({ query: 'sql i' }), findingsPending: false }))
+    expect(screen.getByText('SQL injection')).toBeTruthy()
+    expect(screen.queryByText('Query built from user input')).toBeNull()
+
+    rerender(runDiff({ filters: EMPTY_FINDING_FILTERS }))
+    expect(screen.queryByText('Query built from user input')).toBeNull()
+    rerender(runDiff({ filters }))
+    expect(screen.getByText('Query built from user input')).toBeTruthy()
+  })
+
   it('toggling the search remounts the cards; typing more does not', () => {
     const { rerender } = render(runDiff({ filters: filtersOf({ severities: ['critical'] }) }))
     expect(screen.queryByText('Query built from user input')).toBeNull()
@@ -727,19 +749,41 @@ describe('RunDiff filters: summary-only run', () => {
     makeComment('000000000014', { file: 'src/big-one.ts', title: 'Never rendered comment' }),
   ]
 
-  function summaryOnlyRunDiff(filters: FindingFilters): JSX.Element {
+  function summaryOnlyRunDiff(filters: FindingFilters, findingsPending = false): JSX.Element {
     return (
       <RunDiff
         comments={SUMMARY_COMMENTS}
         files={SUMMARY_FILES}
         filters={filters}
         findings={[sOne, sTwo, sThree]}
+        findingsPending={findingsPending}
         onFiltersChange={vi.fn()}
         onFiltersReset={vi.fn()}
         summaryOnly
       />
     )
   }
+
+  it('retains the summary-only file list under a content filter until findings are ready', () => {
+    const filters = filtersOf({ query: 'unmatched' })
+    const { rerender } = render(summaryOnlyRunDiff(filters, true))
+
+    expect(fileNameShown('src/big-one.ts')).toBe(true)
+    expect(fileNameShown('src/big-two.ts')).toBe(true)
+    expect(screen.getByRole('status').textContent).toBe(
+      'Замечания появятся после завершения прогона',
+    )
+    expect(screen.queryByTestId('findings-filter-empty')).toBeNull()
+    expect(screen.queryByText(counter(0, 3))).toBeNull()
+    expectCards([])
+
+    rerender(summaryOnlyRunDiff(filters, false))
+
+    expect(fileNameShown('src/big-one.ts')).toBe(false)
+    expect(fileNameShown('src/big-two.ts')).toBe(false)
+    expect(screen.getByText(counter(0, 3))).toBeTruthy()
+    expect(screen.getByTestId('findings-filter-empty')).toBeTruthy()
+  })
 
   it('counts and lists findings only, comments are not part of the set', () => {
     render(summaryOnlyRunDiff(EMPTY_FINDING_FILTERS))
