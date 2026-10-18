@@ -301,27 +301,36 @@ describe('RunControls', () => {
     expect(fireEvent.keyDown(button, { key: 'Enter' })).toBe(true)
   })
 
-  it('does not touch a focus held elsewhere when the run turns terminal', () => {
-    const { rerender } = render(
-      <MemoryRouter>
-        <RunControls run={{ ...activeRun, status: 'queued' }} />
-        <button type="button">Рядом</button>
-      </MemoryRouter>,
-    )
-    const outsideButton = screen.getByRole('button', { name: 'Рядом' })
-    outsideButton.focus()
-    expect(document.activeElement).toBe(outsideButton)
+  // The requested-cancel path (running / publishing with cancelRequested) is a different render
+  // of the same slot than the queued one, so a focus held elsewhere is pinned on all three.
+  it.each([
+    { from: 'queued', cancelRequested: false, to: 'cancelled' },
+    { from: 'running', cancelRequested: true, to: 'cancelled' },
+    { from: 'publishing', cancelRequested: true, to: 'failed' },
+  ] as const)(
+    'does not touch a focus held elsewhere when a $from run turns $to',
+    ({ from, cancelRequested, to }) => {
+      const { rerender } = render(
+        <MemoryRouter>
+          <RunControls run={{ ...activeRun, status: from, cancelRequested }} />
+          <button type="button">Рядом</button>
+        </MemoryRouter>,
+      )
+      const outsideButton = screen.getByRole('button', { name: 'Рядом' })
+      outsideButton.focus()
+      expect(document.activeElement).toBe(outsideButton)
 
-    rerender(
-      <MemoryRouter>
-        <RunControls run={{ ...terminalRun, status: 'cancelled', cancelRequested: true }} />
-        <button type="button">Рядом</button>
-      </MemoryRouter>,
-    )
+      rerender(
+        <MemoryRouter>
+          <RunControls run={{ ...terminalRun, status: to, cancelRequested: true }} />
+          <button type="button">Рядом</button>
+        </MemoryRouter>,
+      )
 
-    expect(screen.getByRole('button', { name: 'Перезапустить' })).toBeTruthy()
-    expect(document.activeElement).toBe(outsideButton)
-  })
+      expect(screen.getByRole('button', { name: 'Перезапустить' })).toBeTruthy()
+      expect(document.activeElement).toBe(outsideButton)
+    },
+  )
 
   it('shows only an enabled «Отменить» on an active run without a cancel request', () => {
     renderActiveControls()
