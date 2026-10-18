@@ -24,7 +24,7 @@ function themeRoot(container: HTMLElement): HTMLElement {
 
 describe('UiProvider diff theme', () => {
   beforeEach(() => {
-    useDiffViewerStore.setState({ viewType: 'unified', selectedFile: null })
+    useDiffViewerStore.setState({ viewType: 'unified' })
   })
 
   afterEach(() => {

@@ -24,7 +24,6 @@ import {
   mockRunSessions,
   mockSummaryOnlyDiff,
   mockSummaryOnlyRun,
-  mockUiState,
 } from './app-state'
 
 function findFileDiff(filename: string): FileDiff {
@@ -172,13 +171,6 @@ describe('mockSummaryOnlyDiff', () => {
     mockSummaryOnlyDiff.forEach((raw) => {
       expect(fromPatch(raw).hasPatch).toBe(false)
     })
-  })
-})
-
-describe('mockUiState', () => {
-  it('selects a file that exists in mockFileDiffs', () => {
-    const filenames = mockFileDiffs.map((f) => f.filename)
-    expect(filenames).toContain(mockUiState.diffViewer.selectedFile)
   })
 })
 

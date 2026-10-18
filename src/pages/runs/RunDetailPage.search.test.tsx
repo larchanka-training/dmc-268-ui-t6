@@ -115,7 +115,7 @@ describe('RunDetailPage search box on the app router', () => {
       isInitialized: true,
       error: null,
     })
-    useDiffViewerStore.setState({ viewType: 'unified', selectedFile: null })
+    useDiffViewerStore.setState({ viewType: 'unified' })
     useRunInspectorStore.setState({ expandedKeys: [], selectedActionIndex: null })
   })
 

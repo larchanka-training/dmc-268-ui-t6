@@ -62,7 +62,7 @@ const SUMMARY_ONLY_DIFF_WIRE = [
 ]
 
 beforeEach(() => {
-  useDiffViewerStore.setState({ viewType: 'unified', selectedFile: null })
+  useDiffViewerStore.setState({ viewType: 'unified' })
 })
 
 afterEach(() => {
