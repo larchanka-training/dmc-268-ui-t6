@@ -87,7 +87,7 @@ const COMMENTS: ReviewComment[] = [
 ]
 
 beforeEach(() => {
-  useDiffViewerStore.setState({ viewType: 'unified', selectedFile: null })
+  useDiffViewerStore.setState({ viewType: 'unified' })
 })
 
 afterEach(() => {

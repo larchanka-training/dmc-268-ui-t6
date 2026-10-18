@@ -84,6 +84,10 @@ api; Zod-схемы — проверка того же контракта на �
 Zustand или `useState` нельзя — получится два источника правды. Правила — §2 «Состояние в URL»,
 семантика — §6 «Фильтры замечаний».
 
+Ф-7 уточнено 2026-10-18 (ui#115): в сторе diff-viewer остаётся только режим `viewType`
+с действием `setViewType`; фильтр файлов по-прежнему живёт в URL. Неиспользуемое состояние
+выбора файла и недостижимая страница ревью удалены (§11).
+
 ---
 
 ## 1. Слои
@@ -252,8 +256,6 @@ src/pages/repositories/RepositoriesPage.tsx
 src/pages/repositories/lib/formatError.test.ts
 src/pages/repositories/lib/formatError.ts
 src/pages/review/.gitkeep
-src/pages/review/ReviewPage.module.css
-src/pages/review/ReviewPage.tsx
 src/pages/review/ReviewRedirect.test.tsx
 src/pages/review/ReviewRedirect.tsx
 src/pages/runs/.gitkeep
@@ -362,7 +364,6 @@ src/widgets/run-inspector/ui/RunProgressBar.tsx
 | Событие шага пайплайна                | нет: события шага в api пока нет (api#97); ход прогона виден по опросу `/actions`                                          | —                                                  |
 | Дочитанные срезы файла                | `useState` на `RunDetailPage` (слияние в `FileDiff`); ключ Query `diffQueryKeys.fileSlice` зарезервирован, не используется | не инвалидируется (append-only, живёт с страницей) |
 | `viewType` (unified/split)            | Zustand, `widgets/diff-viewer/model/store.ts`                                                                              | — (UI-состояние, не сервер)                        |
-| `selectedFile` (diff-viewer)          | Zustand, `widgets/diff-viewer/model/store.ts`                                                                              | —                                                  |
 | `expandedKeys`, `selectedActionIndex` | Zustand, `widgets/run-inspector/model/store.ts`                                                                            | —                                                  |
 | Фильтры замечаний                     | URL search params `file`, `severity` (повторяются), `q`; хук `useFindingFiltersParams` (`features/finding-filters`)        | — (источник — URL; другой прогон начинает чисто)   |
 | Черновики комментариев                | —                                                                                                                          | future (не реализовано в этом спринте)             |
@@ -1067,6 +1068,11 @@ React, без `innerHTML`.
 фокус остался на ней (`.agents/rules/frontend.md` §3b п. 3). `attempt: number` (номер попытки при
 retry) `RunHeader` показывает в поле «Попытка».
 
+Запросы уже реализованы: `endpoints.runs.cancel` / `endpoints.runs.rerun` в
+`src/shared/api/endpoints.ts`, функции `cancelRun` / `rerunRun` и mutation-хуки `useCancelRun` /
+`useRerunRun` в `src/entities/run/api/index.ts`. `RunDetailPage` передаёт прогон в `RunControls`;
+после успешного повторного запуска кнопка переводит на `/runs/${session.id}` нового прогона.
+
 ### Прогресс-бар (Refs ui#84)
 
 Под карточкой прогона, во всю ширину над журналом действий и диффом, — три этапа: «Сбор контекста»
@@ -1387,8 +1393,12 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
   граница попытки определяется по журналу — регресс этапа или второй `llm.repo_conventions` (§7,
   «Ограничения»); список после переподключения SSE обновляется только со следующим `run.updated` или по
   `staleTime`.
-- **`pages/review/ReviewPage.tsx`** — файл сохранён, но маршрут `/review` монтирует redirect
-  (mock → demo run, prod → `/runs`); полноценная страница не в прод-маршрутизации (Refs ui#65).
+- **Очистка diff-viewer (ui#115, Ф-7)** — неиспользуемые `selectedFile`/`selectFile` удалены из
+  `useDiffViewerStore`, поле выбора файла удалено из mock UI state. Недостижимая
+  `pages/review/ReviewPage.tsx` и её CSS Module удалены: это заменяет решение ui#65 о сохранении
+  файла. Маршрут `/review` и `ReviewRedirect` сохранены: mock-сборка перенаправляет на
+  `/runs/${DEMO_RUN_ID}`, prod — на `/runs`, оба перехода заменяют запись истории (`replace`).
+  Файлы фильтруются через URL search params (§2, §6).
 - **Fetch-клиент и авторизация** (Ф-15) — контракт авторизации и сессии ([решение техлида api#20 D4][tl-2026-09-27-api20] и `/api/auth/*` в [`openapi.yaml`][openapi], реализован в PR #55 и #63):
   - вход — GitHub App user authorization без OAuth scopes; `state` SPA генерирует сама, хранит в
     `sessionStorage` и сверяет на `/auth/callback`;
@@ -1412,14 +1422,14 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
   - PR репозитория — `GET /api/repos/{id}/pulls?state&cursor` → `{ items, nextCursor }`, у
     элемента `latestRun { id, status, verdict } | null` (в клиенте пока не реализовано, открытый follow-up).
 - **Экраны 4–5** (правила, метрики) — области [SD §2][sd-2], не реализованные в этом
-  спринте; `src/pages/` содержит экраны для реализованных областей (вход, коллбэк, репозитории, прогоны, ревью).
+  спринте; `src/pages/` содержит экраны входа, коллбэка, репозиториев и прогонов, а также redirect
+  с `/review` на прогоны.
 - **Summary-only прогоны** (diff > 3000 строк, [SD §12][sd-12]) — схемы, адаптер и `RunDiff` поддерживают
   с #42 (§4, §6); страница `/runs/:runId` (`RunDetailPage`) передаёт `run.summaryOnly` и findings в `RunDiff`.
 - **Фильтры замечаний** (ui#84, часть про фильтры) — реализованы: файлы, критичность D3 и поиск над
   диффом, состояние в URL (§2, §6). Остаются как были и в эту задачу не входят: комментарии к файлам
-  без диффа или отсутствующим в `/diff` по-прежнему не рисуются; `selectedFile` в
-  `useDiffViewerStore` по-прежнему не используется; `pages/review/ReviewPage` не подключена к
-  маршрутам. Во время набора страница не перерисовывается: рисуется только поле, а страница — раз
+  без диффа или отсутствующим в `/diff` по-прежнему не рисуются. Во время набора страница не
+  перерисовывается: рисуется только поле, а страница — раз
   за паузу, когда `q` записан в URL (все `DiffViewer` без мемоизации); замеров на больших диффах не
   делали.
 - **antd `List` на summary-only прогоне** пишет в консоль предупреждение об устаревании. Так было

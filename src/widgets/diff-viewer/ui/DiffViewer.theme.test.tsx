@@ -25,7 +25,7 @@ const LIGHT = theme.getDesignToken({ algorithm: theme.defaultAlgorithm })
 const DARK = theme.getDesignToken({ algorithm: theme.darkAlgorithm })
 
 beforeEach(() => {
-  useDiffViewerStore.setState({ viewType: 'unified', selectedFile: null })
+  useDiffViewerStore.setState({ viewType: 'unified' })
 })
 
 afterEach(() => {

@@ -265,7 +265,6 @@ export interface MockUiState {
     expandedKeys: string[]
   }
   diffViewer: {
-    selectedFile: string
     viewType: 'unified' | 'split'
     expandedRanges: Record<string, boolean>
   }
@@ -277,7 +276,6 @@ export const mockUiState: MockUiState = {
     expandedKeys: ['group-2', 'action-33'],
   },
   diffViewer: {
-    selectedFile: 'src/a.ts',
     viewType: 'unified',
     expandedRanges: {},
   },

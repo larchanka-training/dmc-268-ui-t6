@@ -52,7 +52,7 @@ const fileOptions = [
   { value: 'docs/FRONTEND_ARCHITECTURE.md', label: 'docs/FRONTEND_ARCHITECTURE.md (1)' },
 ]
 
-const selectedFiles = [
+const defaultSelectedOptions = [
   'src/widgets/diff-viewer/ui/RunDiff.tsx',
   'src/features/finding-filters/model/useFindingFiltersParams.ts',
   'src/pages/runs/RunDetailPage.tsx',
@@ -63,7 +63,7 @@ export const Multiple: Story = {
     <div style={stack}>
       <Select
         allowClear
-        defaultValue={selectedFiles}
+        defaultValue={defaultSelectedOptions}
         maxTagCount="responsive"
         mode="multiple"
         optionLabelProp="value"
@@ -72,7 +72,7 @@ export const Multiple: Story = {
         style={{ width: '100%' }}
       />
       <Select
-        defaultValue={selectedFiles}
+        defaultValue={defaultSelectedOptions}
         disabled
         maxTagCount="responsive"
         mode="multiple"
