@@ -291,6 +291,16 @@ describe('RunControls', () => {
     expect(fireEvent.keyDown(button, { key: 'Tab', repeat: true })).toBe(true)
   })
 
+  // The guard sits on the one button element, so it holds for the live «Отменить» as well.
+  it('ignores an auto-repeated keydown on «Отменить» so a held key is one press', () => {
+    renderActiveControls()
+
+    const button = screen.getByRole('button', { name: 'Отменить' })
+
+    expect(fireEvent.keyDown(button, { key: 'Enter', repeat: true })).toBe(false)
+    expect(fireEvent.keyDown(button, { key: 'Enter' })).toBe(true)
+  })
+
   it('does not touch a focus held elsewhere when the run turns terminal', () => {
     const { rerender } = render(
       <MemoryRouter>

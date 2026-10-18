@@ -175,7 +175,10 @@ describe('the disabled class of useDisabledButtonClass', () => {
     return { native: only('button[disabled]', container), classed, disabledClass: result.current }
   }
 
-  /** Whether the element matches any selector of a rule, `:where(…)` set aside as classesOf() does. */
+  /**
+   * Whether the element matches any selector of a rule, `:where(…)` set aside as classesOf()
+   * does.
+   */
   function ruleMatches(element: HTMLElement, selectors: string[]): boolean {
     return selectors.some((selector) => element.matches(classesOf(selector).plain))
   }
