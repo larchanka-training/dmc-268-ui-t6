@@ -1,19 +1,12 @@
-import { Alert, Button, Skeleton, Typography } from 'antd'
+import { Alert, Button, Skeleton } from 'antd'
 import type { FC } from 'react'
 
 import { useRepositoryRulesStatus } from '../../../entities/repository'
 import { RulesStatusDetails } from './RulesStatusDetails'
 import styles from './RulesStatusPanel.module.css'
 
-const { Text } = Typography
-
 export interface RulesStatusPanelProps {
   repoId: string
-  /**
-   * `false` while the server does not serve the rules status: the block says so in one line and
-   * sends no request.
-   */
-  enabled: boolean
 }
 
 /**
@@ -25,17 +18,14 @@ export interface RulesStatusPanelProps {
  * hook. «Повторить» is offered only for a load error and for an `unavailable` status the server
  * called retryable.
  */
-export const RulesStatusPanel: FC<RulesStatusPanelProps> = ({ repoId, enabled }) => {
-  const query = useRepositoryRulesStatus(repoId, { enabled })
+export const RulesStatusPanel: FC<RulesStatusPanelProps> = ({ repoId }) => {
+  const query = useRepositoryRulesStatus(repoId)
 
   const retry = (): void => {
     void query.refetch()
   }
 
   const body = (() => {
-    if (!enabled) {
-      return <Text type="secondary">Статус правил появится, когда сервер начнёт его отдавать</Text>
-    }
     // A failed request wins over data an earlier request left behind: that data may be stale.
     if (query.isError) {
       return (

@@ -76,6 +76,18 @@ const RADIO_ALL = 'All — critical, high, medium, low, info'
 const RADIO_WARN = 'Warn & Crit — critical, high, medium, low'
 const RADIO_CRIT = 'Only Critical — critical, high'
 
+// The rules block of the page: every test of the page gets this answer unless it sets its own.
+const PRESENT_RULES = {
+  status: 'present',
+  branch: 'release/2.1',
+  path: '.review/rules.md',
+  checkedAt: '2026-10-14T09:30:15.000Z',
+  sha: '1111111aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  text: '# Rules',
+  ignoreMasks: [],
+  diagnostics: [],
+}
+
 interface Backend {
   /** What the next GET /api/repos answers. */
   repos: Repository[]
@@ -90,6 +102,10 @@ interface Backend {
   patchGate: Promise<void> | null
   gets: number
   patches: { id: string; body: unknown }[]
+  /** The repository ids GET /api/repos/{id}/rules-status was asked for; not counted in `gets`. */
+  rulesRequests: string[]
+  /** What the rules-status GET answers. */
+  rulesStatus: Response
   fetchMock: ReturnType<typeof vi.fn<typeof fetch>>
 }
 
@@ -109,8 +125,15 @@ function stubBackend(repos: Repository[]): Backend {
     patchGate: null,
     gets: 0,
     patches: [],
+    rulesRequests: [],
+    rulesStatus: new Response(JSON.stringify(PRESENT_RULES), { status: 200 }),
     fetchMock: vi.fn<typeof fetch>((input, init) => {
       const url = urlOf(input)
+      const rules = /^\/api\/repos\/([^/]+)\/rules-status$/.exec(url.pathname)
+      if (rules?.[1] !== undefined) {
+        backend.rulesRequests.push(rules[1])
+        return Promise.resolve(backend.rulesStatus.clone())
+      }
       if (init?.method === 'PATCH') {
         const id = url.pathname.split('/').pop() ?? ''
         const body = JSON.parse(typeof init.body === 'string' ? init.body : '{}') as Record<
@@ -334,9 +357,13 @@ describe('RepositorySettingsPage', () => {
     expect(selectedText(CI_LABEL)).toBe('Авто (ожидать CI при наличии проверок)')
     expect(selectedText(VERDICT_LABEL)).toBe('Комментарий (при любых замечаниях)')
     expect(saveButton().disabled).toBe(true)
-    // The repository comes from the list: no request of its own.
+    // The repository comes from the list: no request of its own. The rules block asks for its status.
+    await waitFor(() => {
+      expect(backend.rulesRequests).toEqual([UI_REPO.id])
+    })
     expect(backend.fetchMock.mock.calls.map(([input]) => urlOf(input).pathname)).toEqual([
       '/api/repos',
+      `/api/repos/${UI_REPO.id}/rules-status`,
     ])
   })
 
@@ -594,6 +621,8 @@ describe('RepositorySettingsPage', () => {
     expect(await screen.findByLabelText(LIMIT_LABEL)).toBeTruthy()
     expect(inputValue(LIMIT_LABEL)).toBe('10')
     expect(screen.queryByText('Репозиторий не найден или недоступен')).toBeNull()
+    // The rules block has a Skeleton of its own until its status arrives.
+    await screen.findByText('Файл найден')
     expect(container.querySelector('.ant-skeleton')).toBeNull()
   })
 
@@ -2172,23 +2201,29 @@ describe('RepositorySettingsPage: leaving with a draft', () => {
   })
 })
 
-// The test build has no mocks, so the rules status is gated off here (the gated-on page is
-// RepositorySettingsPage.rules.test.tsx).
-describe('RepositorySettingsPage: rules status off mocks', () => {
-  it('sends no request when the rules API is gated off', async () => {
+// The test build has no mocks: the rules block asks the api, as it does on every environment (the
+// page on the mock transport is RepositorySettingsPage.rules.test.tsx).
+describe('RepositorySettingsPage: rules status outside mock mode', () => {
+  it('sends GET /api/repos/{id}/rules-status and renders the answer', async () => {
     const backend = stubBackend([UI_REPO])
     renderPage(settingsPath(UI_REPO.id))
 
     const block = await screen.findByRole('region', { name: 'Правила ревью' })
-    expect(
-      within(block).getByText('Статус правил появится, когда сервер начнёт его отдавать'),
-    ).toBeTruthy()
 
-    // Give a request the time it would need to start.
-    await new Promise((resolve) => setTimeout(resolve, 20))
-    const paths = backend.fetchMock.mock.calls.map(([input]) => urlOf(input).pathname)
-    expect(paths.every((path) => !path.includes('rules-status'))).toBe(true)
-    expect(paths).toEqual(['/api/repos'])
-    expect(within(block).queryByRole('button')).toBeNull()
+    expect(await within(block).findByText('Файл найден')).toBeTruthy()
+    expect(within(block).getByText('release/2.1')).toBeTruthy()
+    expect(backend.rulesRequests).toEqual([UI_REPO.id])
+  })
+
+  it('shows the load error, not a missing file, when the rules-status request fails', async () => {
+    const backend = stubBackend([UI_REPO])
+    backend.rulesStatus = new Response('Server Error', { status: 500 })
+    renderPage(settingsPath(UI_REPO.id))
+
+    const block = await screen.findByRole('region', { name: 'Правила ревью' })
+
+    expect(await within(block).findByText('Не удалось загрузить статус правил')).toBeTruthy()
+    expect(within(block).queryByText(/дефолтные правила/)).toBeNull()
+    expect(within(block).getByRole('button', { name: 'Повторить' })).toBeTruthy()
   })
 })

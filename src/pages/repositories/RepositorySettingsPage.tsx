@@ -26,8 +26,6 @@ import {
   RepositorySettingsForm,
   type RepositorySettingsFormHandle,
 } from '../../features/repository-settings'
-import { mocksEnabledAtRuntime } from '../../shared/config/buildFlags'
-import { isMockMode } from '../../shared/config/env'
 import { PageHeader } from '../../shared/ui'
 import { RulesStatusPanel } from '../../widgets/repository-rules'
 import { formatErrorMessage } from './lib/formatError'
@@ -299,9 +297,7 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
           ref={formRef}
           repository={repository}
         />
-        {/* Mock-only until the server serves the rules status (ui#93): off mocks the block says so
-            and sends no request. */}
-        <RulesStatusPanel enabled={mocksEnabledAtRuntime(isMockMode)} repoId={repository.id} />
+        <RulesStatusPanel repoId={repository.id} />
       </Flex>
     )
   }
