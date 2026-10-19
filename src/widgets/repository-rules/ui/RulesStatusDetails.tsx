@@ -1,6 +1,6 @@
 import { BranchesOutlined } from '@ant-design/icons'
 import { Alert, Button, Flex, Tooltip, Typography } from 'antd'
-import type { FC, ReactNode } from 'react'
+import type { FC, ReactNode, Ref } from 'react'
 
 import type { RulesDiagnostic, RulesStatus } from '../../../entities/repository'
 import { CodeBlock, Spinner, Tag } from '../../../shared/ui'
@@ -55,7 +55,12 @@ const DiagnosticList: FC<{ diagnostics: RulesDiagnostic[] }> = ({ diagnostics })
       return (
         <li key={`${diagnostic.code}-${String(index)}`}>
           <code>{diagnostic.code}</code>
-          {location !== null ? <span className={styles.position}>{location}</span> : null}{' '}
+          {location !== null ? (
+            <>
+              <span className={styles.positionGap}> </span>
+              <span className={styles.position}>{location}</span>
+            </>
+          ) : null}{' '}
           <span>{diagnostic.message}</span>
           {limit !== null ? <span> ({limit})</span> : null}
         </li>
@@ -90,11 +95,18 @@ export interface RulesStatusDetailsProps {
   status: RulesStatus
   /** Asks the server again; offered only where the server said a retry can help. */
   onRetry: () => void
+  /** For the owner of the focus: the retry button reports here when it comes and goes. */
+  retryRef: Ref<HTMLButtonElement>
   retrying: boolean
 }
 
 /** One of the five answers the server gives for `.review/rules.md`. */
-export const RulesStatusDetails: FC<RulesStatusDetailsProps> = ({ status, onRetry, retrying }) => {
+export const RulesStatusDetails: FC<RulesStatusDetailsProps> = ({
+  status,
+  onRetry,
+  retryRef,
+  retrying,
+}) => {
   switch (status.status) {
     case 'present':
       return (
@@ -167,7 +179,7 @@ export const RulesStatusDetails: FC<RulesStatusDetailsProps> = ({ status, onRetr
           <Alert
             action={
               status.diagnostics.some((diagnostic) => diagnostic.retryable) ? (
-                <Button loading={retrying} onClick={onRetry} size="small">
+                <Button loading={retrying} onClick={onRetry} ref={retryRef} size="small">
                   Повторить
                 </Button>
               ) : undefined

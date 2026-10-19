@@ -213,6 +213,38 @@ function validatePatchBody(body: object): UpdateRepositoryInput {
   return parsed.data
 }
 
+/**
+ * `GET /repos/{id}/rules-status`. The answer comes after the caller has had its turn, as a network
+ * answer would, and a request cancelled by then is refused with the abort and uses nothing up:
+ * StrictMode in `pnpm dev` cancels the first GET of the rules block at once, and the `pending` of a
+ * newly connected repository belongs to the GET that stays.
+ */
+async function answerRulesStatus(
+  id: string | undefined,
+  signal: AbortSignal | null | undefined,
+): Promise<RulesStatus> {
+  await Promise.resolve()
+  signal?.throwIfAborted()
+
+  const status = id === undefined ? undefined : mockRulesStatuses[id]
+  if (id === undefined || !status || !repositories.some((r) => r.id === id)) {
+    throw new ApiError(404, 'Not Found', { message: 'Repository not found' })
+  }
+  // A newly connected repository (the fixture says there is no file): the worker has not read it
+  // yet, so its first GET is `pending`; the next one shows the fixture, as the finished read.
+  if (status.status === 'missing' && !rulesStatusAsked.has(id)) {
+    rulesStatusAsked.add(id)
+    return {
+      status: 'pending',
+      branch: status.branch,
+      path: status.path,
+      sha: null,
+      checkedAt: null,
+    }
+  }
+  return structuredClone(status)
+}
+
 function handleMockTransport(
   endpoint: Parameters<MockTransportHandler>[0],
   options: Parameters<MockTransportHandler>[1],
@@ -230,25 +262,7 @@ function handleMockTransport(
   // Before the repository itself: `/repos/{id}/rules-status` must not be read as an id.
   const rulesStatusMatch = /^\/repos\/([^/]+)\/rules-status$/.exec(endpoint.path)
   if (rulesStatusMatch && endpoint.method === 'GET') {
-    const id = rulesStatusMatch[1]
-    const status = id === undefined ? undefined : mockRulesStatuses[id]
-    if (id === undefined || !status || !repositories.some((r) => r.id === id)) {
-      throw new ApiError(404, 'Not Found', { message: 'Repository not found' })
-    }
-    // A newly connected repository (the fixture says there is no file): the worker has not read it
-    // yet, so its first GET is `pending`; the next one shows the fixture, as the finished read.
-    if (status.status === 'missing' && !rulesStatusAsked.has(id)) {
-      rulesStatusAsked.add(id)
-      const pending: RulesStatus = {
-        status: 'pending',
-        branch: status.branch,
-        path: status.path,
-        sha: null,
-        checkedAt: null,
-      }
-      return pending
-    }
-    return structuredClone(status)
+    return answerRulesStatus(rulesStatusMatch[1], options.signal)
   }
 
   const repoDetailMatch = /^\/repos\/([^/]+)$/.exec(endpoint.path)

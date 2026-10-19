@@ -12,6 +12,15 @@
   font-weight: 500;
 }
 
+/* The panel moves focus here from code (`headingRef`), the way `PageHeader` does with its title.
+   The reset of Ant Design takes the outline off `[tabindex='-1']:focus`; the attribute makes this
+   rule the more specific one, so the ring shows whichever stylesheet comes last. An outline takes
+   no room: the heading does not move. */
+.label[tabindex]:focus-visible {
+  outline: 2px solid var(--rv-link);
+  outline-offset: 2px;
+}
+
 .sublabel {
   margin: 0 0 4px;
   color: var(--rv-text-2);
@@ -54,8 +63,14 @@
   font-size: var(--rv-fs-xs);
 }
 
+/* A space in the text, 8px wide on the screen: the content of an inline-block that is only white
+   space collapses, so the gap does not depend on the width of a space in the font. */
+.positionGap {
+  display: inline-block;
+  width: 8px;
+}
+
 .position {
-  margin-left: 8px;
   color: var(--rv-text-2);
   font-family: var(--rv-font-mono);
   font-size: var(--rv-fs-xs);

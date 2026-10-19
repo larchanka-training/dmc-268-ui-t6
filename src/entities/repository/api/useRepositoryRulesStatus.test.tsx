@@ -39,7 +39,63 @@ function missingStatus(sha: string): RulesStatus {
     path: '.review/rules.md',
     checkedAt: '2026-10-14T09:30:00.000Z',
     sha,
-    defaultsVersion: '2026-10-01',
+    defaultsVersion: 'v1',
+  }
+}
+
+const RULES_PATH = '.review/rules.md'
+const CHECKED_AT = '2026-10-14T09:30:00.000Z'
+
+function presentStatus(): RulesStatus {
+  return {
+    status: 'present',
+    branch: 'main',
+    path: RULES_PATH,
+    checkedAt: CHECKED_AT,
+    sha: FIRST_SHA,
+    text: '# Rules',
+    ignoreMasks: [],
+    diagnostics: [],
+  }
+}
+
+function invalidStatus(): RulesStatus {
+  return {
+    status: 'invalid',
+    branch: 'main',
+    path: RULES_PATH,
+    checkedAt: CHECKED_AT,
+    sha: FIRST_SHA,
+    text: null,
+    diagnostics: [
+      {
+        code: 'policy_document_too_large',
+        message: 'Too large',
+        line: null,
+        column: null,
+        retryable: false,
+      },
+    ],
+  }
+}
+
+/** The one status that offers a retry: it is final for the polling all the same. */
+function retryableUnavailableStatus(): RulesStatus {
+  return {
+    status: 'unavailable',
+    branch: 'main',
+    path: RULES_PATH,
+    checkedAt: CHECKED_AT,
+    sha: null,
+    diagnostics: [
+      {
+        code: 'policy_fetch_transient',
+        message: 'GitHub is down',
+        line: null,
+        column: null,
+        retryable: true,
+      },
+    ],
   }
 }
 
@@ -255,12 +311,16 @@ describe('useRepositoryRulesStatus', () => {
 })
 
 describe('useRepositoryRulesStatus: polling a pending status', () => {
-  /** One answer per request, the last one repeats. */
-  function answers(...bodies: RulesStatus[]): Backend {
+  /** One answer per request, the last one repeats; `'error'` is a 500. */
+  function answers(...bodies: (RulesStatus | 'error')[]): Backend {
     const backend: Backend = stubBackend(() => {
       // The stub counts a request before it asks for the answer: the count is the request's number.
-      const index = Math.min(backend.rulesRequests.length, bodies.length) - 1
-      return Promise.resolve(new Response(JSON.stringify(bodies[index])))
+      const body = bodies[Math.min(backend.rulesRequests.length, bodies.length) - 1]
+      return Promise.resolve(
+        body === 'error'
+          ? new Response('Server Error', { status: 500 })
+          : new Response(JSON.stringify(body)),
+      )
     })
     return backend
   }
@@ -304,15 +364,47 @@ describe('useRepositoryRulesStatus: polling a pending status', () => {
     expect(backend.rulesRequests).toHaveLength(3)
   })
 
-  it('does not poll a status that was not pending to begin with', async () => {
+  it.each([
+    ['missing', () => missingStatus(FIRST_SHA)],
+    ['present', presentStatus],
+    ['invalid', invalidStatus],
+    ['unavailable, even when it can be retried', retryableUnavailableStatus],
+  ])('does not poll a status that was not pending to begin with: %s', async (_name, body) => {
     vi.useFakeTimers()
-    const backend = answers(missingStatus(FIRST_SHA))
+    const backend = answers(body())
 
     mount()
     await advance(0)
     await advance(60_000)
 
     expect(backend.rulesRequests).toHaveLength(1)
+  })
+
+  it('goes on polling after a failed poll and stops at the result', async () => {
+    vi.useFakeTimers()
+    const backend = answers(pendingStatus(), 'error', missingStatus(FIRST_SHA))
+
+    const { result } = mount()
+    await advance(0)
+    expect(result.current.data?.status).toBe('pending')
+    // Reading `isError` makes the hook watch it: TanStack re-renders only for the props it was asked.
+    expect(result.current.isError).toBe(false)
+
+    await advance(3000)
+    await advance(1)
+    expect(backend.rulesRequests).toHaveLength(2)
+    // The failure keeps the last answer: the status is still `pending`, only the request failed.
+    expect(result.current.isError).toBe(true)
+    expect(result.current.data?.status).toBe('pending')
+
+    await advance(3000)
+    await advance(1)
+    expect(backend.rulesRequests).toHaveLength(3)
+    expect(result.current.isError).toBe(false)
+    expect(result.current.data?.status).toBe('missing')
+
+    await advance(60_000)
+    expect(backend.rulesRequests).toHaveLength(3)
   })
 
   it('stops polling when the last viewer leaves', async () => {

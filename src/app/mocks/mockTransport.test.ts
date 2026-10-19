@@ -377,6 +377,22 @@ describe('initMockTransport', () => {
         })
       })
 
+      it('does not use up the pending answer on a first GET that was aborted before the answer', async () => {
+        // What StrictMode does in `pnpm dev`: the first GET of the block is cancelled at once.
+        const controller = new AbortController()
+        const aborted = apiClient<unknown>(endpoints.repos.rulesStatus(docs.id), {
+          signal: controller.signal,
+        })
+        controller.abort()
+        await expect(aborted).rejects.toMatchObject({ name: 'AbortError' })
+
+        const second = RulesStatusSchema.parse(await fetchDocsStatus())
+        const third = RulesStatusSchema.parse(await fetchDocsStatus())
+
+        expect(second.status).toBe('pending')
+        expect(third).toEqual(mockRulesStatuses[docs.id])
+      })
+
       it('answers its fixture from the second GET on', async () => {
         await fetchDocsStatus()
 
