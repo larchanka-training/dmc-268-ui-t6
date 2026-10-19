@@ -126,20 +126,20 @@ function Providers({ client, children }: { client: QueryClient; children: ReactN
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>
 }
 
-function renderPanel(props: { repoId?: string; enabled?: boolean } = {}, client = newClient()) {
-  const { repoId = REPO_A, enabled = true } = props
+function renderPanel(props: { repoId?: string } = {}, client = newClient()) {
+  const { repoId = REPO_A } = props
   const view = render(
     <Providers client={client}>
-      <RulesStatusPanel enabled={enabled} repoId={repoId} />
+      <RulesStatusPanel repoId={repoId} />
     </Providers>,
   )
   return {
     client,
     ...view,
-    rerenderFor(next: { repoId?: string; enabled?: boolean }) {
+    rerenderFor(next: { repoId?: string }) {
       view.rerender(
         <Providers client={client}>
-          <RulesStatusPanel enabled={next.enabled ?? enabled} repoId={next.repoId ?? repoId} />
+          <RulesStatusPanel repoId={next.repoId ?? repoId} />
         </Providers>,
       )
     },
@@ -574,20 +574,5 @@ describe('RulesStatusPanel', () => {
     expect(within(panel()).queryByText('1111111')).toBeNull()
     expect(within(panel()).queryByText('Файл найден')).toBeNull()
     expect(view.container.querySelector('.ant-skeleton')).not.toBeNull()
-  })
-
-  it('sends no request when the rules API is gated off', async () => {
-    const backend = stubBackend({ [REPO_A]: [json(present())] })
-
-    const { container } = renderPanel({ enabled: false })
-
-    expect(
-      within(panel()).getByText('Статус правил появится, когда сервер начнёт его отдавать'),
-    ).toBeTruthy()
-    expect(container.querySelector('.ant-skeleton')).toBeNull()
-    expect(within(panel()).queryByRole('button')).toBeNull()
-    await new Promise((resolve) => setTimeout(resolve, 20))
-    expect(backend.requests).toEqual([])
-    expect(vi.mocked(fetch)).not.toHaveBeenCalled()
   })
 })

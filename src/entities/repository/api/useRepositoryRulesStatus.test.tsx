@@ -103,7 +103,7 @@ describe('useRepositoryRulesStatus', () => {
     const backend = stubBackend()
     const client = appLikeClient()
 
-    const { result } = renderHook(() => useRepositoryRulesStatus(FIRST_ID, { enabled: true }), {
+    const { result } = renderHook(() => useRepositoryRulesStatus(FIRST_ID), {
       wrapper: wrapper(client),
     })
 
@@ -114,27 +114,11 @@ describe('useRepositoryRulesStatus', () => {
     expect(backend.fetchMock.mock.calls[0]?.[0]).toBe(`/api/repos/${FIRST_ID}/rules-status`)
   })
 
-  it('sends no request while it is disabled', async () => {
-    const backend = stubBackend()
-    const client = appLikeClient()
-
-    const { result } = renderHook(() => useRepositoryRulesStatus(FIRST_ID, { enabled: false }), {
-      wrapper: wrapper(client),
-    })
-
-    // Give a request the time it would need to start.
-    await act(async () => {
-      await Promise.resolve()
-    })
-    expect(backend.fetchMock).not.toHaveBeenCalled()
-    expect(result.current.fetchStatus).toBe('idle')
-  })
-
   it('fails on a body that is not a rules status', async () => {
     stubBackend(() => Promise.resolve(new Response(JSON.stringify({ status: 'present' }))))
     const client = appLikeClient()
 
-    const { result } = renderHook(() => useRepositoryRulesStatus(FIRST_ID, { enabled: true }), {
+    const { result } = renderHook(() => useRepositoryRulesStatus(FIRST_ID), {
       wrapper: wrapper(client),
     })
 
@@ -148,7 +132,7 @@ describe('useRepositoryRulesStatus', () => {
     stubBackend()
     const client = appLikeClient()
 
-    const { result } = renderHook(() => useRepositoryRulesStatus(FIRST_ID, { enabled: true }), {
+    const { result } = renderHook(() => useRepositoryRulesStatus(FIRST_ID), {
       wrapper: wrapper(client),
     })
     await waitFor(() => {
@@ -166,7 +150,7 @@ describe('useRepositoryRulesStatus', () => {
     const backend = stubBackend()
     const client = appLikeClient()
 
-    const first = renderHook(() => useRepositoryRulesStatus(FIRST_ID, { enabled: true }), {
+    const first = renderHook(() => useRepositoryRulesStatus(FIRST_ID), {
       wrapper: wrapper(client),
     })
     await waitFor(() => {
@@ -176,7 +160,7 @@ describe('useRepositoryRulesStatus', () => {
     expect(backend.rulesRequests).toHaveLength(1)
 
     // The cached answer is fresh for 30 s, yet reopening the page asks again.
-    const second = renderHook(() => useRepositoryRulesStatus(FIRST_ID, { enabled: true }), {
+    const second = renderHook(() => useRepositoryRulesStatus(FIRST_ID), {
       wrapper: wrapper(client),
     })
 
@@ -192,7 +176,7 @@ describe('useRepositoryRulesStatus', () => {
     stubBackend()
     const client = appLikeClient()
 
-    const first = renderHook(() => useRepositoryRulesStatus(FIRST_ID, { enabled: true }), {
+    const first = renderHook(() => useRepositoryRulesStatus(FIRST_ID), {
       wrapper: wrapper(client),
     })
     await waitFor(() => {
@@ -215,10 +199,10 @@ describe('useRepositoryRulesStatus', () => {
     )
     const client = appLikeClient()
 
-    const { result, rerender } = renderHook(
-      ({ id }) => useRepositoryRulesStatus(id, { enabled: true }),
-      { wrapper: wrapper(client), initialProps: { id: FIRST_ID } },
-    )
+    const { result, rerender } = renderHook(({ id }) => useRepositoryRulesStatus(id), {
+      wrapper: wrapper(client),
+      initialProps: { id: FIRST_ID },
+    })
     await waitFor(() => {
       expect(result.current.data?.sha).toBe(FIRST_SHA)
     })
@@ -247,7 +231,7 @@ describe('useRepositoryRulesStatus', () => {
 
     const { result } = renderHook(
       () => ({
-        rules: useRepositoryRulesStatus(FIRST_ID, { enabled: true }),
+        rules: useRepositoryRulesStatus(FIRST_ID),
         update: useUpdateRepository(),
       }),
       { wrapper: wrapper(client) },
@@ -289,7 +273,7 @@ describe('useRepositoryRulesStatus: polling a pending status', () => {
   }
 
   function mount(client = appLikeClient()) {
-    return renderHook(() => useRepositoryRulesStatus(FIRST_ID, { enabled: true }), {
+    return renderHook(() => useRepositoryRulesStatus(FIRST_ID), {
       wrapper: wrapper(client),
     })
   }
