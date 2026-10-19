@@ -5,13 +5,6 @@
   max-width: 720px;
 }
 
-.header {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  justify-content: space-between;
-}
-
 .label {
   margin: 0;
   color: var(--rv-text-2);

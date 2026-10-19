@@ -4,7 +4,9 @@ import { MOCK_NOW } from './app-state'
 const RULES_PATH = '.review/rules.md'
 
 // One status per mock repository (ids of `mockRepositories`): the four states the settings page
-// shows. "Changed file" and load failures are the tests' business (`withMockTransportOverlay`).
+// shows once the file is read. `pending` is not a fixture: the transport answers it to the first
+// GET of the repository whose status is `missing` (`handleMockTransport`). "Changed file" and load
+// failures are the tests' business (`withMockTransportOverlay`).
 
 const UI_RULES_TEXT = [
   '# Правила ревью: dmc-268-ui-t6',
@@ -97,6 +99,6 @@ export const mockRulesStatuses: Record<string, RulesStatus> = {
     path: RULES_PATH,
     checkedAt: MOCK_NOW,
     sha: '5c4b3a2918f7e6d5c4b3a2918f7e6d5c4b3a2918',
-    defaultsVersion: '2026-10-01',
+    defaultsVersion: 'v1',
   },
 }

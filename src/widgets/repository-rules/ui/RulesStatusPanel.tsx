@@ -1,5 +1,5 @@
 import { Alert, Button, Skeleton, Typography } from 'antd'
-import { useCallback, useEffect, useRef, type FC, type MouseEvent } from 'react'
+import type { FC } from 'react'
 
 import { useRepositoryRulesStatus } from '../../../entities/repository'
 import { RulesStatusDetails } from './RulesStatusDetails'
@@ -19,54 +19,18 @@ export interface RulesStatusPanelProps {
 /**
  * Status of `.review/rules.md` of a repository. Only a 200 with `status: 'missing'` is "no file":
  * every failure to learn the status (network, 5xx, 401, 404, a body that fails the schema) is a
- * load error, so a broken request is never read as "defaults apply".
+ * load error, so a broken request is never read as "defaults apply". There is no refresh button:
+ * the server re-reads the file by itself (on connect, on a push to the default branch, on a GET
+ * once its copy is old), reopening the page asks again, and a `pending` status is polled by the
+ * hook. «Повторить» is offered only for a load error and for an `unavailable` status the server
+ * called retryable.
  */
 export const RulesStatusPanel: FC<RulesStatusPanelProps> = ({ repoId, enabled }) => {
   const query = useRepositoryRulesStatus(repoId, { enabled })
 
-  // «Обновить» stays on screen whenever the block is enabled, so a refresh that fails does not
-  // take the focused button away. The retry button of an error, or of a status the server called
-  // retryable, goes away when its request ends well: if it had the focus, «Обновить» takes it
-  // then. A retry that fails again keeps its button, and the focus stays on it.
-  const refreshRef = useRef<HTMLButtonElement>(null)
-  const refocusAfterRetry = useRef(false)
-
-  // The retry of the load error can also go away because of a refetch it did not start (a
-  // refocused window, an invalidation). It is marked as it leaves the page, while it is still in
-  // the document and `activeElement` tells whether it held the focus.
-  const errorRetryRef = useRef<HTMLButtonElement | null>(null)
-  const trackErrorRetry = useCallback((node: HTMLButtonElement | null) => {
-    if (node !== null) {
-      errorRetryRef.current = node
-      return
-    }
-    if (document.activeElement === errorRetryRef.current) {
-      refocusAfterRetry.current = true
-    }
-    errorRetryRef.current = null
-  }, [])
-
-  const refresh = (): void => {
+  const retry = (): void => {
     void query.refetch()
   }
-  const retry = (event: MouseEvent<HTMLElement>): void => {
-    refocusAfterRetry.current = document.activeElement === event.currentTarget
-    refresh()
-  }
-
-  // Runs when a request ends. The answer of a fast retry may reach the page without `isFetching`
-  // ever being seen true, so the effect also follows what the answer changes.
-  useEffect(() => {
-    if (query.isFetching || !refocusAfterRetry.current) {
-      return
-    }
-    refocusAfterRetry.current = false
-    // On <body> only: the retry button is gone. If it is still there, the retry failed again, and
-    // if the focus is elsewhere the user has moved on.
-    if (document.activeElement === document.body) {
-      refreshRef.current?.focus()
-    }
-  }, [query.isFetching, query.status, query.dataUpdatedAt, query.errorUpdatedAt])
 
   const body = (() => {
     if (!enabled) {
@@ -77,7 +41,7 @@ export const RulesStatusPanel: FC<RulesStatusPanelProps> = ({ repoId, enabled })
       return (
         <Alert
           action={
-            <Button loading={query.isFetching} onClick={retry} ref={trackErrorRetry} size="small">
+            <Button loading={query.isFetching} onClick={retry} size="small">
               Повторить
             </Button>
           }
@@ -95,14 +59,7 @@ export const RulesStatusPanel: FC<RulesStatusPanelProps> = ({ repoId, enabled })
 
   return (
     <section aria-label="Правила ревью" className={styles.root}>
-      <div className={styles.header}>
-        <h2 className={styles.label}>Правила ревью</h2>
-        {enabled ? (
-          <Button loading={query.isFetching} onClick={refresh} ref={refreshRef}>
-            Обновить
-          </Button>
-        ) : null}
-      </div>
+      <h2 className={styles.label}>Правила ревью</h2>
       {body}
     </section>
   )

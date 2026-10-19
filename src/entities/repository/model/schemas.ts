@@ -46,8 +46,8 @@ export const UpdateRepositorySchema = z
   })
 export type UpdateRepositoryInput = z.infer<typeof UpdateRepositorySchema>
 
-// provisional (ui#93): status of `.review/rules.md` on a repository, as the UI declares it for
-// api#150. A diagnostic is RULES_FORMAT_SPEC §9 in camelCase; `message` is the server's text.
+// Status of `.review/rules.md` of a repository: `GET /api/repos/{id}/rules-status` (api#150, api
+// PR #202). A diagnostic is RULES_FORMAT_SPEC §9 in camelCase; `message` is the server's text.
 export const RulesDiagnosticSchema = z.object({
   code: z.string().min(1),
   message: z.string(),
@@ -63,14 +63,14 @@ export type RulesDiagnostic = z.infer<typeof RulesDiagnosticSchema>
 
 const GitShaSchema = z.string().regex(/^[0-9a-f]{40}$/)
 
-// provisional (ui#93): members every variant carries.
+// Members the four variants that have been read carry (`pending` has no time, so it is apart).
 const rulesStatusCommon = {
   branch: z.string().min(1),
   path: z.string(),
   checkedAt: z.iso.datetime(),
 }
 
-// provisional (ui#93): the file is there and was read.
+// The file is there and was read.
 const PresentRulesStatusSchema = z.object({
   ...rulesStatusCommon,
   status: z.literal('present'),
@@ -80,7 +80,8 @@ const PresentRulesStatusSchema = z.object({
   diagnostics: z.array(RulesDiagnosticSchema),
 })
 
-// provisional (ui#93): reliably absent, the service defaults apply.
+// Reliably absent, the service defaults apply. `defaultsVersion` is `unknown` when the repository
+// has no active rule version.
 const MissingRulesStatusSchema = z.object({
   ...rulesStatusCommon,
   status: z.literal('missing'),
@@ -88,8 +89,7 @@ const MissingRulesStatusSchema = z.object({
   defaultsVersion: z.string(),
 })
 
-// provisional (ui#93): the file is there and was refused; `text` is null when it was too large or
-// not UTF-8.
+// The file is there and was refused; `text` is null when it was too large or not UTF-8.
 const InvalidRulesStatusSchema = z.object({
   ...rulesStatusCommon,
   status: z.literal('invalid'),
@@ -98,8 +98,8 @@ const InvalidRulesStatusSchema = z.object({
   diagnostics: z.array(RulesDiagnosticSchema).min(1),
 })
 
-// provisional (ui#93): the server could not tell whether the file exists; `sha` is null when even
-// the revision is unknown. `retryable` of the diagnostics decides the retry button.
+// The server could not tell whether the file exists; `sha` is null when even the revision is
+// unknown. `retryable` of the diagnostics decides the retry button.
 const UnavailableRulesStatusSchema = z.object({
   ...rulesStatusCommon,
   status: z.literal('unavailable'),
@@ -107,11 +107,21 @@ const UnavailableRulesStatusSchema = z.object({
   diagnostics: z.array(RulesDiagnosticSchema).min(1),
 })
 
-// provisional (ui#93)
+// Not read yet: the GET that returns it has asked the worker to read the file, a later GET shows
+// the result. There is no revision and no time.
+const PendingRulesStatusSchema = z.object({
+  status: z.literal('pending'),
+  branch: z.string().min(1),
+  path: z.string(),
+  sha: z.null(),
+  checkedAt: z.null(),
+})
+
 export const RulesStatusSchema = z.discriminatedUnion('status', [
   PresentRulesStatusSchema,
   MissingRulesStatusSchema,
   InvalidRulesStatusSchema,
   UnavailableRulesStatusSchema,
+  PendingRulesStatusSchema,
 ])
 export type RulesStatus = z.infer<typeof RulesStatusSchema>

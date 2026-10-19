@@ -16,7 +16,6 @@ export const endpoints = {
     list: (): Endpoint => ({ method: 'GET', path: '/repos' }),
     detail: (id: string): Endpoint => ({ method: 'GET', path: `/repos/${id}` }),
     update: (id: string): Endpoint => ({ method: 'PATCH', path: `/repos/${id}` }),
-    // provisional (ui#93): the name of the endpoint is the UI's proposal for api#150.
     rulesStatus: (id: string): Endpoint => ({ method: 'GET', path: `/repos/${id}/rules-status` }),
   },
   runs: {

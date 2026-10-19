@@ -4,21 +4,17 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import {
-  repoRulesStatusQueryKey,
-  type RulesDiagnostic,
-  type RulesStatus,
-} from '../../../entities/repository'
+import type { RulesDiagnostic, RulesStatus } from '../../../entities/repository'
 import { RulesStatusPanel } from './RulesStatusPanel'
 
 const REPO_A = 'a1b2c3d4-e5f6-4890-abcd-ef1234567890'
 const REPO_B = 'b2c3d4e5-f6a7-4901-bcde-f12345678901'
 const SHA_1 = '1111111aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 const SHA_2 = '2222222bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
-const SHA_3 = '3333333ccccccccccccccccccccccccccccccccc'.slice(0, 40)
 const CHECKED_AT = '2026-10-14T09:30:15.000Z'
 const MISSING_WARNING = 'Используются дефолтные правила, создайте .review/rules.md'
 const LOAD_ERROR = 'Не удалось загрузить статус правил'
+const PENDING_TEXT = 'Проверяем .review/rules.md в ветке trunk…'
 
 const diagnostic: RulesDiagnostic = {
   code: 'policy_ignore_pattern_invalid',
@@ -50,7 +46,15 @@ const missing: RulesStatus = {
   path: '.review/rules.md',
   checkedAt: CHECKED_AT,
   sha: SHA_2,
-  defaultsVersion: '2026-10-01',
+  defaultsVersion: 'v1',
+}
+
+const pending: RulesStatus = {
+  status: 'pending',
+  branch: 'trunk',
+  path: '.review/rules.md',
+  checkedAt: null,
+  sha: null,
 }
 
 function invalid(text: string | null): RulesStatus {
@@ -148,6 +152,7 @@ function panel(): HTMLElement {
 
 afterEach(() => {
   cleanup()
+  vi.useRealTimers()
   vi.unstubAllGlobals()
 })
 
@@ -248,11 +253,66 @@ describe('RulesStatusPanel', () => {
 
     expect(await within(panel()).findByText(MISSING_WARNING)).toBeTruthy()
     const view = within(panel())
-    expect(view.getByText(/2026-10-01/)).toBeTruthy()
+    expect(view.getByText('Версия дефолтных правил: v1')).toBeTruthy()
     expect(view.getByText('trunk')).toBeTruthy()
     expect(view.getByText('2222222')).toBeTruthy()
     expect(view.queryByText('Файл найден')).toBeNull()
     expect(panel().querySelector('.ant-alert-warning')).not.toBeNull()
+  })
+
+  it('hides the defaults version line when the repository has no active rule version', async () => {
+    const noVersion: RulesStatus = { ...missing, defaultsVersion: 'unknown' }
+    stubBackend({ [REPO_A]: [json(noVersion)] })
+
+    renderPanel()
+
+    expect(await within(panel()).findByText(MISSING_WARNING)).toBeTruthy()
+    expect(panel().textContent).not.toContain('Версия дефолтных правил')
+    expect(panel().textContent).not.toContain('unknown')
+    expect(within(panel()).getByText('trunk')).toBeTruthy()
+    expect(panel().querySelector('.ant-alert-warning')).not.toBeNull()
+  })
+
+  it('shows a pending status as a loading state with the branch, never as missing or an error', async () => {
+    stubBackend({ [REPO_A]: [json(pending)] })
+
+    const { container } = renderPanel()
+
+    expect(await within(panel()).findByText(PENDING_TEXT)).toBeTruthy()
+    const view = within(panel())
+    expect(panel().querySelector('[role="status"]')).not.toBeNull()
+    expect(container.querySelector('.ant-skeleton')).toBeNull()
+    expect(view.queryByText(MISSING_WARNING)).toBeNull()
+    expect(view.queryByText(LOAD_ERROR)).toBeNull()
+    expect(panel().querySelector('.ant-alert')).toBeNull()
+    expect(view.queryByText(/Проверено/)).toBeNull()
+    expect(view.queryByText('Файл найден')).toBeNull()
+    expect(panel().querySelector('code')).toBeNull()
+    expect(view.queryByRole('button')).toBeNull()
+  })
+
+  it('swaps the pending state for the result when the next poll answers, then stops asking', async () => {
+    vi.useFakeTimers()
+    const backend = stubBackend({ [REPO_A]: [json(pending), json(present())] })
+    const advance = async (ms: number): Promise<void> => {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(ms)
+      })
+    }
+
+    renderPanel()
+    await advance(0)
+    expect(within(panel()).getByText(PENDING_TEXT)).toBeTruthy()
+    expect(backend.requests).toEqual([REPO_A])
+
+    await advance(3000)
+    await advance(1)
+
+    expect(backend.requests).toEqual([REPO_A, REPO_A])
+    expect(within(panel()).getByText('Файл найден')).toBeTruthy()
+    expect(within(panel()).queryByText(PENDING_TEXT)).toBeNull()
+    await advance(60_000)
+    expect(backend.requests).toEqual([REPO_A, REPO_A])
   })
 
   it('reports an invalid file with its diagnostics and its text', async () => {
@@ -317,6 +377,12 @@ describe('RulesStatusPanel', () => {
       'a known code shows its reason and no code',
       'policy_rate_limited',
       'GitHub ограничил число запросов',
+      false,
+    ],
+    [
+      'the revision code shows the wording of the api page and no code',
+      'policy_revision_unavailable',
+      'Ревизия default branch недоступна: GitHub не подтвердил, есть ли файл правил.',
       false,
     ],
     [
@@ -385,241 +451,44 @@ describe('RulesStatusPanel', () => {
     expect(within(panel()).queryByRole('heading', { name: 'Title' })).toBeNull()
   })
 
-  it('refetches on «Обновить» and shows the new sha', async () => {
-    const backend = stubBackend({
-      [REPO_A]: [json(present({ sha: SHA_1 })), json(present({ sha: SHA_3 }))],
-    })
-
+  it('keeps the focus on «Повторить» when the retry fails again', async () => {
+    const backend = stubBackend({ [REPO_A]: [json({ detail: 'boom' }, 500)] })
     renderPanel()
+    const retry = await within(panel()).findByRole('button', { name: 'Повторить' })
 
-    await within(panel()).findByText('1111111')
-    fireEvent.click(within(panel()).getByRole('button', { name: /Обновить/ }))
-
-    expect(await within(panel()).findByText('3333333')).toBeTruthy()
-    expect(within(panel()).queryByText('1111111')).toBeNull()
-    expect(backend.requests).toEqual([REPO_A, REPO_A])
-  })
-
-  it('shows a spinner on «Обновить» while the request runs', async () => {
-    let release: (response: Response) => void = () => undefined
-    stubBackend({
-      [REPO_A]: [
-        json(present()),
-        new Promise<Response>((resolve) => {
-          release = resolve
-        }),
-      ],
-    })
-
-    renderPanel()
-
-    await within(panel()).findByText('1111111')
-    const button = within(panel()).getByRole('button', { name: /Обновить/ })
-    expect(button.className).not.toContain('ant-btn-loading')
-    fireEvent.click(button)
-
+    retry.focus()
+    fireEvent.click(retry)
     await waitFor(() => {
-      expect(button.className).toContain('ant-btn-loading')
+      expect(backend.requests).toHaveLength(2)
     })
-    release(json(present()))
-    await waitFor(() => {
-      expect(button.className).not.toContain('ant-btn-loading')
-    })
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(within(panel()).getByText(LOAD_ERROR)).toBeTruthy()
+    expect(within(panel()).getByRole('button', { name: 'Повторить' })).toBe(retry)
+    expect(document.activeElement).toBe(retry)
   })
 
-  it('keeps «Обновить» a default button so the page keeps one primary', async () => {
-    stubBackend({ [REPO_A]: [json(present())] })
-
-    const { container } = renderPanel()
-
-    await within(panel()).findByText('1111111')
-    expect(container.querySelector('.ant-btn-primary')).toBeNull()
-  })
-
-  it('replaces a shown status with the load error when «Обновить» fails', async () => {
-    stubBackend({ [REPO_A]: [json(present()), json({ detail: 'boom' }, 500)] })
+  it.each([
+    ['while it loads', () => new Promise<Response>(() => undefined), null],
+    ['a pending file', () => json(pending), PENDING_TEXT],
+    ['a present file', () => json(present()), 'Файл найден'],
+    ['a missing file', () => json(missing), MISSING_WARNING],
+    ['an invalid file', () => json(invalid('# Rules')), 'Файл правил содержит ошибки'],
+    [
+      'an unavailable file that can be retried',
+      () => json(unavailable(true, 'policy_fetch_transient')),
+      'Не удалось прочитать файл правил',
+    ],
+    ['a load error', () => json({ detail: 'boom' }, 500), LOAD_ERROR],
+  ])('has no «Обновить» button: %s', async (_name, answer, marker) => {
+    stubBackend({ [REPO_A]: [answer()] })
 
     renderPanel()
 
-    await within(panel()).findByText('1111111')
-    fireEvent.click(within(panel()).getByRole('button', { name: /Обновить/ }))
-
-    expect(await within(panel()).findByText(LOAD_ERROR)).toBeTruthy()
-    expect(within(panel()).queryByText('1111111')).toBeNull()
-    expect(within(panel()).queryByText('Файл найден')).toBeNull()
-  })
-
-  describe('«Обновить» in every state', () => {
-    it('is there while the first status loads', () => {
-      stubBackend({ [REPO_A]: [new Promise<Response>(() => undefined)] })
-
-      const { container } = renderPanel()
-
-      expect(container.querySelector('.ant-skeleton')).not.toBeNull()
-      expect(within(panel()).getByRole('button', { name: /Обновить/ })).toBeTruthy()
-    })
-
-    it.each([
-      ['a present file', () => json(present())],
-      ['a missing file', () => json(missing)],
-      ['an invalid file', () => json(invalid('# Rules'))],
-      ['an unavailable file that can be retried', () => json(unavailable(true, 'policy_fetch'))],
-      ['an unavailable file that cannot be retried', () => json(unavailable(false))],
-      ['a load error', () => json({ detail: 'boom' }, 500)],
-    ])('is there for %s', async (_name, answer) => {
-      stubBackend({ [REPO_A]: [answer()] })
-
-      const { container } = renderPanel()
-
-      await waitFor(() => {
-        expect(container.querySelector('.ant-skeleton')).toBeNull()
-      })
-      expect(within(panel()).getByRole('button', { name: /Обновить/ })).toBeTruthy()
-    })
-  })
-
-  describe('focus survives the action', () => {
-    function refreshButton(): HTMLElement {
-      return within(panel()).getByRole('button', { name: /Обновить/ })
+    if (marker !== null) {
+      await within(panel()).findByText(marker)
     }
-
-    it('keeps the focus on «Обновить» when the refresh fails', async () => {
-      stubBackend({ [REPO_A]: [json(present()), json({ detail: 'boom' }, 500)] })
-      renderPanel()
-      await within(panel()).findByText('1111111')
-
-      const refresh = refreshButton()
-      refresh.focus()
-      fireEvent.click(refresh)
-
-      await within(panel()).findByText(LOAD_ERROR)
-      expect(refreshButton()).toBe(refresh)
-      expect(document.activeElement).toBe(refresh)
-    })
-
-    it('moves the focus to «Обновить» when the retry of a load error succeeds', async () => {
-      stubBackend({ [REPO_A]: [json({ detail: 'boom' }, 500), json(present())] })
-      renderPanel()
-      const retry = await within(panel()).findByRole('button', { name: 'Повторить' })
-
-      retry.focus()
-      fireEvent.click(retry)
-
-      await within(panel()).findByText('Файл найден')
-      await waitFor(() => {
-        expect(document.activeElement).toBe(refreshButton())
-      })
-    })
-
-    it('moves the focus to «Обновить» when the retry of an unavailable file succeeds', async () => {
-      stubBackend({
-        [REPO_A]: [json(unavailable(true, 'policy_fetch_transient')), json(present())],
-      })
-      renderPanel()
-      const retry = await within(panel()).findByRole('button', { name: 'Повторить' })
-
-      retry.focus()
-      fireEvent.click(retry)
-
-      await within(panel()).findByText('Файл найден')
-      await waitFor(() => {
-        expect(document.activeElement).toBe(refreshButton())
-      })
-    })
-
-    it('moves no focus when the retry that succeeds did not have it', async () => {
-      stubBackend({ [REPO_A]: [json({ detail: 'boom' }, 500), json(present())] })
-      renderPanel()
-      const retry = await within(panel()).findByRole('button', { name: 'Повторить' })
-
-      // A click with the mouse: Safari does not focus a button for it.
-      fireEvent.click(retry)
-
-      await within(panel()).findByText('Файл найден')
-      await new Promise((resolve) => setTimeout(resolve, 20))
-      expect(document.activeElement).toBe(document.body)
-    })
-
-    describe('when a refetch the retry did not start takes the retry away', () => {
-      /** An invalidation, as a refocused window or another part of the page makes it. */
-      async function refetchFromOutside(client: QueryClient): Promise<void> {
-        await act(async () => {
-          await client.invalidateQueries({ queryKey: repoRulesStatusQueryKey(REPO_A) })
-        })
-      }
-
-      it('moves the focus to «Обновить» when the retry of a load error had it', async () => {
-        stubBackend({ [REPO_A]: [json({ detail: 'boom' }, 500), json(present())] })
-        const { client } = renderPanel()
-        const retry = await within(panel()).findByRole('button', { name: 'Повторить' })
-        retry.focus()
-
-        await refetchFromOutside(client)
-
-        await within(panel()).findByText('Файл найден')
-        expect(within(panel()).queryByRole('button', { name: 'Повторить' })).toBeNull()
-        await waitFor(() => {
-          expect(document.activeElement).toBe(refreshButton())
-        })
-      })
-
-      it('moves no focus when the retry did not have it', async () => {
-        stubBackend({ [REPO_A]: [json({ detail: 'boom' }, 500), json(present())] })
-        const { client } = renderPanel()
-        await within(panel()).findByRole('button', { name: 'Повторить' })
-        const elsewhere = document.body.appendChild(document.createElement('button'))
-        try {
-          elsewhere.focus()
-
-          await refetchFromOutside(client)
-
-          await within(panel()).findByText('Файл найден')
-          await new Promise((resolve) => setTimeout(resolve, 20))
-          expect(document.activeElement).toBe(elsewhere)
-        } finally {
-          elsewhere.remove()
-        }
-      })
-
-      it('moves no focus when the retry lost the focus and nothing took it', async () => {
-        stubBackend({ [REPO_A]: [json({ detail: 'boom' }, 500), json(present())] })
-        const { client } = renderPanel()
-        const retry = await within(panel()).findByRole('button', { name: 'Повторить' })
-        retry.focus()
-        retry.blur()
-        expect(document.activeElement).toBe(document.body)
-
-        await refetchFromOutside(client)
-
-        await within(panel()).findByText('Файл найден')
-        await new Promise((resolve) => setTimeout(resolve, 20))
-        expect(document.activeElement).toBe(document.body)
-      })
-    })
-
-    it('keeps the focus on «Повторить» when the retry fails again', async () => {
-      const backend = stubBackend({
-        [REPO_A]: [json(present()), json({ detail: 'boom' }, 500), json({ detail: 'boom' }, 500)],
-      })
-      renderPanel()
-      await within(panel()).findByText('1111111')
-      // The refresh fails and leaves the focus on «Обновить»; Tab takes the user to «Повторить».
-      const refresh = refreshButton()
-      refresh.focus()
-      fireEvent.click(refresh)
-      const retry = await within(panel()).findByRole('button', { name: 'Повторить' })
-      expect(document.activeElement).toBe(refresh)
-
-      retry.focus()
-      fireEvent.click(retry)
-      await waitFor(() => {
-        expect(backend.requests).toHaveLength(3)
-      })
-      await new Promise((resolve) => setTimeout(resolve, 20))
-
-      expect(within(panel()).getByRole('button', { name: 'Повторить' })).toBe(retry)
-      expect(document.activeElement).toBe(retry)
-    })
+    expect(within(panel()).queryByRole('button', { name: /Обновить/ })).toBeNull()
   })
 
   it('refetches when reopened', async () => {
@@ -632,7 +501,9 @@ describe('RulesStatusPanel', () => {
 
     renderPanel({}, client)
 
+    // Reopening the page is how the status is asked again: a new sha comes from a new GET.
     expect(await within(panel()).findByText('2222222')).toBeTruthy()
+    expect(within(panel()).queryByText('1111111')).toBeNull()
     expect(backend.requests).toEqual([REPO_A, REPO_A])
   })
 

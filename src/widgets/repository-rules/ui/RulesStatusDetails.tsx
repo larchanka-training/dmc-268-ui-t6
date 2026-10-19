@@ -1,9 +1,9 @@
 import { BranchesOutlined } from '@ant-design/icons'
 import { Alert, Button, Flex, Tooltip, Typography } from 'antd'
-import type { FC, MouseEventHandler, ReactNode } from 'react'
+import type { FC, ReactNode } from 'react'
 
 import type { RulesDiagnostic, RulesStatus } from '../../../entities/repository'
-import { CodeBlock, Tag } from '../../../shared/ui'
+import { CodeBlock, Spinner, Tag } from '../../../shared/ui'
 import {
   describeDiagnosticLimit,
   describeDiagnosticLocation,
@@ -17,6 +17,9 @@ import styles from './RulesStatusPanel.module.css'
 const { Text } = Typography
 
 const MISSING_WARNING = 'Используются дефолтные правила, создайте .review/rules.md'
+
+// What the server puts in `defaultsVersion` when the repository has no active rule version.
+const UNKNOWN_DEFAULTS_VERSION = 'unknown'
 
 const Section: FC<{ title: string; children: ReactNode }> = ({ title, children }) => (
   <div>
@@ -61,8 +64,11 @@ const DiagnosticList: FC<{ diagnostics: RulesDiagnostic[] }> = ({ diagnostics })
   </ul>
 )
 
-/** What every status carries: where the file was read from and when. */
-const Meta: FC<{ status: RulesStatus; tag?: ReactNode }> = ({ status, tag }) => (
+/** What a status that has been read carries: where the file was read from and when. */
+const Meta: FC<{ status: Exclude<RulesStatus, { status: 'pending' }>; tag?: ReactNode }> = ({
+  status,
+  tag,
+}) => (
   <Flex align="center" className={styles.meta} gap={8} wrap>
     {tag}
     <code>{status.path}</code>
@@ -83,11 +89,11 @@ const Meta: FC<{ status: RulesStatus; tag?: ReactNode }> = ({ status, tag }) => 
 export interface RulesStatusDetailsProps {
   status: RulesStatus
   /** Asks the server again; offered only where the server said a retry can help. */
-  onRetry: MouseEventHandler<HTMLElement>
+  onRetry: () => void
   retrying: boolean
 }
 
-/** One of the four answers the server gives for `.review/rules.md`. */
+/** One of the five answers the server gives for `.review/rules.md`. */
 export const RulesStatusDetails: FC<RulesStatusDetailsProps> = ({ status, onRetry, retrying }) => {
   switch (status.status) {
     case 'present':
@@ -117,11 +123,22 @@ export const RulesStatusDetails: FC<RulesStatusDetailsProps> = ({ status, onRetr
           ) : null}
         </Flex>
       )
+    case 'pending':
+      return (
+        <Flex align="center" gap={8} role="status">
+          <Spinner label={null} size="sm" />
+          <Text type="secondary">{`Проверяем .review/rules.md в ветке ${status.branch}…`}</Text>
+        </Flex>
+      )
     case 'missing':
       return (
         <Flex gap={12} vertical>
           <Alert
-            description={`Версия дефолтных правил: ${status.defaultsVersion}`}
+            description={
+              status.defaultsVersion === UNKNOWN_DEFAULTS_VERSION
+                ? undefined
+                : `Версия дефолтных правил: ${status.defaultsVersion}`
+            }
             showIcon
             title={MISSING_WARNING}
             type="warning"

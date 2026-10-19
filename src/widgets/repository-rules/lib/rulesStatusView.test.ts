@@ -56,7 +56,10 @@ describe('describeDiagnosticLimit', () => {
 describe('unavailableReason', () => {
   it.each([
     ['policy_access_denied', 'У GitHub App нет доступа к репозиторию'],
-    ['policy_revision_unavailable', 'Закреплённая ревизия правил недоступна'],
+    [
+      'policy_revision_unavailable',
+      'Ревизия default branch недоступна: GitHub не подтвердил, есть ли файл правил.',
+    ],
     ['policy_fetch_transient', 'GitHub временно не отвечает'],
     ['policy_rate_limited', 'GitHub ограничил число запросов'],
   ])('explains %s in Russian', (code, reason) => {

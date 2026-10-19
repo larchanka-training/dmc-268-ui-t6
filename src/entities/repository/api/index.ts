@@ -84,6 +84,9 @@ export function useRepository(id: string) {
   })
 }
 
+/** How often a `pending` rules status is asked again: the worker reads the file in seconds. */
+export const RULES_STATUS_PENDING_POLL_MS = 3000
+
 export interface RepositoryRulesStatusOptions {
   /** `false` sends no request at all (the rules API is not served yet). */
   enabled: boolean
@@ -96,12 +99,18 @@ export interface RepositoryRulesStatusOptions {
  * placeholder, so the answer for another repository is never shown either. `data` is `undefined`
  * while loading and while disabled — check `enabled` before `isPending`, which stays true for a
  * disabled query.
+ *
+ * While the last answer is `pending` (the file is not read yet) it asks again every
+ * `RULES_STATUS_PENDING_POLL_MS`, and stops with the first result. A request that fails keeps the
+ * last answer, so a polling that began goes on until a result or the page is left.
  */
 export function useRepositoryRulesStatus(id: string, { enabled }: RepositoryRulesStatusOptions) {
   return useQuery({
     queryKey: repoRulesStatusQueryKey(id),
     queryFn: ({ signal }) => fetchRepositoryRulesStatus(id, signal),
     enabled,
+    refetchInterval: (query) =>
+      query.state.data?.status === 'pending' ? RULES_STATUS_PENDING_POLL_MS : false,
     refetchOnMount: 'always',
     gcTime: 0,
   })
