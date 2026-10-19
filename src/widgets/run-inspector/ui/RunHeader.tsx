@@ -1,11 +1,19 @@
-import type { JSX } from 'react'
-import { Descriptions, Flex, Typography } from 'antd'
+import type { JSX, ReactNode } from 'react'
+import { Flex, Typography } from 'antd'
 
 import type { RunSession, SeverityCounts, Verdict } from '../../../entities/run'
 import { isActive, isStaleRunning, statusTone } from '../../../entities/run'
 import { safeHttpUrl } from '../../../shared/lib/safeHttpUrl'
-import { Tag } from '../../../shared/ui'
+import { cx, Tag } from '../../../shared/ui'
 import { formatDateTime, formatDuration, runDuration } from '../lib/format'
+import styles from './RunHeader.module.css'
+
+interface MetadataItem {
+  key: string
+  label: string
+  children: ReactNode
+  wide?: boolean
+}
 
 interface RunHeaderProps {
   run: RunSession
@@ -64,7 +72,7 @@ export function RunHeader(props: RunHeaderProps): JSX.Element {
   const refs = formatRefs(pr.headRef, pr.baseRef)
   const prHref = safeHttpUrl(pr.url)
 
-  const items = [
+  const items: MetadataItem[] = [
     { key: 'repo', label: 'Репозиторий', children: pr.repo },
     {
       key: 'pullRequest',
@@ -77,7 +85,11 @@ export function RunHeader(props: RunHeaderProps): JSX.Element {
         `#${String(pr.number)} ${pr.title}`
       ),
     },
-    { key: 'headSha', label: 'Commit', children: shortSha(pr.headSha) },
+    {
+      key: 'headSha',
+      label: 'Commit',
+      children: <code className={styles.commit}>{shortSha(pr.headSha)}</code>,
+    },
     ...(pr.author ? [{ key: 'author', label: 'Автор', children: pr.author }] : []),
     ...(refs ? [{ key: 'refs', label: 'Ветки', children: refs }] : []),
     { key: 'engine', label: 'Движок', children: run.engine },
@@ -104,6 +116,7 @@ export function RunHeader(props: RunHeaderProps): JSX.Element {
           {
             key: 'severityCounts',
             label: 'Находки',
+            wide: true,
             children: (
               <Flex gap={4} wrap>
                 <Tag variant="outline">critical: {severityCounts.critical}</Tag>
@@ -146,7 +159,14 @@ export function RunHeader(props: RunHeaderProps): JSX.Element {
 
   return (
     <div>
-      <Descriptions column={{ xs: 1, sm: 2, lg: 4 }} items={items} size="small" />
+      <dl className={styles.metadata}>
+        {items.map((item) => (
+          <div className={cx(styles.item, item.wide && styles.wide)} key={item.key}>
+            <dt className={styles.label}>{item.label}</dt>
+            <dd className={styles.value}>{item.children}</dd>
+          </div>
+        ))}
+      </dl>
       {run.summaryOnly ? (
         <Typography.Text type="secondary">
           Summary-only прогон (дифф &gt; 3000 строк)

@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import type { RunSession } from '../../../entities/run'
 import { RunHeader } from './RunHeader'
+import styles from './RunHeader.module.css'
 
 const baseRun: RunSession = {
   id: '11111111-1111-4111-8111-000000000004',
@@ -35,11 +36,81 @@ afterEach(() => {
   cleanup()
 })
 
+describe('RunHeader metadata layout', () => {
+  it('marks the short commit as code with the monospace font hook', () => {
+    render(<RunHeader now={new Date('2026-09-18T12:00:00.000Z')} run={baseRun} />)
+    const hash = screen.getByText('abcdef1')
+    expect(hash.tagName).toBe('CODE')
+    expect(styles.commit).toBeTruthy()
+    expect(hash.classList.contains(styles.commit ?? '')).toBe(true)
+  })
+
+  it('retains the run settings, timing, attempt and error values next to their labels', () => {
+    render(
+      <RunHeader
+        now={new Date('2026-09-18T12:00:00.000Z')}
+        run={{ ...baseRun, status: 'failed', attempt: 3, errorCode: 'provider_timeout' }}
+      />,
+    )
+    for (const [label, value] of [
+      ['Движок', 'deep'],
+      ['Модель', 'claude-sonnet-5'],
+      ['Создан', '2026-09-18 11:00:00'],
+      ['Начат', '2026-09-18 11:50:00'],
+      ['Длительность', '5 мин 12 с'],
+      ['Попытка', '3'],
+      ['Ошибка', 'provider_timeout'],
+    ] as const) {
+      expect(screen.getByText(label, { selector: 'dt' }).nextElementSibling?.textContent).toBe(
+        value,
+      )
+    }
+  })
+
+  it('retains complete long repository, PR and branch text', () => {
+    render(
+      <RunHeader
+        now={new Date('2026-09-18T12:00:00.000Z')}
+        run={{
+          ...baseRun,
+          pullRequest: {
+            ...baseRun.pullRequest,
+            repo: 'organization/very-long-repository-name-for-review-diagnostics',
+            title:
+              'feat: preserve readable metadata for detailed review diagnostics on narrow screens',
+            headRef: 'feat/very-long-branch-name-for-review-diagnostics',
+          },
+        }}
+      />,
+    )
+    expect(
+      screen.getByText('organization/very-long-repository-name-for-review-diagnostics'),
+    ).toBeTruthy()
+    expect(
+      screen
+        .getByRole('link', {
+          name: '#34 feat: preserve readable metadata for detailed review diagnostics on narrow screens',
+        })
+        .getAttribute('href'),
+    ).toBe('https://github.com/larchanka-training/dmc-268-ui-t6/pull/34')
+    expect(
+      screen.getByText('feat/very-long-branch-name-for-review-diagnostics → main'),
+    ).toBeTruthy()
+  })
+
+  it('pairs metadata labels with values in a semantic description list', () => {
+    render(<RunHeader now={new Date('2026-09-18T12:00:00.000Z')} run={baseRun} />)
+    const label = screen.getByText('Репозиторий', { selector: 'dt' })
+    expect(label.closest('dl')).not.toBeNull()
+    expect(label.nextElementSibling?.tagName).toBe('DD')
+    expect(label.nextElementSibling?.textContent).toBe('larchanka-training/dmc-268-ui-t6')
+  })
+})
+
 describe('RunHeader run origin', () => {
   // The em dash is rendered by several rows, so a value is read inside its own row.
   function rowValue(label: string): string | null {
-    const item = screen.getByText(label).closest('.ant-descriptions-item')
-    return item?.querySelector('.ant-descriptions-item-content')?.textContent ?? null
+    return screen.getByText(label, { selector: 'dt' }).nextElementSibling?.textContent ?? null
   }
 
   it('marks a rerun in its own row', () => {
@@ -73,6 +144,7 @@ describe('RunHeader run origin', () => {
     )
     expect(rowValue('Создан')).toBe('2026-09-18 11:00:00')
     expect(rowValue('Начат')).toBe('—')
+    expect(rowValue('Длительность')).toBe('—')
   })
 
   it('labels the start time «Начат» for a started run', () => {
@@ -116,6 +188,9 @@ describe('RunHeader PR metadata', () => {
     )
     expect(screen.queryByText('Находки')).toBeNull()
     expect(screen.queryByText('critical: 0')).toBeNull()
+    if (run.summaryOnly) {
+      expect(screen.getByText('Summary-only прогон (дифф > 3000 строк)')).toBeTruthy()
+    }
   })
 
   // The API counts every finding, the client drops the ones that fail the format check:
@@ -189,8 +264,7 @@ describe('RunHeader action count', () => {
   const NOW = new Date('2026-09-18T12:00:00.000Z')
 
   function actionCountCell(): string | null {
-    const item = screen.getByText('Действий').closest('.ant-descriptions-item')
-    return item?.querySelector('.ant-descriptions-item-content')?.textContent ?? null
+    return screen.getByText('Действий', { selector: 'dt' }).nextElementSibling?.textContent ?? null
   }
 
   it('shows the count of the run when no log length is given', () => {

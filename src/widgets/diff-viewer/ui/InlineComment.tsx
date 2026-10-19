@@ -36,6 +36,7 @@ export function InlineComment(props: InlineCommentProps): JSX.Element {
     <div className="inline-comment" data-testid="inline-comment">
       <RowButton
         aria-expanded={expanded}
+        className="inline-comment-row"
         onClick={() => {
           setExpanded((value) => !value)
         }}
@@ -43,8 +44,14 @@ export function InlineComment(props: InlineCommentProps): JSX.Element {
         <Tag tone={SEVERITY_TAG[badge].tone} variant={SEVERITY_TAG[badge].variant}>
           {SEVERITY_LABEL[finding.severity]}
         </Tag>
-        <Typography.Text strong>{finding.title}</Typography.Text>
-        {range !== null ? <Typography.Text type="secondary">{range}</Typography.Text> : null}
+        <Typography.Text className="inline-comment-title" strong>
+          {finding.title}
+        </Typography.Text>
+        {range !== null ? (
+          <Typography.Text className="inline-comment-range" type="secondary">
+            {range}
+          </Typography.Text>
+        ) : null}
       </RowButton>
       {expanded ? (
         <div className="inline-comment-body">

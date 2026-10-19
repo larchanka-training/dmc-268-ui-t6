@@ -100,10 +100,7 @@ describe('RunInspector', () => {
 
   it('shows the longer of the run count and the polled log in the header', () => {
     const header = (): string | null =>
-      screen
-        .getByText('Действий')
-        .closest('.ant-descriptions-item')
-        ?.querySelector('.ant-descriptions-item-content')?.textContent ?? null
+      screen.getByText('Действий', { selector: 'dt' }).nextElementSibling?.textContent ?? null
 
     // 34 actions in the log, the run detail still says 5.
     const { unmount } = renderWithQuery(

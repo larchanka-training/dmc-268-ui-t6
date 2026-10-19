@@ -88,3 +88,54 @@
   border: 1px solid var(--rv-border-strong);
   border-radius: var(--rv-radius-xs);
 }
+
+/* Keep the original 5ch number area plus the marker lane and its gap. */
+.diff-with-change-markers > colgroup > .diff-gutter-col {
+  width: calc(8ch + 4px);
+}
+
+/* Markers belong to DiffViewer's custom gutter, leaving suggestion diffs unchanged. */
+.diff-gutter-with-marker {
+  display: flex;
+  gap: 4px;
+  align-items: baseline;
+}
+
+.diff-gutter-number {
+  flex: 1;
+  min-width: 0;
+}
+
+.diff-gutter-number > a {
+  color: inherit;
+}
+
+.diff-change-marker {
+  flex: 0 0 1ch;
+  text-align: center;
+  user-select: none;
+}
+
+.diff-change-marker-insert {
+  color: color-mix(in srgb, var(--rv-success) 80%, var(--rv-text));
+}
+
+.diff-change-marker-delete {
+  color: color-mix(in srgb, var(--rv-danger) 80%, var(--rv-text));
+}
+
+.inline-comment-row {
+  flex-wrap: wrap;
+}
+
+.inline-comment-row > .inline-comment-title {
+  flex: 1 1 120px;
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.inline-comment-row > .inline-comment-range {
+  flex: none;
+  white-space: nowrap;
+}
