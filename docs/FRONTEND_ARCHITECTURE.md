@@ -46,8 +46,9 @@ antd, TanStack Query и jsdom — патчи от 2026-09-24.
 | Ф-18 | Синхронная подсветка диффа — бюджет ~1000 строк на файл и на весь дифф; выше — без `tokenize` (worker — follow-up)                                                   | AC ui#65 ч. 1; API `summary_only` >3000 строк; замеры в `docs/plans/65-plan.md` (Refs ui#65).                                                                                                                              |
 | Ф-19 | Список PR репозитория (`GET /repos/{id}/pulls`) в UI **не** входит в scope #65; навигация — со страницы репозиториев / внешняя ссылка на GitHub                      | Открытый вопрос плана закрыт: follow-up issue при появлении API в продукте (Refs ui#65).                                                                                                                                   |
 | Ф-20 | Дизайн-система Flat Console поверх antd: тема, свои компоненты и правила в `src/shared/ui`, витрина в Storybook; спецификация [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) | Единый вид всех экранов без смены UI-кита: Ф-2 и Ф-13 остаются в силе, antd получает нашу тему, а то, что токенами не выражается, собрано в одном файле. Базовые компоненты берутся только из дизайн-системы (Refs ui#98). |
-| Ф-21 | Настройки репозитория — страница `/repositories/:repoId/settings`, не модальное окно; история — `/runs?repo=` по курсору; поля — api PR #156, правила — provisional  | ui#93: у настроек свой адрес (ссылка, возврат после входа) и место для блока правил; поля — контракт api#149 (§5); `rules-status` в api нет — его объявил UI, блок правил только на моках (§2, §8, §9).                    |
+| Ф-21 | Настройки репозитория — страница `/repositories/:repoId/settings`, не модальное окно; история — `/runs?repo=` по курсору; поля — api PR #156, правила — api PR #202  | ui#93: у настроек свой адрес (ссылка, возврат после входа) и место для блока правил; поля — контракт api#149 (§5); `rules-status` — контракт api PR #202 (§5), блок правил только на моках (§2, §8, §9).                   |
 | Ф-22 | Обновление доступа: опрос 5 с / 120 с, резерв статуса вне idle и постоянный live region на странице (§2)                                                             | Запаздывающий репозиторий появляется без блокировки действий строки; поиск и таблица не сдвигаются, status сохраняется между GET и при ошибке без данных (Refs ui#92, ui#120).                                             |
+| Ф-23 | Статус `.review/rules.md` без кнопки «Обновить»: свежий ответ — при повторном открытии страницы, `pending` опрашивается раз в 3 с                                    | ui#93, D18: [техлид согласовал][api150-reread] механизм createunix — воркер сам перечитывает файл, ручного обновления нет; «Повторить» — для `unavailable` с `retryable` и сбоя HTTP (§2, §5).                             |
 
 Ф-11 уточнено 2026-09-24 (#49): TypeScript поднят 5.9.3 → 6.0.3. Потолок — именно 6.0.x, а не
 «6.x»: у TypeScript 7.0 нет JS API компилятора, поэтому peer typescript-eslint остаётся
@@ -522,7 +523,7 @@ src/widgets/run-inspector/ui/RunProgressBar.tsx
 | `expandedKeys`, `selectedActionIndex` | Zustand, `widgets/run-inspector/model/store.ts`                                                                            | —                                                                                                                                                                                                                             |
 | Фильтры замечаний                     | URL search params `file`, `severity` (повторяются), `q`; хук `useFindingFiltersParams` (`features/finding-filters`)        | — (источник — URL; другой прогон начинает чисто)                                                                                                                                                                              |
 | Фильтр истории прогонов               | URL search param `repo` (одно значение); хук `useRunListFilterParams` (`features/run-list-filter`)                         | — (источник — URL)                                                                                                                                                                                                            |
-| Статус `.review/rules.md`             | TanStack Query, ключ `['repoRulesStatus', id]` — вне `['repos']` (ниже); запрос только на моках                            | открытие (`'always'`), `gcTime: 0`, «Обновить»                                                                                                                                                                                |
+| Статус `.review/rules.md`             | TanStack Query, ключ `['repoRulesStatus', id]` — вне `['repos']` (ниже); запрос только на моках                            | открытие (`'always'`), `gcTime: 0`, опрос раз в 3 с, пока ответ `pending`                                                                                                                                                     |
 | Черновик настроек репозитория         | `useState` в `RepositorySettingsForm`: снимок на открытии (baseline) и правки пользователя, не копия кэша                  | — (живёт с формой; `key={repoId}`, `resetTo`)                                                                                                                                                                                 |
 | Черновики комментариев                | —                                                                                                                          | future (не реализовано в этом спринте)                                                                                                                                                                                        |
 
@@ -859,16 +860,14 @@ Upgrade canary в `routerLocationAdapter.test.tsx` проверяет досту
   страницы спрашивает заново, а `gcTime: 0` убирает ответ из кэша, когда его перестают показывать:
   повторное открытие начинается со `Skeleton`, старый sha не виден, пока не пришёл свежий ответ. У
   каждого `repoId` свой ключ и нет `placeholderData`, поэтому ответ другого репозитория, в том числе запоздавший, не показывается.
-  «Обновить» — `refetch` (обычная кнопка, не primary); она стоит в любом состоянии включённого
-  блока, в том числе при ошибке загрузки и `unavailable`, поэтому неудачное обновление не убирает
-  кнопку с фокусом. «Повторить» (ошибка загрузки; `unavailable` с `retryable`) исчезает, когда
-  повтор удался: если у неё был фокус, его получает «Обновить» (эффект по `isFetching`, `status`,
-  `dataUpdatedAt` и `errorUpdatedAt` — быстрый ответ может дойти до страницы без `isFetching`);
-  упавший повтор оставляет фокус на своей кнопке. «Повторить» ошибки загрузки может убрать и
-  перезапрос, который она не запускала (возвращение в окно, инвалидация): `ref`-колбэк
-  (`trackErrorRetry`) видит в момент ухода кнопки, что фокус на ней, и «Обновить» получает его
-  тем же эффектом; если фокус у пользователя в другом месте, он остаётся там (у `unavailable`
-  перенос только после клика по своей кнопке). Запрос
+  Кнопки «Обновить» нет (Ф-23): сервер сам перечитывает файл, а свежий ответ приходит при следующем
+  открытии страницы (`refetchOnMount: 'always'`) и пока статус `pending`. `refetchInterval` — функция:
+  `RULES_STATUS_PENDING_POLL_MS` (3 с), пока последний ответ в кэше `pending`, иначе `false`; опрос
+  кончается с первым результатом и вместе со страницей (`gcTime: 0`). Упавший опрос оставляет в `data`
+  прежний `pending`, поэтому опрос идёт дальше, а блок на это время показывает ошибку загрузки.
+  «Повторить» (ошибка загрузки; `unavailable` с `retryable`) — обычный `refetch`; фокус он никуда не
+  переносит. `pending` — состояние загрузки, а не ошибка и не `missing`: кольцо `Spinner` и «Проверяем
+  .review/rules.md в ветке {branch}…» (без sha, времени и кнопок). Запрос
   включён только на моках: `enabled = mocksEnabledAtRuntime(isMockMode)` — тот же гейт, что у пункта
   `/review` в `AppSidebar`; вне моков блок показывает одну строку и в сеть не ходит (§5).
 
@@ -1034,7 +1033,7 @@ ReviewComment = { id, file, oldLine, newLine, endLine, body, ruleName,
   title, createdAt }
 
 // entities/repository — Repository, RepositoryUpdate (api#149, api PR #156), RulesStatus
-// (provisional — ui#93, api#150); §5
+// (api#150, api PR #202); §5
 RepositoryId = uuid                     // RepositoryIdSchema: Repository.id и :repoId в адресе
 Repository = { id, fullName, url, defaultBranch, enabled, defaultEngine: fast,
   waitForCi: auto|always|never, maxComments: 1..10, reviewEvent: COMMENT|REQUEST_CHANGES,
@@ -1043,7 +1042,7 @@ Repository = { id, fullName, url, defaultBranch, enabled, defaultEngine: fast,
   installationAvailable: boolean }      // только чтение
 RepositoryUpdate = { enabled?, defaultEngine?, waitForCi?, maxComments?, reviewEvent?,
   branchFilter?, severityThreshold? }   // хотя бы одно поле; installationAvailable нет
-RulesStatus = present | missing | invalid | unavailable   // provisional, discriminatedUnion('status')
+RulesStatus = present | missing | invalid | unavailable | pending   // discriminatedUnion('status')
 RulesDiagnostic = { code, message, line: int|null, column: int|null, retryable,
   limit?, actual?, patternIndex? }
 ```
@@ -1067,11 +1066,12 @@ RulesDiagnostic = { code, message, line: int|null, column: int|null, retryable,
   strict, и разбор отбрасывает это поле из ввода.
 - В схемах репозитория нет `.transform()`: генератор снимка в api строит JSON Schema
   (`z.toJSONSchema`) из `RepositorySchema` и `UpdateRepositorySchema`. `RulesStatusSchema` и
-  `RulesDiagnosticSchema` генератор пока не знает; локальный тест `stays representable as JSON Schema`
-  держит все четыре схемы готовыми к снимку.
+  `RulesDiagnosticSchema` в генератор не входят (в `UI_ZOD_COMPONENTS` api их нет, машинного пина нет);
+  локальный тест `stays representable as JSON Schema` держит схемы готовыми к снимку.
 - `RulesStatus`: общие члены — `branch` (непустой), `path`, `checkedAt` (`z.iso.datetime()`), `sha`
-  (40 hex); `sha: null` — только у `unavailable`, `text: null` — только у `invalid`, `diagnostics`
-  непуст у `invalid` и `unavailable`.
+  (40 hex); `sha: null` — только у `unavailable` и `pending`, `text: null` — только у `invalid`,
+  `diagnostics` непуст у `invalid` и `unavailable`. `pending` — без `sha` и `checkedAt` (оба `null`),
+  больше членов у него нет.
 - `RunListQuery` (в снимок api не входит): `repo` — 1..512 символов, `limit` — целое 1..100.
 
 Summary-only прогон (дифф больше 3 000 строк, Р-15 в [SD §1][sd-1], контракт — [SD §12][sd-12],
@@ -1255,33 +1255,43 @@ off; }` для SSE, либо в документе фиксируется cross-
   порога: при `critical` `attention` может стать `clean`, `blocking` и `REQUEST_CHANGES` не меняются.
   UI вердикт сам не выводит и не пересчитывает: показывает тот, что отдал сервер (Ф-16).
 
-### Требования UI к api#150 (provisional)
+### Контракт api#150 (api PR #202)
 
-**Статус.** Форму статуса правил UI объявил сам (ui#93), в api её ещё нет: её ждёт
-[api#150](https://github.com/larchanka-training/dmc-268-api-t6/issues/150). UI построен на ней на
-моках; каждый её член Zod-схемы помечен `// provisional (ui#93)` (`entities/repository/model/schemas.ts`,
-`shared/api/endpoints.ts`). Текст подраздела уходит комментарием в api#150.
+**Статус.** Статус правил отдаёт [api PR #202](https://github.com/larchanka-training/dmc-268-api-t6/pull/202)
+(api#150), влит в `main` api 19.10.2026 (`38649d8`). Zod-схема UI сверена с `contracts/openapi.yaml`
+и `app/modules/repositories/api/dtos.py` этого коммита. В `UI_ZOD_COMPONENTS` api статус правил не
+входит: машинного пина нет, расхождение поймает только ручная сверка.
 
-**1. Статус правил — `GET /api/repos/{repo_id}/rules-status`** (имя — предложение UI;
-`endpoints.repos.rulesStatus(id)`). Ответ — `RulesStatusSchema`, `discriminatedUnion('status')`. У
-каждого варианта: `branch` — ветка, из которой прочитан файл (UI показывает её, а не
-`defaultBranch`), `path` (`.review/rules.md`), `checkedAt` (ISO date-time), `sha` (40 hex; `null` —
-только в `unavailable`).
+**1. Статус правил — `GET /api/repos/{repo_id}/rules-status`** (`endpoints.repos.rulesStatus(id)`).
+Ответ — `RulesStatusSchema`, `discriminatedUnion('status')`, члены в camelCase, лишних членов нет. У
+каждого из пяти вариантов: `branch` — ветка, из которой читается файл (UI показывает её, а не
+`defaultBranch`), `path` (`.review/rules.md`), `sha` (40 hex; `null` у `unavailable` без ревизии и у
+`pending`) и `checkedAt` (ISO date-time; `null` у `pending`).
 
-| `status`      | Свои члены                                                                               | Что показывает UI                                                                                                                                                     |
-| ------------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `present`     | `text: string` (может быть пустым), `ignoreMasks: string[]`, `diagnostics: Diagnostic[]` | `Tag` «Файл найден», ветка, короткий sha (полный — в `Tooltip`), время проверки; текст в `CodeBlock` простым текстом, не Markdown; маски или «Масок нет»; диагностика |
-| `missing`     | `defaultsVersion: string`                                                                | предупреждение «Используются дефолтные правила, создайте .review/rules.md» и версия дефолтов                                                                          |
-| `invalid`     | `text: string \| null` (`null` — файл слишком большой или не UTF-8), `diagnostics` (≥ 1) | ошибка «Файл правил содержит ошибки»: диагностика (код, строка:столбец, сообщение) и текст файла                                                                      |
-| `unavailable` | `diagnostics` (≥ 1)                                                                      | ошибка «Не удалось прочитать файл правил»: причина по `code`; «Повторить», если у диагностики `retryable`                                                             |
+| `status`      | Свои члены                                                                                                                           | Что показывает UI                                                                                                                                                     |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `present`     | `text: string` (≤ 64 КиБ, может быть пустым), `checksum` (UI не читает, Zod отбрасывает), `ignoreMasks`, `diagnostics` (сейчас `[]`) | `Tag` «Файл найден», ветка, короткий sha (полный — в `Tooltip`), время проверки; текст в `CodeBlock` простым текстом, не Markdown; маски или «Масок нет»; диагностика |
+| `missing`     | `defaultsVersion: string` (`v1`; `unknown` — у репозитория нет активной версии правил)                                               | предупреждение «Используются дефолтные правила, создайте .review/rules.md» и «Версия дефолтных правил: v1»; при `unknown` строки с версией нет                        |
+| `invalid`     | `text: string \| null` (`null` — файл слишком большой или не UTF-8), `diagnostics` (≥ 1)                                             | ошибка «Файл правил содержит ошибки»: диагностика (код, строка:столбец, сообщение) и текст файла                                                                      |
+| `unavailable` | `diagnostics` (≥ 1)                                                                                                                  | ошибка «Не удалось прочитать файл правил»: причина по `code` (текст сервера `message` не показываем); «Повторить», если у диагностики `retryable`                     |
+| `pending`     | `sha: null`, `checkedAt: null`, больше ничего                                                                                        | загрузка: кольцо и «Проверяем .review/rules.md в ветке {branch}…», без sha, времени и кнопок                                                                          |
 
 `Diagnostic = { code, message, line: int|null, column: int|null, retryable, limit?, actual?,
-patternIndex? }` — RULES_FORMAT_SPEC §9 в camelCase.
+patternIndex? }` — RULES_FORMAT_SPEC §9 в camelCase. Для `policy_revision_unavailable` UI берёт
+формулировку страницы api: «Ревизия default branch недоступна: GitHub не подтвердил, есть ли файл
+правил.»
 
-Любой сбой HTTP-уровня — сеть, 5xx, 401, 404 (чужой workspace или эндпоинта ещё нет), ответ не по
-схеме — пятое состояние: «Не удалось загрузить статус правил» и «Повторить». Предупреждение о
-дефолтных правилах — только на `200` со `status: 'missing'`: сломанный запрос не читается как «файла
-нет».
+`pending` — состояние до первого чтения: GET, который его вернул, ставит чтение в очередь воркера, а
+следующий GET покажет результат (секунды, в худшем случае минуты); опрос лишних чтений не создаёт. UI
+опрашивает раз в 3 с (`RULES_STATUS_PENDING_POLL_MS`), пока последний ответ `pending`, и перестаёт с
+первым результатом (§2). Ручного обновления нет: воркер читает файл при подключении репозитория, при
+пуше в default branch и при GET, если сохранённая запись старше 10 минут (30 секунд после
+retryable-сбоя), POST и кнопки в UI не нужны ([решение техлида][api150-reread], Ф-23).
+
+Любой сбой HTTP-уровня — сеть, 5xx, `401`, `404` (неизвестный id или чужой workspace), `422` (id не
+uuid), `503` (авторизация не настроена), ответ не по схеме — отдельное состояние блока: «Не удалось
+загрузить статус правил» и «Повторить». Предупреждение о дефолтных правилах — только на `200` со
+`status: 'missing'`: сломанный запрос не читается как «файла нет».
 
 **2. Стейджинг.** Блок правил запрашивает статус только на моках
 (`mocksEnabledAtRuntime(isMockMode)`); вне моков — строка «Статус правил появится, когда сервер
@@ -1967,8 +1977,10 @@ checkpoint или ошибка до входа в `traced_step` могут ос�
   ui-t6 — `present`, текст с блоком `review-ignore` и три маски, ветка `release/2.1` (не
   `defaultBranch`); api-t6 — `invalid`, `policy_ignore_pattern_invalid` на строке 14 текста; infra-t6
   — `unavailable`, `policy_access_denied`, `retryable: false`, `sha: null`; docs-t6 — `missing`,
-  `defaultsVersion`. «Файл изменился» (другой sha при втором запросе), временные сбои и `404`
-  моделируют тесты через `withMockTransportOverlay`, а не мок.
+  `defaultsVersion: 'v1'`, но только со второго запроса: первый GET за экземпляр транспорта
+  (`initMockTransport` сбрасывает счёт) отвечает `pending` с той же веткой — репозиторий, который
+  только что подключили, — как и опрос в UI, дальше идёт `missing`. «Файл изменился» (другой sha при
+  втором запросе), временные сбои и `404` моделируют тесты через `withMockTransportOverlay`, а не мок.
 - **Маршруты транспорта.** `GET /repos/{id}/rules-status` сверяется регуляркой раньше
   `GET /repos/{id}` (тот теперь тоже регулярка `^/repos/([^/]+)$`, а не `startsWith`), иначе
   `…/rules-status` читался бы как id; репозиторий не из мока — `404`.
@@ -2159,12 +2171,11 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
   - настройки ревью (api#149, контракт api PR #156; §5, «Контракт api#149 (api PR #156)»):
     обязательные `branchFilter`, `severityThreshold` и только для чтения `installationAvailable` в
     `Repository`, первые два — в `RepositoryUpdate`; Zod-схемы — из PR #106;
-  - provisional (ui#93; §5, «Требования UI к api#150»): `GET /api/repos/{id}/rules-status`. Пока api
-    его не отдаёт, блок правил вместо запроса показывает строку;
+  - api#150 (api PR #202; §5, «Контракт api#150 (api PR #202)»): `GET /api/repos/{id}/rules-status`.
+    Пока api его не отдаёт, блок правил вместо запроса показывает строку;
   - история репозитория — `GET /api/runs?repo&cursor&limit` (`repo` = `fullName`): UI листает по
     `nextCursor`, по 20 за запрос (§2);
-  - follow-up ui#93: после ответа api#150 сверить схему статуса правил с сервером и снять пометки
-    `// provisional (ui#93)`, включить блок правил вне моков (гейт `mocksEnabledAtRuntime` в
+  - follow-up ui#93: включить блок правил вне моков (гейт `mocksEnabledAtRuntime` в
     `RepositorySettingsPage`); решения (а)–(в) api#149 — в §5;
   - PR репозитория — `GET /api/repos/{id}/pulls?state&cursor` → `{ items, nextCursor }`, у
     элемента `latestRun { id, status, verdict } | null` (в клиенте пока не реализовано, открытый follow-up).
@@ -2239,5 +2250,6 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
 [tl-2026-09-24-10]: https://github.com/larchanka-training/dmc-268-api-t6/issues/19#issuecomment-5817060000
 [tl-2026-09-24-46]: https://github.com/larchanka-training/dmc-268-ui-t6/issues/46#issuecomment-5819780647
 [tl-2026-09-27-api20]: https://github.com/larchanka-training/dmc-268-api-t6/issues/20#issuecomment-5860133963
+[api150-reread]: https://github.com/larchanka-training/dmc-268-api-t6/issues/150#issuecomment-6253693222
 [req-ui-30]: https://github.com/larchanka-training/dmc-268-ui-t6/pull/30#issuecomment-5725153632
 [req-api-4]: https://github.com/larchanka-training/dmc-268-api-t6/pull/4#issuecomment-5725153769

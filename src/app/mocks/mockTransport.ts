@@ -13,6 +13,7 @@ import {
   RepositorySchema,
   UpdateRepositorySchema,
   type Repository,
+  type RulesStatus,
   type UpdateRepositoryInput,
 } from '../../entities/repository'
 import { setMockAuthAdapter, useAuthStore } from '../../features/auth'
@@ -52,6 +53,8 @@ export const MOCK_OAUTH_CODE = 'mock_code_123'
 let repositories: Repository[] = structuredClone(mockRepositories)
 let runSessions: RunSession[] = structuredClone(mockRunsListPage.items)
 const createdRunIds = new Set<string>()
+// Repositories whose rules status has been asked for since `initMockTransport`.
+const rulesStatusAsked = new Set<string>()
 
 /**
  * A copy of a stored repository as the api serves it: `enabled` is the effective
@@ -229,8 +232,21 @@ function handleMockTransport(
   if (rulesStatusMatch && endpoint.method === 'GET') {
     const id = rulesStatusMatch[1]
     const status = id === undefined ? undefined : mockRulesStatuses[id]
-    if (!status || !repositories.some((r) => r.id === id)) {
+    if (id === undefined || !status || !repositories.some((r) => r.id === id)) {
       throw new ApiError(404, 'Not Found', { message: 'Repository not found' })
+    }
+    // A newly connected repository (the fixture says there is no file): the worker has not read it
+    // yet, so its first GET is `pending`; the next one shows the fixture, as the finished read.
+    if (status.status === 'missing' && !rulesStatusAsked.has(id)) {
+      rulesStatusAsked.add(id)
+      const pending: RulesStatus = {
+        status: 'pending',
+        branch: status.branch,
+        path: status.path,
+        sha: null,
+        checkedAt: null,
+      }
+      return pending
     }
     return structuredClone(status)
   }
@@ -459,6 +475,7 @@ export function initMockTransport(): void {
   repositories = structuredClone(mockRepositories)
   runSessions = structuredClone(mockRunsListPage.items)
   createdRunIds.clear()
+  rulesStatusAsked.clear()
   resetWalkingRun()
 
   setMockAuthAdapter({

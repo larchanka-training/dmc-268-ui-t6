@@ -34,7 +34,8 @@ export function describeDiagnosticLimit(diagnostic: RulesDiagnostic): string | n
 // RULES_FORMAT_SPEC §9: the codes under which the file could not be read at all.
 const UNAVAILABLE_REASONS: Record<string, string> = {
   policy_access_denied: 'У GitHub App нет доступа к репозиторию',
-  policy_revision_unavailable: 'Закреплённая ревизия правил недоступна',
+  policy_revision_unavailable:
+    'Ревизия default branch недоступна: GitHub не подтвердил, есть ли файл правил.',
   policy_fetch_transient: 'GitHub временно не отвечает',
   policy_rate_limited: 'GitHub ограничил число запросов',
 }

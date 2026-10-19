@@ -23,6 +23,7 @@ import { endpoints } from '../../shared/api/endpoints'
 import { validationErrorLocations } from '../../shared/api/validationError'
 import { mockRepositories } from './app-state'
 import { mockRunsListPage } from './mockRunsList.fixture'
+import { mockRulesStatuses } from './mockRulesStatus'
 import { WALKING_RUN_ID } from './mockRunTimeline'
 import { initMockTransport, readStoredMockRepository } from './mockTransport'
 
@@ -350,12 +351,51 @@ describe('initMockTransport', () => {
         ),
       )
 
+      // The last repository has no rules file: it is a newly connected one, still pending.
       expect(statuses.map((status) => status.status)).toEqual([
         'present',
         'invalid',
         'unavailable',
-        'missing',
+        'pending',
       ])
+    })
+
+    describe('the repository without a rules file', () => {
+      const docs = mockRepositories[3]
+      if (docs === undefined) {
+        throw new Error('the mock has no fourth repository')
+      }
+      const fetchDocsStatus = () => apiClient<unknown>(endpoints.repos.rulesStatus(docs.id))
+
+      it('answers pending to its first GET, with the branch and without a revision or a time', async () => {
+        expect(RulesStatusSchema.parse(await fetchDocsStatus())).toEqual({
+          status: 'pending',
+          branch: mockRulesStatuses[docs.id]?.branch,
+          path: '.review/rules.md',
+          sha: null,
+          checkedAt: null,
+        })
+      })
+
+      it('answers its fixture from the second GET on', async () => {
+        await fetchDocsStatus()
+
+        const second = RulesStatusSchema.parse(await fetchDocsStatus())
+        const third = RulesStatusSchema.parse(await fetchDocsStatus())
+
+        expect(second).toEqual(mockRulesStatuses[docs.id])
+        expect(second.status).toBe('missing')
+        expect(third).toEqual(second)
+      })
+
+      it('answers pending again to the first GET after the transport is initialised anew', async () => {
+        await fetchDocsStatus()
+        await fetchDocsStatus()
+
+        initMockTransport()
+
+        expect(RulesStatusSchema.parse(await fetchDocsStatus()).status).toBe('pending')
+      })
     })
 
     it('answers 404 for a repository it does not know', async () => {

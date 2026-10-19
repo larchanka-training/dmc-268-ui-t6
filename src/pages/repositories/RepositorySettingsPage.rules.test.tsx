@@ -22,6 +22,9 @@ if (!UI_REPO || !API_REPO || !INFRA_REPO || !DOCS_REPO) {
   throw new Error('the page tests expect four mock repositories')
 }
 
+const MISSING_WARNING = 'Используются дефолтные правила, создайте .review/rules.md'
+const PENDING_DOCS_TEXT = `Проверяем .review/rules.md в ветке ${mockRulesStatuses[DOCS_REPO.id]?.branch ?? ''}…`
+
 function renderPage(entry: string) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
@@ -66,13 +69,25 @@ describe('RepositorySettingsPage: rules status on mocks', () => {
     [UI_REPO.id, 'Файл найден'],
     [API_REPO.id, 'Файл правил содержит ошибки'],
     [INFRA_REPO.id, 'Не удалось прочитать файл правил'],
-    [DOCS_REPO.id, 'Используются дефолтные правила, создайте .review/rules.md'],
   ])('shows the rules state of repository %s', async (id, text) => {
     renderPage(settingsPath(id))
 
     const block = await rulesBlock()
 
     expect(await within(block).findByText(text)).toBeTruthy()
+  })
+
+  it('shows a newly connected repository as pending, and its missing status once the page is reopened', async () => {
+    const first = renderPage(settingsPath(DOCS_REPO.id))
+
+    const block = await rulesBlock()
+    expect(await within(block).findByText(PENDING_DOCS_TEXT)).toBeTruthy()
+    expect(within(block).queryByText(MISSING_WARNING)).toBeNull()
+    first.unmount()
+
+    renderPage(settingsPath(DOCS_REPO.id))
+
+    expect(await within(await rulesBlock()).findByText(MISSING_WARNING)).toBeTruthy()
   })
 
   it('shows the branch from the response, not defaultBranch', async () => {
@@ -150,7 +165,7 @@ describe('RepositorySettingsPage: rules status on mocks', () => {
     await act(async () => {
       await router.navigate(settingsPath(DOCS_REPO.id))
     })
-    await screen.findByText('Используются дефолтные правила, создайте .review/rules.md')
+    await screen.findByText(PENDING_DOCS_TEXT)
     const block = screen.getByRole('region', { name: 'Правила ревью' })
 
     releaseUi()
@@ -158,8 +173,6 @@ describe('RepositorySettingsPage: rules status on mocks', () => {
 
     expect(within(block).queryByText('Файл найден')).toBeNull()
     expect(within(block).queryByText('release/2.1')).toBeNull()
-    expect(
-      within(block).getByText('Используются дефолтные правила, создайте .review/rules.md'),
-    ).toBeTruthy()
+    expect(within(block).getByText(PENDING_DOCS_TEXT)).toBeTruthy()
   })
 })

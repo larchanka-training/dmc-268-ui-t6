@@ -75,12 +75,12 @@ describe('mockRulesStatuses', () => {
     expect(status.diagnostics[0]).toMatchObject({ code: 'policy_access_denied', retryable: false })
   })
 
-  it('carries the defaults version of the repository without a rules file', () => {
+  it('carries the defaults version `v1` of the repository without a rules file', () => {
     const status = statusOf('dmc-268-docs-t6')
     if (status.status !== 'missing') {
       throw new Error('docs-t6 must have a missing status')
     }
 
-    expect(status.defaultsVersion).not.toBe('')
+    expect(status.defaultsVersion).toBe('v1')
   })
 })

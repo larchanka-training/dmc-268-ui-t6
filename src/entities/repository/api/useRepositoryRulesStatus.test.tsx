@@ -43,6 +43,10 @@ function missingStatus(sha: string): RulesStatus {
   }
 }
 
+function pendingStatus(): RulesStatus {
+  return { status: 'pending', branch: 'main', path: '.review/rules.md', sha: null, checkedAt: null }
+}
+
 interface Backend {
   rulesRequests: string[]
   patches: number
@@ -90,6 +94,7 @@ function wrapper(client: QueryClient) {
 
 afterEach(() => {
   cleanup()
+  vi.useRealTimers()
   vi.unstubAllGlobals()
 })
 
@@ -262,5 +267,81 @@ describe('useRepositoryRulesStatus', () => {
       expect(result.current.rules.data?.sha).toBe(FIRST_SHA)
     })
     expect(backend.rulesRequests).toHaveLength(1)
+  })
+})
+
+describe('useRepositoryRulesStatus: polling a pending status', () => {
+  /** One answer per request, the last one repeats. */
+  function answers(...bodies: RulesStatus[]): Backend {
+    const backend: Backend = stubBackend(() => {
+      // The stub counts a request before it asks for the answer: the count is the request's number.
+      const index = Math.min(backend.rulesRequests.length, bodies.length) - 1
+      return Promise.resolve(new Response(JSON.stringify(bodies[index])))
+    })
+    return backend
+  }
+
+  /** Lets the timers up to `ms` run, and the requests and renders they cause. */
+  async function advance(ms: number): Promise<void> {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(ms)
+    })
+  }
+
+  function mount(client = appLikeClient()) {
+    return renderHook(() => useRepositoryRulesStatus(FIRST_ID, { enabled: true }), {
+      wrapper: wrapper(client),
+    })
+  }
+
+  it('asks every 3 s while the status is pending and stops when a result arrives', async () => {
+    vi.useFakeTimers()
+    const backend = answers(pendingStatus(), pendingStatus(), missingStatus(FIRST_SHA))
+
+    const { result } = mount()
+    await advance(0)
+    expect(backend.rulesRequests).toHaveLength(1)
+    expect(result.current.data?.status).toBe('pending')
+
+    await advance(2999)
+    expect(backend.rulesRequests).toHaveLength(1)
+    await advance(1)
+    expect(backend.rulesRequests).toHaveLength(2)
+    expect(result.current.data?.status).toBe('pending')
+
+    await advance(3000)
+    expect(backend.rulesRequests).toHaveLength(3)
+    // TanStack hands the answer to the hook from a zero-delay timer set once the request is over.
+    await advance(1)
+    expect(result.current.data?.status).toBe('missing')
+
+    // The result is final: no request however long we wait.
+    await advance(60_000)
+    expect(backend.rulesRequests).toHaveLength(3)
+  })
+
+  it('does not poll a status that was not pending to begin with', async () => {
+    vi.useFakeTimers()
+    const backend = answers(missingStatus(FIRST_SHA))
+
+    mount()
+    await advance(0)
+    await advance(60_000)
+
+    expect(backend.rulesRequests).toHaveLength(1)
+  })
+
+  it('stops polling when the last viewer leaves', async () => {
+    vi.useFakeTimers()
+    const backend = answers(pendingStatus())
+
+    const view = mount()
+    await advance(0)
+    await advance(3000)
+    expect(backend.rulesRequests).toHaveLength(2)
+    view.unmount()
+
+    await advance(60_000)
+    expect(backend.rulesRequests).toHaveLength(2)
   })
 })

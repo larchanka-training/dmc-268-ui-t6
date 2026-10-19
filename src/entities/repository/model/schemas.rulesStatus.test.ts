@@ -36,6 +36,13 @@ const unavailable = {
   sha: null,
   diagnostics: [{ ...diagnostic, code: 'policy_access_denied', line: null, column: null }],
 }
+const pending = {
+  status: 'pending' as const,
+  branch: 'main',
+  path: '.review/rules.md',
+  sha: null,
+  checkedAt: null,
+}
 
 describe('RulesStatusSchema', () => {
   it.each([
@@ -43,6 +50,7 @@ describe('RulesStatusSchema', () => {
     ['missing', missing],
     ['invalid', invalid],
     ['unavailable', unavailable],
+    ['pending', pending],
   ])('parses the %s variant', (status, body) => {
     const parsed = RulesStatusSchema.parse(body)
 
@@ -70,11 +78,29 @@ describe('RulesStatusSchema', () => {
     expect(RulesStatusSchema.safeParse({ ...present, sha: SHA.toUpperCase() }).success).toBe(false)
   })
 
-  it('allows a null sha only in unavailable', () => {
+  it('allows a null sha only in unavailable and pending', () => {
     expect(RulesStatusSchema.safeParse({ ...present, sha: null }).success).toBe(false)
     expect(RulesStatusSchema.safeParse({ ...missing, sha: null }).success).toBe(false)
     expect(RulesStatusSchema.safeParse({ ...invalid, sha: null }).success).toBe(false)
     expect(RulesStatusSchema.safeParse({ ...unavailable, sha: null }).success).toBe(true)
+    expect(RulesStatusSchema.safeParse(pending).success).toBe(true)
+  })
+
+  it('requires a null checkedAt in pending and a time in the four other variants', () => {
+    expect(RulesStatusSchema.safeParse({ ...present, checkedAt: null }).success).toBe(false)
+    expect(RulesStatusSchema.safeParse({ ...missing, checkedAt: null }).success).toBe(false)
+    expect(RulesStatusSchema.safeParse({ ...invalid, checkedAt: null }).success).toBe(false)
+    expect(RulesStatusSchema.safeParse({ ...unavailable, checkedAt: null }).success).toBe(false)
+    expect(RulesStatusSchema.safeParse({ ...pending, checkedAt: CHECKED_AT }).success).toBe(false)
+  })
+
+  it('rejects a pending status that carries a sha', () => {
+    expect(RulesStatusSchema.safeParse({ ...pending, sha: SHA }).success).toBe(false)
+  })
+
+  it('rejects a pending status without its branch or with an empty one', () => {
+    expect(RulesStatusSchema.safeParse({ ...pending, branch: undefined }).success).toBe(false)
+    expect(RulesStatusSchema.safeParse({ ...pending, branch: '' }).success).toBe(false)
   })
 
   it('requires at least one diagnostic in invalid and unavailable', () => {
