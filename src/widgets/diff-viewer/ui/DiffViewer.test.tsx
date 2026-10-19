@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { fromPatch } from '../../../entities/diff'
@@ -95,6 +95,23 @@ afterEach(() => {
 })
 
 describe('DiffViewer', () => {
+  it('names each file view group and keeps the shared layout when a group changes', () => {
+    const { container } = render(
+      <>
+        <DiffViewer comments={[]} file={TS_HIGHLIGHT_FILE} />
+        <DiffViewer comments={[]} file={PY_FILE} />
+      </>,
+    )
+    const first = screen.getByRole('radiogroup', { name: 'Вид диффа: src/app.ts' })
+    const second = screen.getByRole('radiogroup', { name: 'Вид диффа: lib/run.py' })
+    expect(first.tabIndex).toBe(-1)
+    expect(second.tabIndex).toBe(-1)
+    fireEvent.keyDown(within(first).getByRole('radio', { name: 'Unified' }), { key: 'ArrowRight' })
+    expect(container.querySelectorAll('table.diff-split')).toHaveLength(2)
+    fireEvent.keyDown(within(second).getByRole('radio', { name: 'Split' }), { key: 'ArrowLeft' })
+    expect(container.querySelectorAll('table.diff-unified')).toHaveLength(2)
+  })
+
   it('highlights TypeScript in unified view (span.token in .diff-code)', () => {
     const { container } = render(<DiffViewer comments={[]} file={TS_HIGHLIGHT_FILE} />)
     expectSyntaxTokens(container)

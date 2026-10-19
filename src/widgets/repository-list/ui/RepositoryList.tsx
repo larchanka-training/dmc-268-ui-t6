@@ -13,7 +13,6 @@ import {
   Input,
   InputNumber,
   Modal,
-  Segmented,
   Select,
   Spin,
   Switch,
@@ -32,7 +31,7 @@ import type {
 } from '../../../entities/repository'
 import { GITHUB_APP_SLUG, GITHUB_CLIENT_ID, isMockMode } from '../../../shared/config/env'
 import { safeHttpUrl } from '../../../shared/lib/safeHttpUrl'
-import { DataTable, IconSettings, PageHeader, Tag } from '../../../shared/ui'
+import { DataTable, IconSettings, PageHeader, Segmented, Tag } from '../../../shared/ui'
 import {
   ACCESS_REFRESH_LOADING_TEXT,
   ACCESS_REFRESH_TIMEOUT_ACTION_TEXT,
@@ -277,6 +276,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
     {
       title: '',
       key: 'actions',
+      onHeaderCell: () => ({ 'aria-label': 'Настройки' }),
       align: 'right',
       render: (_: unknown, record: Repository) => (
         <Button
@@ -381,6 +381,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
             />
 
             <Segmented<'all' | 'active'>
+              aria-label="Фильтр репозиториев"
               onChange={setFilterActive}
               options={[
                 { value: 'all', label: `Все (${String(repositories.length)})` },

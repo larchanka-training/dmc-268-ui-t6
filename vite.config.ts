@@ -54,7 +54,7 @@ export default defineConfig(({ mode }) => {
       chunkSizeWarningLimit: 500,
     },
     test: {
-      include: ['src/**/*.test.{ts,tsx}'],
+      include: ['src/**/*.test.{ts,tsx}', '.storybook/preview.test.tsx'],
       setupFiles: ['./src/test/setup.ts'],
       // Half of the cores outside CI: several runs at once (a second terminal, the IDE, a docker
       // build next to the suite) then do not oversubscribe the CPU, which is what made waits

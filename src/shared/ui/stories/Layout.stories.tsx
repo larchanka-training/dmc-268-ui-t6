@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
+import { UserOutlined } from '@ant-design/icons'
 import { Avatar, Layout } from 'antd'
 import { useState } from 'react'
 
@@ -56,4 +57,21 @@ export const Avatars: Story = {
       <Avatar>C</Avatar>
     </div>
   ),
+}
+
+// Embedded fixture keeps the image story available offline and independent of third-party hosts.
+const avatarImage = `data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" fill="#dbeafe"/><circle cx="32" cy="24" r="12" fill="#1e40af"/><path d="M8 64a24 24 0 0 1 48 0" fill="#1e40af"/></svg>',
+)}`
+
+export const AvatarImage: Story = {
+  render: () => (
+    <Avatar alt="Иллюстрация пользователя" src={avatarImage}>
+      C
+    </Avatar>
+  ),
+}
+
+export const AvatarIcon: Story = {
+  render: () => <Avatar icon={<UserOutlined aria-label="Аватар пользователя" />} />,
 }

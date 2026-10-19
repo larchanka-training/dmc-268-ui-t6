@@ -15,6 +15,8 @@ const row = { display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }
 
 export const Playground: Story = { args: { type: 'primary' } }
 
+export const Link: Story = { args: { type: 'link', children: 'Подробнее' } }
+
 /** One `primary` per view. The rest are default or `text`; `danger` only stops or deletes. */
 export const Variants: Story = {
   render: () => (

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { Breadcrumb, Card, Collapse, Descriptions, Tree } from 'antd'
+import { Breadcrumb, Button, Card, Collapse, Descriptions, Pagination, Tree } from 'antd'
 
 const meta: Meta<typeof Descriptions> = {
   title: 'Ant Design/Data',
@@ -72,4 +72,15 @@ export const Panels: Story = {
 /** Every item but the last is a link. */
 export const Path: Story = {
   render: () => <Breadcrumb items={[{ title: 'Прогоны', href: '#runs' }, { title: 'PR #34' }]} />,
+}
+
+/** Enough pages to reach both jump controls with the keyboard. */
+export const PaginationFocus: Story = {
+  render: () => (
+    <div style={{ display: 'grid', gap: 16, justifyItems: 'start' }}>
+      <Button>Перед пагинацией</Button>
+      <Pagination defaultCurrent={6} pageSize={10} showSizeChanger={false} total={500} />
+      <Button>После пагинации</Button>
+    </div>
+  ),
 }

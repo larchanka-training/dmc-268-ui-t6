@@ -44,3 +44,34 @@ export const States: Story = {
     </div>
   ),
 }
+
+export const DisabledNumber: Story = {
+  render: () => (
+    <div style={stack}>
+      <label htmlFor="disabled-findings-limit">Лимит замечаний</label>
+      <InputNumber
+        defaultValue={10}
+        disabled
+        id="disabled-findings-limit"
+        max={10}
+        min={1}
+        style={{ width: '100%' }}
+      />
+    </div>
+  ),
+}
+
+export const StatusFocus: Story = {
+  render: () => (
+    <div style={stack}>
+      <label htmlFor="error-review-rule">Правило: ошибка</label>
+      <Input defaultValue="14" id="error-review-rule" status="error" />
+      <label htmlFor="warning-review-rule">Правило: предупреждение</label>
+      <Input defaultValue="Проверьте правило" id="warning-review-rule" status="warning" />
+      <label htmlFor="error-findings-limit">Лимит: ошибка</label>
+      <InputNumber defaultValue={14} id="error-findings-limit" status="error" />
+      <label htmlFor="warning-findings-limit">Лимит: предупреждение</label>
+      <InputNumber defaultValue={10} id="warning-findings-limit" status="warning" />
+    </div>
+  ),
+}

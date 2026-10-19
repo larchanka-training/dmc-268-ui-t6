@@ -133,6 +133,7 @@ export function buildTheme(mode: RvThemeMode, options: BuildThemeOptions = {}): 
       wireframe: false,
     },
     components: {
+      Typography: { fontSize: 13, lineHeight: 1.5 },
       Button: {
         fontWeight: 500,
         primaryShadow: 'none',
@@ -167,8 +168,8 @@ export function buildTheme(mode: RvThemeMode, options: BuildThemeOptions = {}): 
         paddingInlineLG: 18,
         paddingInlineSM: 8,
         contentFontSize: 12.5,
-        contentFontSizeSM: 12,
-        contentFontSizeLG: 13,
+        contentFontSizeSM: 12.5,
+        contentFontSizeLG: 12.5,
         // A large button keeps the control radius of 6px instead of the card radius.
         borderRadiusLG: 6,
       },
@@ -217,6 +218,8 @@ export function buildTheme(mode: RvThemeMode, options: BuildThemeOptions = {}): 
         hoverBorderColor: p.text3,
         activeBorderColor: p.link,
         activeShadow: `0 0 0 3px ${p.focusRing}`,
+        errorActiveShadow: `0 0 0 3px ${p.link}`,
+        warningActiveShadow: `0 0 0 3px ${p.link}`,
         inputFontSize: 12.5,
         // The clear icon has 3:1 against the field at rest and brightens on hover (WCAG 1.4.11).
         // Its 2px focus ring is a rule of `styles/antd.css`: `lineWidthFocus` here empties the
@@ -234,6 +237,8 @@ export function buildTheme(mode: RvThemeMode, options: BuildThemeOptions = {}): 
         hoverBorderColor: p.text3,
         activeBorderColor: p.link,
         activeShadow: `0 0 0 3px ${p.focusRing}`,
+        errorActiveShadow: `0 0 0 3px ${p.link}`,
+        warningActiveShadow: `0 0 0 3px ${p.link}`,
       },
       Select: {
         colorBgContainer: p.bg,
@@ -263,6 +268,7 @@ export function buildTheme(mode: RvThemeMode, options: BuildThemeOptions = {}): 
         trackPadding: 3,
         itemColor: p.text2,
         itemHoverColor: p.text,
+        itemHoverBg: p.hover,
         itemSelectedBg: p.surface3,
         itemSelectedColor: p.text,
       },
@@ -274,6 +280,7 @@ export function buildTheme(mode: RvThemeMode, options: BuildThemeOptions = {}): 
         borderRadiusLG: 10,
         boxShadow: p.popoverShadow,
       },
+      Message: { boxShadow: p.popoverShadow },
       Tooltip: { colorBgSpotlight: p.text, colorTextLightSolid: p.bg },
       Descriptions: { labelColor: p.text2, itemPaddingBottom: 10 },
       Tree: {
