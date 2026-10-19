@@ -1,5 +1,5 @@
 import { Alert, Button, Skeleton } from 'antd'
-import type { FC } from 'react'
+import { useCallback, useEffect, useRef, type FC } from 'react'
 
 import { useRepositoryRulesStatus } from '../../../entities/repository'
 import { RulesStatusDetails } from './RulesStatusDetails'
@@ -16,7 +16,10 @@ export interface RulesStatusPanelProps {
  * the server re-reads the file by itself (on connect, on a push to the default branch, on a GET
  * once its copy is old), reopening the page asks again, and a `pending` status is polled by the
  * hook. «Повторить» is offered only for a load error and for an `unavailable` status the server
- * called retryable.
+ * called retryable. When that button goes away while it has the focus (the retry succeeded, or a
+ * poll brought the result under it), the focus goes to the block's other «Повторить» if the block
+ * has one now (the retry of an `unavailable` status failed with an HTTP error), else to the
+ * heading of the block, not to `<body>`.
  */
 export const RulesStatusPanel: FC<RulesStatusPanelProps> = ({ repoId }) => {
   const query = useRepositoryRulesStatus(repoId)
@@ -25,13 +28,48 @@ export const RulesStatusPanel: FC<RulesStatusPanelProps> = ({ repoId }) => {
     void query.refetch()
   }
 
+  // A retry button that held the focus is noted as its ref is released, while it is still in the
+  // document: once it is gone the focus is on `<body>` already. The ref is released for a button
+  // that stays too (Ant Design composes its own ref on a render), so whether the button really left
+  // is judged after the commit, by the effect below. It is the same ref for both retry buttons
+  // (the load error here, the retryable `unavailable` status in the details); only one of them is
+  // on the page at a time.
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const retryNode = useRef<HTMLButtonElement | null>(null)
+  const retryWithFocus = useRef<HTMLButtonElement | null>(null)
+  const trackRetry = useCallback((node: HTMLButtonElement | null) => {
+    if (node !== null) {
+      retryNode.current = node
+      return
+    }
+    if (retryNode.current !== null && document.activeElement === retryNode.current) {
+      retryWithFocus.current = retryNode.current
+    }
+    retryNode.current = null
+  }, [])
+
+  // After every render: the button can leave with any of them (a retry, a poll, a refocused
+  // window). The note is made in the commit that removed the button, before this runs, and every
+  // new button is attached by then: `retryNode` is the retry button the block has now, if any.
+  useEffect(() => {
+    const node = retryWithFocus.current
+    if (node === null) {
+      return
+    }
+    retryWithFocus.current = null
+    if (!node.isConnected) {
+      const target = retryNode.current ?? headingRef.current
+      target?.focus()
+    }
+  })
+
   const body = (() => {
     // A failed request wins over data an earlier request left behind: that data may be stale.
     if (query.isError) {
       return (
         <Alert
           action={
-            <Button loading={query.isFetching} onClick={retry} size="small">
+            <Button loading={query.isFetching} onClick={retry} ref={trackRetry} size="small">
               Повторить
             </Button>
           }
@@ -44,12 +82,21 @@ export const RulesStatusPanel: FC<RulesStatusPanelProps> = ({ repoId }) => {
     if (query.isPending) {
       return <Skeleton active />
     }
-    return <RulesStatusDetails onRetry={retry} retrying={query.isFetching} status={query.data} />
+    return (
+      <RulesStatusDetails
+        onRetry={retry}
+        retryRef={trackRetry}
+        retrying={query.isFetching}
+        status={query.data}
+      />
+    )
   })()
 
   return (
     <section aria-label="Правила ревью" className={styles.root}>
-      <h2 className={styles.label}>Правила ревью</h2>
+      <h2 className={styles.label} ref={headingRef} tabIndex={-1}>
+        Правила ревью
+      </h2>
       {body}
     </section>
   )

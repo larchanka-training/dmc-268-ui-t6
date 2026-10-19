@@ -2,6 +2,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { App } from 'antd'
+import { StrictMode } from 'react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -25,7 +26,7 @@ if (!UI_REPO || !API_REPO || !INFRA_REPO || !DOCS_REPO) {
 const MISSING_WARNING = 'Используются дефолтные правила, создайте .review/rules.md'
 const PENDING_DOCS_TEXT = `Проверяем .review/rules.md в ветке ${mockRulesStatuses[DOCS_REPO.id]?.branch ?? ''}…`
 
-function renderPage(entry: string) {
+function renderPage(entry: string, { strict = false }: { strict?: boolean } = {}) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
   })
@@ -44,7 +45,8 @@ function renderPage(entry: string) {
     ],
     { initialEntries: [entry] },
   )
-  return { client, router, ...render(<RouterProvider router={router} />) }
+  const tree = <RouterProvider router={router} />
+  return { client, router, ...render(strict ? <StrictMode>{tree}</StrictMode> : tree) }
 }
 
 function settingsPath(id: string): string {
@@ -88,6 +90,15 @@ describe('RepositorySettingsPage: rules status on mocks', () => {
     renderPage(settingsPath(DOCS_REPO.id))
 
     expect(await within(await rulesBlock()).findByText(MISSING_WARNING)).toBeTruthy()
+  })
+
+  it('shows a newly connected repository as pending under StrictMode, which cancels the first GET', async () => {
+    renderPage(settingsPath(DOCS_REPO.id), { strict: true })
+
+    const block = await rulesBlock()
+
+    expect(await within(block).findByText(PENDING_DOCS_TEXT)).toBeTruthy()
+    expect(within(block).queryByText(MISSING_WARNING)).toBeNull()
   })
 
   it('shows the branch from the response, not defaultBranch', async () => {
