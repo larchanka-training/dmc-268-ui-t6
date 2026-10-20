@@ -1,5 +1,6 @@
 import {
   invalidateRunLists,
+  parseRunStepEvent,
   parseRunUpdatedEvent,
   parseSseBuffer,
   runQueryKeys,
@@ -141,6 +142,22 @@ async function readStream(
         armWatchdog()
       }
       for (const frame of parsed.events) {
+        if (frame.event === 'run.step') {
+          const step = parseRunStepEvent(frame.data)
+          if (step !== null) {
+            void queryClient.invalidateQueries({
+              queryKey: runQueryKeys.actions(step.runId),
+              exact: true,
+            })
+            if (step.ok && step.tool === 'vcs.fetch_diff') {
+              void queryClient.invalidateQueries({
+                queryKey: runQueryKeys.diff(step.runId),
+                exact: true,
+              })
+            }
+          }
+          continue
+        }
         if (frame.event !== 'run.updated') {
           continue
         }

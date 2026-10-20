@@ -1,5 +1,5 @@
-import { RunUpdatedEventSchema } from '../model/schemas'
-import type { RunUpdatedEvent } from '../model/schemas'
+import { RunStepEventSchema, RunUpdatedEventSchema } from '../model/schemas'
+import type { RunStepEvent, RunUpdatedEvent } from '../model/schemas'
 
 export interface ParsedSseEvent {
   event: string
@@ -69,6 +69,16 @@ export function parseRunUpdatedEvent(data: string): RunUpdatedEvent | null {
   try {
     const json: unknown = JSON.parse(data)
     const parsed = RunUpdatedEventSchema.safeParse(json)
+    return parsed.success ? parsed.data : null
+  } catch {
+    return null
+  }
+}
+
+export function parseRunStepEvent(data: string): RunStepEvent | null {
+  try {
+    const json: unknown = JSON.parse(data)
+    const parsed = RunStepEventSchema.safeParse(json)
     return parsed.success ? parsed.data : null
   } catch {
     return null

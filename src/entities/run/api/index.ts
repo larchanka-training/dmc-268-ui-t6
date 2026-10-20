@@ -69,7 +69,7 @@ export function runMutationErrorMessage(error: unknown, action: 'rerun' | 'cance
   return 'Не удалось выполнить операцию'
 }
 
-export { parseRunUpdatedEvent, parseSseBuffer } from './runStreamParse'
+export { parseRunStepEvent, parseRunUpdatedEvent, parseSseBuffer } from './runStreamParse'
 
 /** The list path with its query. `endpoints.runs.list()` stays path-only; empty params are left out. */
 export function runListEndpoint(query: RunListQuery = {}): Endpoint {

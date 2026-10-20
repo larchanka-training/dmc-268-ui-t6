@@ -102,6 +102,16 @@ export const RunUpdatedEventSchema = z.object({
 })
 export type RunUpdatedEvent = z.infer<typeof RunUpdatedEventSchema>
 
+export const RunStepEventSchema = z.object({
+  runId: z.uuid(),
+  tool: z.string(),
+  index: z.int().nonnegative(),
+  ok: z.boolean(),
+  startedAt: z.iso.datetime(),
+  durationMs: z.int().nonnegative(),
+})
+export type RunStepEvent = z.infer<typeof RunStepEventSchema>
+
 export const RunListQuerySchema = z.object({
   status: RunStatusSchema.optional(),
   repo: z.string().min(1).max(512).optional(),
