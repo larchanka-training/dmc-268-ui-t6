@@ -127,12 +127,12 @@ describe('InlineComment', () => {
 
   it.each([
     ['critical', 'Critical', 'critical', 'solid'],
-    ['high', 'High', 'critical', 'solid'],
-    ['medium', 'Medium', 'warning', 'dot'],
+    ['high', 'High', 'critical', 'dot'],
+    ['medium', 'Medium', 'high', 'dot'],
     ['low', 'Low', 'warning', 'dot'],
     ['info', 'Info', 'info', 'dot'],
   ] as const)(
-    'labels the %s finding "%s" and keeps the D3 group tone %s and variant %s',
+    'labels the %s finding "%s" with its exact-level tone %s and variant %s',
     (severity, label, tone, variant) => {
       render(<InlineComment finding={{ ...finding, severity }} />)
       const badge = screen.getByText(label)

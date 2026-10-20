@@ -40,9 +40,9 @@ const SIGNALS = [
   ['--rv-accent-hover', 'Акцент hover'],
   ['--rv-link', 'Ссылка и фокус'],
   ['--rv-success', 'Успех'],
-  ['--rv-warning', 'Medium'],
-  ['--rv-high', 'High'],
-  ['--rv-critical', 'Critical'],
+  ['--rv-warning', 'Low'],
+  ['--rv-high', 'Medium'],
+  ['--rv-critical', 'Critical / High'],
   ['--rv-danger', 'Ошибка'],
 ] as const
 
@@ -202,10 +202,12 @@ function Overview(): JSX.Element {
             </div>
             <div className={styles.row}>
               <Tag tone="critical" variant="solid">
-                critical
+                Critical
               </Tag>
-              <Tag tone="high">high</Tag>
-              <Tag tone="warning">medium</Tag>
+              <Tag tone="critical">High</Tag>
+              <Tag tone="high">Medium</Tag>
+              <Tag tone="warning">Low</Tag>
+              <Tag tone="info">Info</Tag>
               <Tag variant="outline">main</Tag>
             </div>
 

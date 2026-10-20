@@ -41,7 +41,7 @@ antd, TanStack Query и jsdom — патчи от 2026-09-24.
 | Ф-13 | Стили: antd tokens для темизации + CSS Modules для layout-контейнеров; Tailwind — нет                                                                                | один источник цветов/отступов, layout без рантайма; stylelint-override для `*.module.css` — [решение техлида][tl-2026-09-24-46] (§3).                                                                                      |
 | Ф-14 | SSE — `fetch`-стрим с `Authorization: Bearer`, а не `EventSource`                                                                                                    | `EventSource` не отправляет заголовки, а `/api/stream` требует Bearer ([решение техлида][tl-2026-09-27-api20], api#20 D4); `401` → refresh → переподключение (§2).                                                         |
 | Ф-15 | Авторизация — GitHub App user authorization; access-токен только в памяти, refresh — httpOnly-cookie; fail closed                                                    | [решение техлида][tl-2026-09-27-api20], api#20 D4; токен в памяти — дефолт плана api#20; fail closed, общий refresh, старт refresh → `/me` — правила клиента (§11).                                                        |
-| Ф-16 | Вердикт (`blocking`/`attention`/`clean`) и `severityCounts` считает сервер; Critical/Warning/Info — группировка в UI                                                 | [решение техлида][tl-2026-09-27-api20], api#20 D3: UI вердикт сам не выводит, API отдаёт пять уровней severity (§4).                                                                                                       |
+| Ф-16 | Вердикт (`blocking`/`attention`/`clean`) и `severityCounts` считает сервер; D3 — фильтр, бейдж — пять уровней                                                        | [решение техлида][tl-2026-09-27-api20], api#20 D3: UI вердикт сам не выводит, API отдаёт пять уровней severity (§4).                                                                                                       |
 | Ф-17 | Репозиторий подключается установкой GitHub App; настройки — `PATCH /api/repos/{id}`; уточнено 2026-10-14 (ui#93)                                                     | [решение техлида][tl-2026-09-27-api20], api#20 D10: `POST /api/repos` нет; поля настроек — `enabled`, `defaultEngine`, `waitForCi`, `maxComments`, `reviewEvent` (§11) и поля api#149 из api PR #156 (ниже, §5).           |
 | Ф-18 | Синхронная подсветка диффа — бюджет ~1000 строк на файл и на весь дифф; выше — без `tokenize` (worker — follow-up)                                                   | AC ui#65 ч. 1; API `summary_only` >3000 строк; замеры в `docs/plans/65-plan.md` (Refs ui#65).                                                                                                                              |
 | Ф-19 | Список PR репозитория (`GET /repos/{id}/pulls`) в UI **не** входит в scope #65; навигация — со страницы репозиториев / внешняя ссылка на GitHub                      | Открытый вопрос плана закрыт: follow-up issue при появлении API в продукте (Refs ui#65).                                                                                                                                   |
@@ -1102,8 +1102,12 @@ Run detail (Ф-16; [PIPELINE_SPEC §11][ps-11], схема `RunDetail` в [`open
 `blocking`, иначе есть `medium` или `low` → `attention`, иначе `clean`; `null`, пока прогон не
 `succeeded`, и у summary-only прогона. UI вердикт сам не выводит. Подпись бейджа находки — её точный
 уровень: Critical / High / Medium / Low / Info (`SEVERITY_LABEL`, решение техлида 16.10.2026, #121).
-Цвет и вариант бейджа и фильтр «Критичность» — группировка в UI по D3: Critical = `critical` +
-`high`, Warning = `medium` + `low`, Info = `info` (`severityBadgeGroup`); API отдаёт пять уровней.
+Цвет и вариант бейджа выбираются отдельно для каждого уровня: critical — critical/solid,
+high — critical/dot, medium — high/dot, low — warning/dot, info — info/dot
+([решение #127](https://github.com/larchanka-training/dmc-268-ui-t6/issues/127#issuecomment-6291809919);
+палитра и контраст — `DESIGN_SYSTEM.md` §3, §8). Фильтр «Критичность» сохраняет D3:
+Critical = `critical` + `high`, Warning = `medium` + `low`, Info = `info`
+(`severityBadgeGroup`); API по-прежнему отдаёт пять уровней.
 
 Отклонения от схем issue:
 
