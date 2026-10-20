@@ -1,6 +1,6 @@
 # Implementation Plan: SSE run.step updates (#113)
 
-Status: approved by the user ("ок") on 2026-10-20; Tasks 1–2 implemented; independent Task 1 reviews passed; all six final UI gates passed; Task 2 review and API snapshot work remain.
+Status: approved by the user ("ок") on 2026-10-20; Tasks 1–4 implementation, documentation and local verification complete. Final independent UI and API Standards/Spec reviews passed with 0 findings; all six UI gates and four API gates passed. External staging acceptance and human review/merge remain pending; paired draft PRs are being published.
 
 ## Outcome
 
@@ -83,10 +83,15 @@ six-field backend; coordinate that future deployment separately.
    Hidden-tab polling behavior and terminal stop behavior stay as documented.
    Reconnect already refetches cached actions/diff because steps are not replayed.
 5. Keep the API snapshot change in a small separate PR only if it remains
-   missing after re-checking API #227. Add the component to both source maps,
-   regenerate the full fixture from a clean committed UI checkout and update
-   its pinned provenance commit. Do not hand-edit generated schemas. API PR:
-   `Refs larchanka-training/dmc-268-ui-t6#113`; no closing keyword.
+   missing after re-checking API #227. Add the component to both source maps.
+   The canonical fixture is pinned to UI `9bfb931` and includes Repository
+   settings from a later feature branch; full regeneration from current UI main
+   would remove that coverage and failed three existing contract tests.
+   Preserve the canonical fixture and its pin, and generate only `runStepEvent`
+   into `ui_run_step_zod_contracts.json` from clean committed UI
+   `4dda8d13d5f718216c3db3800cd7f7fcde787401`, with its own provenance.
+   Both fixtures feed the contract checks. Do not hand-edit generated schemas.
+   API PR: `Refs larchanka-training/dmc-268-ui-t6#113`; no closing keyword.
 
 ## Ordered tasks and checkpoints
 
@@ -94,10 +99,11 @@ Detailed tasks and file budgets are in [113-todo.md](113-todo.md).
 
 - [x] Task 1: current-contract schema and parser, with red/green boundary tests.
 - [x] Task 2: targeted event refresh with real cache/UI and recovery tests.
-- [ ] Checkpoint: focused tests pass, current-contract fixtures drive real UI,
+- [x] Checkpoint: focused tests pass, current-contract fixtures drive real UI,
       existing stream invalidation/cursor tests remain green.
-- [ ] Task 3: API snapshot parity and provenance, unless already delivered.
-- [ ] Task 4: FA documentation, full gates and browser/staging acceptance.
+- [x] Task 3: API snapshot parity and provenance.
+- [x] Task 4: FA documentation, full local gates and compiled mock-preview checks.
+- [ ] External staging acceptance after deployment with an authenticated session.
 - [ ] Checkpoint: all AC have evidence or an explicit access constraint; fresh
       reviews pass before publishing per agent-loop; human approves next steps.
 
@@ -216,4 +222,18 @@ no-id/non-replay delivery, existing reconnect recovery and retained polling.
 
 Final UI gates passed on 2026-10-20: lint, types, formatting, **1512 tests in
 113 files**, production build and clean bundle verification. After these gates,
-only this Markdown evidence was updated and separately format-checked.
+only Markdown evidence was updated and separately format-checked. Final
+independent UI Standards/Spec reviews returned 0 findings each.
+
+## Task 3 progress (2026-10-20)
+
+Committed UI source `4dda8d13d5f718216c3db3800cd7f7fcde787401` is the
+supplement's provenance pin and remains an ancestor of later evidence commits.
+The API generator completed the separate run-step supplement after the
+canonical snapshot refinement described above; reproducing it yields identical
+output. Targeted API contract checks passed 170 tests without skips; Ruff,
+format and mypy passed. Final independent API Standards/Spec reviews returned
+0 findings each. The full API suite passed 4889 tests without skips in
+1114.91 s against dedicated PostgreSQL/RabbitMQ test services. All four API
+gates passed. Staging acceptance remains pending deployment and an
+authenticated browser session; CI is pending publication/check runs.

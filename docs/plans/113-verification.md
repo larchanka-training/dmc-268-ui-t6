@@ -12,8 +12,8 @@
   [#155](https://github.com/larchanka-training/dmc-268-ui-t6/pull/155#issuecomment-6291844735),
   [#106](https://github.com/larchanka-training/dmc-268-ui-t6/pull/106#issuecomment-6291845334),
   [#109](https://github.com/larchanka-training/dmc-268-ui-t6/pull/109#issuecomment-6291846160).
-- User approved the plan with “ок” on 2026-10-20. Task 1 independent reviews:
-  Standards 0 / Spec 0 findings. Task 2 independent reviews pending.
+- User approved the plan with “ок” on 2026-10-20. Task 1 and final independent
+  UI reviews both returned Standards 0 / Spec 0 findings.
 
 ## RED/GREEN and behavioral coverage
 
@@ -71,13 +71,19 @@ checked separately.
 
 ## Browser and staging scope
 
-Coordinator checked the local mock build on Node 24 with `VITE_USE_MOCKS=1`:
+Coordinator checked a compiled local mock preview on Node 24 with
+`VITE_USE_MOCKS=1`, built separately into
+`/private/tmp/dmc268-ui113-browser-preview` and served at:
 `http://127.0.0.1:53113/runs/11111111-1111-4111-8111-000000000002`.
 Desktop 1265 px and mobile 390 px were checked in light and dark themes.
 Desktop document clientWidth/scrollWidth were 1265/1265; mobile document
 clientWidth/scrollWidth were 375/375 (390 px viewport includes the scrollbar).
 Journal, progress and diff rendered; Tab from search reached Unified with a
-visible native outline; browser logs contained no warnings/errors. No CSS or
+visible native outline; Inter Variable and JetBrains Mono Variable fonts were
+confirmed loaded with `document.fonts.check`; browser logs contained no
+warnings/errors. An initial dev-server font fs-allow error was resolved by
+using this compiled preview; it was verification setup, with no source or
+production-build changes. No CSS or
 components changed, and this is not an exhaustive contrast/reduced-motion audit.
 Mocks use the existing mock event path; production bridge timing is established
 by the real-hook integration tests above, not by this visual smoke check.
@@ -90,5 +96,39 @@ live reconnect trace for this change yet. Collect those Network observations
 after deployment with an authorized session and run. No simulated stream or
 mock result is counted as staging evidence.
 
-API snapshot parity/provenance is a separate Task 3, pending a clean committed
-UI schema checkout. No merge or issue closure is inferred.
+## API snapshot progress
+
+The committed UI schema source is
+`4dda8d13d5f718216c3db3800cd7f7fcde787401`. API supplement generation from
+that clean checkout is complete. Later UI evidence commits retain this source
+as a reachable ancestor.
+
+The canonical API fixture remains pinned to `9bfb931`: it contains Repository
+settings from a later UI feature branch, and full regeneration from current UI
+main failed three existing contract tests by removing that coverage. Task 3
+therefore adds separately generated `ui_run_step_zod_contracts.json`, filtered
+to `runStepEvent`, with its own source provenance; contract checks consume both
+fixtures. No unrelated feature work or hand-edited generated schema is added.
+Regeneration from the pinned source is reproducible. Targeted API contract
+checks passed **170 tests, no skips**; Ruff lint, Ruff formatting and mypy
+passed. Final independent API reviews returned Standards 0 / Spec 0 findings.
+
+## API gates and publication status
+
+All four API gates passed:
+
+- `uv run ruff check .`
+- `uv run ruff format --check .`: 518 files already formatted
+- `uv run mypy .`: 515 source files checked
+- `uv run pytest`: **4889 passed, no skips**, 1114.91 s (18 min 34 s)
+
+The full suite used dedicated real PostgreSQL (`TEST_DATABASE_URL`, port 62081) and RabbitMQ (`TEST_RABBITMQ_URL`, port 62103); two existing deprecation
+warnings remain. Targeted contract tests above establish schema parity rather
+than service integration. Final logs were retained under `/private/tmp` by the
+coordinator. After the source freeze only these three evidence Markdown files
+changed, with a separate formatting check; UI source commit `4dda8d1` remains
+an ancestor and API canonical fixture bytes remain unchanged.
+
+Both PRs are drafts pending external staging acceptance and human review.
+CI is pending publication/check runs. No merge or issue closure is inferred;
+the issue stays In Progress.

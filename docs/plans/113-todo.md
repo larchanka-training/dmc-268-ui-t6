@@ -60,7 +60,8 @@ themes when local browser is available.
 **Evidence (2026-10-20):** 163 focused tests passed; removing dispatch causes
 two visible page-update tests to fail, removing reconnect resync causes its
 observer test to fail. Both mutations were restored. See
-[113-verification.md](113-verification.md).
+[113-verification.md](113-verification.md). Final independent UI Standards/Spec
+reviews returned 0 findings each; all six UI gates passed (1512 tests, no skips).
 
 **Dependencies:** Task 1 reviewed; ownership comments already posted.
 
@@ -83,34 +84,44 @@ observer test to fail. Both mutations were restored. See
 
 **Description:** Re-check API #227 and coordinate before touching its owned
 contract test. If still missing, add RunStepEvent to both snapshot maps,
-generate from a clean committed UI checkout and update the provenance pin in
-a separate API PR referencing UI #113. Skip duplicate implementation if merged
+generate a separate run-step supplement from a clean committed UI checkout in
+a separate API PR referencing UI #113. Preserve the canonical snapshot and its
+`9bfb931` pin: its Repository settings coverage comes from a later UI feature
+branch and full regeneration from current main failed three existing tests.
+Skip duplicate implementation if merged
 work already satisfies the AC, while still collecting its CI evidence.
 
 **Acceptance criteria:**
 
-- [ ] `runStepEvent: RunStepEvent` is covered by UI_ZOD_COMPONENTS and generator
+- [x] `runStepEvent: RunStepEvent` is covered by UI_ZOD_COMPONENTS and generator
       sources; the generated fixture matches authoritative OpenAPI fields.
-- [ ] Full fixture provenance and UI_CONTRACT_COMMIT identify the exact clean
-      committed UI schema checkout; no generated schema is edited by hand.
-- [ ] Targeted contract tests and all four API gates are green, with any DB
+- [x] The separate `ui_run_step_zod_contracts.json` provenance and its source
+      pin identify clean UI commit `4dda8d13d5f718216c3db3800cd7f7fcde787401`;
+      canonical fixture/provenance remain unchanged; no schema is hand-edited.
+- [x] Targeted contract tests and all four API gates are green, with any DB
       access limitation/skips explicit. PR body references UI #113.
 
 **Verification:** First demonstrate missing map/fixture coverage, then run
-`DMC_268_UI_DIR=<clean committed UI checkout> node tests/generate_ui_zod_contracts.mjs`
+`SCHEMA_NAMES=runStepEvent OUTPUT_PATH=tests/fixtures/ui_run_step_zod_contracts.json DMC_268_UI_DIR=<clean committed UI checkout> node tests/generate_ui_zod_contracts.mjs`
 with the repository-supported Node runtime. Run
 `uv run pytest tests/test_openapi_contract.py tests/test_ui_zod_contracts.py`,
 `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy .`,
 `uv run pytest` (TEST_DATABASE_URL for DB-backed tests). Inspect provenance.
 
+**Evidence:** Supplement generation is reproducible from the pinned clean UI
+commit. Targeted API contract checks passed 170 tests without skips; Ruff,
+format and mypy passed. Independent API Standards/Spec reviews returned 0
+findings each. The full API suite passed 4889 tests without skips in 1114.91 s
+against dedicated PostgreSQL/RabbitMQ test services. All four API gates passed.
+
 **Dependencies:** Committed Task 1 UI schema; API #227 coordination; fresh
 separate API branch from origin/main. Not dependent on #170 extension merging.
 
-**Files likely touched (Medium, 4; API repository only):**
+**Files touched (Medium, 4; API repository only):**
 
 - `tests/test_openapi_contract.py`
 - `tests/generate_ui_zod_contracts.mjs`
-- `tests/fixtures/ui_zod_contracts.json`
+- `tests/fixtures/ui_run_step_zod_contracts.json` (generated supplement)
 - `tests/test_ui_zod_contracts.py`
 
 ## Task 4: Document and verify acceptance
@@ -125,7 +136,7 @@ and deployment allow; do not substitute test output for staging observation.
 - [x] FA table, bridge and polling prose accurately describe current schema,
       targeted actions/diff, no-id non-replay events and existing reconnect
       refetch; the obsolete claim that API lacks step events is removed.
-- [ ] All six UI gates and all four API gates are green for changed repos;
+- [x] All six UI gates and all four API gates are green for changed repos;
       both-theme desktop/390px browser checks cover journal/progress/diff.
 - [ ] Staging records deployed SHAs, frame/request timing, early diff display
       and reconnect recovery, or exact access/deployment constraints with AC
@@ -150,7 +161,8 @@ for staging AC. No additional dependencies expected.
 ## Checkpoint: Complete
 
 - [ ] Every issue AC has evidence; unmet staging AC remains explicitly pending.
-- [ ] Required repository gates and review loop pass; no unrelated files staged.
+- [x] Required local repository gates and independent review loop pass;
+      no unrelated files staged. CI remains pending publication/check runs.
 - [ ] PR descriptions use What / Why / How to verify / Refs, current diff only;
       attach every created PR to the chat and update board status as authorized.
 - [ ] Human review/checkpoint completed. No merge or issue closure is inferred.
