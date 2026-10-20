@@ -30,9 +30,12 @@ export default defineConfig(({ mode }) => {
           codeSplitting: {
             maxSize: 400_000,
             groups: [
+              // React Router loads route modules through Vite's preload helper. Kept in this chunk, the helper
+              // cannot land in an app chunk that imports @tanstack: that made a chunk cycle in which
+              // vendor-query ran before vendor-react, and the built app stopped with «n is not a function».
               {
                 name: 'vendor-react',
-                test: /[/\\]node_modules[/\\](?:react|react-dom|scheduler|react-router)[/\\]/,
+                test: /[/\\]node_modules[/\\](?:react|react-dom|scheduler|react-router)[/\\]|vite\/preload-helper/,
                 includeDependenciesRecursively: false,
               },
               {
