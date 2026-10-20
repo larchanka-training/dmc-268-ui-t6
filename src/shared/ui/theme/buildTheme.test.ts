@@ -607,6 +607,14 @@ describe('tokens.css', () => {
     '--rv-pop-shadow': 'popoverShadow',
   }
 
+  it.each([
+    ['dark', '#f87171'],
+    ['light', '#b91c1c'],
+  ] as const)('uses the approved critical red in both palette sources in %s', (mode, critical) => {
+    expect(RV_PALETTE[mode].critical).toBe(critical)
+    expect(block(`[data-rv-theme='${mode}']`)['--rv-critical']).toBe(critical)
+  })
+
   it('holds the same colours as the palette of the Ant Design theme in both modes', () => {
     const dark = block(":root,\n[data-rv-theme='dark']")
     const vars = { dark, light: { ...dark, ...block("[data-rv-theme='light']") } }

@@ -75,7 +75,7 @@ export const RV_PALETTE: Record<RvThemeMode, RvPalette> = {
     success: '#4ade80',
     warning: '#fbbf24',
     high: '#fb923c',
-    critical: '#f97316',
+    critical: '#f87171',
     danger: '#f87171',
     dangerHover: '#fa8a8a',
     dangerActive: '#e06060',

@@ -51,6 +51,9 @@
 
 .tag[data-variant='solid'][data-tone='critical'] {
   background: color-mix(in srgb, var(--tone) 22%, transparent);
+
+  /* The stronger tint also appears on warning Alerts; more neutral text keeps it readable. */
+  color: color-mix(in srgb, var(--tone) 70%, var(--rv-text));
 }
 
 .tag[data-variant='outline'] {

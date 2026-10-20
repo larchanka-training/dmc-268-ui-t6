@@ -1,5 +1,6 @@
 import { BranchesOutlined } from '@ant-design/icons'
 import type { Meta, StoryObj } from '@storybook/react-vite'
+import { Alert } from 'antd'
 
 import { Tag } from './Tag'
 
@@ -13,6 +14,20 @@ export default meta
 type Story = StoryObj<typeof Tag>
 
 const row = { display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' } as const
+
+function SeverityTags() {
+  return (
+    <>
+      <Tag tone="critical" variant="solid">
+        Critical
+      </Tag>
+      <Tag tone="critical">High</Tag>
+      <Tag tone="high">Medium</Tag>
+      <Tag tone="warning">Low</Tag>
+      <Tag tone="info">Info</Tag>
+    </>
+  )
+}
 
 export const Playground: Story = {}
 
@@ -38,14 +53,23 @@ export const RunStatuses: Story = {
 export const Severity: Story = {
   render: () => (
     <div style={row}>
-      <Tag tone="critical" variant="solid">
-        critical
-      </Tag>
-      <Tag tone="high">high</Tag>
-      <Tag tone="warning">medium</Tag>
-      <Tag>low</Tag>
-      <Tag tone="info">info</Tag>
+      <SeverityTags />
     </div>
+  ),
+}
+
+/** Findings outside the visible diff use a warning Alert; verify contrast on its tint too. */
+export const SeverityOnWarning: Story = {
+  render: () => (
+    <Alert
+      description={
+        <div style={row}>
+          <SeverityTags />
+        </div>
+      }
+      title="Замечания вне диффа"
+      type="warning"
+    />
   ),
 }
 
