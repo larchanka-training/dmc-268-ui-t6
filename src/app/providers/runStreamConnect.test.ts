@@ -127,7 +127,7 @@ describe('connectRunStream', () => {
     await connectRunStream(new AbortController().signal, 'token_a')
 
     expect(invalidateSpy.mock.calls).toEqual([
-      [{ queryKey: ['runs', RUN_A, 'actions'], exact: true }],
+      [{ queryKey: runQueryKeys.actions(RUN_A), exact: true }],
     ])
   })
 
@@ -142,8 +142,8 @@ describe('connectRunStream', () => {
     await connectRunStream(new AbortController().signal, 'token_a')
 
     expect(invalidateSpy.mock.calls).toEqual([
-      [{ queryKey: ['runs', RUN_A, 'actions'], exact: true }],
-      [{ queryKey: ['runs', RUN_A, 'diff'], exact: true }],
+      [{ queryKey: runQueryKeys.actions(RUN_A), exact: true }],
+      [{ queryKey: runQueryKeys.diff(RUN_A), exact: true }],
     ])
   })
 
@@ -158,7 +158,7 @@ describe('connectRunStream', () => {
     await connectRunStream(new AbortController().signal, 'token_a')
 
     expect(invalidateSpy.mock.calls).toEqual([
-      [{ queryKey: ['runs', RUN_A, 'actions'], exact: true }],
+      [{ queryKey: runQueryKeys.actions(RUN_A), exact: true }],
     ])
   })
 
@@ -218,23 +218,23 @@ describe('connectRunStream', () => {
     expect(keys).toHaveLength(5)
     expect(keys).toEqual(
       expect.arrayContaining([
-        ['runs', 'list'],
-        ['runs', runId],
-        ['runs', runId, 'actions'],
-        ['runs', runId, 'diff'],
-        ['runs', runId, 'comments'],
+        runQueryKeys.list(),
+        runQueryKeys.detail(runId),
+        runQueryKeys.actions(runId),
+        runQueryKeys.diff(runId),
+        runQueryKeys.comments(runId),
       ]),
     )
   })
 
   it.each([
     [
-      'run.step',
+      'a run.step frame with a malformed legacy payload',
       'event: run.step\ndata: {"runId":"RUN","status":"running","step":"context.build"}\n\n',
     ],
     ['run.progress', 'event: run.progress\ndata: {"runId":"RUN","status":"running"}\n\n'],
     ['a frame without an event name', 'data: {"runId":"RUN","status":"running"}\n\n'],
-  ])('invalidates nothing for %s even with a valid-looking payload', async (_label, frame) => {
+  ])('invalidates nothing for %s', async (_label, frame) => {
     const runId = '11111111-1111-4111-8111-000000000004'
     const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
     globalThis.fetch = vi
@@ -301,11 +301,11 @@ describe('applyRunUpdated', () => {
     expect(keys).toHaveLength(5)
     expect(keys).toEqual(
       expect.arrayContaining([
-        ['runs', RUN_ID],
-        ['runs', RUN_ID, 'actions'],
-        ['runs', RUN_ID, 'diff'],
-        ['runs', RUN_ID, 'comments'],
-        ['runs', 'list'],
+        runQueryKeys.detail(RUN_ID),
+        runQueryKeys.actions(RUN_ID),
+        runQueryKeys.diff(RUN_ID),
+        runQueryKeys.comments(RUN_ID),
+        runQueryKeys.list(),
       ]),
     )
   })
@@ -316,7 +316,7 @@ describe('applyRunUpdated', () => {
     applyRunUpdated({ runId: RUN_ID, status: 'succeeded' })
 
     expect(invalidateSpy).toHaveBeenCalledTimes(5)
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['runs', 'list'] })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: runQueryKeys.list() })
   })
 })
 

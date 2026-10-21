@@ -4,6 +4,7 @@ import {
   parseRunUpdatedEvent,
   parseSseBuffer,
   runQueryKeys,
+  RUN_FETCH_DIFF_TOOL,
 } from '../../entities/run'
 import type { RunUpdatedEvent } from '../../entities/run'
 import { getAccessToken, refreshAccessToken } from '../../shared/api/client'
@@ -149,7 +150,7 @@ async function readStream(
               queryKey: runQueryKeys.actions(step.runId),
               exact: true,
             })
-            if (step.ok && step.tool === 'vcs.fetch_diff') {
+            if (step.ok && step.tool === RUN_FETCH_DIFF_TOOL) {
               void queryClient.invalidateQueries({
                 queryKey: runQueryKeys.diff(step.runId),
                 exact: true,

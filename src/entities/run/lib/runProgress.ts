@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import type { RunAction, RunSession } from '../model/schemas'
+import { RUN_FETCH_DIFF_TOOL } from './runTools'
 
 export type RunProgressStageKey = 'context' | 'analysis' | 'publishing'
 
@@ -30,7 +31,7 @@ const PUBLISHING = 2
 // A Map, not an object literal: a tool named `constructor` must stay unknown.
 const TOOL_STAGE = new Map<string, number>([
   ['policy.load', CONTEXT],
-  ['vcs.fetch_diff', CONTEXT],
+  [RUN_FETCH_DIFF_TOOL, CONTEXT],
   ['context.build', CONTEXT],
   ['llm.repo_conventions', CONTEXT],
   ['llm.call', ANALYSIS],

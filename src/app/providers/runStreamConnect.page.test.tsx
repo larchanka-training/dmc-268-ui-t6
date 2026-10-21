@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { focusManager, QueryClientProvider, QueryObserver } from '@tanstack/react-query'
-import { act, cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -16,6 +16,7 @@ import {
 import { setAccessToken, setMockTransport } from '../../shared/api/client'
 import { useDiffViewerStore } from '../../widgets/diff-viewer'
 import { useRunInspectorStore } from '../../widgets/run-inspector'
+import { advance, settle } from '../../test/advanceTimers'
 import { RunDetailPage } from '../../pages/runs/RunDetailPage'
 
 const RUN_A = '11111111-1111-4111-8111-00000000000a'
@@ -115,18 +116,6 @@ let unsubscribe: (() => void)[]
 
 function requestCount(path: string): number {
   return requests.filter((request) => request === path).length
-}
-
-async function advance(ms: number): Promise<void> {
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(ms)
-  })
-}
-
-async function settle(): Promise<void> {
-  for (let round = 0; round < 5; round += 1) {
-    await advance(0)
-  }
 }
 
 function mountPage(): void {
