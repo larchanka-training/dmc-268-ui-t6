@@ -148,12 +148,21 @@ export function useUpdateRepository() {
       const previousRepo = previous?.find((r) => r.id === id)
       return { previous, previousRepo, id }
     },
-    onError: (_err, { id }, context) => {
-      // Roll back the modified row (or full snapshot)
+    onError: (_err, { id, patch }, context) => {
+      // Roll back only the fields of the failed patch (or the full snapshot). Another update of
+      // the same repository may have succeeded since the snapshot (a RAG switch-on while a
+      // settings save runs), and restoring the whole row would undo it. The snapshot holds the
+      // served `enabled`, so a patched `enabled` comes back as it was shown; `ragIndex` comes back
+      // with `ragEnabled`, as the server sets the two together.
       const previousRepo = context?.previousRepo
       if (previousRepo) {
+        const fields: (keyof Repository)[] = Object.keys(patch) as (keyof UpdateRepositoryInput)[]
+        if ('ragEnabled' in patch) {
+          fields.push('ragIndex')
+        }
+        const rolledBack = Object.fromEntries(fields.map((field) => [field, previousRepo[field]]))
         queryClient.setQueryData<Repository[]>(REPOSITORIES_QUERY_KEY, (old = []) =>
-          old.map((repo) => (repo.id === id ? previousRepo : repo)),
+          old.map((repo) => (repo.id === id ? { ...repo, ...rolledBack } : repo)),
         )
       } else if (context?.previous) {
         queryClient.setQueryData<Repository[]>(REPOSITORIES_QUERY_KEY, context.previous)

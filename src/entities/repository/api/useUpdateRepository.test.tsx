@@ -109,3 +109,84 @@ describe('useUpdateRepository: optimistic update', () => {
     },
   )
 })
+
+/**
+ * What the list cache holds for `repo` after the PATCH with `patch` failed. While that PATCH is
+ * open, `meanwhile` rewrites the cached row, the way a second update of the same repository that
+ * succeeded in the meantime does (its `onSuccess` writes the server row).
+ */
+async function cachedAfterFailedPatch(
+  repo: Repository,
+  patch: UpdateRepositoryInput,
+  meanwhile: (row: Repository) => Repository,
+): Promise<Repository | undefined> {
+  let release = (): void => undefined
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const fetchMock = vi.fn<typeof fetch>(() =>
+    gate.then(() => new Response('Server Error', { status: 500 })),
+  )
+  vi.stubGlobal('fetch', fetchMock)
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  client.setQueryData<Repository[]>(REPOSITORIES_QUERY_KEY, [repo])
+  const { result } = renderHook(() => useUpdateRepository(), {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  })
+
+  act(() => {
+    result.current.mutate({ id: repo.id, patch })
+  })
+  await waitFor(() => {
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+  client.setQueryData<Repository[]>(REPOSITORIES_QUERY_KEY, (old = []) => old.map(meanwhile))
+
+  release()
+  await waitFor(() => {
+    expect(result.current.isError).toBe(true)
+  })
+  return client.getQueryData<Repository[]>(REPOSITORIES_QUERY_KEY)?.[0]
+}
+
+describe('useUpdateRepository: rollback', () => {
+  it('rolls back only the fields of the failed patch and keeps a newer RAG switch-on', async () => {
+    const cached = await cachedAfterFailedPatch(REACHABLE, { maxComments: 3 }, (row) => ({
+      ...row,
+      ragEnabled: true,
+      ragIndex: { ...disabledRagIndex, status: 'empty' },
+    }))
+
+    expect(cached).toEqual({
+      ...REACHABLE,
+      ragEnabled: true,
+      ragIndex: { ...disabledRagIndex, status: 'empty' },
+    })
+  })
+
+  it('rolls back `ragEnabled` together with `ragIndex` and keeps a newer setting', async () => {
+    const cached = await cachedAfterFailedPatch(REACHABLE, { ragEnabled: true }, (row) => ({
+      ...row,
+      maxComments: 5,
+      ragIndex: { ...disabledRagIndex, status: 'empty' },
+    }))
+
+    expect(cached).toEqual({ ...REACHABLE, maxComments: 5 })
+  })
+
+  it('rolls back `enabled` and keeps a newer RAG index', async () => {
+    const cached = await cachedAfterFailedPatch(REACHABLE, { enabled: false }, (row) => ({
+      ...row,
+      ragEnabled: true,
+      ragIndex: { ...disabledRagIndex, status: 'building' },
+    }))
+
+    expect(cached).toEqual({
+      ...REACHABLE,
+      ragEnabled: true,
+      ragIndex: { ...disabledRagIndex, status: 'building' },
+    })
+  })
+})
