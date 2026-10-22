@@ -13,7 +13,6 @@ import {
 } from '../../entities/repository'
 import { RAG_POLL_TIMED_OUT_TEXT } from '../../features/repository-settings'
 import { advance } from '../../test/advanceTimers'
-import { RAG_POLL_MS, RAG_POLL_WINDOW_MS } from './lib/useRagIndexPolling'
 import { RepositorySettingsPage } from './RepositorySettingsPage'
 
 const UI_REPO: Repository = {
@@ -1687,7 +1686,7 @@ describe('RepositorySettingsPage: RAG', () => {
       const afterSwitchOn = backend.gets
 
       serveIndex(backend, { ...disabledRagIndex, status: 'building' })
-      await advance(RAG_POLL_MS - 1)
+      await advance(4999)
       expect(backend.gets).toBe(afterSwitchOn)
       await advance(1)
       expect(backend.gets).toBe(afterSwitchOn + 1)
@@ -1696,7 +1695,7 @@ describe('RepositorySettingsPage: RAG', () => {
       expect(within(ragSection()).getByText('Строится…')).toBeTruthy()
 
       serveIndex(backend, RAG_READY_REPO.ragIndex)
-      await advance(RAG_POLL_MS - 2)
+      await advance(4998)
       expect(backend.gets).toBe(afterSwitchOn + 1)
       await advance(1)
       expect(backend.gets).toBe(afterSwitchOn + 2)
@@ -1720,14 +1719,16 @@ describe('RepositorySettingsPage: RAG', () => {
       expect(within(ragSection()).queryByText(RAG_POLL_TIMED_OUT_TEXT)).toBeNull()
       const opened = backend.gets
 
-      await advance(RAG_POLL_WINDOW_MS)
+      await advance(119_999)
+      expect(within(ragSection()).queryByText(RAG_POLL_TIMED_OUT_TEXT)).toBeNull()
+      // A poll every 5 s inside the window: 23 of them, none at its end.
+      expect(backend.gets).toBe(opened + 23)
+      await advance(1)
       expect(within(ragSection()).getByText(RAG_POLL_TIMED_OUT_TEXT)).toBeTruthy()
-      // A poll every 5 s inside the window, none at its end.
-      const polls = RAG_POLL_WINDOW_MS / RAG_POLL_MS - 1
-      expect(backend.gets).toBe(opened + polls)
+      expect(backend.gets).toBe(opened + 23)
 
       await advance(60_000)
-      expect(backend.gets).toBe(opened + polls)
+      expect(backend.gets).toBe(opened + 23)
     })
   })
 })
