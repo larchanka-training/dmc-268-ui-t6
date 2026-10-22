@@ -1,0 +1,26 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 560px;
+}
+
+.status code {
+  font-family: var(--rv-font-mono);
+  font-size: var(--rv-fs-xs);
+}
+
+.sha {
+  color: var(--rv-text-2);
+  cursor: default;
+}
+
+.sha:focus-visible {
+  outline: 2px solid var(--rv-link);
+  outline-offset: 2px;
+}
+
+/* A line of its own inside the wrapping status row. */
+.wide {
+  flex-basis: 100%;
+}
