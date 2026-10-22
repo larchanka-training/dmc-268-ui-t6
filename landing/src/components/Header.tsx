@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 
+import { getAppUrl } from '../lib/appUrl'
 import { BRAND_NAME } from '../brand'
 import { Logo } from './Logo'
 import styles from './Header.module.css'
@@ -32,8 +33,8 @@ export function Header() {
           <a href="#features" className={styles.link}>
             Features
           </a>
-          <a href="#waitlist" className={styles.link}>
-            Get early access
+          <a href={getAppUrl()} className={styles.link}>
+            Try it now
           </a>
         </nav>
       </div>

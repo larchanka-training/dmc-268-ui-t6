@@ -1,0 +1,90 @@
+.section {
+  padding-block: 120px 96px;
+}
+
+.panel {
+  position: relative;
+  max-width: 760px;
+  margin-inline: auto;
+  padding: 64px 48px 56px;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgb(20 27 47 / 80%), rgb(9 13 24 / 90%));
+  box-shadow: 0 1px 0 rgb(255 255 255 / 8%) inset;
+  text-align: center;
+  isolation: isolate;
+}
+
+.glow {
+  position: absolute;
+  top: -60%;
+  left: 50%;
+  z-index: -1;
+  width: 120%;
+  height: 120%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgb(37 99 235 / 35%), transparent 60%);
+  transform: translateX(-50%);
+  filter: blur(30px);
+}
+
+.title {
+  font-size: clamp(1.875rem, 1.4rem + 2vw, 2.75rem);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.lead {
+  max-width: 30rem;
+  margin: 16px auto 0;
+  color: var(--text-2);
+  font-size: 17px;
+  text-wrap: balance;
+}
+
+.button {
+  display: inline-flex;
+  margin-top: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--blue);
+  text-decoration: none;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 12%) inset,
+    0 1px 0 rgb(255 255 255 / 25%) inset,
+    0 10px 30px -10px rgb(37 99 235 / 80%);
+  transition:
+    background-color 0.2s ease,
+    transform 0.15s ease;
+}
+
+.button:hover {
+  background: var(--blue-hover);
+}
+
+.button:active {
+  transform: scale(0.98);
+}
+
+@media (width <= 640px) {
+  .section {
+    padding-block: 80px 64px;
+  }
+
+  .panel {
+    padding: 48px 20px 40px;
+    border-radius: 20px;
+  }
+}
