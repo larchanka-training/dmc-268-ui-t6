@@ -2,17 +2,19 @@ import { useState, type JSX } from 'react'
 import { Typography } from 'antd'
 
 import { extractNewSideLines, type FileDiff } from '../../../entities/diff'
-import type { FindingView } from '../../../entities/review'
-import { findingLineRangeLabel, SEVERITY_LABEL, severityBadgeGroup } from '../../../entities/review'
-import { RowButton, Tag } from '../../../shared/ui'
+import type { FindingView, Severity } from '../../../entities/review'
+import { findingLineRangeLabel, SEVERITY_LABEL } from '../../../entities/review'
+import { RowButton, Tag, type TagProps } from '../../../shared/ui'
 import { DiffSuggestion } from './DiffSuggestion'
 
-/** Only the critical group is filled: it is the one that needs action (docs/DESIGN_SYSTEM.md §8). */
+/** Each finding keeps its exact severity; only critical is filled (UI #127). */
 const SEVERITY_TAG = {
   critical: { tone: 'critical', variant: 'solid' },
-  warning: { tone: 'warning', variant: 'dot' },
+  high: { tone: 'critical', variant: 'dot' },
+  medium: { tone: 'high', variant: 'dot' },
+  low: { tone: 'warning', variant: 'dot' },
   info: { tone: 'info', variant: 'dot' },
-} as const
+} as const satisfies Record<Severity, Pick<TagProps, 'tone' | 'variant'>>
 
 interface InlineCommentProps {
   finding: FindingView
@@ -24,7 +26,7 @@ interface InlineCommentProps {
 export function InlineComment(props: InlineCommentProps): JSX.Element {
   const { finding, file, defaultExpanded = false } = props
   const [expanded, setExpanded] = useState(defaultExpanded)
-  const badge = severityBadgeGroup(finding.severity)
+  const badge = SEVERITY_TAG[finding.severity]
   const range = findingLineRangeLabel(finding)
 
   const removedLines =
@@ -41,7 +43,7 @@ export function InlineComment(props: InlineCommentProps): JSX.Element {
           setExpanded((value) => !value)
         }}
       >
-        <Tag tone={SEVERITY_TAG[badge].tone} variant={SEVERITY_TAG[badge].variant}>
+        <Tag tone={badge.tone} variant={badge.variant}>
           {SEVERITY_LABEL[finding.severity]}
         </Tag>
         <Typography.Text className="inline-comment-title" strong>
