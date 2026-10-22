@@ -20,7 +20,6 @@ import {
 } from '../../app/mocks/mockTransport'
 import { setMockTransport } from '../../shared/api/client'
 import { advance } from '../../test/advanceTimers'
-import { RAG_POLL_MS } from './lib/useRagIndexPolling'
 import { RepositorySettingsPage } from './RepositorySettingsPage'
 
 const DOCS_REPO = mockRepositories[3]
@@ -105,11 +104,11 @@ describe('RepositorySettingsPage: RAG on mocks', () => {
     expect(within(ragSection()).getByText('Строится…')).toBeTruthy()
     const afterSwitchOn = gets.count
 
-    await advance(RAG_POLL_MS)
+    await advance(5000)
     expect(gets.count).toBe(afterSwitchOn + 1)
     expect(within(ragSection()).getByText('Строится…')).toBeTruthy()
 
-    await advance(RAG_POLL_MS)
+    await advance(5000)
     expect(gets.count).toBe(afterSwitchOn + 2)
     // TanStack hands the answer to the page from a zero-delay timer set once the request is over.
     await advance(1)
