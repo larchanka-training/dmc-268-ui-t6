@@ -8,8 +8,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   disabledRagIndex,
   REPOSITORIES_QUERY_KEY,
+  type RagIndex,
   type Repository,
 } from '../../entities/repository'
+import {
+  RAG_ERROR_TITLE,
+  RAG_LABEL,
+  RAG_NO_ACCESS_TEXT,
+  RAG_POLL_TIMED_OUT_TEXT,
+} from '../../features/repository-settings'
+import { RAG_POLL_MS, RAG_POLL_WINDOW_MS } from './lib/useRagIndexPolling'
 import { RepositorySettingsPage } from './RepositorySettingsPage'
 
 const UI_REPO: Repository = {
@@ -55,6 +63,29 @@ const FULL_REPO: Repository = {
 
 // The GitHub App lost access: the api serves the stored preference as `enabled: false` (api PR #156).
 const UNREACHABLE_REPO: Repository = { ...UI_REPO, enabled: false, installationAvailable: false }
+
+const READY_SHA = 'f00dbabe0123456789abcdef0123456789abcdef'
+
+// RAG on, its index published (api#145).
+const RAG_READY_REPO: Repository = {
+  ...UI_REPO,
+  ragEnabled: true,
+  ragIndex: {
+    status: 'ready',
+    indexedCommitSha: READY_SHA,
+    indexedAt: '2026-10-20T08:15:30.000Z',
+    fileCount: 214,
+    symbolCount: 3187,
+    lastErrorCode: null,
+  },
+}
+
+// RAG on, the build stopped on a limit: no index is used, the code is shown as sent (api#145).
+const RAG_FAILED_REPO: Repository = {
+  ...UI_REPO,
+  ragEnabled: true,
+  ragIndex: { ...disabledRagIndex, status: 'failed', lastErrorCode: 'limit_exceeded:symbols' },
+}
 
 // A valid uuid that no list contains.
 const UNKNOWN_ID = 'c3d4e5f6-a7b8-4901-8def-123456789012'
@@ -156,9 +187,23 @@ function stubBackend(repos: Repository[]): Backend {
           if (backend.failPatch) {
             return new Response('Server Error', { status: 500 })
           }
-          const merged = { ...backend.repos.find((repo) => repo.id === id), ...body } as Repository
-          // The api serves `enabled AND installationAvailable` (api PR #156, SD §6.9).
-          const saved = { ...merged, enabled: merged.enabled && merged.installationAvailable }
+          const stored = backend.repos.find((repo) => repo.id === id)
+          const merged = { ...stored, ...body } as Repository
+          // The api serves `enabled AND installationAvailable` (api PR #156, SD §6.9), and
+          // `ragEnabled` the same way. A switch-on starts the index from `empty`, RAG off serves
+          // it `disabled`, anything else keeps it (api#145, like `ragIndexAfterPatch` of the mocks).
+          const ragEnabled = merged.ragEnabled && merged.installationAvailable
+          const switchedOn = body.ragEnabled === true && stored?.ragEnabled !== true
+          const saved: Repository = {
+            ...merged,
+            enabled: merged.enabled && merged.installationAvailable,
+            ragEnabled,
+            ragIndex: !ragEnabled
+              ? { ...disabledRagIndex }
+              : switchedOn
+                ? { ...disabledRagIndex, status: 'empty' }
+                : merged.ragIndex,
+          }
           backend.repos = backend.repos.map((repo) => (repo.id === id ? saved : repo))
           return new Response(JSON.stringify(saved), { status: 200 })
         })()
@@ -234,6 +279,15 @@ function branchFilterField(): HTMLTextAreaElement {
 
 function autoReviewSwitch(): HTMLElement {
   return screen.getByRole('switch', { name: AUTO_REVIEW_LABEL })
+}
+
+function ragSwitch(): HTMLElement {
+  return screen.getByRole('switch', { name: RAG_LABEL })
+}
+
+/** The RAG section: the switch, the hint and the status of the index. */
+function ragSection(): HTMLElement {
+  return screen.getByRole('region', { name: RAG_LABEL })
 }
 
 /**
@@ -1510,6 +1564,182 @@ describe('RepositorySettingsPage: auto-review', () => {
     await screen.findByLabelText(LIMIT_LABEL)
 
     expect(screen.queryByText(/у GitHub App нет доступа/i)).toBeNull()
+  })
+})
+
+describe('RepositorySettingsPage: RAG', () => {
+  it('switches RAG on at once with PATCH {ragEnabled} only', async () => {
+    const backend = stubBackend([UI_REPO, API_REPO])
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+    expect(ragSwitch().getAttribute('aria-checked')).toBe('false')
+    expect(within(ragSection()).getByText('Выключен')).toBeTruthy()
+
+    // An unsaved edit of the form must not travel with the switch.
+    fireEvent.change(screen.getByLabelText(LIMIT_LABEL), { target: { value: '5' } })
+    fireEvent.click(ragSwitch())
+
+    const toast = await screen.findByText('RAG включён')
+    expect(toast.closest('.ant-message-success')).not.toBeNull()
+    expect(backend.patches).toEqual([{ id: UI_REPO.id, body: { ragEnabled: true } }])
+    expect(ragSwitch().getAttribute('aria-checked')).toBe('true')
+    // The server has no index for it yet.
+    expect(await within(ragSection()).findByText('Не построен')).toBeTruthy()
+    expect(inputValue(LIMIT_LABEL)).toBe('5')
+    expect(saveButton().disabled).toBe(false)
+  })
+
+  it('switches RAG off with PATCH {ragEnabled: false} and drops the index from the status', async () => {
+    const backend = stubBackend([RAG_READY_REPO])
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+    expect(ragSwitch().getAttribute('aria-checked')).toBe('true')
+
+    fireEvent.click(ragSwitch())
+
+    const toast = await screen.findByText('RAG выключен')
+    expect(toast.closest('.ant-message-success')).not.toBeNull()
+    expect(backend.patches).toEqual([{ id: UI_REPO.id, body: { ragEnabled: false } }])
+    expect(ragSwitch().getAttribute('aria-checked')).toBe('false')
+    expect(within(ragSection()).getByText('Выключен')).toBeTruthy()
+    expect(within(ragSection()).queryByText(READY_SHA.slice(0, 7))).toBeNull()
+  })
+
+  it('shows the error in the section and rolls the switch back when PATCH fails', async () => {
+    const backend = stubBackend([UI_REPO])
+    backend.failPatch = true
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+    fireEvent.change(screen.getByLabelText(LIMIT_LABEL), { target: { value: '5' } })
+
+    fireEvent.click(ragSwitch())
+
+    const section = ragSection()
+    expect(await within(section).findByText(SERVER_500_TEXT)).toBeTruthy()
+    expect(within(section).getByText(RAG_ERROR_TITLE)).toBeTruthy()
+    expect(backend.patches).toEqual([{ id: UI_REPO.id, body: { ragEnabled: true } }])
+    await waitFor(() => {
+      expect(ragSwitch().getAttribute('aria-checked')).toBe('false')
+    })
+    expect(within(section).getByText('Выключен')).toBeTruthy()
+    expect(screen.queryByText('RAG включён')).toBeNull()
+    // The failed switch holds nothing back: the draft can be saved.
+    await waitFor(() => {
+      expect(saveButton().disabled).toBe(false)
+    })
+  })
+
+  it('keeps the switch off and disabled without GitHub App access, and says why', async () => {
+    const backend = stubBackend([UNREACHABLE_REPO])
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    const section = ragSection()
+    expect(ragSwitch().getAttribute('aria-checked')).toBe('false')
+    expect(ragSwitch().hasAttribute('disabled')).toBe(true)
+    expect(within(section).getByText(RAG_NO_ACCESS_TEXT)).toBeTruthy()
+    expect(within(section).getByText('Выключен')).toBeTruthy()
+    expect(backend.patches).toEqual([])
+  })
+
+  it('shows the commit and the time of a ready index', async () => {
+    stubBackend([RAG_READY_REPO])
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    const section = ragSection()
+    expect(ragSwitch().getAttribute('aria-checked')).toBe('true')
+    expect(within(section).getByText('Готов')).toBeTruthy()
+    expect(within(section).getByText(READY_SHA.slice(0, 7)).tagName).toBe('CODE')
+    expect(within(section).getByText('обновлён 2026-10-20 08:15:30 UTC')).toBeTruthy()
+  })
+
+  it('shows the error code of a failed index as the server sent it', async () => {
+    stubBackend([RAG_FAILED_REPO])
+    renderPage(settingsPath(UI_REPO.id))
+    await screen.findByLabelText(LIMIT_LABEL)
+
+    const section = ragSection()
+    expect(within(section).getByText('Ошибка')).toBeTruthy()
+    expect(within(section).getByText('limit_exceeded:symbols').tagName).toBe('CODE')
+  })
+
+  // Fake timers: `findBy*`, `waitFor` and the helpers built on them would wait for timers that
+  // only `advance` moves. The page is read with `getBy*` after an `advance`.
+  describe('polling of the index status', () => {
+    /** Lets the timers up to `ms` run, and the requests and renders they cause. */
+    async function advance(ms: number): Promise<void> {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(ms)
+      })
+    }
+
+    /** What the next GET answers for the index of the first repository. */
+    function serveIndex(backend: Backend, ragIndex: RagIndex): void {
+      backend.repos = backend.repos.map((repo, i) => (i === 0 ? { ...repo, ragIndex } : repo))
+    }
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('polls every 5 s after a switch-on and stops once the index is ready', async () => {
+      vi.useFakeTimers()
+      const backend = stubBackend([UI_REPO])
+      renderPage(settingsPath(UI_REPO.id))
+      await advance(0)
+      expect(within(ragSection()).getByText('Выключен')).toBeTruthy()
+
+      fireEvent.click(ragSwitch())
+      await advance(0)
+      expect(backend.patches).toEqual([{ id: UI_REPO.id, body: { ragEnabled: true } }])
+      // The PATCH answers an index nobody has built yet, and the refetch after it says the same.
+      expect(within(ragSection()).getByText('Не построен')).toBeTruthy()
+      const afterSwitchOn = backend.gets
+
+      serveIndex(backend, { ...disabledRagIndex, status: 'building' })
+      await advance(RAG_POLL_MS - 1)
+      expect(backend.gets).toBe(afterSwitchOn)
+      await advance(1)
+      expect(backend.gets).toBe(afterSwitchOn + 1)
+      // TanStack hands the answer to the page from a zero-delay timer set once the request is over.
+      await advance(1)
+      expect(within(ragSection()).getByText('Строится…')).toBeTruthy()
+
+      serveIndex(backend, RAG_READY_REPO.ragIndex)
+      await advance(RAG_POLL_MS - 2)
+      expect(backend.gets).toBe(afterSwitchOn + 1)
+      await advance(1)
+      expect(backend.gets).toBe(afterSwitchOn + 2)
+      await advance(1)
+      expect(within(ragSection()).getByText('Готов')).toBeTruthy()
+      expect(within(ragSection()).getByText(READY_SHA.slice(0, 7))).toBeTruthy()
+
+      // A published index is final: no request however long the page stays open.
+      await advance(60_000)
+      expect(backend.gets).toBe(afterSwitchOn + 2)
+    })
+
+    it('stops polling a build that is not over after 120 s, and says so', async () => {
+      vi.useFakeTimers()
+      const backend = stubBackend([
+        { ...UI_REPO, ragEnabled: true, ragIndex: { ...disabledRagIndex, status: 'building' } },
+      ])
+      renderPage(settingsPath(UI_REPO.id))
+      await advance(0)
+      expect(within(ragSection()).getByText('Строится…')).toBeTruthy()
+      expect(within(ragSection()).queryByText(RAG_POLL_TIMED_OUT_TEXT)).toBeNull()
+      const opened = backend.gets
+
+      await advance(RAG_POLL_WINDOW_MS)
+      expect(within(ragSection()).getByText(RAG_POLL_TIMED_OUT_TEXT)).toBeTruthy()
+      // A poll every 5 s inside the window, none at its end.
+      const polls = RAG_POLL_WINDOW_MS / RAG_POLL_MS - 1
+      expect(backend.gets).toBe(opened + polls)
+
+      await advance(60_000)
+      expect(backend.gets).toBe(opened + polls)
+    })
   })
 })
 
