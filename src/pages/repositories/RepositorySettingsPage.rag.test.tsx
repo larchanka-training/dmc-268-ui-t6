@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { App } from 'antd'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -18,8 +18,8 @@ import {
   MOCK_RAG_INDEXED_SHA,
   withMockTransportOverlay,
 } from '../../app/mocks/mockTransport'
-import { RAG_LABEL } from '../../features/repository-settings'
 import { setMockTransport } from '../../shared/api/client'
+import { advance } from '../../test/advanceTimers'
 import { RAG_POLL_MS } from './lib/useRagIndexPolling'
 import { RepositorySettingsPage } from './RepositorySettingsPage'
 
@@ -55,12 +55,12 @@ function settingsPath(id: string): string {
 }
 
 function ragSwitch(): HTMLElement {
-  return screen.getByRole('switch', { name: RAG_LABEL })
+  return screen.getByRole('switch', { name: 'RAG' })
 }
 
 /** The RAG section: the switch, the hint and the status of the index. */
 function ragSection(): HTMLElement {
-  return screen.getByRole('region', { name: RAG_LABEL })
+  return screen.getByRole('region', { name: 'RAG' })
 }
 
 /**
@@ -76,13 +76,6 @@ function countRepositoryGets(): { count: number } {
     return undefined
   })
   return counter
-}
-
-/** Lets the timers up to `ms` run, and the requests and renders they cause. */
-async function advance(ms: number): Promise<void> {
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(ms)
-  })
 }
 
 beforeEach(() => {

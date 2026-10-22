@@ -3,13 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { disabledRagIndex, type RagIndex } from '../../../entities/repository'
-import {
-  RAG_ERROR_TITLE,
-  RAG_HINT,
-  RAG_LABEL,
-  RAG_NO_ACCESS_TEXT,
-  RAG_POLL_TIMED_OUT_TEXT,
-} from '../lib/ragIndexView'
+import { RAG_POLL_TIMED_OUT_TEXT } from '../lib/ragIndexView'
 import { RagSection, type RagSectionProps } from './RagSection'
 
 const SHA = '0123456789abcdef0123456789abcdef01234567'
@@ -51,7 +45,7 @@ function renderSection(props: Partial<RagSectionProps> = {}) {
 }
 
 function theSwitch(): HTMLButtonElement {
-  return screen.getByRole<HTMLButtonElement>('switch', { name: RAG_LABEL })
+  return screen.getByRole<HTMLButtonElement>('switch', { name: 'RAG' })
 }
 
 function statusLine(): HTMLElement {
@@ -103,7 +97,7 @@ describe('RagSection: the switch', () => {
   it('is a region and a switch named «RAG»', () => {
     renderSection()
 
-    expect(screen.getByRole('region', { name: RAG_LABEL })).toBeTruthy()
+    expect(screen.getByRole('region', { name: 'RAG' })).toBeTruthy()
     expect(theSwitch()).toBeTruthy()
   })
 
@@ -212,7 +206,7 @@ describe('RagSection: the switch', () => {
 
     fireEvent.click(theSwitch())
 
-    expect(await screen.findByText(RAG_ERROR_TITLE)).toBeTruthy()
+    expect(await screen.findByText('Не удалось изменить настройку RAG')).toBeTruthy()
     expect(screen.getByText('Ошибка: boom')).toBeTruthy()
     expect(screen.getByRole('alert').className).toContain('ant-alert-error')
     await waitFor(() => {
@@ -224,7 +218,7 @@ describe('RagSection: the switch', () => {
     const { onChange } = renderSection()
     onChange.mockRejectedValueOnce(new Error('boom'))
     fireEvent.click(theSwitch())
-    expect(await screen.findByText(RAG_ERROR_TITLE)).toBeTruthy()
+    expect(await screen.findByText('Не удалось изменить настройку RAG')).toBeTruthy()
     await waitFor(() => {
       expect(theSwitch().disabled).toBe(false)
     })
@@ -232,7 +226,7 @@ describe('RagSection: the switch', () => {
     fireEvent.click(theSwitch())
 
     await waitFor(() => {
-      expect(screen.queryByText(RAG_ERROR_TITLE)).toBeNull()
+      expect(screen.queryByText('Не удалось изменить настройку RAG')).toBeNull()
     })
     expect(onChange).toHaveBeenCalledTimes(2)
   })
@@ -246,9 +240,13 @@ describe('RagSection: the hint', () => {
   ])('is on the page, not in a tooltip: %s', (_, props) => {
     renderSection(props)
 
-    expect(screen.getByText(RAG_HINT)).toBeTruthy()
-    expect(RAG_HINT).toContain('увеличивает стоимость ревью')
-    expect(RAG_HINT).toContain('текст кода не хранится')
+    const hint = screen.getByText(
+      'RAG добавляет в контекст ревью связанные символы из графа репозитория и увеличивает стоимость ревью. Индекс хранит только граф символов и указатели (путь, строки, commit) — текст кода не хранится.',
+    )
+    expect(hint.textContent).toContain('связанные символы из графа')
+    expect(hint.textContent).toContain('граф символов и указатели')
+    expect(hint.textContent).toContain('увеличивает стоимость ревью')
+    expect(hint.textContent).toContain('текст кода не хранится')
   })
 })
 
@@ -258,7 +256,7 @@ describe('RagSection: GitHub App has no access', () => {
 
     expect(theSwitch().getAttribute('aria-checked')).toBe('false')
     expect(theSwitch().disabled).toBe(true)
-    expect(screen.getByText(RAG_NO_ACCESS_TEXT)).toBeTruthy()
+    expect(screen.getByText('Нет доступа GitHub App — RAG недоступен')).toBeTruthy()
     expect(within(statusLine()).getByText('Выключен')).toBeTruthy()
   })
 
@@ -269,7 +267,7 @@ describe('RagSection: GitHub App has no access', () => {
 
     expect(theSwitch().getAttribute('aria-checked')).toBe('false')
     expect(theSwitch().disabled).toBe(true)
-    expect(screen.getByText(RAG_NO_ACCESS_TEXT)).toBeTruthy()
+    expect(screen.getByText('Нет доступа GitHub App — RAG недоступен')).toBeTruthy()
     expect(within(statusLine()).getByText('Выключен')).toBeTruthy()
     expect(within(statusLine()).queryByText('Готов')).toBeNull()
     expect(statusLine().querySelector('code')).toBeNull()
@@ -278,7 +276,7 @@ describe('RagSection: GitHub App has no access', () => {
   it('does not say the access is missing when it is there', () => {
     renderSection({ installationAvailable: true })
 
-    expect(screen.queryByText(RAG_NO_ACCESS_TEXT)).toBeNull()
+    expect(screen.queryByText('Нет доступа GitHub App — RAG недоступен')).toBeNull()
   })
 })
 
