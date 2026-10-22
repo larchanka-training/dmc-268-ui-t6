@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, renderHook } from '@testing-library/react'
+import { cleanup, renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { UPDATE_REPOSITORY_MUTATION_KEY, type RagIndexStatus } from '../../../entities/repository'
+import { advance } from '../../../test/advanceTimers'
 import { RAG_POLL_MS, RAG_POLL_WINDOW_MS, useRagIndexPolling } from './useRagIndexPolling'
 
 /** The polls of one full window: one every 5 s, none at the deadline itself. */
@@ -19,13 +20,6 @@ function wrapper(client: QueryClient) {
   return function Wrapper({ children }: { children: ReactNode }) {
     return <QueryClientProvider client={client}>{children}</QueryClientProvider>
   }
-}
-
-/** Lets the timers up to `ms` run, and the renders they cause. */
-async function advance(ms: number): Promise<void> {
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(ms)
-  })
 }
 
 /** A `refetch` that counts the polls. */

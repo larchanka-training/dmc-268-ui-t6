@@ -11,12 +11,8 @@ import {
   type RagIndex,
   type Repository,
 } from '../../entities/repository'
-import {
-  RAG_ERROR_TITLE,
-  RAG_LABEL,
-  RAG_NO_ACCESS_TEXT,
-  RAG_POLL_TIMED_OUT_TEXT,
-} from '../../features/repository-settings'
+import { RAG_POLL_TIMED_OUT_TEXT } from '../../features/repository-settings'
+import { advance } from '../../test/advanceTimers'
 import { RAG_POLL_MS, RAG_POLL_WINDOW_MS } from './lib/useRagIndexPolling'
 import { RepositorySettingsPage } from './RepositorySettingsPage'
 
@@ -282,12 +278,12 @@ function autoReviewSwitch(): HTMLElement {
 }
 
 function ragSwitch(): HTMLElement {
-  return screen.getByRole('switch', { name: RAG_LABEL })
+  return screen.getByRole('switch', { name: 'RAG' })
 }
 
 /** The RAG section: the switch, the hint and the status of the index. */
 function ragSection(): HTMLElement {
-  return screen.getByRole('region', { name: RAG_LABEL })
+  return screen.getByRole('region', { name: 'RAG' })
 }
 
 /**
@@ -1616,7 +1612,7 @@ describe('RepositorySettingsPage: RAG', () => {
 
     const section = ragSection()
     expect(await within(section).findByText(SERVER_500_TEXT)).toBeTruthy()
-    expect(within(section).getByText(RAG_ERROR_TITLE)).toBeTruthy()
+    expect(within(section).getByText('Не удалось изменить настройку RAG')).toBeTruthy()
     expect(backend.patches).toEqual([{ id: UI_REPO.id, body: { ragEnabled: true } }])
     await waitFor(() => {
       expect(ragSwitch().getAttribute('aria-checked')).toBe('false')
@@ -1637,7 +1633,7 @@ describe('RepositorySettingsPage: RAG', () => {
     const section = ragSection()
     expect(ragSwitch().getAttribute('aria-checked')).toBe('false')
     expect(ragSwitch().hasAttribute('disabled')).toBe(true)
-    expect(within(section).getByText(RAG_NO_ACCESS_TEXT)).toBeTruthy()
+    expect(within(section).getByText('Нет доступа GitHub App — RAG недоступен')).toBeTruthy()
     expect(within(section).getByText('Выключен')).toBeTruthy()
     expect(backend.patches).toEqual([])
   })
@@ -1667,13 +1663,6 @@ describe('RepositorySettingsPage: RAG', () => {
   // Fake timers: `findBy*`, `waitFor` and the helpers built on them would wait for timers that
   // only `advance` moves. The page is read with `getBy*` after an `advance`.
   describe('polling of the index status', () => {
-    /** Lets the timers up to `ms` run, and the requests and renders they cause. */
-    async function advance(ms: number): Promise<void> {
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(ms)
-      })
-    }
-
     /** What the next GET answers for the index of the first repository. */
     function serveIndex(backend: Backend, ragIndex: RagIndex): void {
       backend.repos = backend.repos.map((repo, i) => (i === 0 ? { ...repo, ragIndex } : repo))

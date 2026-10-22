@@ -68,6 +68,8 @@ export function useRagIndexPolling(
         void refetchRef.current({ cancelRefetch: false })
       }
     }, RAG_POLL_MS)
+    // Mirrors `useRepositoryAccessRefresh`: closes the window on time even when the interval is
+    // throttled; the interval's own `Date.now() >= deadline` guard covers a clock jump.
     const timeout = window.setTimeout(() => {
       window.clearInterval(interval)
       setTimedOut(true)
