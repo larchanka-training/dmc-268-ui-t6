@@ -1,15 +1,93 @@
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import {
   RunActionSchema,
   RunListPageSchema,
   RunSessionSchema,
   RunStatusSchema,
+  RunStepEventSchema,
   RunTriggerSchema,
 } from './schemas'
 
 const UUID = '0f3b2c1e-6a1d-4c8b-9e2f-1a2b3c4d5e6f'
 const ISO = '2026-09-18T10:00:00.000Z'
+
+const runStep = {
+  runId: UUID,
+  tool: 'future.unknown_tool',
+  index: 0,
+  ok: true,
+  startedAt: ISO,
+  durationMs: 0,
+}
+
+describe('RunStepEventSchema', () => {
+  it('parses the six-field API event with an unknown tool and no attempt', () => {
+    expect(RunStepEventSchema.parse(runStep)).toEqual({
+      runId: '0f3b2c1e-6a1d-4c8b-9e2f-1a2b3c4d5e6f',
+      tool: 'future.unknown_tool',
+      index: 0,
+      ok: true,
+      startedAt: '2026-09-18T10:00:00.000Z',
+      durationMs: 0,
+    })
+  })
+
+  it.each(['runId', 'tool', 'index', 'ok', 'startedAt', 'durationMs'] as const)(
+    'rejects an event missing required field %s',
+    (field) => {
+      const result = RunStepEventSchema.safeParse({ ...runStep, [field]: undefined })
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error.issues[0]?.path).toEqual([field])
+      }
+    },
+  )
+
+  it.each([
+    { runId: 'not-a-uuid' },
+    { tool: null },
+    { index: -1 },
+    { index: 0.5 },
+    { ok: 'true' },
+    { startedAt: '2026-09-18T12:00:00+02:00' },
+    { startedAt: '2026-09-18T10:00:00' },
+    { startedAt: 'not-a-date' },
+    { durationMs: -1 },
+    { durationMs: 0.5 },
+  ])('rejects a field outside the wire contract: %j', (invalid) => {
+    expect(RunStepEventSchema.safeParse({ ...runStep, ...invalid }).success).toBe(false)
+  })
+
+  it('strips future fields using the existing object-schema convention', () => {
+    expect(RunStepEventSchema.parse({ ...runStep, attempt: 2 })).toEqual(runStep)
+  })
+
+  it('exports the six required OpenAPI properties with closed output', () => {
+    // API contracts/openapi.yaml RunStepEvent on main, 2326273 (Refs #113).
+    const jsonSchema = z.toJSONSchema(RunStepEventSchema)
+    expect(jsonSchema.required).toEqual(['runId', 'tool', 'index', 'ok', 'startedAt', 'durationMs'])
+    expect(jsonSchema.additionalProperties).toBe(false)
+    expect(Object.keys(jsonSchema.properties ?? {})).toEqual([
+      'runId',
+      'tool',
+      'index',
+      'ok',
+      'startedAt',
+      'durationMs',
+    ])
+    expect(jsonSchema.properties).toMatchObject({
+      runId: { type: 'string', format: 'uuid' },
+      tool: { type: 'string' },
+      index: { type: 'integer', minimum: 0 },
+      ok: { type: 'boolean' },
+      startedAt: { type: 'string', format: 'date-time' },
+      durationMs: { type: 'integer', minimum: 0 },
+    })
+    expect(jsonSchema.properties?.tool).toEqual({ type: 'string' })
+  })
+})
 
 const pullRequest = {
   repo: 'org/repo',

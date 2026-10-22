@@ -43,6 +43,17 @@ function runUpdated(runId: string, id?: string): string {
   return `event: run.updated\n${idLine}data: ${JSON.stringify({ runId, status: 'running' })}\n\n`
 }
 
+function runStep(runId: string, tool = 'context.build', ok = true): string {
+  return `event: run.step\ndata: ${JSON.stringify({
+    runId,
+    tool,
+    index: 1,
+    ok,
+    startedAt: '2026-09-18T10:00:00.000Z',
+    durationMs: 5,
+  })}\n\n`
+}
+
 /**
  * A body that stays open until the test closes it. It errors with an AbortError once `signal`
  * aborts, as the body of a real fetch does; a bare ReadableStream would ignore the abort.
@@ -107,6 +118,69 @@ describe('connectRunStream', () => {
     globalThis.fetch = originalFetch
   })
 
+  it('invalidates exactly matching-run actions for a valid step with an unknown tool', async () => {
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+    globalThis.fetch = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(sseBody([runStep(RUN_A, 'future.tool')]), SSE_RESPONSE_INIT))
+
+    await connectRunStream(new AbortController().signal, 'token_a')
+
+    expect(invalidateSpy.mock.calls).toEqual([
+      [{ queryKey: runQueryKeys.actions(RUN_A), exact: true }],
+    ])
+  })
+
+  it('also invalidates exactly the matching diff for successful vcs.fetch_diff', async () => {
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+    globalThis.fetch = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        new Response(sseBody([runStep(RUN_A, 'vcs.fetch_diff')]), SSE_RESPONSE_INIT),
+      )
+
+    await connectRunStream(new AbortController().signal, 'token_a')
+
+    expect(invalidateSpy.mock.calls).toEqual([
+      [{ queryKey: runQueryKeys.actions(RUN_A), exact: true }],
+      [{ queryKey: runQueryKeys.diff(RUN_A), exact: true }],
+    ])
+  })
+
+  it('only invalidates actions for a failed vcs.fetch_diff', async () => {
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+    globalThis.fetch = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        new Response(sseBody([runStep(RUN_A, 'vcs.fetch_diff', false)]), SSE_RESPONSE_INIT),
+      )
+
+    await connectRunStream(new AbortController().signal, 'token_a')
+
+    expect(invalidateSpy.mock.calls).toEqual([
+      [{ queryKey: runQueryKeys.actions(RUN_A), exact: true }],
+    ])
+  })
+
+  it.each([
+    'event: run.step\ndata: not json\n\n',
+    'event: run.step\ndata: {}\n\n',
+    runStep('not-a-uuid'),
+    runStep(RUN_A).replace('"index":1', '"index":-1'),
+    runStep(RUN_A).replace('"durationMs":5', '"durationMs":0.5'),
+    runStep(RUN_A).replace('run.step', 'run.unknown'),
+    PING,
+  ])('invalidates nothing for an invalid or unknown frame: %s', async (frame) => {
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+    globalThis.fetch = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(sseBody([frame]), SSE_RESPONSE_INIT))
+
+    await connectRunStream(new AbortController().signal, 'token_a')
+
+    expect(invalidateSpy).not.toHaveBeenCalled()
+  })
+
   it('invalidates run detail and actions on run.updated SSE frames', async () => {
     const runId = '11111111-1111-4111-8111-000000000004'
     const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
@@ -144,23 +218,23 @@ describe('connectRunStream', () => {
     expect(keys).toHaveLength(5)
     expect(keys).toEqual(
       expect.arrayContaining([
-        ['runs', 'list'],
-        ['runs', runId],
-        ['runs', runId, 'actions'],
-        ['runs', runId, 'diff'],
-        ['runs', runId, 'comments'],
+        runQueryKeys.list(),
+        runQueryKeys.detail(runId),
+        runQueryKeys.actions(runId),
+        runQueryKeys.diff(runId),
+        runQueryKeys.comments(runId),
       ]),
     )
   })
 
   it.each([
     [
-      'run.step',
+      'a run.step frame with a malformed legacy payload',
       'event: run.step\ndata: {"runId":"RUN","status":"running","step":"context.build"}\n\n',
     ],
     ['run.progress', 'event: run.progress\ndata: {"runId":"RUN","status":"running"}\n\n'],
     ['a frame without an event name', 'data: {"runId":"RUN","status":"running"}\n\n'],
-  ])('invalidates nothing for %s even with a valid-looking payload', async (_label, frame) => {
+  ])('invalidates nothing for %s', async (_label, frame) => {
     const runId = '11111111-1111-4111-8111-000000000004'
     const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
     globalThis.fetch = vi
@@ -227,11 +301,11 @@ describe('applyRunUpdated', () => {
     expect(keys).toHaveLength(5)
     expect(keys).toEqual(
       expect.arrayContaining([
-        ['runs', RUN_ID],
-        ['runs', RUN_ID, 'actions'],
-        ['runs', RUN_ID, 'diff'],
-        ['runs', RUN_ID, 'comments'],
-        ['runs', 'list'],
+        runQueryKeys.detail(RUN_ID),
+        runQueryKeys.actions(RUN_ID),
+        runQueryKeys.diff(RUN_ID),
+        runQueryKeys.comments(RUN_ID),
+        runQueryKeys.list(),
       ]),
     )
   })
@@ -242,7 +316,7 @@ describe('applyRunUpdated', () => {
     applyRunUpdated({ runId: RUN_ID, status: 'succeeded' })
 
     expect(invalidateSpy).toHaveBeenCalledTimes(5)
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['runs', 'list'] })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: runQueryKeys.list() })
   })
 })
 
@@ -675,7 +749,7 @@ describe('runStreamUntilAborted reconnect state', () => {
       .mockResolvedValueOnce(new Response(sseBody([PING]), SSE_RESPONSE_INIT))
       .mockResolvedValueOnce(
         new Response(
-          sseBody([runUpdated(RUN_A, '41'), runUpdated(RUN_A, '42')]),
+          sseBody([runUpdated(RUN_A, '41'), runUpdated(RUN_A, '42'), runStep(RUN_A)]),
           SSE_RESPONSE_INIT,
         ),
       )

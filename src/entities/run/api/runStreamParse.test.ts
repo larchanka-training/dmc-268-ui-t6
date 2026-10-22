@@ -1,9 +1,71 @@
 import { describe, expect, it } from 'vitest'
 
-import { parseRunUpdatedEvent, parseSseBuffer } from './runStreamParse'
+import { parseRunStepEvent, parseRunUpdatedEvent, parseSseBuffer } from './index'
 
 const RUN_ID = '11111111-1111-4111-8111-000000000001'
 const DATA = `data: {"runId":"${RUN_ID}","status":"running"}`
+
+const STEP_DATA =
+  '{"runId":"11111111-1111-4111-8111-000000000001","tool":"vcs.fetch_diff","index":1,"ok":true,"startedAt":"2026-09-18T10:00:00.000Z","durationMs":5}'
+
+describe('parseRunStepEvent', () => {
+  it('parses current six-field run.step data through the run API export', () => {
+    const { events, lastEventId } = parseSseBuffer(`event: run.step\ndata: ${STEP_DATA}\n\n`)
+    expect(events).toEqual([{ event: 'run.step', data: STEP_DATA }])
+    expect(lastEventId).toBeUndefined()
+    expect(parseRunStepEvent(events[0]?.data ?? '')).toEqual({
+      runId: '11111111-1111-4111-8111-000000000001',
+      tool: 'vcs.fetch_diff',
+      index: 1,
+      ok: true,
+      startedAt: '2026-09-18T10:00:00.000Z',
+      durationMs: 5,
+    })
+  })
+
+  it.each(['not json', '{', 'null', '[]', '"text"'])('returns null for %s', (data) => {
+    expect(parseRunStepEvent(data)).toBeNull()
+  })
+
+  it.each([
+    { runId: 'invalid' },
+    { tool: undefined },
+    { index: -1 },
+    { index: 1.5 },
+    { ok: null },
+    { startedAt: '2026-09-18T10:00:00+00:00' },
+    { durationMs: -1 },
+    { durationMs: 1.5 },
+  ])('returns null for schema-invalid data: %j', (invalid) => {
+    expect(
+      parseRunStepEvent(
+        JSON.stringify({
+          runId: RUN_ID,
+          tool: 'vcs.fetch_diff',
+          index: 1,
+          ok: true,
+          startedAt: '2026-09-18T10:00:00.000Z',
+          durationMs: 5,
+          ...invalid,
+        }),
+      ),
+    ).toBeNull()
+  })
+
+  it('keeps the last status-event cursor when a no-id step follows it', () => {
+    const { events, lastEventId } = parseSseBuffer(
+      `id: 42\nevent: run.updated\n${DATA}\n\nevent: run.step\ndata: ${STEP_DATA}\n\n`,
+    )
+    expect(lastEventId).toBe('42')
+    expect(events[0]?.id).toBe('42')
+    expect(events[1]).not.toHaveProperty('id')
+    expect(parseRunUpdatedEvent(events[0]?.data ?? '')).toEqual({
+      runId: '11111111-1111-4111-8111-000000000001',
+      status: 'running',
+    })
+    expect(parseRunStepEvent(events[1]?.data ?? '')?.tool).toBe('vcs.fetch_diff')
+  })
+})
 
 describe('runStreamParse', () => {
   it('parses run.updated SSE frames', () => {

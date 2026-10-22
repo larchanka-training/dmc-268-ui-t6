@@ -514,10 +514,10 @@ src/widgets/run-inspector/ui/RunProgressBar.tsx
 | Репозитории                           | TanStack Query, ключ `['repos']` (`useRepositories`; `useRepository(id)` — тот же ключ + `select`)                         | фокус окна и открытие (`'always'`) + мутация; «Обновить доступ»: сразу + 5 с / 120 с; тик пропускается при незавершённом PATCH (`UPDATE_REPOSITORY_MUTATION_KEY`); GET отменяется при уходе последнего наблюдателя (см. ниже) |
 | Список прогонов                       | TanStack Query, `useInfiniteQuery`, ключ `['runs', 'list', { repo }]`, страница — 20 (`RUN_LIST_PAGE_SIZE`)                | `staleTime: 30s` + `run.updated` (по префиксу)                                                                                                                                                                                |
 | Прогон (детали)                       | TanStack Query, ключ `['runs', id]`                                                                                        | `run.updated` для этого `runId`                                                                                                                                                                                               |
-| Действия прогона                      | TanStack Query, ключ `['runs', id, 'actions']`                                                                             | `run.updated` + опрос 3 с, пока прогон активен                                                                                                                                                                                |
-| Дифф прогона                          | TanStack Query, ключ `['runs', id, 'diff']`                                                                                | `run.updated` / SSE (Refs ui#65)                                                                                                                                                                                              |
+| Действия прогона                      | TanStack Query, ключ `['runs', id, 'actions']`                                                                             | `run.step` / `run.updated` + резервный опрос 3 с, пока прогон активен                                                                                                                                                         |
+| Дифф прогона                          | TanStack Query, ключ `['runs', id, 'diff']`                                                                                | `run.updated` + успешный `run.step` с `tool: vcs.fetch_diff` (Refs ui#113)                                                                                                                                                    |
 | Комментарии ревью                     | TanStack Query, ключ `['runs', id, 'comments']`                                                                            | вместе с прогоном                                                                                                                                                                                                             |
-| Событие шага пайплайна                | нет: события шага в api пока нет (api#97); ход прогона виден по опросу `/actions`                                          | —                                                                                                                                                                                                                             |
+| Событие шага пайплайна                | проверяется `RunStepEventSchema` в `entities/run`, в стор не копируется                                                    | точный `actions(runId)`; успешный fetch-diff также точный `diff(runId)`                                                                                                                                                       |
 | Дочитанные срезы файла                | `useState` на `RunDetailPage` (слияние в `FileDiff`); ключ Query `diffQueryKeys.fileSlice` зарезервирован, не используется | не инвалидируется (append-only, живёт с страницей)                                                                                                                                                                            |
 | `viewType` (unified/split)            | Zustand, `widgets/diff-viewer/model/store.ts`                                                                              | — (UI-состояние, не сервер)                                                                                                                                                                                                   |
 | `expandedKeys`, `selectedActionIndex` | Zustand, `widgets/run-inspector/model/store.ts`                                                                            | —                                                                                                                                                                                                                             |
@@ -889,12 +889,24 @@ SSE-мост (Ф-14, **реализовано**; Refs ui#65): `RunStreamBridge` 
 `run.updated` — `applyRunUpdated(event)` (`runStreamConnect.ts`): `invalidateQueries` для `['runs', runId]`,
 `['runs', runId, 'actions']`, `['runs', runId, 'diff']` и `['runs', runId, 'comments']` (дифф и комментарии
 подтягиваются вместе с прогоном) и для списка `['runs', 'list']` (колонка «Статус» на `/runs` обновляется без
-перезагрузки; Refs ui#84). Кадры с другим `event:` (в том числе будущее событие шага) отбрасываются без инвалидации.
+перезагрузки; Refs ui#84). На `run.step` payload проходит `parseRunStepEvent` /
+`RunStepEventSchema` в `entities/run`: UUID `runId`, строка `tool` (свободное имя, не enum),
+целые неотрицательные `index` и `durationMs`, boolean `ok`, UTC `startedAt` с суффиксом `Z`.
+Текущий контракт содержит шесть обязательных полей, без `attempt` (Refs ui#113).
+Валидный шаг инвалидирует только `runQueryKeys.actions(runId)` с `exact: true`; успешный
+`tool === 'vcs.fetch_diff'` дополнительно инвалидирует точный `runQueryKeys.diff(runId)`, чтобы
+страница, открытая до загрузки диффа, показала файлы ещё в `running`. Неуспешный fetch-diff
+обновляет только журнал. Данные actions перезапрашиваются, а не дописываются из события:
+payload шага не содержит полный `RunAction`. Дочерний action-response, другие прогоны, детали,
+комментарии и список не инвалидируются шагом. Неверный JSON/схема и неизвестный `event:`
+отбрасываются без инвалидации.
 `EventSource` не используется (нет Bearer). `401` — refresh с лимитом повторов
 (`MAX_STREAM_401_RETRIES`), затем переподключение с backoff (`STREAM_RECONNECT_DELAY_MS`); refresh
 не удался — подписка прекращается (fail closed, §11). Keep-alive (`: keepalive` раз в 15 с,
 `STREAM_KEEPALIVE_INTERVAL_MS`) ничего не инвалидирует. При переподключении клиент шлёт
-`Last-Event-ID` (последний `id:`, непрозрачная строка; пока `id` не было — без заголовка), а после
+`Last-Event-ID` (последний `id:`, непрозрачная строка; пока `id` не было — без заголовка).
+Кадры `run.step` не содержат `id:`, не меняют этот курсор и не повторяются при reconnect;
+потерянные шаги догоняет перезапрос журнала. После
 каждого успешного подключения, кроме самой первой попытки подписки (неудачная попытка тоже
 считается: страница уже загрузила данные, а поток был недоступен; refresh-повтор после `401` — та
 же попытка), заново инвалидирует те же четыре ключа для каждого прогона с запросами в кэше (не
@@ -905,7 +917,7 @@ keep-alive тишина дольше двух интервалов (30 с) об�
 зовёт тот же `applyRunUpdated`. Контракт run session для api#20:
 [комментарий в api#20](https://github.com/larchanka-training/dmc-268-api-t6/issues/20#issuecomment-6016069919).
 
-Опрос действий (Refs ui#84): `useRunActions(runId, status)` ставит `refetchInterval: RUN_ACTIONS_POLL_MS`
+Резервный опрос действий (Refs ui#84, ui#113): `useRunActions(runId, status)` ставит `refetchInterval: RUN_ACTIONS_POLL_MS`
 (3000 мс, `entities/run/api/index.ts` — единственное место) только пока `isActive(status)`
 (`queued`/`running`/`publishing`); статус `RunDetailPage` берёт из `useRunDetail`. Пока деталь не загружена
 и на терминальном статусе (`succeeded`/`failed`/`cancelled`/`skipped`) опроса нет: журнал
@@ -919,11 +931,11 @@ keep-alive тишина дольше двух интервалов (30 с) об�
   ни в `queryClient.ts`), а в TanStack Query 5.103 тик интервала пропускается, когда
   `focusManager.isFocused()` ложно, то есть при `document.visibilityState === 'hidden'` (проверено по
   исходникам `query-core`). Окно без фокуса, но с видимой вкладкой, опрашивается. `refetchOnWindowFocus: false`, поэтому
-  при возврате на вкладку журнал догоняет ближайший тик (до 3 с) или очередное `run.updated`; SSE-поток
+  при возврате на вкладку журнал догоняет ближайший тик (до 3 с), `run.step` или `run.updated`; SSE-поток
   видимость вкладки не читает.
 - Терминальный статус приходит событием `run.updated` → деталь → `status` → `refetchInterval: false`;
-  последний журнал забирает та же инвалидация `actions`. Событие шага пайплайна появится с api#97; до
-  его контракта прогресс обеспечивает опрос.
+  последний журнал забирает та же инвалидация `actions`. Событие `run.step` обновляет журнал и
+  прогресс сразу; опрос сохраняется как fallback при пропущенном событии или разрыве потока.
 
 `QueryProvider` также регистрирует `setOnLogout` → `queryClient.clear()`. `UiProvider` — antd
 `ConfigProvider` (русская локаль), без сети.
@@ -940,6 +952,12 @@ sequenceDiagram
   Bridge->>QC: invalidateQueries(['runs', 'list'])
   QC->>QC: refetch активных запросов
   QC-->>UI: новые данные прогона и списка
+  SSE->>Bridge: run.step { runId, tool, index, ok, startedAt, durationMs } без id
+  Bridge->>QC: invalidateQueries(actions(runId), exact)
+  opt ok и tool == vcs.fetch_diff
+    Bridge->>QC: invalidateQueries(diff(runId), exact)
+  end
+  QC-->>UI: журнал, этапы и доступный дифф
 ```
 
 ---
@@ -1168,7 +1186,7 @@ newLine` (`RIGHT→newLine`, `LEFT→oldLine`), `line_end → endLine`. — ро
    роль 6.
 8. Статусы в DTO: `publishing` добавить в [SD §12][sd-12]; `POST /cancel` отдаёт
    `RunSession` со `status: cancelled` или `cancelRequested: true`. — роль 1 и роль 6.
-9. `GET /api/stream` (SSE `run.updated`) — payload минимум `{ runId, status }`. — роль 6.
+9. `GET /api/stream` — SSE `run.updated` с `{ runId, status }` и `run.step` с `{ runId, tool, index, ok, startedAt, durationMs }` (§2). — роль 6.
 10. Неточности [SD][sd], которые нужно поправить или подтвердить: [§2][sd-2] «фронт не парсит
     дифф» — фронт парсит библиотекой (`react-diff-view`) за адаптером, а не вручную; терминология
     `ReviewJob` → `Run` ([§11][sd-11], ERD роли 6) / `RunSession` ([§2][sd-2], [§12][sd-12]) —
@@ -2145,11 +2163,13 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
 - **`PORT` в `vite.config.ts`** — нужен `@types/node` в `tsconfig.node.json` (роль 4); не сделано.
   С TS 6.0 `types` по умолчанию `[]`, поэтому пакет придётся назвать в `types` явно.
 - **SSE-мост** (§2, Ф-14) — реализован: `RunStreamBridge`, `runStreamConnect.ts`, лимит `401`,
-  reconnect, `Last-Event-ID`, keep-alive watchdog; см. §2 и [`docs/plans/65-api20-comment.md`](plans/65-api20-comment.md).
+  `run.step` с точным обновлением actions и успешного fetch-diff, reconnect с перезапросом
+  кэшированных прогонов, `Last-Event-ID`, keep-alive watchdog; см. §2 и [`docs/plans/65-api20-comment.md`](plans/65-api20-comment.md).
 - **Прогресс-бар шагов и живой список прогонов (ui#84)** — реализовано (§2, §7, §8): три этапа по статусу и
-  журналу `/actions`, опрос `/actions` раз в 3 с, пока прогон активен, `run.updated` обновляет и список.
-  Остаётся: событие шага пайплайна — его в api пока нет (api#97), до контракта ход виден по опросу;
-  современная граница попытки — последний `policy.load` с проверкой `run.attempt`: при дефиците
+  журналу `/actions`, `run.step` обновляет журнал до следующего тика, резервный опрос `/actions`
+  раз в 3 с, пока прогон активен; `run.updated` обновляет и список. Шаги идут без `id:` и
+  не replay-ятся: существующий reconnect-resync заново читает наблюдаемый журнал (Refs ui#113).
+  Современная граница попытки — последний `policy.load` с проверкой `run.attempt`: при дефиците
   policy-строк нужен подтверждающий текущий `llm.call.request.attempt`, иначе бар консервативно на
   контексте. Журналы совсем без policy-строк сохраняют историческую эвристику (§7, «Ограничения»).
   Список после переподключения SSE обновляется только со следующим `run.updated` или по `staleTime`.

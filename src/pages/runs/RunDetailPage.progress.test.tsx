@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 
@@ -23,6 +23,7 @@ import type { RunStatus } from '../../entities/run'
 import { useAuthStore } from '../../features/auth'
 import { useDiffViewerStore } from '../../widgets/diff-viewer'
 import { useRunInspectorStore } from '../../widgets/run-inspector'
+import { advance, settle } from '../../test/advanceTimers'
 import { RunDetailPage } from './RunDetailPage'
 
 // The run is the demo run with the status under test: its diff, comments and actions are served
@@ -80,19 +81,6 @@ function renderRunDetail() {
     </QueryClientProvider>,
   )
   return client
-}
-
-async function advance(ms: number): Promise<void> {
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(ms)
-  })
-}
-
-// A few zero-length rounds let the requests, the query notifications and React renders drain.
-async function settle(): Promise<void> {
-  for (let round = 0; round < 5; round += 1) {
-    await advance(0)
-  }
 }
 
 beforeEach(() => {

@@ -1,8 +1,10 @@
 import {
   invalidateRunLists,
+  parseRunStepEvent,
   parseRunUpdatedEvent,
   parseSseBuffer,
   runQueryKeys,
+  RUN_FETCH_DIFF_TOOL,
 } from '../../entities/run'
 import type { RunUpdatedEvent } from '../../entities/run'
 import { getAccessToken, refreshAccessToken } from '../../shared/api/client'
@@ -141,6 +143,22 @@ async function readStream(
         armWatchdog()
       }
       for (const frame of parsed.events) {
+        if (frame.event === 'run.step') {
+          const step = parseRunStepEvent(frame.data)
+          if (step !== null) {
+            void queryClient.invalidateQueries({
+              queryKey: runQueryKeys.actions(step.runId),
+              exact: true,
+            })
+            if (step.ok && step.tool === RUN_FETCH_DIFF_TOOL) {
+              void queryClient.invalidateQueries({
+                queryKey: runQueryKeys.diff(step.runId),
+                exact: true,
+              })
+            }
+          }
+          continue
+        }
         if (frame.event !== 'run.updated') {
           continue
         }
