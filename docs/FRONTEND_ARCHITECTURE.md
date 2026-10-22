@@ -49,6 +49,7 @@ antd, TanStack Query и jsdom — патчи от 2026-09-24.
 | Ф-21 | Настройки репозитория — страница `/repositories/:repoId/settings`, не модальное окно; история — `/runs?repo=` по курсору; поля — api PR #156, правила — api PR #202  | ui#93: у настроек свой адрес (ссылка, возврат после входа) и место для блока правил; поля — контракт api#149 (§5); `rules-status` — контракт api PR #202, блок правил спрашивает его на каждом окружении (§2, §5).         |
 | Ф-22 | Обновление доступа: опрос 5 с / 120 с, резерв статуса вне idle и постоянный live region на странице (§2)                                                             | Запаздывающий репозиторий появляется без блокировки действий строки; поиск и таблица не сдвигаются, status сохраняется между GET и при ошибке без данных (Refs ui#92, ui#120).                                             |
 | Ф-23 | Статус `.review/rules.md` без кнопки «Обновить»: свежий ответ — при повторном открытии страницы, `pending` опрашивается раз в 3 с                                    | ui#93, D18: [техлид согласовал][api150-reread] механизм createunix — воркер сам перечитывает файл, ручного обновления нет; «Повторить» — для `unavailable` с `retryable` и сбоя HTTP (§2, §5).                             |
+| Ф-24 | Переключатель RAG — `PATCH { ragEnabled }` сразу, вне черновика формы; статус индекса — `ragIndex` из `['repos']`; опрос 5 с / 120 с                                 | Как у авто-ревью (Ф-17); тексты статусов — по api#145 (§5); копии в сторе нет (Ф-7). Опрос — только на `building` и после включения здесь (§2); мок строит индекс по числу GET (§8) (Refs ui#102).                         |
 
 Ф-11 уточнено 2026-09-24 (#49): TypeScript поднят 5.9.3 → 6.0.3. Потолок — именно 6.0.x, а не
 «6.x»: у TypeScript 7.0 нет JS API компилятора, поэтому peer typescript-eslint остаётся
@@ -97,6 +98,16 @@ Zustand или `useState` нельзя — получится два источ�
 (§5); `waitForCi`, `maxComments`, `reviewEvent` — форма; `defaultEngine` — только текст, не
 отправляется. Поля api#149 (контракт api PR #156, §5): `branchFilter`, `severityThreshold` —
 форма; обязательное, только для чтения `installationAvailable` — предупреждение у переключателя.
+
+Ф-24 (ui#102, api#145): RAG включают переключателем «RAG» на странице настроек (§2). Как авто-ревью, он
+не входит в форму: `PATCH { ragEnabled }` уходит сразу и один, оптимистичное обновление и откат — в
+`useUpdateRepository`. Индекс (`ragIndex`) только читается: он приходит в той же строке `['repos']`, что и
+все поля, своего ключа и копии в сторе нет (Ф-7). Статус показан текстом по значениям api#145 (§5). Пока у
+GitHub App нет доступа, переключатель выключен и недоступен, выбора «на потом» нет (в отличие от
+авто-ревью, Ф-17): `PATCH` для такого репозитория UI не шлёт. Страница перечитывает список раз в 5 с, но
+не дольше 120 с и только пока индекс в пути: на `building` или на `empty` сразу после включения на этой
+странице. `empty` на открытой странице не опрашивается: пока api#143 открыт, он не меняется, и опрос шёл бы
+впустую. Мок строит индекс по числу GET, а не по времени (§8).
 
 ---
 
@@ -509,23 +520,23 @@ src/widgets/run-inspector/ui/RunProgressBar.tsx
 
 ## 2. Состояние
 
-| Данное                                | Где живёт                                                                                                                  | Инвалидация                                                                                                                                                                                                                   |
-| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Репозитории                           | TanStack Query, ключ `['repos']` (`useRepositories`; `useRepository(id)` — тот же ключ + `select`)                         | фокус окна и открытие (`'always'`) + мутация; «Обновить доступ»: сразу + 5 с / 120 с; тик пропускается при незавершённом PATCH (`UPDATE_REPOSITORY_MUTATION_KEY`); GET отменяется при уходе последнего наблюдателя (см. ниже) |
-| Список прогонов                       | TanStack Query, `useInfiniteQuery`, ключ `['runs', 'list', { repo }]`, страница — 20 (`RUN_LIST_PAGE_SIZE`)                | `staleTime: 30s` + `run.updated` (по префиксу)                                                                                                                                                                                |
-| Прогон (детали)                       | TanStack Query, ключ `['runs', id]`                                                                                        | `run.updated` для этого `runId`                                                                                                                                                                                               |
-| Действия прогона                      | TanStack Query, ключ `['runs', id, 'actions']`                                                                             | `run.step` / `run.updated` + резервный опрос 3 с, пока прогон активен                                                                                                                                                         |
-| Дифф прогона                          | TanStack Query, ключ `['runs', id, 'diff']`                                                                                | `run.updated` + успешный `run.step` с `tool: vcs.fetch_diff` (Refs ui#113)                                                                                                                                                    |
-| Комментарии ревью                     | TanStack Query, ключ `['runs', id, 'comments']`                                                                            | вместе с прогоном                                                                                                                                                                                                             |
-| Событие шага пайплайна                | проверяется `RunStepEventSchema` в `entities/run`, в стор не копируется                                                    | точный `actions(runId)`; успешный fetch-diff также точный `diff(runId)`                                                                                                                                                       |
-| Дочитанные срезы файла                | `useState` на `RunDetailPage` (слияние в `FileDiff`); ключ Query `diffQueryKeys.fileSlice` зарезервирован, не используется | не инвалидируется (append-only, живёт с страницей)                                                                                                                                                                            |
-| `viewType` (unified/split)            | Zustand, `widgets/diff-viewer/model/store.ts`                                                                              | — (UI-состояние, не сервер)                                                                                                                                                                                                   |
-| `expandedKeys`, `selectedActionIndex` | Zustand, `widgets/run-inspector/model/store.ts`                                                                            | —                                                                                                                                                                                                                             |
-| Фильтры замечаний                     | URL search params `file`, `severity` (повторяются), `q`; хук `useFindingFiltersParams` (`features/finding-filters`)        | — (источник — URL; другой прогон начинает чисто)                                                                                                                                                                              |
-| Фильтр истории прогонов               | URL search param `repo` (одно значение); хук `useRunListFilterParams` (`features/run-list-filter`)                         | — (источник — URL)                                                                                                                                                                                                            |
-| Статус `.review/rules.md`             | TanStack Query, ключ `['repoRulesStatus', id]` — вне `['repos']` (ниже)                                                    | открытие (`'always'`), `gcTime: 0`, опрос раз в 3 с, пока ответ `pending`                                                                                                                                                     |
-| Черновик настроек репозитория         | `useState` в `RepositorySettingsForm`: снимок на открытии (baseline) и правки пользователя, не копия кэша                  | — (живёт с формой; `key={repoId}`, `resetTo`)                                                                                                                                                                                 |
-| Черновики комментариев                | —                                                                                                                          | future (не реализовано в этом спринте)                                                                                                                                                                                        |
+| Данное                                | Где живёт                                                                                                                  | Инвалидация                                                                                                                                                                                                                                                                                                                       |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Репозитории                           | TanStack Query, ключ `['repos']` (`useRepositories`; `useRepository(id)` — тот же ключ + `select`)                         | фокус окна и открытие (`'always'`) + мутация; опрос 5 с / 120 с: «Обновить доступ» — сразу и раз в 5 с, индекс RAG — на `building` или после включения на странице, первый тик через 5 с; тик пропускается при незавершённом PATCH (`UPDATE_REPOSITORY_MUTATION_KEY`); GET отменяется при уходе последнего наблюдателя (см. ниже) |
+| Список прогонов                       | TanStack Query, `useInfiniteQuery`, ключ `['runs', 'list', { repo }]`, страница — 20 (`RUN_LIST_PAGE_SIZE`)                | `staleTime: 30s` + `run.updated` (по префиксу)                                                                                                                                                                                                                                                                                    |
+| Прогон (детали)                       | TanStack Query, ключ `['runs', id]`                                                                                        | `run.updated` для этого `runId`                                                                                                                                                                                                                                                                                                   |
+| Действия прогона                      | TanStack Query, ключ `['runs', id, 'actions']`                                                                             | `run.step` / `run.updated` + резервный опрос 3 с, пока прогон активен                                                                                                                                                                                                                                                             |
+| Дифф прогона                          | TanStack Query, ключ `['runs', id, 'diff']`                                                                                | `run.updated` + успешный `run.step` с `tool: vcs.fetch_diff` (Refs ui#113)                                                                                                                                                                                                                                                        |
+| Комментарии ревью                     | TanStack Query, ключ `['runs', id, 'comments']`                                                                            | вместе с прогоном                                                                                                                                                                                                                                                                                                                 |
+| Событие шага пайплайна                | проверяется `RunStepEventSchema` в `entities/run`, в стор не копируется                                                    | точный `actions(runId)`; успешный fetch-diff также точный `diff(runId)`                                                                                                                                                                                                                                                           |
+| Дочитанные срезы файла                | `useState` на `RunDetailPage` (слияние в `FileDiff`); ключ Query `diffQueryKeys.fileSlice` зарезервирован, не используется | не инвалидируется (append-only, живёт с страницей)                                                                                                                                                                                                                                                                                |
+| `viewType` (unified/split)            | Zustand, `widgets/diff-viewer/model/store.ts`                                                                              | — (UI-состояние, не сервер)                                                                                                                                                                                                                                                                                                       |
+| `expandedKeys`, `selectedActionIndex` | Zustand, `widgets/run-inspector/model/store.ts`                                                                            | —                                                                                                                                                                                                                                                                                                                                 |
+| Фильтры замечаний                     | URL search params `file`, `severity` (повторяются), `q`; хук `useFindingFiltersParams` (`features/finding-filters`)        | — (источник — URL; другой прогон начинает чисто)                                                                                                                                                                                                                                                                                  |
+| Фильтр истории прогонов               | URL search param `repo` (одно значение); хук `useRunListFilterParams` (`features/run-list-filter`)                         | — (источник — URL)                                                                                                                                                                                                                                                                                                                |
+| Статус `.review/rules.md`             | TanStack Query, ключ `['repoRulesStatus', id]` — вне `['repos']` (ниже)                                                    | открытие (`'always'`), `gcTime: 0`, опрос раз в 3 с, пока ответ `pending`                                                                                                                                                                                                                                                         |
+| Черновик настроек репозитория         | `useState` в `RepositorySettingsForm`: снимок на открытии (baseline) и правки пользователя, не копия кэша                  | — (живёт с формой; `key={repoId}`, `resetTo`)                                                                                                                                                                                                                                                                                     |
+| Черновики комментариев                | —                                                                                                                          | future (не реализовано в этом спринте)                                                                                                                                                                                                                                                                                            |
 
 **Обновление доступа к репозиториям (Ф-22, ui#92, ui#120).** Данные остаются в Query,
 не копируются в Zustand. Страница после успешного «Обновить доступ» запускает немедленный
@@ -832,6 +843,65 @@ Upgrade canary в `routerLocationAdapter.test.tsx` проверяет досту
   вместо тени antd (`box-shadow: none`): поверхности плоские ([`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md)
   §6), а тот же блок не сдвигает ячейку. Правило и тест — `styles/antd.css`,
   `styles/antd.table.test.tsx`.
+- RAG (Refs ui#102, Ф-24) — `RagSection` (`features/repository-settings`) между `AutoReviewSwitch` и формой.
+  Переключатель «RAG» (`aria-labelledby` на подпись) применяется сразу отдельным `PATCH { ragEnabled }`
+  (`handleToggleRag` страницы): в черновик формы, `buildSettingsPatch` и «Сохранить» он не входит. Его `PATCH`
+  попадает под тот же `saving` (`useIsMutating` по `UPDATE_REPOSITORY_MUTATION_KEY`), что остальные: пока он
+  идёт, «Сохранить» и «Загрузить значения с сервера» недоступны, отдельной проводки нет. Оптимистичное
+  обновление и откат всей строки прежние, в `useUpdateRepository` (хук не менялся). После ответа —
+  `message.success` «RAG включён» / «RAG выключен» (ветки `message.info`, как у авто-ревью, нет). Ошибка —
+  `Alert` «Не удалось изменить настройку RAG» с текстом `formatErrorMessage` под строкой статуса, переключатель
+  возвращается к серверному значению; `Alert` уходит, когда начинается следующая попытка. Пока `PATCH` идёт,
+  переключатель в `loading` и недоступен, а фокус после ответа возвращается на него тем же приёмом, что у
+  авто-ревью (`flushSync`).
+  Подсказка под подписью видна всегда (не `Tooltip`): RAG добавляет в контекст ревью связанные символы из графа
+  репозитория и увеличивает стоимость ревью; индекс хранит только граф символов и указатели (путь, строки,
+  commit), текст кода не хранится ([ADR 0001][adr-0001], `RAG_HINT`). Без доступа GitHub App
+  (`installationAvailable === false`) переключатель выключен и недоступен, под подсказкой стоит «Нет доступа
+  GitHub App — RAG недоступен», статус — «Выключен». Сервер сам отдаёт там `ragEnabled: false` и `disabled`,
+  секция маскирует то же второй раз (`ragEnabled && installationAvailable`). Выбора «на потом» (две кнопки
+  авто-ревью, решение D9) и `PATCH` для такого репозитория нет.
+  Строка статуса — `role="status"` с `aria-live="polite"`: «Статус индекса:», `Tag` ([`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md)
+  §8: точка — состояние, `pulse` только у «Строится…») и остальное по статусу. Текст даёт чистая
+  `ragIndexView(index, ragEnabled)` (секция передаёт ей `ragEnabled && installationAvailable`):
+
+  | Условие                                       | Текст в `Tag`                | Тон           | Рядом с `Tag`                                            |
+  | --------------------------------------------- | ---------------------------- | ------------- | -------------------------------------------------------- |
+  | RAG выключен (любой `status`) или нет доступа | «Выключен»                   | neutral       | —                                                        |
+  | `empty`; `disabled` при включённом RAG        | «Не построен»                | neutral       | —                                                        |
+  | `building`                                    | «Строится…»                  | info, `pulse` | —                                                        |
+  | `ready`, `fileCount > 0`                      | «Готов»                      | success       | короткий sha, «обновлён … UTC»                           |
+  | `ready`, `fileCount = 0`                      | «Готов — репозиторий пустой» | success       | то же                                                    |
+  | `stale`                                       | «Устарел»                    | warning       | то же и «индекс отстаёт от default branch, используется» |
+  | `failed`                                      | «Ошибка»                     | danger        | `lastErrorCode` кодом, без пояснений                     |
+
+  `disabled` при включённом RAG — окно оптимистичного обновления: `ragEnabled` уже перевёрнут, а `ragIndex`
+  отстаёт на один ответ, поэтому такой статус читается «Не построен»; при выключенном RAG старый статус не
+  виден вовсе («Выключен»). Короткий sha — первые 7 символов в `<code tabIndex={0}>` с `Tooltip` на hover и
+  focus (в нём полный sha, как в блоке правил), время — UTC `YYYY-MM-DD HH:mm:ss` (`shortSha`,
+  `formatIndexedAt`; в срезе фичи написаны заново: из `widgets/repository-rules` их импортировать нельзя, §1).
+  Если у `ready` или `stale` нет `indexedCommitSha` или `indexedAt` (контракт этого не допускает), sha и время
+  не показываются, ошибки нет. Код ошибки (`limit_exceeded:symbols`, `archive_unsafe`) выводится как пришёл;
+  у других статусов `lastErrorCode` не показывается.
+  Опрос — `useRagIndexPolling(status, enabledAt, refetch)` (`pages/repositories/lib`); `refetch` — тот же
+  `['repos']` страницы, нового ключа нет. `enabledAt` — `Date.now()` последнего успешного включения на этой
+  странице (`useState` страницы, только метка смены; выключение её не трогает). Окно опроса открывается на
+  статусе `building` и на `empty` сразу после включения здесь; страница, открытая на `empty`, не опрашивает.
+  Пока окно открыто, раз в 5 с (`RAG_POLL_MS`) идёт `refetch({ cancelRefetch: false })`. Сразу при открытии
+  запроса нет, в отличие от «Обновить доступ» (Ф-22): первый свежий ответ после включения даёт перезапрос
+  самой мутации (`onSettled`), опрос начинается через 5 с, то есть не больше 23 тиков за окно, на самом
+  дедлайне тика нет. Тик пропускается, пока идёт `PATCH` (`isMutating`), срок от этого не растёт. Окно длится
+  120 с (`RAG_POLL_WINDOW_MS`) с открытия, переход `empty → building` его не продлевает. Хук отдаёт `idle`,
+  `waiting` или `timedOut`. Любой статус вне `{building, empty}` (`ready`, `stale`, `failed`, `disabled`)
+  закрывает окно (`idle`). `waiting` в интерфейсе не виден: идущую сборку показывает пульс «Строится…».
+  По дедлайну хук отдаёт `timedOut`: секция добавляет к строке статуса «Автообновление остановлено — обновите
+  страницу» (кнопки нет), опрос остановлен. `timedOut` держится до нового включения (оно открывает свежее
+  окно, и после тайм-аута тоже) или до финального статуса, пришедшего любым перезапросом, например при
+  возврате в окно (`refetchOnWindowFocus: 'always'` у `useRepository`). Тик на дедлайне или позже (вкладка
+  спала) сам переводит хук в `timedOut`. Уход со страницы очищает интервал и таймаут в cleanup эффекта. Внутри хука —
+  состояния `round` / `open` / `timedOut`, дедлайн считается в эффекте: правила react-hooks 7 не дают ни
+  сравнивать значения через ref в рендере, ни вызывать там `Date.now()`.
+
 - Ошибка сохранения раскладывается `splitServerError`
   (`features/repository-settings/lib/serverFieldErrors.ts`): 422 с `detail[].loc` на поле формы —
   текст под этим полем, остальное — `Alert` над формой (§5, «Контракт api#149 (api PR #156)»). Ошибка
@@ -1058,16 +1128,20 @@ ReviewComment = { id, file, oldLine, newLine, endLine, body, ruleName,
   severity: critical|high|medium|low|info, category: security|correctness|performance|readability,
   title, createdAt }
 
-// entities/repository — Repository, RepositoryUpdate (api#149, api PR #156), RulesStatus
-// (api#150, api PR #202); §5
+// entities/repository — Repository, RepositoryUpdate (api#149, api PR #156), RagIndex (api#145,
+// api PR #161), RulesStatus (api#150, api PR #202); §5
 RepositoryId = uuid                     // RepositoryIdSchema: Repository.id и :repoId в адресе
 Repository = { id, fullName, url, defaultBranch, enabled, defaultEngine: fast,
   waitForCi: auto|always|never, maxComments: 1..10, reviewEvent: COMMENT|REQUEST_CHANGES,
   branchFilter: string(1..255)[≤20],
   severityThreshold: all|warning|critical,
-  installationAvailable: boolean }      // только чтение
+  installationAvailable: boolean,       // только чтение
+  ragEnabled: boolean,                  // итог ragEnabled AND installationAvailable, как enabled
+  ragIndex: RagIndex }                  // только чтение
+RagIndex = { status: disabled|empty|building|ready|stale|failed, indexedCommitSha: string|null,
+  indexedAt: ISO datetime|null, fileCount: int>=0, symbolCount: int>=0, lastErrorCode: string|null }
 RepositoryUpdate = { enabled?, defaultEngine?, waitForCi?, maxComments?, reviewEvent?,
-  branchFilter?, severityThreshold? }   // хотя бы одно поле; installationAvailable нет
+  branchFilter?, severityThreshold?, ragEnabled? }  // хотя бы одно поле; installationAvailable и ragIndex нет
 RulesStatus = present | missing | invalid | unavailable | pending   // discriminatedUnion('status')
 RulesDiagnostic = { code, message, line: int|null, column: int|null, retryable,
   limit?, actual?, patternIndex? }
@@ -1088,6 +1162,12 @@ RulesDiagnostic = { code, message, line: int|null, column: int|null, retryable,
   `UpdateRepositorySchema` перед PATCH, и схема смотрит только на размеры): его судит форма настроек
   (`branchMaskError`, зеркало `_pattern_error` api) и сервер, `422` которого остаётся запасным
   путём, если правила разойдутся.
+- `Repository` (api#145, api PR #161): `ragEnabled` и `ragIndex` обязательны — ответ без любого из них не
+  разбирается (§5). `RagIndex.status` — строгий enum из шести значений, все шесть полей индекса обязательны
+  (`null` и `0` в них допустимы), `indexedAt` — `z.iso.datetime()`. Что поля публикации (`indexedCommitSha`,
+  `indexedAt`, `fileCount`, `symbolCount`) заполнены только у `ready` и `stale`, схема не проверяет: это держит
+  сервер, а UI при пропуске показывает статус без sha и времени (§2). `disabledRagIndex` — индекс выключенного
+  RAG, как его отдаёт api (фикстуры, мок).
 - `RepositoryUpdate`: `.refine` — хотя бы одно поле. `installationAvailable` в схеме нет: объект не
   strict, и разбор отбрасывает это поле из ввода.
 - В схемах репозитория нет `.transform()`: генератор снимка в api строит JSON Schema
@@ -1325,6 +1405,46 @@ uuid), `503` (авторизация не настроена), ответ не �
 
 **2. Окружения.** Блок правил спрашивает статус на моках и вне них, гейта (`mocksEnabledAtRuntime`) у
 него нет; сбой запроса — ошибка загрузки с «Повторить», а не «файла нет».
+
+### Контракт api#145 (api PR #161)
+
+**Статус.** Флаг RAG и статус индекса — контракт
+[api PR #161](https://github.com/larchanka-training/dmc-268-api-t6/pull/161) (api#145), влит в `main` api
+17.10.2026 (`9748473`). Zod-схемы (`RagIndexStatusSchema`, `RagIndexSchema`, `Repository.ragEnabled` /
+`ragIndex`, `UpdateRepositorySchema.ragEnabled`) пришли из PR #109 (ui#102) и сверены с
+`contracts/openapi.yaml` api (`RagIndex`, `RagIndexStatus`, `Repository`). Снимок UI-Zod в api пинит коммит UI (`UI_CONTRACT_COMMIT` в
+`tests/test_ui_zod_contracts.py`); после мержа PR пин переносит api#224.
+
+**1. `Repository` (`GET /api/repos`, `GET /api/repos/{id}`)** — два обязательных члена.
+
+- `ragEnabled: boolean` — итог, а не настройка, как `enabled`: сервер отдаёт
+  `ragEnabled AND installationAvailable`, у репозитория без доступа GitHub App это `false`. UI показывает
+  значение как есть и само его не выводит (§2).
+- `ragIndex: RagIndex` — только чтение. Поля публикации (`indexedCommitSha`, `indexedAt`, `fileCount`,
+  `symbolCount`) описывают индекс, который читают ревью, и заполнены только у `ready` и `stale`, иначе это
+  `null` и 0. `lastErrorCode` у `failed` — `limit_exceeded:<лимит>` или `archive_unsafe`; у других статусов в
+  нём может стоять код последней попытки, закончившейся без публикации (у `disabled` всегда `null`), UI его не
+  показывает. Пустой репозиторий — `ready` с `fileCount: 0`, отдельного статуса нет.
+
+  | `status`   | Смысл (api#145, [ADR 0001][adr-0001])                               | Текст в UI (RAG включён)                                                         |
+  | ---------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+  | `disabled` | RAG выключен или у GitHub App нет доступа; расширяет перечень ADR   | «Выключен»; при включённом RAG (окно оптимистичного обновления) — «Не построен»  |
+  | `empty`    | индекса ещё нет                                                     | «Не построен»                                                                    |
+  | `building` | индекс строится, опубликованного нет                                | «Строится…»                                                                      |
+  | `ready`    | опубликованный индекс                                               | «Готов» (при `fileCount: 0` — «Готов — репозиторий пустой»), короткий sha, время |
+  | `stale`    | опубликованный индекс отстаёт от целевого коммита, ещё используется | «Устарел», sha, время и «индекс отстаёт от default branch, используется»         |
+  | `failed`   | сборка отказана насовсем, индекс не используется                    | «Ошибка» и `lastErrorCode`                                                       |
+
+**2. `RepositoryUpdate` (`PATCH /api/repos/{id}`)** — плюс необязательный `ragEnabled`. UI шлёт его отдельным
+PATCH с переключателя, ничем другим не дополняя (`{ ragEnabled }`); `ragIndex` в PATCH не уходит. Ответ —
+строка репозитория, как у `GET`. Любая ошибка PATCH — `Alert` в секции и откат значения (§2).
+
+**3. Что строит индекс.** Сборку и жизненный цикл индекса делает api#143 (на 22.10.2026 открыт): пока он не
+влит, включение RAG не запускает сборку, и на реальном api статус остаётся `empty`, а `building` и `stale` не
+бывают. UI устроен под все шесть значений, опрос ограничен окном 120 с (§2), а когда окно кончилось, секция
+говорит «Автообновление остановлено — обновите страницу». Формулировка подсказки у переключателя — по
+[ADR 0001][adr-0001]: индекс хранит только граф символов и указатели (путь, строки, commit), текст кода не
+хранится.
 
 ---
 
@@ -1919,8 +2039,8 @@ checkpoint или ошибка до входа в `traced_step` могут ос�
   `src/entities/run/lib/duoActions.fixture.ts`: `get_pull_request`, `get_diff`, 19× `get_tree`,
   11× `get_blob`, `get_pull_request`, `post_review`), 2 действия с `responseRef` вместо `response`;
 - `mockUiState` — состояние виджетов (выбранный прогон/файл, раскрытые узлы дерева);
-- `mockRepositories` — 4 репозитория с полями настроек api#149 (ниже, «Репозитории, правила и
-  история»).
+- `mockRepositories` — 4 репозитория с полями настроек api#149 и RAG api#145 (ниже, «Репозитории,
+  правила и история»).
 
 Фрагмент одного `RunSession`:
 
@@ -2041,6 +2161,23 @@ checkpoint или ошибка до входа в `traced_step` могут ос�
   маски и убирает повторы до отправки (`branchMaskError`), поэтому `422` мока по маске
   достижим только прямым вызовом транспорта и тестами. После `422` сохранённый репозиторий не
   меняется.
+- **Индекс RAG** (Refs ui#102; фикстуры — `app-state.ts`, логика — `mockTransport.ts`). Фикстуры: ui-t6 —
+  `ragEnabled: true`, `ready` (214 файлов, 3187 символов); api-t6 — `failed` с `limit_exceeded:symbols`;
+  infra-t6 — в рабочей копии `ragEnabled: true` и `stale`, но отдаётся `ragEnabled: false` и `disabled` (нет
+  доступа); docs-t6 — `ragEnabled: false`, `disabled`. `serveRepository` маскирует `ragEnabled` так же, как
+  `enabled` (`ragEnabled AND installationAvailable`), и у замаскированного отдаёт `disabledRagIndex`.
+  `ragIndexAfterPatch(stored, patch)`: индекс двигает только смена сохранённого `ragEnabled` — включение даёт
+  `empty`, выключение `disabled`; повтор того же значения и `PATCH` без `ragEnabled` индекс не трогают.
+  Сборку после включения ведёт `tickRagBuild` и считает по числу GET, а не по времени, поэтому тесты
+  детерминированы: ответ `PATCH` — `empty`; первые `MOCK_RAG_BUILD_GETS` (= 2) GET отвечают `building`;
+  следующий публикует `ready` (sha `MOCK_RAG_INDEXED_SHA` = `c0ffee0…`, `indexedAt` — момент этого GET, 42
+  файла, 310 символов), и счёт снимается. Счёт один на репозиторий (`ragBuildTicks`) и общий для GET списка
+  (шаг делает каждая строка) и GET детали; шаг делают именно GET, а не `serveRepository` и не `PATCH`, поэтому
+  ответ `PATCH` остаётся `empty`. Выключение посреди сборки и репозиторий без доступа счёт снимают,
+  `initMockTransport()` очищает его и возвращает строки к фикстурам. Меняется рабочая копия, `mockRepositories`
+  — нет. На странице в `pnpm dev`: `PATCH` → перезапрос после мутации (GET №1, `building`) → опрос через 5 с
+  (№2, `building`) → через 10 с (№3, `ready`) → опрос стоит. Срок «около 10 с»: любой другой GET, например при
+  возврате в окно, продвигает сборку так же.
 
 Валидация — тестом: `src/app/mocks/app-state.test.ts` прогоняет весь мок через Zod-схемы
 (`RunSessionSchema`, `FileDiffSchema`, `ReviewCommentSchema`, `RunActionSchema`, `RepositorySchema`)
@@ -2206,11 +2343,20 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
     `Repository`, первые два — в `RepositoryUpdate`; Zod-схемы — из PR #106;
   - api#150 (api PR #202; §5, «Контракт api#150 (api PR #202)»): `GET /api/repos/{id}/rules-status` —
     блок правил спрашивает его на каждом окружении (§2);
+  - RAG (api#145, api PR #161; §5, «Контракт api#145 (api PR #161)»): обязательные `ragEnabled` и только для
+    чтения `ragIndex` в `Repository`, необязательный `ragEnabled` в `RepositoryUpdate`; переключатель и
+    статус индекса — §2, Ф-24;
   - история репозитория — `GET /api/runs?repo&cursor&limit` (`repo` = `fullName`): UI листает по
     `nextCursor`, по 20 за запрос (§2);
   - решения (а)–(в) api#149 — в §5;
   - PR репозитория — `GET /api/repos/{id}/pulls?state&cursor` → `{ items, nextCursor }`, у
     элемента `latestRun { id, status, verdict } | null` (в клиенте пока не реализовано, открытый follow-up).
+- **Индекс RAG на реальном api (ui#102, api#143)** — UI готов ко всем шести статусам, но пока api#143 (сборка
+  и жизненный цикл индекса) открыт, включение RAG не запускает сборку: на реальном api индекс остаётся `empty`,
+  `building` и `stale` не бывают и видны только на моках (§8). Окно опроса 120 с после включения там кончается
+  текстом «Автообновление остановлено — обновите страницу». Когда api#143 будет влит, сценарий стоит
+  перепроверить на staging (включить RAG, дождаться `ready`); если сборка окажется дольше 120 с, длину окна
+  (`RAG_POLL_WINDOW_MS`) придётся пересмотреть.
 - **Экраны 4–5** (правила, метрики) — области [SD §2][sd-2]. Правила — частично (ui#93): статус
   `.review/rules.md` на странице настроек репозитория (§2, §5); редактора
   правил и экрана метрик нет. `src/pages/` содержит экраны для реализованных областей (вход, коллбэк,
@@ -2283,5 +2429,6 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
 [tl-2026-09-24-46]: https://github.com/larchanka-training/dmc-268-ui-t6/issues/46#issuecomment-5819780647
 [tl-2026-09-27-api20]: https://github.com/larchanka-training/dmc-268-api-t6/issues/20#issuecomment-5860133963
 [api150-reread]: https://github.com/larchanka-training/dmc-268-api-t6/issues/150#issuecomment-6253693222
+[adr-0001]: https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/adr/0001-graph-rag-v1.md
 [req-ui-30]: https://github.com/larchanka-training/dmc-268-ui-t6/pull/30#issuecomment-5725153632
 [req-api-4]: https://github.com/larchanka-training/dmc-268-api-t6/pull/4#issuecomment-5725153769
