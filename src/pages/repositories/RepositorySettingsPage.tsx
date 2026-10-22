@@ -23,12 +23,15 @@ import { runListHref } from '../../features/run-list-filter'
 import {
   AutoReviewSwitch,
   autoReviewChoiceSaved,
+  RAG_ERROR_TITLE,
+  RagSection,
   RepositorySettingsForm,
   type RepositorySettingsFormHandle,
 } from '../../features/repository-settings'
 import { PageHeader } from '../../shared/ui'
 import { RulesStatusPanel } from '../../widgets/repository-rules'
 import { formatErrorMessage } from './lib/formatError'
+import { useRagIndexPolling } from './lib/useRagIndexPolling'
 
 /** A button that is a real link: it opens in a new tab and navigates without a page load. */
 const LinkButton: FC<{ to: string; children: ReactNode }> = ({ to, children }) => {
@@ -102,6 +105,12 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
       setNotice(null)
     }
   }, [notice, isFetching, isError, saving, repository])
+
+  // The RAG index is built on the server after a switch-on: the page asks again every 5 s while it
+  // is on the way, for a bounded time (ui#102). `ragEnabledAt` marks the last switch-on made here,
+  // so an `empty` index the page was opened on is not polled.
+  const [ragEnabledAt, setRagEnabledAt] = useState<number | null>(null)
+  const ragPolling = useRagIndexPolling(repository?.ragIndex.status, ragEnabledAt, refetch)
 
   // Leaving the page loses the draft (the form of this page is built once from the repository):
   // a move to another page asks first (decision D12). A change of the search or the hash keeps
@@ -232,6 +241,16 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
       )
     }
 
+    // Saved at once, apart from the form, like auto-review. Without GitHub App access the switch is
+    // disabled (decision D2), so there is no choice kept for later to tell about.
+    const handleToggleRag = async (ragEnabled: boolean): Promise<void> => {
+      await updateMutation.mutateAsync({ id: repository.id, patch: { ragEnabled } })
+      if (ragEnabled) {
+        setRagEnabledAt(Date.now())
+      }
+      void message.success(ragEnabled ? 'RAG включён' : 'RAG выключен')
+    }
+
     return (
       <Flex gap="middle" vertical>
         <Breadcrumb
@@ -289,6 +308,14 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
           enabled={repository.enabled}
           installationAvailable={repository.installationAvailable}
           onChange={handleToggleAutoReview}
+        />
+        <RagSection
+          describeError={(err) => formatErrorMessage(err, RAG_ERROR_TITLE)}
+          installationAvailable={repository.installationAvailable}
+          onChange={handleToggleRag}
+          polling={ragPolling}
+          ragEnabled={repository.ragEnabled}
+          ragIndex={repository.ragIndex}
         />
         <RepositorySettingsForm
           describeError={(err) => formatErrorMessage(err, 'Не удалось сохранить настройки')}
