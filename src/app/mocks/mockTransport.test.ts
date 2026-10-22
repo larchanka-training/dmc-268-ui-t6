@@ -25,7 +25,12 @@ import { mockRepositories } from './app-state'
 import { mockRunsListPage } from './mockRunsList.fixture'
 import { mockRulesStatuses } from './mockRulesStatus'
 import { WALKING_RUN_ID } from './mockRunTimeline'
-import { initMockTransport, readStoredMockRepository } from './mockTransport'
+import {
+  initMockTransport,
+  MOCK_RAG_BUILD_GETS,
+  MOCK_RAG_INDEXED_SHA,
+  readStoredMockRepository,
+} from './mockTransport'
 
 describe('initMockTransport', () => {
   it('serves GET /runs from the mock handler', async () => {
@@ -603,9 +608,9 @@ describe('initMockTransport', () => {
       })
       expect(on.ragEnabled).toBe(true)
       expect(on.ragIndex).toEqual(empty)
-      expect((await apiClient<Repository>(endpoints.repos.detail(ready.id))).ragIndex).toEqual(
-        empty,
-      )
+      // The first GET after a switch-on is the build's first tick (ui#102, D3): the stored index
+      // is `empty` until then.
+      expect(readStoredMockRepository(ready.id)?.ragIndex).toEqual(empty)
     })
 
     it('switches RAG on from off with an empty index', async () => {
@@ -669,6 +674,188 @@ describe('initMockTransport', () => {
       expect(
         (await apiClient<Repository>(endpoints.repos.detail(unreachable.id))).ragIndex,
       ).toEqual(disabled)
+    })
+  })
+
+  // ui#102, D3: a switch-on starts a simulated build that GET requests advance, as the worker of
+  // api#143 will; PATCH answers the stored `empty`, it never ticks.
+  describe('the RAG index build after a switch-on', () => {
+    const [ready, , unreachable, docs] = mockRepositories
+    if (
+      ready?.ragIndex.status !== 'ready' ||
+      unreachable?.installationAvailable !== false ||
+      docs?.ragEnabled !== false
+    ) {
+      throw new Error(
+        'the first mock repository must have a ready index, the third no App access, the fourth RAG off',
+      )
+    }
+    const disabled = {
+      status: 'disabled',
+      indexedCommitSha: null,
+      indexedAt: null,
+      fileCount: 0,
+      symbolCount: 0,
+      lastErrorCode: null,
+    }
+    const empty = { ...disabled, status: 'empty' }
+    const building = { ...disabled, status: 'building' }
+    const published = {
+      status: 'ready',
+      indexedCommitSha: MOCK_RAG_INDEXED_SHA,
+      indexedAt: '2026-10-22T09:30:00.000Z',
+      fileCount: 42,
+      symbolCount: 310,
+      lastErrorCode: null,
+    }
+
+    beforeEach(() => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-10-22T09:30:00.000Z'))
+      initMockTransport()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    const switchRag = (id: string, ragEnabled: boolean) =>
+      apiClient<Repository>(endpoints.repos.update(id), { body: { ragEnabled } })
+    const listIndex = async (id: string) =>
+      (await apiClient<Repository[]>(endpoints.repos.list())).find((item) => item.id === id)
+        ?.ragIndex
+    const detailIndex = async (id: string) =>
+      (await apiClient<Repository>(endpoints.repos.detail(id))).ragIndex
+
+    it('answers PATCH with empty, then building twice, then ready with the published index', async () => {
+      expect(MOCK_RAG_BUILD_GETS).toBe(2)
+
+      const on = await switchRag(docs.id, true)
+      expect(on.ragIndex).toEqual(empty)
+
+      expect(await listIndex(docs.id)).toEqual(building)
+      expect(await listIndex(docs.id)).toEqual(building)
+      expect(await listIndex(docs.id)).toEqual(published)
+      expect(await listIndex(docs.id)).toEqual(published)
+      expect(await detailIndex(docs.id)).toEqual(published)
+    })
+
+    it('ticks the same counter from the list and from the detail', async () => {
+      await switchRag(docs.id, true)
+
+      expect(await detailIndex(docs.id)).toEqual(building)
+      expect(await listIndex(docs.id)).toEqual(building)
+      expect(await detailIndex(docs.id)).toEqual(published)
+    })
+
+    it('ticks only the repository that was switched on', async () => {
+      await switchRag(docs.id, true)
+
+      expect(await listIndex(docs.id)).toEqual(building)
+      expect((await detailIndex(ready.id)).fileCount).toBe(214)
+      expect(await listIndex(docs.id)).toEqual(building)
+      expect(await listIndex(docs.id)).toEqual(published)
+      expect((await detailIndex(ready.id)).fileCount).toBe(214)
+    })
+
+    it('does not tick on PATCH', async () => {
+      await switchRag(docs.id, true)
+      expect(await listIndex(docs.id)).toEqual(building)
+
+      const other = await apiClient<Repository>(endpoints.repos.update(docs.id), {
+        body: { maxComments: 4 },
+      })
+      expect(other.ragIndex).toEqual(building)
+
+      expect(await listIndex(docs.id)).toEqual(building)
+      expect(await listIndex(docs.id)).toEqual(published)
+    })
+
+    it('does not start a build for a PATCH without ragEnabled', async () => {
+      await apiClient<Repository>(endpoints.repos.update(docs.id), { body: { maxComments: 4 } })
+
+      expect(await listIndex(docs.id)).toEqual(disabled)
+      expect(await listIndex(docs.id)).toEqual(disabled)
+      expect(readStoredMockRepository(docs.id)?.ragIndex).toEqual(disabled)
+    })
+
+    it('does not restart a build that PATCH { ragEnabled: true } re-sends', async () => {
+      await switchRag(docs.id, true)
+      expect(await listIndex(docs.id)).toEqual(building)
+
+      const again = await switchRag(docs.id, true)
+      expect(again.ragIndex).toEqual(building)
+
+      expect(await listIndex(docs.id)).toEqual(building)
+      expect(await listIndex(docs.id)).toEqual(published)
+    })
+
+    it('keeps a ready index that PATCH { ragEnabled: true } re-sends', async () => {
+      await switchRag(ready.id, true)
+
+      expect(await listIndex(ready.id)).toMatchObject({ status: 'ready', fileCount: 214 })
+      expect(await listIndex(ready.id)).toMatchObject({ status: 'ready', fileCount: 214 })
+      expect(await listIndex(ready.id)).toMatchObject({ status: 'ready', fileCount: 214 })
+    })
+
+    it('drops the build on PATCH { ragEnabled: false } and ticks no further', async () => {
+      await switchRag(docs.id, true)
+      expect(await listIndex(docs.id)).toEqual(building)
+
+      const off = await switchRag(docs.id, false)
+      expect(off.ragEnabled).toBe(false)
+      expect(off.ragIndex).toEqual(disabled)
+
+      for (let get = 0; get < MOCK_RAG_BUILD_GETS + 2; get += 1) {
+        expect(await listIndex(docs.id)).toEqual(disabled)
+      }
+      expect(readStoredMockRepository(docs.id)?.ragIndex).toEqual(disabled)
+    })
+
+    it('starts a new build from the first tick after a switch-off and a switch-on', async () => {
+      await switchRag(docs.id, true)
+      expect(await listIndex(docs.id)).toEqual(building)
+      expect(await listIndex(docs.id)).toEqual(building)
+
+      await switchRag(docs.id, false)
+      expect((await switchRag(docs.id, true)).ragIndex).toEqual(empty)
+
+      expect(await listIndex(docs.id)).toEqual(building)
+      expect(await listIndex(docs.id)).toEqual(building)
+      expect(await listIndex(docs.id)).toEqual(published)
+    })
+
+    it('never leaves disabled for a repository the GitHub App cannot reach', async () => {
+      await switchRag(unreachable.id, false)
+      const on = await switchRag(unreachable.id, true)
+      expect(on.ragEnabled).toBe(false)
+      expect(on.ragIndex).toEqual(disabled)
+
+      for (let get = 0; get < MOCK_RAG_BUILD_GETS + 2; get += 1) {
+        expect(await listIndex(unreachable.id)).toEqual(disabled)
+        expect(await detailIndex(unreachable.id)).toEqual(disabled)
+      }
+      expect(readStoredMockRepository(unreachable.id)?.ragIndex).toEqual(empty)
+    })
+
+    it('clears the build with initMockTransport', async () => {
+      await switchRag(ready.id, false)
+      await switchRag(ready.id, true)
+
+      initMockTransport()
+
+      expect(await listIndex(ready.id)).toMatchObject({ status: 'ready', fileCount: 214 })
+      expect(await listIndex(docs.id)).toEqual(disabled)
+    })
+
+    it('never writes the fixture', async () => {
+      await switchRag(docs.id, true)
+      await listIndex(docs.id)
+      await listIndex(docs.id)
+      await listIndex(docs.id)
+
+      expect(mockRepositories[3]?.ragEnabled).toBe(false)
+      expect(mockRepositories[3]?.ragIndex).toEqual(disabled)
     })
   })
 
