@@ -846,8 +846,10 @@ Upgrade canary в `routerLocationAdapter.test.tsx` проверяет досту
 - RAG (Refs ui#102, Ф-24) — `RagSection` (`features/repository-settings`) между `AutoReviewSwitch` и формой.
   Переключатель «RAG» (`aria-labelledby` на подпись) применяется сразу отдельным `PATCH { ragEnabled }`
   (`handleToggleRag` страницы): в черновик формы, `buildSettingsPatch` и «Сохранить» он не входит. Его `PATCH`
-  попадает под тот же `saving` (`useIsMutating` по `UPDATE_REPOSITORY_MUTATION_KEY`), что остальные: пока он
-  идёт, «Сохранить» и «Загрузить значения с сервера» недоступны, отдельной проводки нет. Оптимистичное
+  попадает под тот же `saving` страницы (`useIsMutating` по `UPDATE_REPOSITORY_MUTATION_KEY`), что PATCH
+  авто-ревью: пока он идёт, недоступна «Загрузить значения с сервера»; «Сохранить» формы живёт на её
+  собственном `saving` и остаётся доступной (как при переключении авто-ревью — проверено в браузере,
+  `docs/reports/102/verify-browser.md` шаг 7). Оптимистичное
   обновление и откат всей строки прежние, в `useUpdateRepository` (хук не менялся). После ответа —
   `message.success` «RAG включён» / «RAG выключен» (ветки `message.info`, как у авто-ревью, нет). Ошибка —
   `Alert` «Не удалось изменить настройку RAG» с текстом `formatErrorMessage` под строкой статуса, переключатель
