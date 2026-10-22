@@ -6,7 +6,9 @@
 **/*.tfstate
 **/*.tfvars
 node_modules
+**/node_modules
 dist
+**/dist
 docs
 terraform
 deploy

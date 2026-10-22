@@ -55,6 +55,10 @@ Dev-сервер Vite настроен с прокси `server.proxy` для `/a
 Публичный лендинг продукта — отдельное приложение в `landing/` (пакет pnpm workspace). С основным
 приложением в `src/` общего кода нет. Зависимости ставятся общим `pnpm install` из корня.
 
+Docker-образ лендинга собирается из корня: `docker build -f landing/Dockerfile .`. Адрес
+приложения для кнопок задаётся при старте контейнера переменной `APP_URL` (обязательна); выкат на
+`staging.<APP_DOMAIN>` описан в [docs/CICD.md](docs/CICD.md) §4.1.
+
 ```bash
 cd landing
 pnpm dev           # dev-сервер на http://127.0.0.1:5180

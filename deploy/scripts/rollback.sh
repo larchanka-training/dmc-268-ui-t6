@@ -50,6 +50,7 @@ restore_bootstrap() {
 if [[ -f "${ENV_FILE}" ]]; then
   DEPLOY_MODE="${DEPLOY_MODE:-$(read_compose_env_var DEPLOY_MODE "${ENV_FILE}")}"
   EDGE_ALIAS="${EDGE_ALIAS:-$(read_compose_env_var EDGE_ALIAS "${ENV_FILE}")}"
+  APP_URL="${APP_URL:-$(read_compose_env_var APP_URL "${ENV_FILE}")}"
 fi
 
 # ports: publish the UI on host port 80 (dedicated Terraform host).
@@ -114,7 +115,7 @@ if docker inspect "${BOOTSTRAP_NAME}" >/dev/null 2>&1; then
 fi
 
 docker pull "${IMAGE}"
-write_compose_env_file "${ENV_FILE}" "${IMAGE}" "${DEPLOY_MODE}" "${EDGE_ALIAS:-}"
+write_compose_env_file "${ENV_FILE}" "${IMAGE}" "${DEPLOY_MODE}" "${EDGE_ALIAS:-}" "${APP_URL:-}"
 "${COMPOSE[@]}" up -d --remove-orphans --wait --wait-timeout 90
 
 # Shared root account: drop the GHCR credential after the last pull (compose up, pull_policy: always).
