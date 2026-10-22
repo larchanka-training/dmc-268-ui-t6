@@ -150,16 +150,126 @@ forward к Warning. Во всех состояниях серверные стр
 Подробные computed ancestor chains и unrounded ratios:
 `/tmp/127-browser-artifacts/{red,green}-matrix.json` (воспроизводятся скриптом ниже).
 
+## Review update: аудит после rebase, 22.10.2026
+
+UI base: `5e9456797422087bfa2e558a834dd64b7baa3a3f`, rebased HEAD:
+`bd2e0f672cbf821f673d3244c2d3305236d85fdf`. API companion base:
+`8a621798d01bd72a5ce6c343addc0d00661af724`, rebased HEAD:
+`4d0567b87ddffd656a648f433c28f3c33cefebdf`.
+Измерения выше относятся к 20.10; ниже — отдельная новая проверка этих rebased баз.
+
+Аудит всех `Tag`, `SEVERITY_TAG` и `severityBadgeGroup` в `src` после rebase:
+
+- `widgets/diff-viewer/ui/InlineComment.tsx` — единственный экранный потребитель оформления
+  пяти точных уровней. Его `SEVERITY_TAG` остаётся локальной картой из domain severity в
+  `TagProps`: critical/solid, critical/dot, high/dot, warning/dot, info/dot. Второго потребителя
+  нет, поэтому извлечение общего mapper сейчас не устраняет дублирование. В `entities/review`
+  не добавляются зависимости от `shared/ui` или типов `TagProps`.
+- `features/finding-filters/model/findingFilters.ts` и новый
+  `features/repository-settings/lib/severityThreshold.ts` используют только D3 helper
+  `severityBadgeGroup`. Порог репозитория по-прежнему сохраняет все пять уровней для `all`,
+  четыре для `warning`, critical/high для `critical`; ему не нужны цвета или варианты Tag.
+- `widgets/run-inspector/ui/RunHeader.tsx` использует отдельные роли: verdict Blocking —
+  danger/solid, статусы — `statusTone`, серверные severity counts — neutral/outline. Остальные
+  экранные Tag обозначают статус или метаданные, а не пять уровней severity.
+- `Tag.stories.tsx` демонстрирует shared-компонент (Severity, SeverityOnWarning, Solid,
+  Playground); `docs/Overview.stories.tsx` содержит critical swatch, critical-count в таблице
+  и пять тегов рядом с danger/failed. Это области повторной browser-проверки глобального
+  critical в обеих темах; source/stories по результатам аудита менять не требуется.
+
+По четырём замечаниям: глобальный critical повторно проверен в browser-матрице ниже; намеренное
+совпадение dark critical/danger пояснено в `DESIGN_SYSTEM.md` §3; локальный `SEVERITY_TAG`
+сохранён по результатам аудита выше; API companion rebased без конфликтов с узким docs-only
+diff в `PIPELINE_SPEC.md` §11/§13. Палитра, 70% текста / 22% заливки critical solid,
+D3-группы, серверные counts и verdict в этом продолжении не менялись.
+
+Targeted regression на rebased HEAD: 11 files / 271 tests passed
+(`/tmp/127-review-update-targeted.log`); `pnpm check-types` passed
+(`/tmp/127-review-update-types.log`); `pnpm lint` passed
+(`/tmp/127-review-update-lint.log`). Browser-матрица проверяет CSS и взаимодействия отдельно.
+
+### Свежая browser-матрица 22.10.2026
+
+Chrome 155.0.8059.85, headless, отдельный временный профиль, Node 24.20.0 / pnpm 12.4.1,
+1280×900 и 390×844, DPR 1. Storybook на 6127 и mock Vite на 5127 запущены из rebased UI
+worktree. Harness импортирует реальные компоненты и React-модули текущего Vite; production
+source не менялся. Метод unrounded sRGB/alpha-composition тот же, что описан выше.
+
+Новый прогон: 234 observations — 150 actual InlineComment, 52 shared Tag/Overview и 32 подписи
+палитры Overview. Все тексты ≥4.5:1, значимые точки ≥3:1. Ниже минимум среди пяти уровней
+в каждом состоянии; context/added/removed, outside-diff и summary-only проверены заново.
+
+| Actual InlineComment | Dark rest | Dark hover | Dark pressed | Light rest | Light hover | Light pressed |
+| -------------------- | --------: | ---------: | -----------: | ---------: | ----------: | ------------: |
+| Текст                |    5.0840 | **4.6622** |       5.8180 |     5.9259 |      5.5230 |    **5.1381** |
+| Точка                |    5.4480 |     4.9316 |       6.2384 |     4.3155 |      3.9881 |    **3.6766** |
+
+Минимумы воспроизведены в текущем DOM: critical solid на dark warning:hover —
+`4.662165195:1`; Low dot на light pressed warning — `3.676603105:1`.
+Critical solid computed text: dark `color(srgb 0.972549 0.604314 0.606667)`, light
+`color(srgb 0.520784 0.0980392 0.11451)`; фон — critical с alpha `0.22`.
+Смесь текста остаётся 70% critical / 30% neutral. Размер/вес/высота Tag — 12px / 500 / 20px.
+
+| Global critical область                        | Dark text | Light text | Dark critical dot | Light critical dot |
+| ---------------------------------------------- | --------: | ---------: | ----------------: | -----------------: |
+| Tag Severity, Solid critical, Playground solid |    6.8265 |     6.6533 |                 — |                  — |
+| SeverityOnWarning critical                     |    5.0840 |     5.9259 |                 — |                  — |
+| Severity High, Playground dot                  |   18.5437 |    18.7231 |            7.0140 |             6.4700 |
+| Playground critical outline                    |    7.5669 |     7.5777 |                 — |                  — |
+| Overview Critical tag                          |    6.8265 |     6.6533 |                 — |                  — |
+| Overview High tag                              |   18.5437 |    18.7231 |            7.0140 |             6.4700 |
+| Overview table critical-count, rest            |    6.5387 |     6.6533 |                 — |                  — |
+| Overview table critical-count, row hover       |    5.9445 |     6.1902 |                 — |                  — |
+
+Overview palette swatches подтверждены literal + computed: dark critical и danger — оба
+`#f87171` / `rgb(248, 113, 113)`; light critical — `#b91c1c` / `rgb(185, 28, 28)`,
+danger — `#d92626` / `rgb(217, 38, 38)`. Подписи палитры имеют минимум 18.5437 / 18.7231:1;
+цветные swatches декоративны, роль названа текстом. В Overview рядом остаются Critical и
+danger/failed; failed dot contrast dark ≥6.7919, light 4.9347. В Solid рядом Critical и
+danger/Blocking: текст danger 6.7954 / 5.2703:1, tint danger 14% / 11%, critical 22%.
+Таким образом, намеренное dark совпадение базовых цветов не объединяет роли токенов.
+
+Theme toggle на одном mounted RunDiff обновляет critical в обе стороны. Native Tab/Shift+Tab
+переходят между карточками, Enter открывает/закрывает ровно один раз и сохраняет фокус.
+Ring — 2px `rgb(96, 165, 250)` / `rgb(29, 78, 216)`, offset 1px. На 390px обе темы:
+`scrollWidth === innerWidth === 390`. При reduced motion у двух pulsing dots Overview
+`animationName === 'none'`.
+
+D3 проверен в текущем mock app: 17 состояний, обе темы, Critical = critical/high (3 карточки),
+Warning = medium/low (6), Info = info (2), вместе Critical+Warning = 9, reset = 11.
+Проверены URL, back/forward и reset; в каждом состоянии server counts остаются
+`{ critical: 1, high: 2, medium: 3, low: 1, info: 1 }`, verdict — `Blocking`.
+Все уровни проходят текущий тест repository-settings threshold в targeted suite.
+
+Main browser matrix: нет pageerror, failed requests или HTTP ≥400; финальный D3:
+нет pageerror или HTTP ≥400.
+Supplemental console audit обнаружил только Storybook `http://localhost:6127/favicon.ico`
+404 (браузерный запрос иконки); ошибок компонентов или pageerror нет. Dev server также
+пишет существующее предупреждение antd о deprecated `List`. Во время расширения D3 harness
+один промежуточный snapshot прочитал пустые options во время обновления dropdown; финальный
+прогон ждёт отрисованных трёх опций и проходит с явной проверкой неизменного verdict.
+Исходный код ради проверок не изменялся, новая RED-мутация для docs/rebase не выполнялась.
+
+Новые полезные снимки всех global critical областей: [dark Overview](127-browser/review-update-dark-overview.png),
+[light Overview](127-browser/review-update-light-overview.png). Исторические PNG сохранены.
+Текущие harness/logs: `/tmp/127-review-update-browser.cjs`,
+`/tmp/127-review-update-browser-extra.cjs`, `/tmp/127-review-update-d3-browser.cjs` и
+одноимённые `.log`; raw records — `/tmp/127-review-update-browser-artifacts/green-matrix.json`,
+`/tmp/127-review-update-browser-extra.json`, `/tmp/127-review-update-d3-browser.json`.
+Raw JSON в Git не добавляется. Для ручного воспроизведения достаточно открыть перечисленные
+stories в обеих темах; в Playground выбрать tone critical и варианты solid/dot/outline,
+в Overview навести на строку с `critical 1`; D3 повторяет таблицу действий выше.
+
 ## Воспроизведение
 
 Запустить Storybook из worktree: `pnpm exec storybook dev --port 6127 --ci --no-open`.
-Сохранить единственный JavaScript-блок этого файла как `/tmp/127-browser-proof.cjs`, затем
-запустить `pnpm exec node /tmp/127-browser-proof.cjs green`. В текущем окружении доступны
+Сохранить единственный JavaScript-блок этого файла как `/tmp/127-review-update-browser.cjs`, затем
+запустить `pnpm exec node /tmp/127-review-update-browser.cjs green`. В текущем окружении доступны
 указанные в скрипте Playwright runtime и установленный Chrome; на другой машине изменить
 эти два пути под уже установленные инструменты. Артефакты пишутся только в `/tmp`.
 
 Для RED на отдельной scratch-копии вернуть долю critical text с 70% на 85% и запустить
-`pnpm exec node /tmp/127-browser-proof.cjs red`. Команда проверяет, что actual dark outside
+`pnpm exec node /tmp/127-review-update-browser.cjs red`. Команда проверяет, что actual dark outside
 warning ratio действительно <4.5. Режим `green` на этой мутации падает на contrast assertion.
 В рабочем diff сохранена GREEN-версия 70%; production route или browser harness в `src`
 не добавлены.
@@ -170,7 +280,7 @@ const assert = require('node:assert/strict')
 const {
   chromium,
 } = require('/Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules/playwright')
-const OUTPUT = '/tmp/127-browser-artifacts'
+const OUTPUT = '/tmp/127-review-update-browser-artifacts'
 fs.mkdirSync(OUTPUT, { recursive: true })
 const STORY = 'свои-компоненты-tag--severity-on-warning'
 let browser
@@ -362,8 +472,12 @@ async function mountRunDiff(page, mode) {
     deviceScaleFactor: 1,
   })
   const errors = [],
-    failedRequests = []
+    failedRequests = [],
+    httpErrors = []
   page.on('pageerror', (e) => errors.push(e.message))
+  page.on('response', (r) => {
+    if (r.status() >= 400) httpErrors.push({ url: r.url(), status: r.status() })
+  })
   page.on('requestfailed', (r) => failedRequests.push({ url: r.url(), error: r.failure() }))
   await page.emulateMedia({ reducedMotion: 'reduce' })
   const records = []
@@ -485,22 +599,64 @@ async function mountRunDiff(page, mode) {
     for (const id of [
       'свои-компоненты-tag--severity',
       'свои-компоненты-tag--solid',
+      'свои-компоненты-tag--playground&args=tone:critical;variant:solid;children:Critical',
+      'свои-компоненты-tag--playground&args=tone:critical;variant:dot;children:High',
+      'свои-компоненты-tag--playground&args=tone:critical;variant:outline;children:Critical',
       'reviewer-ui--reviewer-ui',
     ]) {
       await page.goto(
         'http://localhost:6127/iframe.html?id=' +
-          encodeURIComponent(id) +
+          id.split('&args=')[0] +
           '&viewMode=story&globals=theme:' +
-          mode,
+          mode +
+          (id.includes('&args=') ? '&args=' + id.split('&args=')[1] : ''),
       )
-      await page.locator('[data-tone="critical"][data-variant="solid"]').first().waitFor()
+      await page.locator('[data-tone="critical"]').first().waitFor()
       await page.waitForFunction((mode) => document.documentElement.dataset.rvTheme === mode, mode)
       const tags = await page.evaluate(
         measureTags,
-        '#storybook-root [data-tone="critical"], #storybook-root [data-tone="high"], #storybook-root [data-tone="warning"], #storybook-root [data-tone="info"]',
+        '#storybook-root [data-tone="critical"], #storybook-root [data-tone="high"], #storybook-root [data-tone="warning"], #storybook-root [data-tone="info"], #storybook-root [data-tone="danger"]',
       )
       records.push({ kind: id, mode, tags })
-      if (id !== 'свои-компоненты-tag--solid')
+      if (id === 'reviewer-ui--reviewer-ui') {
+        const swatches = await page.evaluate(() =>
+          ['--rv-critical', '--rv-danger'].map((token) => {
+            const code = [...document.querySelectorAll('code')].find(
+              (el) => el.textContent === token,
+            )
+            const host = code.parentElement,
+              chip = host.querySelector('span'),
+              label = host.querySelector('strong'),
+              s = getComputedStyle(chip)
+            return {
+              token,
+              label: label.textContent,
+              literal: getComputedStyle(chip).getPropertyValue(token).trim(),
+              computed: s.backgroundColor,
+            }
+          }),
+        )
+        assert.deepEqual(
+          swatches.map((s) => s.literal),
+          mode === 'dark' ? ['#f87171', '#f87171'] : ['#b91c1c', '#d92626'],
+        )
+        assert.deepEqual(
+          swatches.map((s) => s.computed),
+          mode === 'dark'
+            ? ['rgb(248, 113, 113)', 'rgb(248, 113, 113)']
+            : ['rgb(185, 28, 28)', 'rgb(217, 38, 38)'],
+        )
+        records.push({ kind: 'overview-swatches', mode, swatches })
+        const paletteLabels = await page.evaluate(measureTags, '#storybook-root strong')
+        records.push({ kind: 'overview-palette-labels', mode, tags: paletteLabels })
+        assert.equal(tags.filter((t) => t.tone === 'critical' && t.variant === 'solid').length, 2)
+        assert.equal(tags.filter((t) => t.tone === 'critical' && t.variant === 'dot').length, 1)
+        assert.equal(
+          tags.some((t) => t.label === 'failed' && t.tone === 'danger'),
+          true,
+        )
+      }
+      if (id === 'reviewer-ui--reviewer-ui' || id === 'свои-компоненты-tag--severity')
         await page.screenshot({
           path: `${OUTPUT}/${phase}-${mode}-${id === 'reviewer-ui--reviewer-ui' ? 'overview' : 'severity'}.png`,
           fullPage: true,
@@ -509,7 +665,11 @@ async function mountRunDiff(page, mode) {
   }
   fs.writeFileSync(
     `${OUTPUT}/${phase}-matrix.json`,
-    JSON.stringify({ phase, browser: browser.version(), records, errors, failedRequests }, null, 2),
+    JSON.stringify(
+      { phase, browser: browser.version(), records, errors, failedRequests, httpErrors },
+      null,
+      2,
+    ),
   )
   const tags = records.flatMap((r) =>
     (r.tags ?? []).map((t) => ({ kind: r.kind, mode: r.mode, state: r.state ?? 'rest', ...t })),
@@ -534,6 +694,7 @@ async function mountRunDiff(page, mode) {
         })),
         errors,
         failedRequests,
+        httpErrors,
       },
       null,
       2,
@@ -560,6 +721,7 @@ async function mountRunDiff(page, mode) {
       'Must reproduce dark critical warning Alert regression before CSS fix',
     )
   assert.deepEqual(errors, [])
+  assert.deepEqual(httpErrors, [])
   await browser.close()
 })().catch(async (e) => {
   console.error(e)
