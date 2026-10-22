@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { parseRunStepEvent } from './index'
-import { parseRunUpdatedEvent, parseSseBuffer } from './runStreamParse'
+import { parseRunStepEvent, parseRunUpdatedEvent, parseSseBuffer } from './index'
 
 const RUN_ID = '11111111-1111-4111-8111-000000000001'
 const DATA = `data: {"runId":"${RUN_ID}","status":"running"}`
