@@ -59,6 +59,12 @@ const createdRunIds = new Set<string>()
 // Repositories whose rules status has been asked for since `initMockTransport`.
 const rulesStatusAsked = new Set<string>()
 
+/** GETs after a switch-on that still answer `building`; the next one publishes `ready` (ui#102, D3). */
+export const MOCK_RAG_BUILD_GETS = 2
+export const MOCK_RAG_INDEXED_SHA = 'c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00'
+// Repository id -> GETs already served as `building` since its RAG was switched on.
+const ragBuildTicks = new Map<string, number>()
+
 /**
  * A copy of a stored repository as the api serves it: `enabled` is the effective
  * `enabled AND installationAvailable` (api `repository_settings.py:27`, SD §6.9), so a
@@ -86,6 +92,35 @@ function ragIndexAfterPatch(stored: Repository, patch: UpdateRepositoryInput): R
     return stored.ragIndex
   }
   return patch.ragEnabled ? { ...disabledRagIndex, status: 'empty' } : { ...disabledRagIndex }
+}
+
+/**
+ * One GET of the simulated index build (ui#102, D3), in place on the stored row: the first
+ * `MOCK_RAG_BUILD_GETS` GETs after a switch-on answer `building`, the next one publishes `ready`.
+ * Called by the GETs, not by `serveRepository`: the PATCH answer stays `empty`. A repository the
+ * GitHub App cannot reach, or whose RAG is off, builds nothing.
+ */
+function tickRagBuild(stored: Repository): void {
+  const ticks = ragBuildTicks.get(stored.id)
+  if (ticks === undefined) return
+  if (!stored.ragEnabled || !stored.installationAvailable) {
+    ragBuildTicks.delete(stored.id)
+    return
+  }
+  if (ticks < MOCK_RAG_BUILD_GETS) {
+    ragBuildTicks.set(stored.id, ticks + 1)
+    stored.ragIndex = { ...disabledRagIndex, status: 'building' }
+    return
+  }
+  ragBuildTicks.delete(stored.id)
+  stored.ragIndex = {
+    status: 'ready',
+    indexedCommitSha: MOCK_RAG_INDEXED_SHA,
+    indexedAt: new Date().toISOString(),
+    fileCount: 42,
+    symbolCount: 310,
+    lastErrorCode: null,
+  }
 }
 
 /**
@@ -270,6 +305,7 @@ function handleMockTransport(
   options: Parameters<MockTransportHandler>[1],
 ): unknown {
   if (endpoint.path === '/repos' && endpoint.method === 'GET') {
+    repositories.forEach(tickRagBuild)
     return repositories.map(serveRepository)
   }
 
@@ -291,6 +327,7 @@ function handleMockTransport(
     if (!repo) {
       throw new ApiError(404, 'Not Found', { message: 'Repository not found' })
     }
+    tickRagBuild(repo)
     return serveRepository(repo)
   }
 
@@ -303,6 +340,7 @@ function handleMockTransport(
     }
     if (options.body && typeof options.body === 'object') {
       const patch = validatePatchBody(options.body)
+      const wasRagEnabled = stored.ragEnabled
       // The patch is stored as sent: `enabled` and `ragEnabled` are the preferences, served through
       // `serveRepository`.
       stored = RepositorySchema.parse({
@@ -311,6 +349,8 @@ function handleMockTransport(
         ragIndex: ragIndexAfterPatch(stored, patch),
       })
       repositories[index] = stored
+      if (patch.ragEnabled === true && !wasRagEnabled) ragBuildTicks.set(stored.id, 0)
+      if (patch.ragEnabled === false) ragBuildTicks.delete(stored.id)
     }
     return serveRepository(stored)
   }
@@ -515,6 +555,7 @@ export function initMockTransport(): void {
   runSessions = structuredClone(mockRunsListPage.items)
   createdRunIds.clear()
   rulesStatusAsked.clear()
+  ragBuildTicks.clear()
   resetWalkingRun()
 
   setMockAuthAdapter({
