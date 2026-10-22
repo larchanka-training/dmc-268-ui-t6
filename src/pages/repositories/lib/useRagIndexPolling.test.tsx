@@ -8,9 +8,6 @@ import { UPDATE_REPOSITORY_MUTATION_KEY, type RagIndexStatus } from '../../../en
 import { advance } from '../../../test/advanceTimers'
 import { RAG_POLL_MS, RAG_POLL_WINDOW_MS, useRagIndexPolling } from './useRagIndexPolling'
 
-/** The polls of one full window: one every 5 s, none at the deadline itself. */
-const POLLS_PER_WINDOW = RAG_POLL_WINDOW_MS / RAG_POLL_MS - 1
-
 interface Props {
   status: RagIndexStatus | undefined
   enabledAt: number | null
@@ -47,17 +44,23 @@ afterEach(() => {
 })
 
 describe('useRagIndexPolling', () => {
+  // The timings are pinned with literals below; this is the one place that reads the constants.
+  it('polls every 5000 ms for at most 120 000 ms', () => {
+    expect(RAG_POLL_MS).toBe(5000)
+    expect(RAG_POLL_WINDOW_MS).toBe(120_000)
+  })
+
   it('polls every 5 s while the index is building and stops at a final status', async () => {
     const { result, rerender, refetch } = mount({ status: 'building', enabledAt: null })
     expect(result.current).toBe('waiting')
 
-    await advance(RAG_POLL_MS - 1)
+    await advance(4999)
     expect(refetch).not.toHaveBeenCalled()
     await advance(1)
     expect(refetch).toHaveBeenCalledTimes(1)
     // A poll joins a request already in flight instead of cancelling it.
     expect(refetch).toHaveBeenLastCalledWith({ cancelRefetch: false })
-    await advance(RAG_POLL_MS)
+    await advance(5000)
     expect(refetch).toHaveBeenCalledTimes(2)
 
     rerender({ status: 'ready', enabledAt: null })
@@ -76,7 +79,7 @@ describe('useRagIndexPolling', () => {
     const { result, refetch } = mount({ status, enabledAt: Date.now() })
     expect(result.current).toBe('idle')
 
-    await advance(RAG_POLL_WINDOW_MS + RAG_POLL_MS)
+    await advance(125_000)
     expect(refetch).not.toHaveBeenCalled()
     expect(result.current).toBe('idle')
   })
@@ -85,7 +88,7 @@ describe('useRagIndexPolling', () => {
     const { result, refetch } = mount({ status: 'empty', enabledAt: null })
     expect(result.current).toBe('idle')
 
-    await advance(RAG_POLL_WINDOW_MS + RAG_POLL_MS)
+    await advance(125_000)
     expect(refetch).not.toHaveBeenCalled()
     expect(result.current).toBe('idle')
   })
@@ -96,7 +99,7 @@ describe('useRagIndexPolling', () => {
 
     rerender({ status: 'empty', enabledAt: Date.now() })
     expect(result.current).toBe('waiting')
-    await advance(RAG_POLL_MS - 1)
+    await advance(4999)
     expect(refetch).not.toHaveBeenCalled()
     await advance(1)
     expect(refetch).toHaveBeenCalledTimes(1)
@@ -106,22 +109,23 @@ describe('useRagIndexPolling', () => {
     const { result, refetch } = mount({ status: 'empty', enabledAt: Date.now() })
     expect(result.current).toBe('waiting')
 
-    await advance(RAG_POLL_MS)
+    await advance(5000)
     expect(refetch).toHaveBeenCalledTimes(1)
   })
 
   it('gives up 120 s after a building index was first seen and stays timed out', async () => {
     const { result, rerender, refetch } = mount({ status: 'building', enabledAt: null })
 
-    await advance(RAG_POLL_WINDOW_MS - 1)
+    await advance(119_999)
     expect(result.current).toBe('waiting')
-    expect(refetch).toHaveBeenCalledTimes(POLLS_PER_WINDOW)
+    // A poll every 5 s inside the window: 23 of them, none at the deadline itself.
+    expect(refetch).toHaveBeenCalledTimes(23)
 
     await advance(1)
     expect(result.current).toBe('timedOut')
     await advance(60_000)
     expect(result.current).toBe('timedOut')
-    expect(refetch).toHaveBeenCalledTimes(POLLS_PER_WINDOW)
+    expect(refetch).toHaveBeenCalledTimes(23)
 
     // The time-out holds as long as the index is still being built ...
     rerender({ status: 'building', enabledAt: null })
@@ -131,18 +135,18 @@ describe('useRagIndexPolling', () => {
     expect(result.current).toBe('idle')
     rerender({ status: 'building', enabledAt: null })
     expect(result.current).toBe('waiting')
-    await advance(RAG_POLL_MS)
-    expect(refetch).toHaveBeenCalledTimes(POLLS_PER_WINDOW + 1)
+    await advance(5000)
+    expect(refetch).toHaveBeenCalledTimes(24)
   })
 
   it('does not poll past the deadline when the clock jumps ahead of the timers', async () => {
     const { result, refetch } = mount({ status: 'building', enabledAt: null })
-    await advance(RAG_POLL_MS)
+    await advance(5000)
     expect(refetch).toHaveBeenCalledTimes(1)
 
     // A machine that slept: the wall clock is past the deadline, the timers are not due yet.
-    vi.setSystemTime(Date.now() + RAG_POLL_WINDOW_MS)
-    await advance(RAG_POLL_MS)
+    vi.setSystemTime(Date.now() + 120_000)
+    await advance(5000)
     expect(refetch).toHaveBeenCalledTimes(1)
     expect(result.current).toBe('timedOut')
   })
@@ -157,18 +161,18 @@ describe('useRagIndexPolling', () => {
     expect(result.current).toBe('waiting')
 
     // The deadline is 120 s after the switch-on, not after the first `building`.
-    await advance(RAG_POLL_WINDOW_MS - 60_000 - 1)
+    await advance(59_999)
     expect(result.current).toBe('waiting')
     await advance(1)
     expect(result.current).toBe('timedOut')
-    expect(refetch).toHaveBeenCalledTimes(POLLS_PER_WINDOW)
+    expect(refetch).toHaveBeenCalledTimes(23)
   })
 
   it('opens a fresh window on a new switch-on after a time-out', async () => {
     const switchedOnAt = Date.now()
     const { result, rerender, refetch } = mount({ status: 'empty', enabledAt: null })
     rerender({ status: 'empty', enabledAt: switchedOnAt })
-    await advance(RAG_POLL_WINDOW_MS)
+    await advance(120_000)
     expect(result.current).toBe('timedOut')
 
     // Neither the same switch-on again nor a forgotten one is a new switch-on.
@@ -176,30 +180,30 @@ describe('useRagIndexPolling', () => {
     expect(result.current).toBe('timedOut')
     rerender({ status: 'empty', enabledAt: null })
     expect(result.current).toBe('timedOut')
-    await advance(RAG_POLL_MS)
-    expect(refetch).toHaveBeenCalledTimes(POLLS_PER_WINDOW)
+    await advance(5000)
+    expect(refetch).toHaveBeenCalledTimes(23)
 
     rerender({ status: 'empty', enabledAt: Date.now() })
     expect(result.current).toBe('waiting')
-    await advance(RAG_POLL_MS)
-    expect(refetch).toHaveBeenCalledTimes(POLLS_PER_WINDOW + 1)
-    await advance(RAG_POLL_WINDOW_MS - RAG_POLL_MS)
+    await advance(5000)
+    expect(refetch).toHaveBeenCalledTimes(24)
+    await advance(115_000)
     expect(result.current).toBe('timedOut')
-    expect(refetch).toHaveBeenCalledTimes(2 * POLLS_PER_WINDOW)
+    expect(refetch).toHaveBeenCalledTimes(46)
   })
 
   it('restarts the window on another switch-on while it still waits', async () => {
     const { result, rerender, refetch } = mount({ status: 'empty', enabledAt: null })
     rerender({ status: 'empty', enabledAt: Date.now() })
     await advance(60_000)
-    expect(refetch).toHaveBeenCalledTimes(60_000 / RAG_POLL_MS)
+    expect(refetch).toHaveBeenCalledTimes(12)
 
     rerender({ status: 'empty', enabledAt: Date.now() })
-    await advance(RAG_POLL_WINDOW_MS - 1)
+    await advance(119_999)
     expect(result.current).toBe('waiting')
     await advance(1)
     expect(result.current).toBe('timedOut')
-    expect(refetch).toHaveBeenCalledTimes(60_000 / RAG_POLL_MS + POLLS_PER_WINDOW)
+    expect(refetch).toHaveBeenCalledTimes(35)
   })
 
   it('keeps its deadline and polls with the newest refetch it is handed', async () => {
@@ -212,10 +216,10 @@ describe('useRagIndexPolling', () => {
     await advance(60_000)
     rerender({ refetch: second })
 
-    await advance(RAG_POLL_WINDOW_MS - 60_000)
+    await advance(60_000)
     expect(result.current).toBe('timedOut')
-    expect(first).toHaveBeenCalledTimes(60_000 / RAG_POLL_MS)
-    expect(second).toHaveBeenCalledTimes(POLLS_PER_WINDOW - 60_000 / RAG_POLL_MS)
+    expect(first).toHaveBeenCalledTimes(12)
+    expect(second).toHaveBeenCalledTimes(11)
   })
 
   it('skips a poll while a repository update runs', async () => {
@@ -231,18 +235,18 @@ describe('useRagIndexPolling', () => {
       .execute(undefined)
     expect(client.isMutating({ mutationKey: UPDATE_REPOSITORY_MUTATION_KEY })).toBe(1)
 
-    await advance(RAG_POLL_MS)
+    await advance(5000)
     expect(refetch).not.toHaveBeenCalled()
     expect(result.current).toBe('waiting')
 
     release()
-    await advance(RAG_POLL_MS)
+    await advance(5000)
     expect(refetch).toHaveBeenCalledTimes(1)
   })
 
   it('stops polling when unmounted', async () => {
     const { unmount, refetch } = mount({ status: 'building', enabledAt: null })
-    await advance(RAG_POLL_MS)
+    await advance(5000)
     expect(refetch).toHaveBeenCalledTimes(1)
 
     unmount()
