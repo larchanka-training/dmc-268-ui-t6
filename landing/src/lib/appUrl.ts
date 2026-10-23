@@ -9,7 +9,7 @@ export const DEFAULT_APP_URL = 'https://staging-ui.dmc268-t6.axyi.ru'
 
 export const CONFIG_PATH = '/config.json'
 
-const CONFIG_TIMEOUT_MS = 2000
+export const CONFIG_TIMEOUT_MS = 2000
 
 let appUrl = DEFAULT_APP_URL
 
@@ -33,10 +33,10 @@ export async function loadAppUrl(fetchImpl: typeof fetch = fetch): Promise<strin
       cache: 'no-store',
       signal: AbortSignal.timeout(CONFIG_TIMEOUT_MS),
     })
-    if (response.ok) appUrl = parseAppUrl(await response.json()) ?? DEFAULT_APP_URL
-    else appUrl = DEFAULT_APP_URL
-  } catch {
+    appUrl = (response.ok ? parseAppUrl(await response.json()) : null) ?? DEFAULT_APP_URL
+  } catch (error) {
     // Missing file, an SPA fallback returning HTML, a timeout: all mean "use the default".
+    console.warn('[landing] /config.json unavailable, using the default app url', error)
     appUrl = DEFAULT_APP_URL
   }
   return appUrl
@@ -44,4 +44,9 @@ export async function loadAppUrl(fetchImpl: typeof fetch = fetch): Promise<strin
 
 export function getAppUrl(): string {
   return appUrl
+}
+
+/** Test helper: restores the default so tests do not depend on each other's state. */
+export function resetAppUrl(): void {
+  appUrl = DEFAULT_APP_URL
 }
