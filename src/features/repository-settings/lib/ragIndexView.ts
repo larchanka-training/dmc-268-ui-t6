@@ -40,8 +40,12 @@ export function formatIndexedAt(iso: string): string {
   return new Date(iso).toISOString().replace('T', ' ').slice(0, 19)
 }
 
-// The api catalog of `lastErrorCode` (`app/modules/code_index/domain/codes.py`): the codes of a
-// `failed` index first, then the soft ones, left by a job that ended without a publication.
+// The api catalog of `lastErrorCode` (`app/modules/code_index/domain/codes.py`, api#228/#242): the
+// codes of a `failed` index first, then the soft ones, left by a job that ended without a
+// publication, then the `policy_*` codes of reading `.review/rules.md` (healable
+// `policy_fetch_transient` and `policy_rate_limited`; the rest terminal). The first two `policy_*`
+// texts are the rules block's own (`widgets/repository-rules/lib/rulesStatusView.ts`), copied
+// verbatim: a feature does not import a widget's `lib`.
 const ERROR_REASONS: Record<string, string> = {
   archive_unsafe: 'архив репозитория отклонён проверкой безопасности',
   'limit_exceeded:download_bytes': 'превышен лимит размера архива',
@@ -57,6 +61,13 @@ const ERROR_REASONS: Record<string, string> = {
   vcs_unavailable: 'GitHub временно недоступен',
   vcs_rate_limited: 'GitHub ограничил число запросов',
   vcs_access_denied: 'у GitHub App нет доступа к репозиторию',
+  policy_access_denied: 'У GitHub App нет доступа к репозиторию',
+  policy_revision_unavailable:
+    'Ревизия default branch недоступна: GitHub не подтвердил, есть ли файл правил.',
+  policy_fetch_transient: 'GitHub временно не отвечает при чтении .review/rules.md',
+  policy_rate_limited: 'GitHub ограничил число запросов при чтении .review/rules.md',
+  policy_document_too_large: 'файл .review/rules.md больше лимита',
+  policy_document_type_unsupported: 'неподдерживаемый тип файла .review/rules.md',
 }
 
 /**
