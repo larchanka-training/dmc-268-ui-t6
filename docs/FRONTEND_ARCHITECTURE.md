@@ -203,6 +203,7 @@ src/app/providers/runStreamConnect.ts
 src/app/providers/useRunStream.test.tsx
 src/app/providers/useRunStream.ts
 src/app/routes.tsx
+src/app/runDetailLoading.page.test.tsx
 src/entities/diff/api/index.test.ts
 src/entities/diff/api/index.ts
 src/entities/diff/index.ts
@@ -335,6 +336,7 @@ src/pages/review/.gitkeep
 src/pages/review/ReviewRedirect.test.tsx
 src/pages/review/ReviewRedirect.tsx
 src/pages/runs/.gitkeep
+src/pages/runs/RunDetailPage.empty.test.tsx
 src/pages/runs/RunDetailPage.filters.test.tsx
 src/pages/runs/RunDetailPage.module.css
 src/pages/runs/RunDetailPage.progress.test.tsx
@@ -2259,7 +2261,7 @@ issue прямо выносит подключение логирования з
 — зона ответственности инфры (роль 3, PR #28, сейчас `:8080` захардкожен).
 
 **Роутер.** Установлен **react-router 8** (^8.4.0, peer react ≥ 19.2.7 — выполняется), настроен в `src/app/routes.tsx`. Лэйауты (`AppLayoutRoute`, `ProtectedLayout`, `PageFallback`, `RouteErrorFallback`) и обёртки страниц (`RoutedRepositoriesPage` и др.) вынесены в `src/app/layouts/`, чтобы файл роутера оставался чистой конфигурацией маршрутов без отключения правил Fast Refresh (`react-refresh/only-export-components`).
-`PageFallback` ничего не рисует: это метка ожидания `PageLoading` из дизайн-системы (ею же отмечена проверка сессии в `ProtectedLayout`). Кольцо одно на приложение, его показывает `PageLoaderHost` в `UiProvider`: по центру окна, не раньше чем через 300 мс ожидания, с плавным появлением и исчезновением (`docs/DESIGN_SYSTEM.md` §7).
+`PageFallback` ничего не рисует: это метка ожидания `PageLoading` из дизайн-системы. Та же метка отмечает проверку сессии в `ProtectedLayout` и первичную загрузку данных прогона в `RunDetailPage` (`runQuery.isLoading`). Кольцо одно на приложение, его показывает `PageLoaderHost` в `UiProvider`: по центру окна, не раньше чем через 300 мс непрерывного ожидания, с плавным появлением и исчезновением (`docs/DESIGN_SYSTEM.md` §7). Фоновый refetch с данными в кэше оставляет страницу видимой; ожидание диффа и журнала действий остаётся секционным. Интеграция маршрута, страницы и хоста проверяется в `src/app/runDetailLoading.page.test.tsx`.
 
 **Маршрут настроек репозитория (Refs ui#93).** `/repositories/:repoId/settings` — дочерний маршрут
 `AppLayoutRoute` за `ProtectedLayout`; ленивая страница `RepositorySettingsPage` подключена обёрткой
