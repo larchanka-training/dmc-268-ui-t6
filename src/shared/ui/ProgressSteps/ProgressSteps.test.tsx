@@ -72,7 +72,6 @@ describe('ProgressSteps', () => {
     for (const { title, state } of ALL_STATES) {
       expect(mark(title).getAttribute('data-state')).toBe(state)
       expect(mark(title).classList.contains(styles.mark ?? '')).toBe(true)
-      expect(screen.getByText(title).getAttribute('data-state')).toBe(state)
     }
     expect(mark('Ждёт').textContent).toBe('1')
     expect(mark('Идёт').textContent).toBe('2')
@@ -83,6 +82,15 @@ describe('ProgressSteps', () => {
     // A check, a cross and a dash: three different glyphs.
     expect(new Set(glyphs).size).toBe(3)
     expect(glyphs).not.toContain(undefined)
+  })
+
+  it('attaches the title styles and state to every rendered title', () => {
+    render(<ProgressSteps steps={ALL_STATES} />)
+    for (const { title, state } of ALL_STATES) {
+      const element = screen.getByText(title)
+      expect(element.classList.contains(styles.title ?? '')).toBe(true)
+      expect(element.getAttribute('data-state')).toBe(state)
+    }
   })
 
   it('puts the note on the line under the title, only where there is one', () => {
@@ -120,9 +128,10 @@ describe('ProgressSteps', () => {
     },
   )
 
-  it('keeps its own class next to a class of the caller', () => {
+  it('uses the small Ant Design root and keeps its own class next to a class of the caller', () => {
     const { container } = render(<ProgressSteps className="mine" steps={ALL_STATES} />)
     const root = container.querySelector('.ant-steps')
+    expect(root?.matches('.ant-steps.ant-steps-small')).toBe(true)
     expect(root?.classList.contains('mine')).toBe(true)
     expect(styles.steps).toBeTruthy()
     expect(root?.classList.contains(styles.steps ?? '')).toBe(true)
