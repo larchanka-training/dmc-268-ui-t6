@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 # Helpers for the Docker Compose .env file on the host (IMAGE, DEPLOY_MODE, EDGE_ALIAS, and APP_URL
-# with NO_PREVIOUS_RELEASE, which only the landing stack sets; empty for the UI). Compose reads only
+# with NO_PREVIOUS_RELEASE, which the landing stack sets; for the UI APP_URL is empty and
+# NO_PREVIOUS_RELEASE is empty or bootstrap, the default). Compose reads only
 # what the compose files use; the scripts read the rest back on the next run. Values are written so Compose reads them
 # literally ($ escaped as $$). Never source that file as shell code.
 

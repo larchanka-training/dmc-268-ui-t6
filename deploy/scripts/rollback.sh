@@ -32,7 +32,16 @@ fi
 
 restore_bootstrap() {
   if [[ -f "${COMPOSE_FILE}" && -f "${ENV_FILE}" ]]; then
-    "${COMPOSE[@]}" down --remove-orphans >/dev/null 2>&1 || true
+    if [[ "${NO_PREVIOUS_RELEASE}" == "stop" ]]; then
+      # Stopping is the whole rollback here: a failed down must not report success while the
+      # failed release keeps running.
+      if ! "${COMPOSE[@]}" down --remove-orphans >/dev/null || [[ -n "$("${COMPOSE[@]}" ps -q)" ]]; then
+        echo "failed to stop compose project ${COMPOSE_PROJECT}; the failed release may still run" >&2
+        exit 1
+      fi
+    else
+      "${COMPOSE[@]}" down --remove-orphans >/dev/null 2>&1 || true
+    fi
   fi
 
   docker rm -f "${BOOTSTRAP_NAME}" >/dev/null 2>&1 || true

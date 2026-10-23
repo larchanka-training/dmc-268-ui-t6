@@ -196,7 +196,6 @@ jobs:
           TARGET_LANDING: ${{ steps.target.outputs.landing }}
           REQUESTED: ${{ inputs.image }}
           REQUESTED_LANDING: ${{ inputs.landing_image }}
-          LANDING_EDGE_ROUTED: ${{ vars.LANDING_EDGE_ROUTED }}
         run: |
           # ui-and-landing rolls back both parts; on the Terraform host there is no landing, so
           # it means the UI alone there.
@@ -216,10 +215,6 @@ jobs:
           fi
           if [[ "${landing}" != "true" && -n "${REQUESTED_LANDING}" ]]; then
             echo "landing_image is set, but the landing is not rolled back (component '${COMPONENT}', target without landing)" >&2
-            exit 1
-          fi
-          if [[ "${landing}" == "true" && ! "${LANDING_EDGE_ROUTED}" =~ ^(true|false|)$ ]]; then
-            echo "repository variable LANDING_EDGE_ROUTED must be true, false or unset, got: ${LANDING_EDGE_ROUTED}" >&2
             exit 1
           fi
           {
@@ -618,7 +613,6 @@ jobs:
         env:
           BASE_URL: ${{ steps.target.outputs.landing_base_url }}
           APP_URL: ${{ steps.target.outputs.landing_app_url }}
-          LANDING_EDGE_ROUTED: ${{ vars.LANDING_EDGE_ROUTED }}
         run: |
           chmod +x deploy/scripts/healthcheck.sh deploy/scripts/landing-healthcheck.sh
           deploy/scripts/landing-healthcheck.sh "${BASE_URL}" "${APP_URL}"

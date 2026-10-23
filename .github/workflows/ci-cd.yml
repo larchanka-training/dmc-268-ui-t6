@@ -403,18 +403,6 @@ jobs:
           } >> "${GITHUB_OUTPUT}"
           echo "staging target: ${mode} (${host}:${port}, ${base_url})"
 
-      # Checked before any change on the host: a typo would otherwise fail only the landing check.
-      - name: Check landing edge flag
-        if: steps.target.outputs.landing == 'true'
-        env:
-          LANDING_EDGE_ROUTED: ${{ vars.LANDING_EDGE_ROUTED }}
-        run: |
-          case "${LANDING_EDGE_ROUTED}" in
-            true) echo "landing hosts are routed by the edge proxy: the external landing check is strict" ;;
-            '' | false) echo "::notice::LANDING_EDGE_ROUTED is not true: until it is, the external landing check is skipped on curl exit 35 (no edge site yet)" ;;
-            *) echo "repository variable LANDING_EDGE_ROUTED must be true, false or unset, got: ${LANDING_EDGE_ROUTED}" >&2; exit 1 ;;
-          esac
-
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -571,7 +559,6 @@ jobs:
         env:
           BASE_URL: ${{ steps.target.outputs.landing_base_url }}
           APP_URL: ${{ steps.target.outputs.landing_app_url }}
-          LANDING_EDGE_ROUTED: ${{ vars.LANDING_EDGE_ROUTED }}
         run: |
           chmod +x deploy/scripts/healthcheck.sh deploy/scripts/landing-healthcheck.sh
           deploy/scripts/landing-healthcheck.sh "${BASE_URL}" "${APP_URL}"

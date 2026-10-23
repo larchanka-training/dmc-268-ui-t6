@@ -24,6 +24,15 @@ printf '%s' "$url" | grep -Eq "^https?://${label}(\\.${label})*(:[0-9]{1,5})?(/[
   || fail "APP_URL must be http(s)://<host>[:port][/path] (got: $url)"
 authority=${url#*://}
 authority=${authority%%/*}
+# new URL() parses a host whose last label is a number (decimal or 0x hex) as IPv4 and rejects it
+# unless that succeeds (https://a.123, https://999.1.1.1). Only a plain dotted-quad IPv4 passes here.
+host=${authority%%:*}
+last=${host##*.}
+if printf '%s' "$last" | grep -Eq '^([0-9]+|0[xX][0-9A-Fa-f]*)$'; then
+  octet='(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])'
+  printf '%s' "$host" | grep -Eq "^${octet}(\\.${octet}){3}\$" \
+    || fail "APP_URL host ending in a number must be an IPv4 address a.b.c.d, 0-255 each (got: $url)"
+fi
 case "$authority" in
   *:*)
     port=${authority##*:}

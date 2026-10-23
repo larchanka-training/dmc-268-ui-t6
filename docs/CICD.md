@@ -51,7 +51,7 @@ flowchart TD
 
 `UI quality` ставит Node.js 24 (как build-стадия `Dockerfile`) и pnpm версии из `packageManager`, затем выполняет `pnpm install --frozen-lockfile` и шесть гейтов по порядку (последний, `pnpm verify:prod-bundle`, идёт после `pnpm build` и проверяет `dist/assets`: нет mock/demo-кода, а вызов zod `jitless` исполняется раньше первой схемы); первый упавший шаг делает job красным. Job стоит в `needs` у `Push Docker image`: с красными гейтами образ не пушится и staging не выкатывается. На PR job отменяется вместе со всем run при новом push в ветку (`cancel-in-progress` в `concurrency` workflow). Лимит job — 15 минут (`timeout-minutes`): зависший прогон не держит обязательную проверку и `Push Docker image` до стандартных шести часов.
 
-Шаги `Deploy staging`: **Resolve staging target** → копирование `deploy/` в `APP_DIR` (`appleboy/scp-action`; на курсовом VPS ещё файлы лендинга в его `APP_DIR`) → **Prepare host** → (курсовой VPS) ожидание TLS → **Deploy image** (`deploy.sh`) → **Health check** → (курсовой VPS) **Deploy landing image** → **Landing health check** → при ошибке лендинга **Rollback landing on failed deploy or health check**, при ошибке UI **Rollback on failed deploy or health check** (оба `ROLLBACK_MODE=auto`, каждый откатывает только свою часть) → job красный, в логе `::error::` с тем, что упало. После сбоя лендинга `Promote staging tag` всё равно продвигает проверенный UI (`!cancelled()` и флаг `promote`), тег лендинга не двигается (`promote_landing=false`).
+Шаги `Deploy staging`: **Resolve staging target** → копирование `deploy/` в `APP_DIR` (`appleboy/scp-action`; на курсовом VPS ещё файлы лендинга в его `APP_DIR`) → **Prepare host** → (курсовой VPS) ожидание TLS → **Deploy image** (`deploy.sh`) → **Health check** → (курсовой VPS) **Deploy landing image** → **Landing health check** → при ошибке лендинга **Rollback landing on failed deploy or health check**, при ошибке UI **Rollback on failed deploy or health check** (оба `ROLLBACK_MODE=auto`, каждый откатывает только свою часть) → job красный, в логе сообщение о том, что упало (у сбоя лендинга это `::error::`). После сбоя лендинга `Promote staging tag` всё равно продвигает проверенный UI (`!cancelled()` и флаг `promote`), тег лендинга не двигается (`promote_landing=false`). UI тогда уже выкачен; повторный выкат того же коммита (**Re-run failed jobs**) не трогает точку отката UI на VM: `deploy.sh` переносит `.deploy-state` в `.deploy-state.previous`, только если выкатывается другой образ.
 
 **Prepare host** переименовывает `staging*.yml` в `compose.yml`, `compose.ports.yml`, `compose.edge.yml` и запускает `provision.sh` (копия из API-репозитория) с `APP_DIR` и `EDGE_NETWORK` (`dmc268-edge` только на курсовом VPS): при необходимости ставит Docker и Compose из пакетов Debian (под `flock` вместе с прогонами API), создаёт `APP_DIR` и сеть `dmc268-edge`. Workflow Rollback делает то же перед откатом.
 
@@ -98,7 +98,7 @@ Caddy (compose project `dmc-268-edge`) принимает 80/443 на VPS, вы�
 | `staging.<APP_DOMAIN>`, `staging-www.<APP_DOMAIN>` | `landing-staging:8080`                                       | лендинг выкатывает этот репозиторий (§4.1)                                        |
 | `<APP_DOMAIN>`, `www.<APP_DOMAIN>`                 | `landing-staging:8080`                                       | пока prod-выката нет — staging-лендинг; с prod-выкатом переедут на `landing-prod` |
 
-Пока upstream не запущен, `staging-ui` отвечает 502, а `ui` и хосты лендинга — заглушкой 503 edge-прокси ([CICD.md API, §8.2](https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/CICD.md#82-edge-прокси)); остальные маршруты прокси работают. Таблица выше — маршруты **после** выката PR в API-репозитории (api#240), который добавляет хосты лендинга. Сейчас, до него, у Caddy нет сайта и сертификата для `staging.`, `www.` и `staging-www.` (TLS-рукопожатие падает, curl exit 35), а основной домен `<APP_DOMAIN>` отвечает 301 → `ui.<APP_DOMAIN>`.
+Пока upstream не запущен, `staging-ui` отвечает 502, а `ui` и хосты лендинга — заглушкой 503 edge-прокси ([CICD.md API, §8.2](https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/CICD.md#82-edge-прокси)); остальные маршруты прокси работают. Таблица выше — маршруты **после** выката PR в API-репозитории (api#240), который добавляет хосты лендинга. api#240 выкатывается раньше, чем лендинг из этого репозитория (§4.1): к первому выкату лендинга у Caddy уже есть сайты и сертификаты его хостов.
 
 ---
 
@@ -125,19 +125,14 @@ GET /config.json
 200 {"appUrl":"<APP_URL>"}   Cache-Control: no-cache
 ```
 
-- **Адрес приложения задаётся при старте, не при сборке.** Переменная окружения `APP_URL` обязательна: `docker/landing/15-check-app-url.sh` пропускает только `http(s)://<host>[:port][/path]`, иначе контейнер не стартует (`compose up --wait` падает → авто-rollback). Затем шаг envsubst образа nginx пишет `/etc/nginx/runtime/config.json` из `docker/landing/config.json.template`; nginx отдаёт его как `/config.json` с `Cache-Control: no-cache`, так что новый `APP_URL` виден браузеру без ожидания кэша. Лендинг читает файл при загрузке; без файла берёт адрес по умолчанию из кода (контракт — `landing/src/lib/appUrl.ts` из PR #164 по #162; без него лендинг `/config.json` не читает, поэтому #164 мержится до этого PR или сразу за ним). Один образ годится для staging и prod.
+- **Адрес приложения задаётся при старте, не при сборке.** Переменная окружения `APP_URL` обязательна: `docker/landing/15-check-app-url.sh` пропускает только `http(s)://<host>[:port][/path]` (хост с числовой последней меткой только как IPv4 `a.b.c.d`, иначе его отверг бы `new URL()`), иначе контейнер не стартует (`compose up --wait` падает → авто-rollback). Затем шаг envsubst образа nginx пишет `/etc/nginx/runtime/config.json` из `docker/landing/config.json.template`; nginx отдаёт его как `/config.json` с `Cache-Control: no-cache`, так что новый `APP_URL` виден браузеру без ожидания кэша. Лендинг читает файл при загрузке; без файла берёт адрес по умолчанию из кода (контракт — `landing/src/lib/appUrl.ts` из PR #164 по #162, уже в `main`). Один образ годится для staging и prod.
 - **Только курсовой VPS (режим `edge`).** На Terraform-хосте лендинга нет: хост выделен под UI на `:80`, своего маршрута для лендинга там нет. Образ всё равно собирается, сканируется и пушится на каждый `main`.
 - **Выкат.** Те же `deploy.sh` / `rollback.sh`, свой `APP_DIR` `/opt/dmc-268-landing-staging`, compose project `dmc-268-landing-staging`, файлы `deploy/compose/landing.yml` и `landing.edge.yml`, alias `landing-staging`. `APP_URL` = `https://staging-ui.<APP_DOMAIN>` (URL UI из резолвера), сохраняется в `<APP_DIR>/.env` вместе с `IMAGE`, `DEPLOY_MODE`, `EDGE_ALIAS`.
 - **Откат отдельно от UI.** Лендинг выкатывается после успешного health check UI того же коммита. Упал выкат или проверка лендинга — откатывается только лендинг (`ROLLBACK_MODE=auto`): исправный UI не пересоздаётся, его `:staging` продвигается, тег лендинга остаётся на прежнем релизе, job красный с `::error::` о лендинге. Так выкат приложения не зависит ни от лендинга, ни от маршрутов edge-прокси в API-репозитории.
 - **Без previous — остановка, не bootstrap.** Шаги лендинга передают `NO_PREVIOUS_RELEASE=stop` (сохраняется в `<APP_DIR>/.env`, его читает и break-glass `rollback.sh`). Если упал первый релиз лендинга, его стек только останавливается: на хостах лендинга отвечает заглушка 503 edge-прокси, а не стоковая страница nginx. У UI по умолчанию `bootstrap`, как раньше.
-- **Проверка снаружи** (`deploy/scripts/landing-healthcheck.sh`): `https://staging.<APP_DOMAIN>/health` (12 × 5 с, как у UI) и `/config.json` с ожидаемым `appUrl` (до 6 попыток с паузой 3 с). Пока маршруты лендинга (api#240) не выкачены, у Caddy нет сайта для `staging.<APP_DOMAIN>` и TLS-рукопожатие падает (curl exit 35). Это окно закрывает repository variable `LANDING_EDGE_ROUTED` (§8):
-  - не задана или `false` — exit 35 пропускает проверку с warning, остаётся `compose up --wait` на VM;
-  - `true` — exit 35 (нет сайта, не выпущен сертификат) валит проверку, как любая другая ошибка;
-  - другое значение — отказ до любых изменений на хосте.
+- **Проверка снаружи** (`deploy/scripts/landing-healthcheck.sh`), всегда строгая: `https://staging.<APP_DOMAIN>/health` (12 × 5 с, как у UI) и `/config.json` с ожидаемым `appUrl` (до 6 попыток с паузой 3 с). Любая ошибка, в том числе TLS-рукопожатие (curl exit 35), идёт через эти повторы: сертификат, который ещё выпускается, успевает появиться, а нет маршрута или сертификата и дальше, job красный. Проверяется только `staging.` — собственный хост staging-лендинга; основной домен и `www.` переедут на `landing-prod` вместе с prod-выкатом, поэтому staging-проверку к ним не привязываем.
 
-  Любой другой ответ проверяется строго в обоих режимах. Проверяется только `staging.` — собственный хост staging-лендинга; основной домен и `www.` переедут на `landing-prod` вместе с prod-выкатом, поэтому staging-проверку к ним не привязываем.
-
-  Порядок выката: этот PR (контейнер `landing-staging` уже запущен) → PR api#240 (его выкат делает `caddy reload`) → проверить `curl -sS https://staging.<APP_DOMAIN>/config.json` → владелец репозитория ставит `LANDING_EDGE_ROUTED=true`. С этого момента поломка маршрута или сертификата лендинга делает job красным.
+  Порядок выката: PR #164 (лендинг читает `/config.json`, уже в `main`) → PR api#240 (маршруты лендинга в Caddy, его выкат делает `caddy reload`) → этот PR (первый выкат `landing-staging` сразу проходит строгую проверку) → проверить вручную основной домен и `www.`: `curl -sS https://<APP_DOMAIN>/config.json`.
 
 ---
 
@@ -167,8 +162,8 @@ GET /config.json
    - Цель разрешается в immutable digest, выкатывается на VM и проверяется снаружи (§4).
    - Затем job читает с VM `.deploy-state` (строка `current_image=…` или маркер `bootstrap=true`) и продвигает в `:staging` только образ, который реально запущен и совпадает с целью; прежний `:staging` → `:staging-previous`. Promotion принимает только `ghcr.io/<owner>/dmc-268-ui-t6` с `:<полный sha>` или `@sha256:<digest>`. Bootstrap — без promotion, job зелёный. Расхождение — job красный, `:staging` не меняется.
    - `component` — `ui-and-landing` (по умолчанию, обе части), `ui` или `landing`. Цель каждой части разрешается отдельно: `image` не задаёт версию лендинга, для пары из одного коммита укажите оба поля. На Terraform-хосте лендинга нет: `ui-and-landing` откатывает только UI, `landing` — отказ до SSH. `image` при `component=landing` и `landing_image` без отката лендинга тоже отклоняются.
-   - `landing_image` — версия лендинга в тех же форматах, но для `ghcr.io/<owner>/dmc-268-ui-t6-landing`; пустой — предыдущий релиз лендинга (`.deploy-state.previous` в его `APP_DIR`, иначе его `:staging-previous`). Bootstrap у лендинга нет: если previous нет нигде, при `ui-and-landing` лендинг не трогается (warning, откатывается только UI), при `component=landing` job падает до SSH с подсказкой задать `landing_image`. Проверка снаружи — как при выкате (§4.1).
-   - Шаги лендинга идут с `!cancelled()`: упавший откат или health check UI не мешает откату лендинга, и наоборот.
+   - `landing_image` — версия лендинга в тех же форматах, но для `ghcr.io/<owner>/dmc-268-ui-t6-landing`; пустой — предыдущий релиз лендинга (`.deploy-state.previous` в его `APP_DIR`, иначе его `:staging-previous`). Bootstrap у лендинга нет: если previous нет нигде, при `ui-and-landing` лендинг не трогается (warning, откатывается только UI), при `component=landing` job падает до изменений на хосте (после чтения состояния с VM) с подсказкой задать `landing_image`. Проверка снаружи — как при выкате (§4.1).
+   - Шаги лендинга идут с `!cancelled()`: упавший откат или health check UI не мешает откату лендинга, и наоборот. Исключение: при `ui-and-landing` упавший выбор версии лендинга (`landing_digest`) останавливает и шаги UI; тогда откатите UI отдельно, `component=ui`.
    - Promotion `:staging` идёт по каждому образу отдельно: часть, которая откатилась и прошла проверку, синхронизирует свой тег, даже если другая часть упала.
 
 На VM вручную (break-glass):
@@ -177,10 +172,11 @@ GET /config.json
 read -rs GHCR_TOKEN && export GHCR_TOKEN GHCR_USER=<github-user>   # PAT с read:packages, не попадает в history
 APP_DIR=/opt/dmc-268-ui-staging /opt/dmc-268-ui-staging/rollback.sh          # курсовой VPS, previous release
 /opt/dmc-268-ui/rollback.sh ghcr.io/<owner>/dmc-268-ui-t6@sha256:<digest>    # Terraform-хост, конкретный образ
-APP_DIR=/opt/dmc-268-landing-staging /opt/dmc-268-landing-staging/rollback.sh # лендинг, previous release
+APP_DIR=/opt/dmc-268-landing-staging NO_PREVIOUS_RELEASE=stop DEPLOY_MODE=edge EDGE_ALIAS=landing-staging \
+  /opt/dmc-268-landing-staging/rollback.sh                                   # лендинг, previous release
 ```
 
-Без `APP_DIR` скрипт берёт `/opt/dmc-268-ui`. У лендинга без previous скрипт только останавливает стек: `NO_PREVIOUS_RELEASE=stop` он читает из `<APP_DIR>/.env`. Пакет в GHCR приватный: без `GHCR_TOKEN` `docker pull` упадёт.
+Без `APP_DIR` скрипт берёт `/opt/dmc-268-ui`. У лендинга без previous скрипт только останавливает стек (`NO_PREVIOUS_RELEASE=stop`); не остановился стек, `rollback.sh` выходит с ошибкой. Переменные лендинга заданы в команде явно: если первый выкат упал на `docker pull`, `<APP_DIR>/.env` ещё нет, и без них скрипт поднял бы bootstrap nginx на порту 80. Пакет в GHCR приватный: без `GHCR_TOKEN` `docker pull` упадёт.
 
 ---
 
@@ -229,13 +225,12 @@ Runbook:
 
 Заводит владелец репозитория.
 
-| Variable                  | Обязателен            | Значение                                                                                                                                                                            |
-| ------------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `STAGING_SSH_FINGERPRINT` | да, для обеих целей   | `SHA256:…` ECDSA host key VPS: `ssh-keyscan -t ecdsa -p 22 <VPS_DMC268_IP_T6> 2>/dev/null \| ssh-keygen -lf - -E sha256`. Значение в Environment `staging` перекрывает repository   |
-| `APP_DOMAIN`              | да, для курсового VPS | `dmc268-t6.axyi.ru` — базовый домен маршрутов edge-прокси                                                                                                                           |
-| `LANDING_EDGE_ROUTED`     | после api#240         | `true`, когда edge-прокси уже маршрутизирует хосты лендинга: внешняя проверка лендинга при curl exit 35 падает, а не пропускается (§4.1). Не задана или `false` — пропуск с warning |
-| `VITE_GITHUB_CLIENT_ID`   | да, для входа         | Client ID зарегистрированного GitHub App (пробрасывается в `build-args` при сборке Docker-образа)                                                                                   |
-| `VITE_GITHUB_APP_SLUG`    | да, для подключения   | Slug зарегистрированного GitHub App для формирования ссылки установки приложения (пробрасывается в `build-args` при сборке Docker-образа)                                           |
+| Variable                  | Обязателен            | Значение                                                                                                                                                                          |
+| ------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `STAGING_SSH_FINGERPRINT` | да, для обеих целей   | `SHA256:…` ECDSA host key VPS: `ssh-keyscan -t ecdsa -p 22 <VPS_DMC268_IP_T6> 2>/dev/null \| ssh-keygen -lf - -E sha256`. Значение в Environment `staging` перекрывает repository |
+| `APP_DOMAIN`              | да, для курсового VPS | `dmc268-t6.axyi.ru` — базовый домен маршрутов edge-прокси                                                                                                                         |
+| `VITE_GITHUB_CLIENT_ID`   | да, для входа         | Client ID зарегистрированного GitHub App (пробрасывается в `build-args` при сборке Docker-образа)                                                                                 |
+| `VITE_GITHUB_APP_SLUG`    | да, для подключения   | Slug зарегистрированного GitHub App для формирования ссылки установки приложения (пробрасывается в `build-args` при сборке Docker-образа)                                         |
 
 ### Environment `staging`
 
