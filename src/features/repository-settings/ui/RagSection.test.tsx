@@ -15,6 +15,12 @@ const READY_INDEX: RagIndex = {
   symbolCount: 1730,
   lastErrorCode: null,
 }
+// Not built yet, and the last attempt ended without a publication.
+const EMPTY_WITH_ERROR: RagIndex = {
+  ...disabledRagIndex,
+  status: 'empty',
+  lastErrorCode: 'limit_exceeded:files',
+}
 
 type OnChange = (ragEnabled: boolean) => Promise<void>
 
@@ -350,7 +356,7 @@ describe('RagSection: the index status', () => {
     expect(line.getByText('обновлён 2026-10-14 09:30:15 UTC')).toBeTruthy()
   })
 
-  it('says «Ошибка» with the raw error code of a failed index, and no publication', () => {
+  it('says «Ошибка» with the reason and the raw error code of a failed index, and no publication', () => {
     renderSection({
       ragEnabled: true,
       ragIndex: { ...disabledRagIndex, status: 'failed', lastErrorCode: 'limit_exceeded:symbols' },
@@ -360,13 +366,64 @@ describe('RagSection: the index status', () => {
     expect(line.getByText('Ошибка').getAttribute('data-tone')).toBe('danger')
     const code = line.getByText('limit_exceeded:symbols')
     expect(code.tagName).toBe('CODE')
+    expect(statusLine().textContent).toContain(
+      'индекс слишком большой: превышен лимит символов (limit_exceeded:symbols)',
+    )
+    expect(statusLine().textContent).not.toContain('Последняя сборка не удалась')
     expect(line.queryByText(/обновлён/)).toBeNull()
+  })
+
+  it('says «Ошибка» with the raw code alone when the code has no text', () => {
+    renderSection({
+      ragEnabled: true,
+      ragIndex: { ...disabledRagIndex, status: 'failed', lastErrorCode: 'limit_exceeded:' },
+    })
+
+    expect(within(statusLine()).getByText('limit_exceeded:').tagName).toBe('CODE')
+    expect(statusLine().textContent).not.toContain('(')
   })
 
   it('says «Ошибка» with no code when a failed index carries none', () => {
     renderSection({ ragEnabled: true, ragIndex: { ...disabledRagIndex, status: 'failed' } })
 
     expect(within(statusLine()).getByText('Ошибка')).toBeTruthy()
+    expect(statusLine().querySelector('code')).toBeNull()
+  })
+
+  it('shows the reason of the last build on its own line for an index that is not built', () => {
+    renderSection({ ragEnabled: true, ragIndex: EMPTY_WITH_ERROR })
+
+    const line = within(statusLine())
+    expect(line.getByText('Не построен')).toBeTruthy()
+    expect(line.getByText('limit_exceeded:files').tagName).toBe('CODE')
+    expect(statusLine().textContent).toContain(
+      'Последняя сборка не удалась: индекс слишком большой: превышен лимит файлов (limit_exceeded:files)',
+    )
+  })
+
+  it('shows the raw code of the last build alone next to a ready index when it has no text', () => {
+    renderSection({
+      ragEnabled: true,
+      ragIndex: { ...READY_INDEX, lastErrorCode: 'internal_error' },
+    })
+
+    const line = within(statusLine())
+    expect(line.getByText('Готов')).toBeTruthy()
+    expect(line.getByText('internal_error').tagName).toBe('CODE')
+    expect(statusLine().textContent).toContain('Последняя сборка не удалась: internal_error')
+  })
+
+  it('shows no reason line for an index that carries no code', () => {
+    renderSection({ ragEnabled: true, ragIndex: { ...disabledRagIndex, status: 'empty' } })
+
+    expect(statusLine().textContent).not.toContain('Последняя сборка не удалась')
+    expect(statusLine().querySelector('code')).toBeNull()
+  })
+
+  it('shows no reason while RAG is off', () => {
+    renderSection({ ragEnabled: false, ragIndex: EMPTY_WITH_ERROR })
+
+    expect(statusLine().textContent).not.toContain('Последняя сборка не удалась')
     expect(statusLine().querySelector('code')).toBeNull()
   })
 
