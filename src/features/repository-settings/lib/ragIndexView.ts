@@ -33,8 +33,8 @@ export function shortSha(sha: string): string {
 }
 
 /**
- * `2026-10-14 09:30:15`: the same text as the rules status. The time is UTC and the section
- * labels it, like the run header does.
+ * `2026-10-14 09:30:15`: the same text as the rules status. The time is UTC and carries no label,
+ * like every other time in the app; showing local time app-wide is a separate issue (ui#129).
  */
 export function formatIndexedAt(iso: string): string {
   return new Date(iso).toISOString().replace('T', ' ').slice(0, 19)
