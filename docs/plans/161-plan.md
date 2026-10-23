@@ -4,7 +4,7 @@
 
 Address [ui#161](https://github.com/larchanka-training/dmc-268-ui-t6/issues/161): remove overlapping run-query invalidations and combine refreshes for consecutive frames in one parsed SSE chunk. Preserve immediate step-driven journal updates, successful `vcs.fetch_diff` updates, reconnect catch-up, list refreshes, and the existing 3000 ms actions poll.
 
-**Status: implementation and independent review complete; publication in progress. Staging acceptance remains pending deployment and authenticated access.**
+**Status: published as ready PR #166; implementation, local verification, and independent review complete. Staging acceptance remains pending deployment and authenticated access.**
 
 ## Inspected baseline
 
@@ -67,7 +67,7 @@ Attempted the issue's targeted baseline command on the existing checkout; `pnpm`
 - [x] Replace §2's four-explicit-invalidations explanation and SSE sequence where applicable with the single prefix and per-chunk union contract; explain later-chunk freshness and retain the polling explanation.
 - [x] Run all six gates: `pnpm lint`, `pnpm check-types`, `pnpm format:check`, `pnpm test`, `pnpm build`, then `pnpm verify:prod-bundle` against that build.
 - [x] Record local browser Network evidence and explicitly distinguish unavailable staging verification.
-- [ ] At publishing, PR describes which spy expectations changed and why, includes HTTP-count evidence and `Refs #161`, with no closing keyword.
+- [x] Published PR describes which spy expectations changed and why, includes HTTP-count evidence and `Refs #161`, with no closing keyword.
 
 **Verification:** in a local running authenticated stack, open an active run and capture Network requests around a status event; distinguish initial loads, SSE-triggered requests, and the independent 3-second poll. Confirm journal updates on steps, diff appears after successful fetch-diff, and disconnect/reconnect catches up. Repeat staging Network validation once this change is deployed and authenticated access is available; record deployment SHA, run ID, and request counts. Unit/component tests are not staging evidence. Scope <=3 documentation files.
 
@@ -139,4 +139,4 @@ that point; no staging success is claimed from local browser or component tests.
 
 Fresh independent standards/spec review completed with zero code findings (Standards: 0 hard violations, 0 baseline smells; Spec: 0 code findings). The only acceptance limitation is staging Network validation, which remains pending deployment and authenticated access.
 
-The publisher fetched `origin/main` before publication; it remains `1b1e702558db700908cfacdaf3daf95dd78a3a9f`, the tested source baseline. No source rebase was needed. The user confirmed a normal ready PR and will select the reviewer. Publication status and PR link will be recorded after creation.
+The publisher fetched `origin/main` before publication; it remains `1b1e702558db700908cfacdaf3daf95dd78a3a9f`, the tested source baseline. No source rebase was needed. The user confirmed a normal ready PR and will select the reviewer. Published [PR #166](https://github.com/larchanka-training/dmc-268-ui-t6/pull/166) as a normal ready PR with no reviewer assigned, as requested. Implementation commit: `d12c6ee0f801390420d031fdaec11adbb78c60e3`. Normal pre-commit and pre-push checks passed; the seven intended files were verified on the PR, with no runtime symlink or dependency changes and zero closing issue references. GitHub CI was running when this publication record was written; the project card remains In Progress until CI is green. The user will choose the reviewer. Staging validation, current-head approval, and merge remain outstanding; this publication does not accept or close the issue.
