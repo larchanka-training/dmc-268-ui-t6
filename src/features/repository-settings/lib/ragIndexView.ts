@@ -61,9 +61,9 @@ const ERROR_REASONS: Record<string, string> = {
   vcs_unavailable: 'GitHub временно недоступен',
   vcs_rate_limited: 'GitHub ограничил число запросов',
   vcs_access_denied: 'у GitHub App нет доступа к репозиторию',
-  policy_access_denied: 'У GitHub App нет доступа к репозиторию',
+  policy_access_denied: 'у GitHub App нет доступа к репозиторию',
   policy_revision_unavailable:
-    'Ревизия default branch недоступна: GitHub не подтвердил, есть ли файл правил.',
+    'ревизия default branch недоступна: GitHub не подтвердил, есть ли файл правил',
   policy_fetch_transient: 'GitHub временно не отвечает при чтении .review/rules.md',
   policy_rate_limited: 'GitHub ограничил число запросов при чтении .review/rules.md',
   policy_document_too_large: 'файл .review/rules.md больше лимита',
