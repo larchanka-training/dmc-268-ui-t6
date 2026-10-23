@@ -161,7 +161,8 @@ describe('ragIndexView', () => {
 })
 
 describe('ragIndexView: the reason of the last build', () => {
-  // The api catalog: `app/modules/code_index/domain/codes.py`, the `failed` codes and the soft ones.
+  // The api catalog: `app/modules/code_index/domain/codes.py`, the `failed` codes and the soft ones,
+  // and the `policy_*` codes of the rules reading (api#228/#242).
   it.each([
     ['archive_unsafe', 'архив репозитория отклонён проверкой безопасности'],
     ['limit_exceeded:download_bytes', 'превышен лимит размера архива'],
@@ -177,6 +178,17 @@ describe('ragIndexView: the reason of the last build', () => {
     ['vcs_unavailable', 'GitHub временно недоступен'],
     ['vcs_rate_limited', 'GitHub ограничил число запросов'],
     ['vcs_access_denied', 'у GitHub App нет доступа к репозиторию'],
+    // The `.review/rules.md` reading codes the index also writes (api#228/#242): the first two
+    // texts are the rules block's own, the other four are healable or terminal reading failures.
+    ['policy_access_denied', 'У GitHub App нет доступа к репозиторию'],
+    [
+      'policy_revision_unavailable',
+      'Ревизия default branch недоступна: GitHub не подтвердил, есть ли файл правил.',
+    ],
+    ['policy_fetch_transient', 'GitHub временно не отвечает при чтении .review/rules.md'],
+    ['policy_rate_limited', 'GitHub ограничил число запросов при чтении .review/rules.md'],
+    ['policy_document_too_large', 'файл .review/rules.md больше лимита'],
+    ['policy_document_type_unsupported', 'неподдерживаемый тип файла .review/rules.md'],
   ])('explains %s and keeps the code', (code, text) => {
     expect(ragIndexView(index({ status: 'failed', lastErrorCode: code }), true).reason).toEqual({
       code,

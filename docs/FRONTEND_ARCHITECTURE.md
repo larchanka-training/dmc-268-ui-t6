@@ -908,7 +908,14 @@ Upgrade canary в `routerLocationAdapter.test.tsx` проверяет досту
   `limit_exceeded:workspace_storage` — «превышен лимит хранения для Workspace»; мягкие коды (последняя попытка
   кончилась без публикации, статус не `failed`): `internal_error` — «внутренняя ошибка сборки»,
   `vcs_unavailable` — «GitHub временно недоступен», `vcs_rate_limited` — «GitHub ограничил число запросов»,
-  `vcs_access_denied` — «у GitHub App нет доступа к репозиторию» (каталог api, `code_index/domain/codes.py`).
+  `vcs_access_denied` — «у GitHub App нет доступа к репозиторию» (каталог api, `code_index/domain/codes.py`);
+  коды чтения `.review/rules.md`, которые индекс пишет на любом статусе (api#228/#242): `policy_access_denied` —
+  «У GitHub App нет доступа к репозиторию» и `policy_revision_unavailable` — «Ревизия default branch
+  недоступна: GitHub не подтвердил, есть ли файл правил.» (оба текста дословно из `UNAVAILABLE_REASONS` блока
+  правил, межслайсовый импорт запрещён), `policy_fetch_transient` — «GitHub временно не отвечает при чтении
+  .review/rules.md», `policy_rate_limited` — «GitHub ограничил число запросов при чтении .review/rules.md»,
+  `policy_document_too_large` — «файл .review/rules.md больше лимита», `policy_document_type_unsupported` —
+  «неподдерживаемый тип файла .review/rules.md».
   Любой другой код, в том числе `limit_exceeded:<x>` не из каталога, — один код, без текста, ничего по виду
   кода не достраивается; так код (AC3) виден в любом случае. У `failed` причина стоит в строке статуса после «Ошибка»; у `empty`,
   `building`, `ready` и `stale` — отдельной строкой внутри той же `role="status"`: «Последняя сборка не
