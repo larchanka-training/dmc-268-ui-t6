@@ -114,6 +114,18 @@ export interface UpdateRepositoryVariables {
   patch: UpdateRepositoryInput
 }
 
+/**
+ * The fields an update of `patch` writes: those of the patch, and `ragIndex` with `ragEnabled`, as
+ * the server sets the two together.
+ */
+function patchedFields(patch: UpdateRepositoryInput): (keyof Repository)[] {
+  const fields: (keyof Repository)[] = Object.keys(patch) as (keyof UpdateRepositoryInput)[]
+  if ('ragEnabled' in patch) {
+    fields.push('ragIndex')
+  }
+  return fields
+}
+
 export function useUpdateRepository() {
   const queryClient = useQueryClient()
 
@@ -156,11 +168,9 @@ export function useUpdateRepository() {
       // with `ragEnabled`, as the server sets the two together.
       const previousRepo = context?.previousRepo
       if (previousRepo) {
-        const fields: (keyof Repository)[] = Object.keys(patch) as (keyof UpdateRepositoryInput)[]
-        if ('ragEnabled' in patch) {
-          fields.push('ragIndex')
-        }
-        const rolledBack = Object.fromEntries(fields.map((field) => [field, previousRepo[field]]))
+        const rolledBack = Object.fromEntries(
+          patchedFields(patch).map((field) => [field, previousRepo[field]]),
+        )
         queryClient.setQueryData<Repository[]>(REPOSITORIES_QUERY_KEY, (old = []) =>
           old.map((repo) => (repo.id === id ? { ...repo, ...rolledBack } : repo)),
         )
@@ -168,10 +178,18 @@ export function useUpdateRepository() {
         queryClient.setQueryData<Repository[]>(REPOSITORIES_QUERY_KEY, context.previous)
       }
     },
-    onSuccess: (updated) => {
-      // Update cache with confirmed server response
+    onSuccess: (updated, { id, patch }) => {
+      // Write only the fields of the patch, as the server answered them (the served `enabled`
+      // included); `ragIndex` comes with `ragEnabled`, as the server sets the two together. The
+      // answer is the row at the time of this update: another update of the same repository may
+      // have succeeded since (a RAG switch-on while a settings save runs), and the whole row would
+      // undo it. The other fields come with the refetch of `onSettled`; the caller still gets the
+      // whole row.
+      const merged = Object.fromEntries(
+        patchedFields(patch).map((field) => [field, updated[field]]),
+      )
       queryClient.setQueryData<Repository[]>(REPOSITORIES_QUERY_KEY, (old = []) =>
-        old.map((repo) => (repo.id === updated.id ? updated : repo)),
+        old.map((repo) => (repo.id === id ? { ...repo, ...merged } : repo)),
       )
     },
     onSettled: () => {

@@ -41,9 +41,14 @@ interface Backend {
 /**
  * Stands in for the network: GET /api/repos, a PATCH of `ragEnabled` that the api answers at once
  * (a switch-on starts the index from `empty`), and any other PATCH, a settings save, which waits
- * for `saveAnswered` and is refused.
+ * for `saveAnswered` and then is refused, or, when `save` is `accepted`, is stored at once and
+ * answered with the row of that moment.
  */
-function stubBackend(repo: Repository, saveAnswered: Promise<void>): Backend {
+function stubBackend(
+  repo: Repository,
+  saveAnswered: Promise<void>,
+  save: 'refused' | 'accepted',
+): Backend {
   const backend: Backend = { repo, gets: 0, listGate: null }
   vi.stubGlobal(
     'fetch',
@@ -58,7 +63,12 @@ function stubBackend(repo: Repository, saveAnswered: Promise<void>): Backend {
         unknown
       >
       if (body.ragEnabled !== true) {
-        return saveAnswered.then(() => new Response('Server Error', { status: 500 }))
+        if (save === 'refused') {
+          return saveAnswered.then(() => new Response('Server Error', { status: 500 }))
+        }
+        backend.repo = { ...backend.repo, ...(body as Partial<Repository>) }
+        const saved = JSON.stringify(backend.repo)
+        return saveAnswered.then(() => new Response(saved, { status: 200 }))
       }
       backend.repo = {
         ...backend.repo,
@@ -97,62 +107,69 @@ afterEach(() => {
 
 // Fake timers: the hooks are read after an `advance`/`settle`, never with `waitFor`.
 describe('useRagIndexPolling with the repository hooks', () => {
-  it('keeps waiting for the index after a settings save made alongside the switch-on fails', async () => {
-    let answerSave = (): void => undefined
-    const saveAnswered = new Promise<void>((resolve) => {
-      answerSave = resolve
-    })
-    const backend = stubBackend(REPO, saveAnswered)
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    const { result } = renderHook(() => useRagSettings(REPO.id), {
-      wrapper: ({ children }: { children: ReactNode }) => (
-        <QueryClientProvider client={client}>{children}</QueryClientProvider>
-      ),
-    })
-    await settle()
-    expect(result.current.repository?.ragIndex.status).toBe('disabled')
-    expect(backend.gets).toBe(1)
+  it.each([
+    { outcome: 'fails', save: 'refused', maxComments: 10 },
+    // The answer carries the row of its time, RAG still off there.
+    { outcome: 'succeeds late', save: 'accepted', maxComments: 3 },
+  ] as const)(
+    'keeps waiting for the index after a settings save made alongside the switch-on $outcome',
+    async ({ save, maxComments }) => {
+      let answerSave = (): void => undefined
+      const saveAnswered = new Promise<void>((resolve) => {
+        answerSave = resolve
+      })
+      const backend = stubBackend(REPO, saveAnswered, save)
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      const { result } = renderHook(() => useRagSettings(REPO.id), {
+        wrapper: ({ children }: { children: ReactNode }) => (
+          <QueryClientProvider client={client}>{children}</QueryClientProvider>
+        ),
+      })
+      await settle()
+      expect(result.current.repository?.ragIndex.status).toBe('disabled')
+      expect(backend.gets).toBe(1)
 
-    // A settings save is sent and stays open ...
-    act(() => {
-      result.current.update.mutate({ id: REPO.id, patch: { maxComments: 3 } })
-    })
-    await settle()
-    // ... while RAG is switched on and the api answers with an `empty` index.
-    act(() => {
-      void result.current.switchOn()
-    })
-    await settle()
-    expect(result.current.repository).toMatchObject({
-      ragEnabled: true,
-      ragIndex: { status: 'empty' },
-    })
-    expect(result.current.polling).toBe('waiting')
+      // A settings save is sent and stays open ...
+      act(() => {
+        result.current.update.mutate({ id: REPO.id, patch: { maxComments: 3 } })
+      })
+      await settle()
+      // ... while RAG is switched on and the api answers with an `empty` index.
+      act(() => {
+        void result.current.switchOn()
+      })
+      await settle()
+      expect(result.current.repository).toMatchObject({
+        ragEnabled: true,
+        ragIndex: { status: 'empty' },
+      })
+      expect(result.current.polling).toBe('waiting')
 
-    // The save is refused; once both updates have settled the list is asked again. The answer
-    // takes a while, as on a network, so the page renders what the cache holds meanwhile.
-    let answerList = (): void => undefined
-    backend.listGate = new Promise<void>((resolve) => {
-      answerList = resolve
-    })
-    answerSave()
-    await settle()
-    expect(backend.gets).toBe(2)
-    backend.listGate = null
-    answerList()
-    await settle()
-    expect(result.current.repository).toMatchObject({
-      maxComments: 10,
-      ragEnabled: true,
-      ragIndex: { status: 'empty' },
-    })
-    expect(result.current.polling).toBe('waiting')
+      // The save is answered; once both updates have settled the list is asked again. The answer
+      // takes a while, as on a network, so the page renders what the cache holds meanwhile.
+      let answerList = (): void => undefined
+      backend.listGate = new Promise<void>((resolve) => {
+        answerList = resolve
+      })
+      answerSave()
+      await settle()
+      expect(backend.gets).toBe(2)
+      backend.listGate = null
+      answerList()
+      await settle()
+      expect(result.current.repository).toMatchObject({
+        maxComments,
+        ragEnabled: true,
+        ragIndex: { status: 'empty' },
+      })
+      expect(result.current.polling).toBe('waiting')
 
-    // The window of the switch-on goes on: the first poll comes 5 s after it.
-    await advance(4999)
-    expect(backend.gets).toBe(2)
-    await advance(1)
-    expect(backend.gets).toBe(3)
-    expect(result.current.polling).toBe('waiting')
-  })
+      // The window of the switch-on goes on: the first poll comes 5 s after it.
+      await advance(4999)
+      expect(backend.gets).toBe(2)
+      await advance(1)
+      expect(backend.gets).toBe(3)
+      expect(result.current.polling).toBe('waiting')
+    },
+  )
 })
