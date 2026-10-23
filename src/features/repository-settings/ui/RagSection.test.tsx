@@ -247,12 +247,12 @@ describe('RagSection: the hint', () => {
     renderSection(props)
 
     const hint = screen.getByText(
-      'RAG добавляет в контекст ревью связанные символы из графа репозитория и увеличивает стоимость ревью. Индекс хранит только граф символов и указатели (путь, строки, commit) — текст кода не хранится.',
+      'Учитывает связи между файлами репозитория, делая ревью точнее. Может увеличить стоимость. Хранится только структура кода, не его текст.',
     )
-    expect(hint.textContent).toContain('связанные символы из графа')
-    expect(hint.textContent).toContain('граф символов и указатели')
-    expect(hint.textContent).toContain('увеличивает стоимость ревью')
-    expect(hint.textContent).toContain('текст кода не хранится')
+    expect(hint.textContent).toContain('связи между файлами репозитория')
+    expect(hint.textContent).toContain('увеличить стоимость')
+    expect(hint.textContent).toContain('только структура кода')
+    expect(hint.textContent).toContain('не его текст')
   })
 })
 

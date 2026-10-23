@@ -2,7 +2,7 @@ import type { RagIndex } from '../../../entities/repository'
 
 export const RAG_LABEL = 'RAG'
 export const RAG_HINT =
-  'RAG добавляет в контекст ревью связанные символы из графа репозитория и увеличивает стоимость ревью. Индекс хранит только граф символов и указатели (путь, строки, commit) — текст кода не хранится.'
+  'Учитывает связи между файлами репозитория, делая ревью точнее. Может увеличить стоимость. Хранится только структура кода, не его текст.'
 export const RAG_NO_ACCESS_TEXT = 'Нет доступа GitHub App — RAG недоступен'
 export const RAG_ERROR_TITLE = 'Не удалось изменить настройку RAG'
 export const RAG_POLL_TIMED_OUT_TEXT = 'Автообновление остановлено — обновите страницу'
