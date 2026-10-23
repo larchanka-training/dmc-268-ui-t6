@@ -19,7 +19,7 @@ const READY_INDEX: RagIndex = {
 const EMPTY_WITH_ERROR: RagIndex = {
   ...disabledRagIndex,
   status: 'empty',
-  lastErrorCode: 'limit_exceeded:files',
+  lastErrorCode: 'limit_exceeded:archive_entries',
 }
 
 type OnChange = (ragEnabled: boolean) => Promise<void>
@@ -368,9 +368,7 @@ describe('RagSection: the index status', () => {
     expect(line.getByText('Ошибка').getAttribute('data-tone')).toBe('danger')
     const code = line.getByText('limit_exceeded:symbols')
     expect(code.tagName).toBe('CODE')
-    expect(statusLine().textContent).toContain(
-      'индекс слишком большой: превышен лимит символов (limit_exceeded:symbols)',
-    )
+    expect(statusLine().textContent).toContain('превышен лимит символов (limit_exceeded:symbols)')
     expect(statusLine().textContent).not.toContain('Последняя сборка не удалась')
     expect(line.queryByText(/обновлён/)).toBeNull()
   })
@@ -397,22 +395,34 @@ describe('RagSection: the index status', () => {
 
     const line = within(statusLine())
     expect(line.getByText('Не построен')).toBeTruthy()
-    expect(line.getByText('limit_exceeded:files').tagName).toBe('CODE')
+    expect(line.getByText('limit_exceeded:archive_entries').tagName).toBe('CODE')
     expect(statusLine().textContent).toContain(
-      'Последняя сборка не удалась: индекс слишком большой: превышен лимит файлов (limit_exceeded:files)',
+      'Последняя сборка не удалась: превышен лимит числа файлов в архиве (limit_exceeded:archive_entries)',
     )
   })
 
   it('shows the raw code of the last build alone next to a ready index when it has no text', () => {
     renderSection({
       ragEnabled: true,
-      ragIndex: { ...READY_INDEX, lastErrorCode: 'internal_error' },
+      ragIndex: { ...READY_INDEX, lastErrorCode: 'limit_exceeded:files' },
     })
 
     const line = within(statusLine())
     expect(line.getByText('Готов')).toBeTruthy()
-    expect(line.getByText('internal_error').tagName).toBe('CODE')
-    expect(statusLine().textContent).toContain('Последняя сборка не удалась: internal_error')
+    expect(line.getByText('limit_exceeded:files').tagName).toBe('CODE')
+    expect(statusLine().textContent).toContain('Последняя сборка не удалась: limit_exceeded:files')
+    expect(statusLine().textContent).not.toContain('(')
+  })
+
+  it('shows the text of a soft code next to a ready index', () => {
+    renderSection({
+      ragEnabled: true,
+      ragIndex: { ...READY_INDEX, lastErrorCode: 'vcs_rate_limited' },
+    })
+
+    expect(statusLine().textContent).toContain(
+      'Последняя сборка не удалась: GitHub ограничил число запросов (vcs_rate_limited)',
+    )
   })
 
   it('shows no reason line for an index that carries no code', () => {

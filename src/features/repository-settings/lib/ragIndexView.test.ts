@@ -127,10 +127,7 @@ describe('ragIndexView', () => {
       pulse: false,
       publication: null,
       detail: null,
-      reason: {
-        code: 'limit_exceeded:symbols',
-        text: 'индекс слишком большой: превышен лимит символов',
-      },
+      reason: { code: 'limit_exceeded:symbols', text: 'превышен лимит символов' },
     })
   })
 
@@ -164,13 +161,22 @@ describe('ragIndexView', () => {
 })
 
 describe('ragIndexView: the reason of the last build', () => {
+  // The api catalog: `app/modules/code_index/domain/codes.py`, the `failed` codes and the soft ones.
   it.each([
-    ['limit_exceeded:files', 'индекс слишком большой: превышен лимит файлов'],
-    ['limit_exceeded:symbols', 'индекс слишком большой: превышен лимит символов'],
-    ['limit_exceeded:edges', 'индекс слишком большой: превышен лимит рёбер'],
-    ['limit_exceeded:bytes', 'индекс слишком большой: превышен лимит размера'],
-    ['limit_exceeded:parsed_files', 'индекс слишком большой: превышен лимит parsed_files'],
     ['archive_unsafe', 'архив репозитория отклонён проверкой безопасности'],
+    ['limit_exceeded:download_bytes', 'превышен лимит размера архива'],
+    ['limit_exceeded:unpacked_bytes', 'превышен лимит распакованного размера'],
+    ['limit_exceeded:archive_entries', 'превышен лимит числа файлов в архиве'],
+    ['limit_exceeded:parsed_files', 'превышен лимит разобранных файлов'],
+    ['limit_exceeded:symbols', 'превышен лимит символов'],
+    ['limit_exceeded:edges', 'превышен лимит рёбер'],
+    ['limit_exceeded:deadline', 'превышено время сборки'],
+    ['limit_exceeded:repository_storage', 'превышен лимит хранения для репозитория'],
+    ['limit_exceeded:workspace_storage', 'превышен лимит хранения для Workspace'],
+    ['internal_error', 'внутренняя ошибка сборки'],
+    ['vcs_unavailable', 'GitHub временно недоступен'],
+    ['vcs_rate_limited', 'GitHub ограничил число запросов'],
+    ['vcs_access_denied', 'у GitHub App нет доступа к репозиторию'],
   ])('explains %s and keeps the code', (code, text) => {
     expect(ragIndexView(index({ status: 'failed', lastErrorCode: code }), true).reason).toEqual({
       code,
@@ -178,19 +184,26 @@ describe('ragIndexView: the reason of the last build', () => {
     })
   })
 
-  it.each(['internal_error', 'vcs_unavailable', 'limit_exceeded:', 'constructor'])(
-    'keeps the unknown code %s with no text',
-    (code) => {
-      expect(ragIndexView(index({ status: 'failed', lastErrorCode: code }), true).reason).toEqual({
-        code,
-        text: null,
-      })
-    },
-  )
+  it.each([
+    'limit_exceeded:files',
+    'limit_exceeded:bytes',
+    'limit_exceeded:',
+    'limit_exceeded:future_limit',
+    'unknown_code',
+    'constructor',
+  ])('keeps the unknown code %s with no text', (code) => {
+    expect(ragIndexView(index({ status: 'failed', lastErrorCode: code }), true).reason).toEqual({
+      code,
+      text: null,
+    })
+  })
 
   it('gives the reason of the last build for an `empty` index that carries a code', () => {
     expect(
-      ragIndexView(index({ status: 'empty', lastErrorCode: 'limit_exceeded:files' }), true),
+      ragIndexView(
+        index({ status: 'empty', lastErrorCode: 'limit_exceeded:archive_entries' }),
+        true,
+      ),
     ).toEqual<RagIndexView>({
       label: 'Не построен',
       tone: 'neutral',
@@ -198,8 +211,8 @@ describe('ragIndexView: the reason of the last build', () => {
       publication: null,
       detail: null,
       reason: {
-        code: 'limit_exceeded:files',
-        text: 'индекс слишком большой: превышен лимит файлов',
+        code: 'limit_exceeded:archive_entries',
+        text: 'превышен лимит числа файлов в архиве',
       },
     })
   })
@@ -213,14 +226,14 @@ describe('ragIndexView: the reason of the last build', () => {
       pulse: false,
       publication: PUBLICATION,
       detail: null,
-      reason: { code: 'internal_error', text: null },
+      reason: { code: 'internal_error', text: 'внутренняя ошибка сборки' },
     })
   })
 
   it.each(['building', 'stale'] as const)('gives the reason for a `%s` index too', (status) => {
     expect(
       ragIndexView(index({ status, ...PUBLISHED, lastErrorCode: 'internal_error' }), true).reason,
-    ).toEqual({ code: 'internal_error', text: null })
+    ).toEqual({ code: 'internal_error', text: 'внутренняя ошибка сборки' })
   })
 
   it.each(['disabled', 'empty', 'building', 'ready', 'stale', 'failed'] as const)(

@@ -898,12 +898,18 @@ Upgrade canary в `routerLocationAdapter.test.tsx` проверяет досту
   последняя попытка сборки кончилась без публикации, у `disabled` он всегда `null`). Известный код — текстом и
   кодом в скобках в `<code>`, по образцу `UNAVAILABLE_REASONS` блока правил (карта `ERROR_REASONS` в
   `ragIndexView.ts`; код ищется только среди собственных ключей карты, поэтому `constructor` — не известный код):
-  `limit_exceeded:files` — «индекс слишком большой: превышен лимит файлов», `limit_exceeded:symbols` — «индекс
-  слишком большой: превышен лимит символов», `limit_exceeded:edges` — «индекс слишком большой: превышен лимит
-  рёбер», `limit_exceeded:bytes` — «индекс слишком большой: превышен лимит размера», любой другой
-  `limit_exceeded:<x>` — «индекс слишком большой: превышен лимит `<x>`», `archive_unsafe` — «архив репозитория
-  отклонён проверкой безопасности». Неизвестный код (например, `internal_error`) — один код, без текста; так
-  код (AC3) виден в любом случае. У `failed` причина стоит в строке статуса после «Ошибка»; у `empty`,
+  `archive_unsafe` — «архив репозитория отклонён проверкой безопасности»; `limit_exceeded:download_bytes` —
+  «превышен лимит размера архива», `limit_exceeded:unpacked_bytes` — «превышен лимит распакованного размера»,
+  `limit_exceeded:archive_entries` — «превышен лимит числа файлов в архиве», `limit_exceeded:parsed_files` —
+  «превышен лимит разобранных файлов», `limit_exceeded:symbols` — «превышен лимит символов»,
+  `limit_exceeded:edges` — «превышен лимит рёбер», `limit_exceeded:deadline` — «превышено время сборки»,
+  `limit_exceeded:repository_storage` — «превышен лимит хранения для репозитория»,
+  `limit_exceeded:workspace_storage` — «превышен лимит хранения для Workspace»; мягкие коды (последняя попытка
+  кончилась без публикации, статус не `failed`): `internal_error` — «внутренняя ошибка сборки»,
+  `vcs_unavailable` — «GitHub временно недоступен», `vcs_rate_limited` — «GitHub ограничил число запросов»,
+  `vcs_access_denied` — «у GitHub App нет доступа к репозиторию» (каталог api, `code_index/domain/codes.py`).
+  Любой другой код, в том числе `limit_exceeded:<x>` не из каталога, — один код, без текста, ничего по виду
+  кода не достраивается; так код (AC3) виден в любом случае. У `failed` причина стоит в строке статуса после «Ошибка»; у `empty`,
   `building`, `ready` и `stale` — отдельной строкой внутри той же `role="status"`: «Последняя сборка не
   удалась: <текст> (<код>)» или «Последняя сборка не удалась: <код>». При выключенном RAG причины нет.
   Опрос — `useRagIndexPolling(status, enabledAt, refetch)` (`pages/repositories/lib`); `refetch` — тот же

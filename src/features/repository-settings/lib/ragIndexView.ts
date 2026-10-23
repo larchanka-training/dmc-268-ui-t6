@@ -40,26 +40,33 @@ export function formatIndexedAt(iso: string): string {
   return new Date(iso).toISOString().replace('T', ' ').slice(0, 19)
 }
 
-// contracts/openapi.yaml, `RagIndexStatus`: the codes of a `failed` index.
+// The api catalog of `lastErrorCode` (`app/modules/code_index/domain/codes.py`): the codes of a
+// `failed` index first, then the soft ones, left by a job that ended without a publication.
 const ERROR_REASONS: Record<string, string> = {
-  'limit_exceeded:files': 'индекс слишком большой: превышен лимит файлов',
-  'limit_exceeded:symbols': 'индекс слишком большой: превышен лимит символов',
-  'limit_exceeded:edges': 'индекс слишком большой: превышен лимит рёбер',
-  'limit_exceeded:bytes': 'индекс слишком большой: превышен лимит размера',
   archive_unsafe: 'архив репозитория отклонён проверкой безопасности',
+  'limit_exceeded:download_bytes': 'превышен лимит размера архива',
+  'limit_exceeded:unpacked_bytes': 'превышен лимит распакованного размера',
+  'limit_exceeded:archive_entries': 'превышен лимит числа файлов в архиве',
+  'limit_exceeded:parsed_files': 'превышен лимит разобранных файлов',
+  'limit_exceeded:symbols': 'превышен лимит символов',
+  'limit_exceeded:edges': 'превышен лимит рёбер',
+  'limit_exceeded:deadline': 'превышено время сборки',
+  'limit_exceeded:repository_storage': 'превышен лимит хранения для репозитория',
+  'limit_exceeded:workspace_storage': 'превышен лимит хранения для Workspace',
+  internal_error: 'внутренняя ошибка сборки',
+  vcs_unavailable: 'GitHub временно недоступен',
+  vcs_rate_limited: 'GitHub ограничил число запросов',
+  vcs_access_denied: 'у GitHub App нет доступа к репозиторию',
 }
-const LIMIT_EXCEEDED = 'limit_exceeded:'
 
 /**
- * The text of an error code, or null for a code that has none. A code is looked up only where it
- * is a key of the map, so `constructor` is not; any other limit is named as the server names it.
+ * The text of an error code, or null for a code that has none: the code shows alone, no text is
+ * guessed from its shape. A code is looked up only where it is a key of the map, so `constructor`
+ * is not.
  */
 function errorReason(code: string): string | null {
   if (Object.keys(ERROR_REASONS).includes(code)) {
     return ERROR_REASONS[code] ?? null
-  }
-  if (code.startsWith(LIMIT_EXCEEDED) && code.length > LIMIT_EXCEEDED.length) {
-    return `индекс слишком большой: превышен лимит ${code.slice(LIMIT_EXCEEDED.length)}`
   }
   return null
 }
