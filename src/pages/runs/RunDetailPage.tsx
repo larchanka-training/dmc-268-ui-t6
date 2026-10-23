@@ -9,7 +9,7 @@ import type { FileDiff } from '../../entities/diff'
 import { isActive, useRunActions, useRunDetail } from '../../entities/run'
 import { useRunComments } from '../../entities/review'
 import { useFindingFiltersParams } from '../../features/finding-filters'
-import { PageHeader } from '../../shared/ui'
+import { PageHeader, PageLoading } from '../../shared/ui'
 import { contextChunkLimit, RunDiff, type ContextGap } from '../../widgets/diff-viewer'
 import { RunControls, RunInspector } from '../../widgets/run-inspector'
 import { runDetailLoadMessage, runDiffLoadMessage } from './lib/runLoadErrors'
@@ -72,11 +72,7 @@ const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
   }, [diffQuery.data, expandedFiles])
 
   if (runQuery.isLoading) {
-    return (
-      <Flex align="center" justify="center" style={{ minHeight: 240 }}>
-        <Spin size="large" />
-      </Flex>
-    )
+    return <PageLoading />
   }
 
   if (runQuery.isError) {
