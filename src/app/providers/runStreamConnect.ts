@@ -143,15 +143,21 @@ async function readStream(
       if (session.sawKeepAlive) {
         armWatchdog()
       }
-      const targets = new Map<string, { full: boolean; diff: boolean }>()
+      const refreshTargets = new Map<
+        string,
+        { needsFullRefresh: boolean; needsDiffRefresh: boolean }
+      >()
       let refreshLists = false
       for (const frame of parsed.events) {
         if (frame.event === 'run.step') {
           const step = parseRunStepEvent(frame.data)
           if (step !== null) {
-            const target = targets.get(step.runId) ?? { full: false, diff: false }
-            target.diff ||= step.ok && step.tool === RUN_FETCH_DIFF_TOOL
-            targets.set(step.runId, target)
+            const target = refreshTargets.get(step.runId) ?? {
+              needsFullRefresh: false,
+              needsDiffRefresh: false,
+            }
+            target.needsDiffRefresh ||= step.ok && step.tool === RUN_FETCH_DIFF_TOOL
+            refreshTargets.set(step.runId, target)
           }
           continue
         }
@@ -162,17 +168,17 @@ async function readStream(
         if (payload === null) {
           continue
         }
-        targets.set(payload.runId, { full: true, diff: false })
+        refreshTargets.set(payload.runId, { needsFullRefresh: true, needsDiffRefresh: false })
         refreshLists = true
       }
       // Union this parsed chunk before refetching: a full prefix subsumes exact step targets.
       // Flush before the next read, without delaying journal updates until a timer or poll.
-      for (const [runId, target] of targets) {
-        if (target.full) {
+      for (const [runId, target] of refreshTargets) {
+        if (target.needsFullRefresh) {
           invalidateRunQueries(runId)
         } else {
           void queryClient.invalidateQueries({ queryKey: runQueryKeys.actions(runId), exact: true })
-          if (target.diff) {
+          if (target.needsDiffRefresh) {
             void queryClient.invalidateQueries({ queryKey: runQueryKeys.diff(runId), exact: true })
           }
         }
