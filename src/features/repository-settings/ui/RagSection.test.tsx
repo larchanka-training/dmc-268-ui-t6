@@ -328,7 +328,8 @@ describe('RagSection: the index status', () => {
     const short = within(statusLine()).getByText('0123456')
     expect(short.tagName).toBe('CODE')
     expect(short.tabIndex).toBe(0)
-    expect(within(statusLine()).getByText('обновлён 2026-10-14 09:30:15 UTC')).toBeTruthy()
+    expect(within(statusLine()).getByText('обновлён 2026-10-14 09:30:15')).toBeTruthy()
+    expect(statusLine().textContent).not.toContain('UTC')
     expect(screen.queryByText(SHA)).toBeNull()
 
     fireEvent.focus(short)
@@ -353,7 +354,8 @@ describe('RagSection: the index status', () => {
     expect(line.getByText('Устарел').getAttribute('data-tone')).toBe('warning')
     expect(line.getByText('индекс отстаёт от default branch, используется')).toBeTruthy()
     expect(line.getByText('0123456')).toBeTruthy()
-    expect(line.getByText('обновлён 2026-10-14 09:30:15 UTC')).toBeTruthy()
+    expect(line.getByText('обновлён 2026-10-14 09:30:15')).toBeTruthy()
+    expect(statusLine().textContent).not.toContain('UTC')
   })
 
   it('says «Ошибка» with the reason and the raw error code of a failed index, and no publication', () => {

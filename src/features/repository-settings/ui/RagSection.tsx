@@ -126,7 +126,7 @@ export const RagSection: FC<RagSectionProps> = ({
                 {view.publication.shortSha}
               </code>
             </Tooltip>
-            <Text type="secondary">обновлён {view.publication.indexedAt} UTC</Text>
+            <Text type="secondary">обновлён {view.publication.indexedAt}</Text>
           </>
         ) : null}
         {view.detail !== null ? <Text type="secondary">{view.detail}</Text> : null}
