@@ -5,7 +5,7 @@ import { vi } from 'vitest'
 
 import { queryClient } from './queryClient'
 import { runStreamUntilAborted } from './runStreamConnect'
-import type { RunAction, RunDetail } from '../../entities/run'
+import type { RunAction, RunDetail, RunStatus } from '../../entities/run'
 import { RunDetailPage } from '../../pages/runs/RunDetailPage'
 
 export const RUN_A = '11111111-1111-4111-8111-00000000000a'
@@ -54,15 +54,19 @@ export function action(tool: string): RunAction {
   }
 }
 
-export function stepFrame(tool: string): string {
+export function stepFrame(tool: string, runId = RUN_A): string {
   return `event: run.step\ndata: ${JSON.stringify({
-    runId: RUN_A,
+    runId,
     tool,
     index: 1,
     ok: true,
     startedAt: STARTED_AT,
     durationMs: 5,
   })}\n\n`
+}
+
+export function updatedFrame(runId = RUN_A, status: RunStatus = 'running'): string {
+  return `event: run.updated\ndata: ${JSON.stringify({ runId, status })}\n\n`
 }
 
 function openStream(signal?: AbortSignal | null) {
@@ -97,6 +101,8 @@ function openStream(signal?: AbortSignal | null) {
 
 interface RunStreamPageFixture {
   actions: RunAction[]
+  run: RunDetail
+  delayNextActions(): (actions: RunAction[]) => void
   diffReady: boolean
   requests: string[]
   streams: ReturnType<typeof openStream>[]
@@ -108,7 +114,20 @@ interface RunStreamPageFixture {
 
 /** Per-test HTTP/SSE state; the page and bridge share the production query client. */
 export function createRunStreamPageFixture(): RunStreamPageFixture {
+  const delayedActions: Promise<Response>[] = []
   const fixture: RunStreamPageFixture = {
+    run: { ...runningRun },
+    delayNextActions() {
+      let complete: ((response: Response) => void) | undefined
+      delayedActions.push(
+        new Promise<Response>((resolve) => {
+          complete = resolve
+        }),
+      )
+      return (actions) => {
+        complete?.(Response.json(actions))
+      }
+    },
     actions: [],
     diffReady: false,
     requests: [],
@@ -144,10 +163,10 @@ export function createRunStreamPageFixture(): RunStreamPageFixture {
         )
       }
       if (path === `/api/runs/${RUN_A}`) {
-        return Promise.resolve(Response.json(runningRun))
+        return Promise.resolve(Response.json(fixture.run))
       }
       if (path === `/api/runs/${RUN_A}/actions`) {
-        return Promise.resolve(Response.json(fixture.actions))
+        return delayedActions.shift() ?? Promise.resolve(Response.json(fixture.actions))
       }
       if (path === `/api/runs/${RUN_A}/diff`) {
         return Promise.resolve(

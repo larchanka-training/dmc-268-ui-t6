@@ -57,12 +57,12 @@ function createStreamSession(): StreamSession {
  */
 const SENDABLE_EVENT_ID = /^[\t\x20-\x7e]*$/
 
-/** The queries one `run.updated` event invalidates for a run; also used after a reconnect. */
+/**
+ * The detail key is a prefix of all queries for this run, including action responses.
+ * Keep default cancellation: a later chunk must replace a request begun before its event.
+ */
 function invalidateRunQueries(runId: string): void {
   void queryClient.invalidateQueries({ queryKey: runQueryKeys.detail(runId) })
-  void queryClient.invalidateQueries({ queryKey: runQueryKeys.actions(runId) })
-  void queryClient.invalidateQueries({ queryKey: runQueryKeys.diff(runId) })
-  void queryClient.invalidateQueries({ queryKey: runQueryKeys.comments(runId) })
 }
 
 /**
@@ -142,20 +142,15 @@ async function readStream(
       if (session.sawKeepAlive) {
         armWatchdog()
       }
+      const targets = new Map<string, { full: boolean; diff: boolean }>()
+      let refreshLists = false
       for (const frame of parsed.events) {
         if (frame.event === 'run.step') {
           const step = parseRunStepEvent(frame.data)
           if (step !== null) {
-            void queryClient.invalidateQueries({
-              queryKey: runQueryKeys.actions(step.runId),
-              exact: true,
-            })
-            if (step.ok && step.tool === RUN_FETCH_DIFF_TOOL) {
-              void queryClient.invalidateQueries({
-                queryKey: runQueryKeys.diff(step.runId),
-                exact: true,
-              })
-            }
+            const target = targets.get(step.runId) ?? { full: false, diff: false }
+            target.diff ||= step.ok && step.tool === RUN_FETCH_DIFF_TOOL
+            targets.set(step.runId, target)
           }
           continue
         }
@@ -166,7 +161,23 @@ async function readStream(
         if (payload === null) {
           continue
         }
-        applyRunUpdated(payload)
+        targets.set(payload.runId, { full: true, diff: false })
+        refreshLists = true
+      }
+      // Union this parsed chunk before refetching: a full prefix subsumes exact step targets.
+      // Flush before the next read, without delaying journal updates until a timer or poll.
+      for (const [runId, target] of targets) {
+        if (target.full) {
+          invalidateRunQueries(runId)
+        } else {
+          void queryClient.invalidateQueries({ queryKey: runQueryKeys.actions(runId), exact: true })
+          if (target.diff) {
+            void queryClient.invalidateQueries({ queryKey: runQueryKeys.diff(runId), exact: true })
+          }
+        }
+      }
+      if (refreshLists) {
+        invalidateRunLists(queryClient)
       }
     }
   } catch (error: unknown) {

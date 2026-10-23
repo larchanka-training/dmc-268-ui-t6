@@ -181,7 +181,7 @@ describe('connectRunStream', () => {
     expect(invalidateSpy).not.toHaveBeenCalled()
   })
 
-  it('invalidates run detail and actions on run.updated SSE frames', async () => {
+  it('invalidates the matching run prefix on run.updated SSE frames', async () => {
     const runId = '11111111-1111-4111-8111-000000000004'
     const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
     globalThis.fetch = vi
@@ -199,12 +199,9 @@ describe('connectRunStream', () => {
     await connectRunStream(controller.signal, 'token_a')
 
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: runQueryKeys.detail(runId) })
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: runQueryKeys.actions(runId) })
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: runQueryKeys.diff(runId) })
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: runQueryKeys.comments(runId) })
   })
 
-  it('invalidates the runs list on run.updated, together with the four run queries', async () => {
+  it('invalidates the runs list on run.updated, together with the run prefix', async () => {
     const runId = '11111111-1111-4111-8111-000000000004'
     const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
     globalThis.fetch = vi
@@ -215,16 +212,8 @@ describe('connectRunStream', () => {
     await connectRunStream(controller.signal, 'token_a')
 
     const keys = invalidateSpy.mock.calls.map(([filters]) => filters?.queryKey)
-    expect(keys).toHaveLength(5)
-    expect(keys).toEqual(
-      expect.arrayContaining([
-        runQueryKeys.list(),
-        runQueryKeys.detail(runId),
-        runQueryKeys.actions(runId),
-        runQueryKeys.diff(runId),
-        runQueryKeys.comments(runId),
-      ]),
-    )
+    expect(keys).toHaveLength(2)
+    expect(keys).toEqual(expect.arrayContaining([runQueryKeys.list(), runQueryKeys.detail(runId)]))
   })
 
   it.each([
@@ -292,22 +281,35 @@ describe('applyRunUpdated', () => {
     vi.restoreAllMocks()
   })
 
-  it('invalidates the run detail, actions, diff and comments and the runs list', () => {
+  it('invalidates the run prefix and the runs list', () => {
     const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
 
     applyRunUpdated({ runId: RUN_ID, status: 'running' })
 
     const keys = invalidateSpy.mock.calls.map(([filters]) => filters?.queryKey)
-    expect(keys).toHaveLength(5)
-    expect(keys).toEqual(
-      expect.arrayContaining([
-        runQueryKeys.detail(RUN_ID),
-        runQueryKeys.actions(RUN_ID),
-        runQueryKeys.diff(RUN_ID),
-        runQueryKeys.comments(RUN_ID),
-        runQueryKeys.list(),
-      ]),
+    expect(keys).toHaveLength(2)
+    expect(keys).toEqual(expect.arrayContaining([runQueryKeys.detail(RUN_ID), runQueryKeys.list()]))
+  })
+
+  it('marks inactive descendants stale without invalidating another run', () => {
+    queryClient.setQueryData(runQueryKeys.detail(RUN_ID), {})
+    queryClient.setQueryData(runQueryKeys.actions(RUN_ID), [])
+    queryClient.setQueryData(runQueryKeys.diff(RUN_ID), [])
+    queryClient.setQueryData(runQueryKeys.comments(RUN_ID), [])
+    queryClient.setQueryData(runQueryKeys.actionResponse(RUN_ID, 1), {})
+    queryClient.setQueryData(runQueryKeys.actions(RUN_B), [])
+
+    applyRunUpdated({ runId: RUN_ID, status: 'running' })
+
+    expect(queryClient.getQueryState(runQueryKeys.detail(RUN_ID))?.isInvalidated).toBe(true)
+    expect(queryClient.getQueryState(runQueryKeys.actions(RUN_ID))?.isInvalidated).toBe(true)
+    expect(queryClient.getQueryState(runQueryKeys.diff(RUN_ID))?.isInvalidated).toBe(true)
+    expect(queryClient.getQueryState(runQueryKeys.comments(RUN_ID))?.isInvalidated).toBe(true)
+    expect(queryClient.getQueryState(runQueryKeys.actionResponse(RUN_ID, 1))?.isInvalidated).toBe(
+      true,
     )
+    expect(queryClient.getQueryState(runQueryKeys.actions(RUN_B))?.isInvalidated).toBe(false)
+    queryClient.clear()
   })
 
   it('invalidates the same keys whatever the status', () => {
@@ -315,7 +317,7 @@ describe('applyRunUpdated', () => {
 
     applyRunUpdated({ runId: RUN_ID, status: 'succeeded' })
 
-    expect(invalidateSpy).toHaveBeenCalledTimes(5)
+    expect(invalidateSpy).toHaveBeenCalledTimes(2)
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: runQueryKeys.list() })
   })
 })
@@ -606,15 +608,6 @@ describe('runStreamUntilAborted reconnect state', () => {
     queryClient.clear()
   })
 
-  function runKeys(runId: string) {
-    return [
-      runQueryKeys.detail(runId),
-      runQueryKeys.actions(runId),
-      runQueryKeys.diff(runId),
-      runQueryKeys.comments(runId),
-    ]
-  }
-
   function seedRunQueries(): void {
     // Two runs, one of them with two cached keys: the run id is collected once.
     queryClient.setQueryData(runQueryKeys.detail(RUN_A), {})
@@ -657,8 +650,10 @@ describe('runStreamUntilAborted reconnect state', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
     // Exactly the per-event key set for each cached run: never `['runs']`, `list()` or a placeholder.
     const keys = invalidateSpy.mock.calls.map(([filters]) => filters?.queryKey)
-    expect(keys).toHaveLength(8)
-    expect(keys).toEqual(expect.arrayContaining([...runKeys(RUN_A), ...runKeys(RUN_B)]))
+    expect(keys).toHaveLength(2)
+    expect(keys).toEqual(
+      expect.arrayContaining([runQueryKeys.detail(RUN_A), runQueryKeys.detail(RUN_B)]),
+    )
 
     controller.abort()
     await done
@@ -702,8 +697,10 @@ describe('runStreamUntilAborted reconnect state', () => {
       await vi.advanceTimersByTimeAsync(STREAM_RECONNECT_DELAY_MS)
       expect(fetchMock).toHaveBeenCalledTimes(2)
       const keys = invalidateSpy.mock.calls.map(([filters]) => filters?.queryKey)
-      expect(keys).toHaveLength(8)
-      expect(keys).toEqual(expect.arrayContaining([...runKeys(RUN_A), ...runKeys(RUN_B)]))
+      expect(keys).toHaveLength(2)
+      expect(keys).toEqual(
+        expect.arrayContaining([runQueryKeys.detail(RUN_A), runQueryKeys.detail(RUN_B)]),
+      )
 
       controller.abort()
       await done
@@ -736,7 +733,7 @@ describe('runStreamUntilAborted reconnect state', () => {
     // The next attempt is the second one: it resyncs.
     await vi.advanceTimersByTimeAsync(STREAM_RECONNECT_DELAY_MS)
     expect(fetchMock).toHaveBeenCalledTimes(3)
-    expect(invalidateSpy).toHaveBeenCalledTimes(8)
+    expect(invalidateSpy).toHaveBeenCalledTimes(2)
 
     controller.abort()
     await done

@@ -11,6 +11,7 @@ import {
   RUN_A,
   RUN_B,
   stepFrame,
+  updatedFrame,
 } from './runStreamConnect.page.fixture'
 import { fetchRunActionResponse, fetchRunActions, runQueryKeys } from '../../entities/run'
 import { setAccessToken, setMockTransport } from '../../shared/api/client'
@@ -122,6 +123,95 @@ describe('RunDetailPage live step stream', () => {
     expect(fixture.requestCount(`/api/runs/${RUN_A}/comments`)).toBe(1)
   })
 
+  it('refreshes each mounted endpoint once for one run update', async () => {
+    fixture.mountPage()
+    await settle()
+
+    fixture.streams[0]?.send(updatedFrame())
+    await settle()
+
+    expect(fixture.requestCount(`/api/runs/${RUN_A}`)).toBe(2)
+    expect(fixture.requestCount(`/api/runs/${RUN_A}/actions`)).toBe(2)
+    expect(fixture.requestCount(`/api/runs/${RUN_A}/diff`)).toBe(2)
+    expect(fixture.requestCount(`/api/runs/${RUN_A}/comments`)).toBe(2)
+    expect(Date.now() - NOW.getTime()).toBe(0)
+  })
+
+  it.each(['step first', 'update first'])(
+    'refreshes each endpoint once for a fetch-diff step and update in one chunk: %s',
+    async (order) => {
+      const otherRun = new QueryObserver(queryClient, {
+        queryKey: runQueryKeys.actions(RUN_B),
+        queryFn: () => fetchRunActions(RUN_B),
+      })
+      unsubscribe.push(otherRun.subscribe(() => undefined))
+      fixture.mountPage()
+      await settle()
+      fixture.actions = [action('vcs.fetch_diff')]
+      fixture.diffReady = true
+      const step = stepFrame('vcs.fetch_diff')
+      const update = updatedFrame()
+      fixture.streams[0]?.send(order === 'step first' ? step + update : update + step)
+      await settle()
+
+      expect(screen.getByText('src/stream.ts')).toBeTruthy()
+      expect(screen.getByText('#1 vcs.fetch_diff (<1 с)')).toBeTruthy()
+      expect(fixture.requestCount(`/api/runs/${RUN_A}`)).toBe(2)
+      expect(fixture.requestCount(`/api/runs/${RUN_A}/actions`)).toBe(2)
+      expect(fixture.requestCount(`/api/runs/${RUN_A}/diff`)).toBe(2)
+      expect(fixture.requestCount(`/api/runs/${RUN_A}/comments`)).toBe(2)
+      expect(fixture.requestCount(`/api/runs/${RUN_B}/actions`)).toBe(1)
+      expect(otherRun.getCurrentResult().isStale).toBe(false)
+    },
+  )
+
+  it('keeps different runs separate when a chunk mixes a full update and repeated steps', async () => {
+    const otherRun = new QueryObserver(queryClient, {
+      queryKey: runQueryKeys.actions(RUN_B),
+      queryFn: () => fetchRunActions(RUN_B),
+    })
+    unsubscribe.push(otherRun.subscribe(() => undefined))
+    fixture.mountPage()
+    await settle()
+
+    fixture.streams[0]?.send(
+      updatedFrame() +
+        stepFrame('context.build', RUN_B) +
+        stepFrame('future.tool', RUN_B) +
+        'event: run.updated\ndata: not json\n\n',
+    )
+    await settle()
+
+    expect(fixture.requestCount(`/api/runs/${RUN_A}/actions`)).toBe(2)
+    expect(fixture.requestCount(`/api/runs/${RUN_B}/actions`)).toBe(2)
+    expect(fixture.requestCount(`/api/runs/${RUN_A}`)).toBe(2)
+    expect(fixture.requestCount(`/api/runs/${RUN_A}/diff`)).toBe(2)
+    expect(fixture.requestCount(`/api/runs/${RUN_A}/comments`)).toBe(2)
+  })
+
+  it('a later chunk refreshes terminal actions even while an older response is pending', async () => {
+    fixture.mountPage()
+    await settle()
+    const finishOldRequest = fixture.delayNextActions()
+    fixture.streams[0]?.send(stepFrame('context.build'))
+    await settle()
+    expect(fixture.requestCount(`/api/runs/${RUN_A}/actions`)).toBe(2)
+
+    fixture.actions = [action('llm.generate_review')]
+    fixture.run = { ...fixture.run, status: 'succeeded', finishedAt: NOW.toISOString() }
+    fixture.streams[0]?.send(updatedFrame(RUN_A, 'succeeded'))
+    await settle()
+
+    expect(fixture.requestCount(`/api/runs/${RUN_A}/actions`)).toBe(3)
+    expect(screen.getByText('succeeded')).toBeTruthy()
+    expect(screen.getByText('#1 llm.generate_review (<1 с)')).toBeTruthy()
+    finishOldRequest([action('context.build')])
+    await settle()
+    expect(screen.queryByText('#1 context.build (<1 с)')).toBeNull()
+    expect(screen.getByText('#1 llm.generate_review (<1 с)')).toBeTruthy()
+    expect(Date.now() - NOW.getTime()).toBe(0)
+  })
+
   it('recovers the observed journal after reconnect without replay or a polling refetch', async () => {
     // Query's documented hidden-tab mode suppresses polling ticks; reconnect must recover on its own.
     focusManager.setFocused(false)
@@ -145,7 +235,10 @@ describe('RunDetailPage live step stream', () => {
     await settle()
 
     expect(fixture.requestCount('/api/stream')).toBe(2)
-    expect(fixture.requestCount(`/api/runs/${RUN_A}/actions`)).toBeGreaterThan(1)
+    expect(fixture.requestCount(`/api/runs/${RUN_A}/actions`)).toBe(2)
+    expect(fixture.requestCount(`/api/runs/${RUN_A}`)).toBe(2)
+    expect(fixture.requestCount(`/api/runs/${RUN_A}/diff`)).toBe(2)
+    expect(fixture.requestCount(`/api/runs/${RUN_A}/comments`)).toBe(2)
     expect(screen.getByText('#1 context.build (<1 с)')).toBeTruthy()
     expect(screen.getByTestId('run-progress-analysis').getAttribute('data-stage-state')).toBe(
       'process',

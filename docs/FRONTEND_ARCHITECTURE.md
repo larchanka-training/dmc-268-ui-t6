@@ -50,6 +50,7 @@ antd, TanStack Query и jsdom — патчи от 2026-09-24.
 | Ф-22 | Обновление доступа: опрос 5 с / 120 с, резерв статуса вне idle и постоянный live region на странице (§2)                                                             | Запаздывающий репозиторий появляется без блокировки действий строки; поиск и таблица не сдвигаются, status сохраняется между GET и при ошибке без данных (Refs ui#92, ui#120).                                             |
 | Ф-23 | Статус `.review/rules.md` без кнопки «Обновить»: свежий ответ — при повторном открытии страницы, `pending` опрашивается раз в 3 с                                    | ui#93, D18: [техлид согласовал][api150-reread] механизм createunix — воркер сам перечитывает файл, ручного обновления нет; «Повторить» — для `unavailable` с `retryable` и сбоя HTTP (§2, §5).                             |
 | Ф-24 | Переключатель RAG — `PATCH { ragEnabled }` сразу, вне черновика формы; статус индекса — `ragIndex` из `['repos']`; опрос 5 с / 120 с                                 | Как у авто-ревью (Ф-17); тексты статусов — по api#145 (§5); копии в сторе нет (Ф-7). Опрос — только на `building` и после включения здесь (§2); мок строит индекс по числу GET (§8) (Refs ui#102).                         |
+| Ф-24 | SSE: одна инвалидация префикса прогона и объединение целей в пределах разобранного чанка (§2)                                                                        | Перекрывающиеся ключи отменяли и повторяли HTTP-запросы; следующий чанк сохраняет отмену старого refetch ради свежих данных (Refs ui#161).                                                                                 |
 
 Ф-11 уточнено 2026-09-24 (#49): TypeScript поднят 5.9.3 → 6.0.3. Потолок — именно 6.0.x, а не
 «6.x»: у TypeScript 7.0 нет JS API компилятора, поэтому peer typescript-eslint остаётся
@@ -993,10 +994,10 @@ TanStack Query — не замена Zustand, а дополнение: серв�
 SSE-мост (Ф-14, **реализовано**; Refs ui#65): `RunStreamBridge` внутри `QueryProvider` вызывает
 `useRunStreamSubscription` → `runStreamConnect.ts`: `fetch(API_BASE_URL + '/stream')` с
 `Authorization: Bearer <accessToken>`, разбор кадров `event:`/`data:` (`runStreamParse.ts`); на
-`run.updated` — `applyRunUpdated(event)` (`runStreamConnect.ts`): `invalidateQueries` для `['runs', runId]`,
-`['runs', runId, 'actions']`, `['runs', runId, 'diff']` и `['runs', runId, 'comments']` (дифф и комментарии
-подтягиваются вместе с прогоном) и для списка `['runs', 'list']` (колонка «Статус» на `/runs` обновляется без
-перезагрузки; Refs ui#84). На `run.step` payload проходит `parseRunStepEvent` /
+`run.updated` — одна `invalidateQueries` для префикса `['runs', runId]`: она охватывает детали,
+actions, diff, comments и дочерние action-response. Отдельной инвалидации этих дочерних ключей нет
+(Ф-24, Refs ui#161). Список `['runs', 'list']` тоже инвалидируется: колонка «Статус» на `/runs`
+обновляется без перезагрузки (Refs ui#84). На `run.step` payload проходит `parseRunStepEvent` /
 `RunStepEventSchema` в `entities/run`: UUID `runId`, строка `tool` (свободное имя, не enum),
 целые неотрицательные `index` и `durationMs`, boolean `ok`, UTC `startedAt` с суффиксом `Z`.
 Текущий контракт содержит шесть обязательных полей, без `attempt` (Refs ui#113).
@@ -1007,6 +1008,18 @@ SSE-мост (Ф-14, **реализовано**; Refs ui#65): `RunStreamBridge` 
 payload шага не содержит полный `RunAction`. Дочерний action-response, другие прогоны, детали,
 комментарии и список не инвалидируются шагом. Неверный JSON/схема и неизвестный `event:`
 отбрасываются без инвалидации.
+
+Цели валидных кадров объединяются по `runId` в пределах одного разобранного чанка SSE. Полное
+обновление прогона поглощает точные actions/diff цели шагов независимо от порядка кадров;
+повторные шаги дают по одному запросу на каждый нужный endpoint. Если в чанке есть хотя бы один
+`run.updated`, список инвалидируется один раз через прежний `invalidateRunLists` (его защита
+загрузки следующей страницы сохраняется). Все цели запускаются до следующего `reader.read()`:
+таймера или ожидания опроса нет. Между разными чанками объединения нет: стандартный
+`cancelRefetch: true` сохраняется, чтобы новый кадр заменил ещё выполняющийся refetch, начатый
+до этого события. Иначе старый ответ мог бы скрыть последние actions терминального прогона,
+когда резервный опрос уже остановлен. Mock-событие вызывает `applyRunUpdated` с тем же одним
+префиксом и обновлением списка.
+
 `EventSource` не используется (нет Bearer). `401` — refresh с лимитом повторов
 (`MAX_STREAM_401_RETRIES`), затем переподключение с backoff (`STREAM_RECONNECT_DELAY_MS`); refresh
 не удался — подписка прекращается (fail closed, §11). Keep-alive (`: keepalive` раз в 15 с,
@@ -1016,7 +1029,7 @@ payload шага не содержит полный `RunAction`. Дочерни�
 потерянные шаги догоняет перезапрос журнала. После
 каждого успешного подключения, кроме самой первой попытки подписки (неудачная попытка тоже
 считается: страница уже загрузила данные, а поток был недоступен; refresh-повтор после `401` — та
-же попытка), заново инвалидирует те же четыре ключа для каждого прогона с запросами в кэше (не
+же попытка), заново инвалидирует один префикс `runQueryKeys.detail(runId)` для каждого прогона с запросами в кэше (не
 префикс `['runs']`; список не трогает — он обновится со следующим `run.updated` или при открытии страницы после `staleTime`). Watchdog: после первого
 keep-alive тишина дольше двух интервалов (30 с) обрывает соединение и ведёт к обычному
 переподключению; api без keep-alive watchdog не включает. В mock-режиме поток не открывается
@@ -1032,8 +1045,8 @@ keep-alive тишина дольше двух интервалов (30 с) об�
 
 - Ключ деталей `['runs', id]` — префикс ключей `actions`, `diff` и `comments`. Любая инвалидация деталей
   (`run.updated`, `cancel`, `rerun`) заодно перезапрашивает `/actions`: смена статуса даёт один запрос
-  сверх опроса. Четыре явных `invalidateQueries` в `applyRunUpdated` остаются — они фиксируют контракт
-  и не зависят от формы ключей. Тесты опроса (`RunDetailPage.progress.test.tsx`) считают этот запрос.
+  сверх опроса. SSE и `applyRunUpdated` используют этот префикс один раз, без перекрывающихся
+  инвалидаций потомков. Тесты опроса (`RunDetailPage.progress.test.tsx`) считают этот запрос.
 - В фоновой вкладке опрос стоит. `refetchIntervalInBackground` нигде не задан (ни в `useRunActions`,
   ни в `queryClient.ts`), а в TanStack Query 5.103 тик интервала пропускается, когда
   `focusManager.isFocused()` ложно, то есть при `document.visibilityState === 'hidden'` (проверено по
@@ -1055,11 +1068,13 @@ sequenceDiagram
   participant UI as widgets
 
   SSE->>Bridge: run.updated { runId, status }
-  Bridge->>QC: applyRunUpdated - invalidateQueries(['runs', runId], actions, diff, comments)
+  Note over Bridge: объединить цели всех валидных кадров чанка по runId
+  Bridge->>QC: invalidateQueries(['runs', runId]) один раз на чанк
   Bridge->>QC: invalidateQueries(['runs', 'list'])
   QC->>QC: refetch активных запросов
   QC-->>UI: новые данные прогона и списка
   SSE->>Bridge: run.step { runId, tool, index, ok, startedAt, durationMs } без id
+  Note over Bridge: точные цели шага нужны только без run.updated того же runId в чанке
   Bridge->>QC: invalidateQueries(actions(runId), exact)
   opt ok и tool == vcs.fetch_diff
     Bridge->>QC: invalidateQueries(diff(runId), exact)
