@@ -27,6 +27,8 @@ cd "${APP_DIR}"
 if [[ -f "${ENV_FILE}" ]]; then
   DEPLOY_MODE="${DEPLOY_MODE:-$(read_compose_env_var DEPLOY_MODE "${ENV_FILE}")}"
   EDGE_ALIAS="${EDGE_ALIAS:-$(read_compose_env_var EDGE_ALIAS "${ENV_FILE}")}"
+  APP_URL="${APP_URL:-$(read_compose_env_var APP_URL "${ENV_FILE}")}"
+  NO_PREVIOUS_RELEASE="${NO_PREVIOUS_RELEASE:-$(read_compose_env_var NO_PREVIOUS_RELEASE "${ENV_FILE}")}"
 fi
 
 # ports: publish the UI on host port 80 (dedicated Terraform host).
@@ -38,6 +40,11 @@ if [[ "${DEPLOY_MODE}" != "ports" && "${DEPLOY_MODE}" != "edge" ]]; then
 fi
 if [[ "${DEPLOY_MODE}" == "edge" && ! "${EDGE_ALIAS:-}" =~ ^[a-z0-9]+(-[a-z0-9]+)+$ ]]; then
   echo "EDGE_ALIAS (<service>-<env>) is required in edge mode, got: ${EDGE_ALIAS:-}" >&2
+  exit 1
+fi
+# Kept in .env for rollback.sh (empty: bootstrap there).
+if [[ -n "${NO_PREVIOUS_RELEASE:-}" && "${NO_PREVIOUS_RELEASE}" != "bootstrap" && "${NO_PREVIOUS_RELEASE}" != "stop" ]]; then
+  echo "NO_PREVIOUS_RELEASE must be bootstrap or stop, got: ${NO_PREVIOUS_RELEASE}" >&2
   exit 1
 fi
 COMPOSE=(docker compose -p "${COMPOSE_PROJECT}" -f "${COMPOSE_FILE}" -f "${APP_DIR}/compose.${DEPLOY_MODE}.yml" --env-file "${ENV_FILE}")
@@ -57,7 +64,9 @@ cleanup_registry() {
 }
 trap cleanup_registry EXIT
 
-if [[ -f "${STATE_FILE}" ]]; then
+# A redeploy of the running image (e.g. "Re-run failed jobs" after a landing-only failure) must
+# keep the rollback target: only a different image moves the current release into .previous.
+if [[ -f "${STATE_FILE}" && "$(awk -F= '/^current_image=/{print $2}' "${STATE_FILE}")" != "${IMAGE}" ]]; then
   cp "${STATE_FILE}" "${STATE_FILE}.previous"
 fi
 
@@ -66,7 +75,7 @@ if [[ -n "${GHCR_TOKEN:-}" ]]; then
 fi
 
 docker pull "${IMAGE}"
-write_compose_env_file "${ENV_FILE}" "${IMAGE}" "${DEPLOY_MODE}" "${EDGE_ALIAS:-}"
+write_compose_env_file "${ENV_FILE}" "${IMAGE}" "${DEPLOY_MODE}" "${EDGE_ALIAS:-}" "${APP_URL:-}" "${NO_PREVIOUS_RELEASE:-}"
 
 if docker inspect "${BOOTSTRAP_NAME}" >/dev/null 2>&1; then
   docker rm -f "${BOOTSTRAP_NAME}" >/dev/null

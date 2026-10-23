@@ -18,6 +18,12 @@ EDGE_NETWORK="${EDGE_NETWORK:-dmc268-edge}"
 # auto: a failed deploy is being undone; the failed image must not become the rollback target.
 # manual: an operator rolls back a release; it becomes the previous release (mirrors :staging-previous).
 ROLLBACK_MODE="${ROLLBACK_MODE:-manual}"
+# What replaces a release that has no previous one to go back to:
+# bootstrap: a stock nginx under the stack's alias or port (the UI: the edge proxy or the host port
+#   gets an answer, as cloud-init's placeholder does);
+# stop: nothing, the stack is only taken down (the landing: on its public hosts the edge proxy's own
+#   503 page is better than the nginx welcome page).
+# Set by the workflow on the first deploy and kept in the stack's .env (see below).
 
 if [[ "${ROLLBACK_MODE}" != "auto" && "${ROLLBACK_MODE}" != "manual" ]]; then
   echo "ROLLBACK_MODE must be auto or manual, got: ${ROLLBACK_MODE}" >&2
@@ -26,10 +32,24 @@ fi
 
 restore_bootstrap() {
   if [[ -f "${COMPOSE_FILE}" && -f "${ENV_FILE}" ]]; then
-    "${COMPOSE[@]}" down --remove-orphans >/dev/null 2>&1 || true
+    if [[ "${NO_PREVIOUS_RELEASE}" == "stop" ]]; then
+      # Stopping is the whole rollback here: a failed down must not report success while the
+      # failed release keeps running.
+      if ! "${COMPOSE[@]}" down --remove-orphans >/dev/null || [[ -n "$("${COMPOSE[@]}" ps -q)" ]]; then
+        echo "failed to stop compose project ${COMPOSE_PROJECT}; the failed release may still run" >&2
+        exit 1
+      fi
+    else
+      "${COMPOSE[@]}" down --remove-orphans >/dev/null 2>&1 || true
+    fi
   fi
 
   docker rm -f "${BOOTSTRAP_NAME}" >/dev/null 2>&1 || true
+  if [[ "${NO_PREVIOUS_RELEASE}" == "stop" ]]; then
+    rm -f "${STATE_FILE}" "${PREVIOUS_FILE}"
+    echo "stopped compose project ${COMPOSE_PROJECT}; no bootstrap container (NO_PREVIOUS_RELEASE=stop)"
+    return 0
+  fi
   docker pull "${BOOTSTRAP_IMAGE}"
   if [[ "${DEPLOY_MODE}" == "edge" ]]; then
     # Behind the proxy under the UI alias: the proxy dials port 8080, nginx listens on 80 by default.
@@ -50,6 +70,14 @@ restore_bootstrap() {
 if [[ -f "${ENV_FILE}" ]]; then
   DEPLOY_MODE="${DEPLOY_MODE:-$(read_compose_env_var DEPLOY_MODE "${ENV_FILE}")}"
   EDGE_ALIAS="${EDGE_ALIAS:-$(read_compose_env_var EDGE_ALIAS "${ENV_FILE}")}"
+  APP_URL="${APP_URL:-$(read_compose_env_var APP_URL "${ENV_FILE}")}"
+  NO_PREVIOUS_RELEASE="${NO_PREVIOUS_RELEASE:-$(read_compose_env_var NO_PREVIOUS_RELEASE "${ENV_FILE}")}"
+fi
+
+NO_PREVIOUS_RELEASE="${NO_PREVIOUS_RELEASE:-bootstrap}"
+if [[ "${NO_PREVIOUS_RELEASE}" != "bootstrap" && "${NO_PREVIOUS_RELEASE}" != "stop" ]]; then
+  echo "NO_PREVIOUS_RELEASE must be bootstrap or stop, got: ${NO_PREVIOUS_RELEASE}" >&2
+  exit 1
 fi
 
 # ports: publish the UI on host port 80 (dedicated Terraform host).
@@ -93,7 +121,7 @@ else
   # No previous release in either mode: a first release that failed (auto) must not stay in
   # .deploy-state, or the next deploy.sh would copy it into .previous; rollback.yml (manual)
   # sends no image only when neither the VM nor the registry has a previous release.
-  echo "no previous release; restoring bootstrap" >&2
+  echo "no previous release; NO_PREVIOUS_RELEASE=${NO_PREVIOUS_RELEASE}" >&2
   restore_bootstrap
   exit 0
 fi
@@ -114,7 +142,7 @@ if docker inspect "${BOOTSTRAP_NAME}" >/dev/null 2>&1; then
 fi
 
 docker pull "${IMAGE}"
-write_compose_env_file "${ENV_FILE}" "${IMAGE}" "${DEPLOY_MODE}" "${EDGE_ALIAS:-}"
+write_compose_env_file "${ENV_FILE}" "${IMAGE}" "${DEPLOY_MODE}" "${EDGE_ALIAS:-}" "${APP_URL:-}" "${NO_PREVIOUS_RELEASE:-}"
 "${COMPOSE[@]}" up -d --remove-orphans --wait --wait-timeout 90
 
 # Shared root account: drop the GHCR credential after the last pull (compose up, pull_policy: always).

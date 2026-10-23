@@ -7,6 +7,19 @@ on:
         description: 'Full 40-char git SHA, sha256:<digest>, or ghcr.io/<owner>/<repo>:<full sha> / @sha256:<digest> of this repository. Leave empty to restore the previous release.'
         required: false
         type: string
+      landing_image:
+        description: 'Landing (course VPS only): the same formats for ghcr.io/<owner>/<repo>-landing. Leave empty to restore the previous landing release.'
+        required: false
+        type: string
+      component:
+        description: 'What to roll back: ui-and-landing (both parts, each resolved on its own), ui or landing. The landing runs only on the course VPS.'
+        required: false
+        type: choice
+        options:
+          - ui-and-landing
+          - ui
+          - landing
+        default: ui-and-landing
       reason:
         description: 'Why staging is being rolled back'
         required: true
@@ -39,6 +52,10 @@ jobs:
       staging: ${{ steps.meta.outputs.staging }}
       previous: ${{ steps.meta.outputs.previous }}
       promote: ${{ steps.result.outputs.promote }}
+      landing_image_ref: ${{ steps.result_landing.outputs.image_ref }}
+      landing_staging: ${{ steps.meta.outputs.landing_staging }}
+      landing_previous: ${{ steps.meta.outputs.landing_previous }}
+      landing_promote: ${{ steps.result_landing.outputs.promote }}
     steps:
       - name: Resolve staging target
         id: target
@@ -75,6 +92,13 @@ jobs:
             edge_alias=""
             base_url="http://${host}"
             health_url="${STAGING_HEALTH_URL:-${base_url}/health}"
+            # The landing runs only behind the edge proxy: a dedicated host serves the UI alone.
+            landing=false
+            landing_app_dir=""
+            landing_edge_alias=""
+            landing_base_url=""
+            landing_health_url=""
+            landing_app_url=""
           elif [[ -n "${VPS_HOST}" ]]; then
             mode=course
             host="${VPS_HOST}"
@@ -92,6 +116,14 @@ jobs:
             edge_alias=ui-staging
             base_url="https://staging-ui.${APP_DOMAIN}"
             health_url="${base_url}/health"
+            # Landing: own APP_DIR and compose project, alias landing-staging behind
+            # staging.<APP_DOMAIN>; its buttons open this UI (APP_URL -> /config.json).
+            landing=true
+            landing_app_dir=/opt/dmc-268-landing-staging
+            landing_edge_alias="landing-staging"
+            landing_base_url="https://staging.${APP_DOMAIN}"
+            landing_health_url="${landing_base_url}/health"
+            landing_app_url="${base_url}"
           else
             echo "No staging target: set STAGING_HOST, STAGING_SSH_PORT, STAGING_SSH_USER and STAGING_SSH_KEY (Terraform host)" \
               "or organization variable VPS_DMC268_IP_T6 with secrets VPS_DMC268_U and VPS_DMC268_P (course VPS)" >&2
@@ -108,13 +140,18 @@ jobs:
           fi
           # One key=value line per output: a CR/LF inside a value (e.g. from STAGING_HEALTH_URL) could
           # otherwise append lines that override mode, host or port.
-          for value in "${mode}" "${host}" "${port}" "${app_dir}" "${deploy_mode}" "${edge_alias}" "${base_url}" "${health_url}"; do
+          for value in "${mode}" "${host}" "${port}" "${app_dir}" "${deploy_mode}" "${edge_alias}" "${base_url}" "${health_url}" \
+            "${landing_app_dir}" "${landing_edge_alias}" "${landing_base_url}" "${landing_health_url}" "${landing_app_url}"; do
             if [[ "${value}" == *$'\n'* || "${value}" == *$'\r'* ]]; then
               echo "staging target values must be single-line" >&2
               exit 1
             fi
           done
-          for url in "${base_url}" "${health_url}"; do
+          urls=("${base_url}" "${health_url}")
+          if [[ "${landing}" == "true" ]]; then
+            urls+=("${landing_base_url}" "${landing_health_url}" "${landing_app_url}")
+          fi
+          for url in "${urls[@]}"; do
             if [[ ! "${url}" =~ ^https?://[^[:space:]]+$ ]]; then
               echo "staging URL '${url}' must be http(s)://<host>[/path] without whitespace" >&2
               exit 1
@@ -129,6 +166,12 @@ jobs:
             echo "edge_alias=${edge_alias}"
             echo "base_url=${base_url}"
             echo "health_url=${health_url}"
+            echo "landing=${landing}"
+            echo "landing_app_dir=${landing_app_dir}"
+            echo "landing_edge_alias=${landing_edge_alias}"
+            echo "landing_base_url=${landing_base_url}"
+            echo "landing_health_url=${landing_health_url}"
+            echo "landing_app_url=${landing_app_url}"
           } >> "${GITHUB_OUTPUT}"
           echo "staging target: ${mode} (${host}:${port}, ${base_url})"
 
@@ -139,14 +182,53 @@ jobs:
         run: |
           repo="$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
           image="${REGISTRY}/${repo}"
-          echo "staging=${image}:staging" >> "${GITHUB_OUTPUT}"
-          echo "previous=${image}:staging-previous" >> "${GITHUB_OUTPUT}"
+          {
+            echo "staging=${image}:staging"
+            echo "previous=${image}:staging-previous"
+            echo "landing_staging=${image}-landing:staging"
+            echo "landing_previous=${image}-landing:staging-previous"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Select components
+        id: scope
+        env:
+          COMPONENT: ${{ inputs.component }}
+          TARGET_LANDING: ${{ steps.target.outputs.landing }}
+          REQUESTED: ${{ inputs.image }}
+          REQUESTED_LANDING: ${{ inputs.landing_image }}
+        run: |
+          # ui-and-landing rolls back both parts; on the Terraform host there is no landing, so
+          # it means the UI alone there.
+          case "${COMPONENT:-ui-and-landing}" in
+            ui-and-landing) ui=true; landing="${TARGET_LANDING}" ;;
+            ui) ui=true; landing=false ;;
+            landing) ui=false; landing=true ;;
+            *) echo "unsupported component '${COMPONENT}'" >&2; exit 1 ;;
+          esac
+          if [[ "${landing}" == "true" && "${TARGET_LANDING}" != "true" ]]; then
+            echo "the landing runs only on the course VPS (edge mode); this target has none" >&2
+            exit 1
+          fi
+          if [[ "${ui}" != "true" && -n "${REQUESTED}" ]]; then
+            echo "image is set, but component '${COMPONENT}' leaves the UI as is" >&2
+            exit 1
+          fi
+          if [[ "${landing}" != "true" && -n "${REQUESTED_LANDING}" ]]; then
+            echo "landing_image is set, but the landing is not rolled back (component '${COMPONENT}', target without landing)" >&2
+            exit 1
+          fi
+          {
+            echo "ui=${ui}"
+            echo "landing=${landing}"
+          } >> "${GITHUB_OUTPUT}"
+          echo "rolling back: ui=${ui}, landing=${landing}"
 
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Resolve requested ref
         id: image
+        if: steps.scope.outputs.ui == 'true'
         env:
           REQUESTED: ${{ inputs.image }}
           REPOSITORY: ${{ github.repository }}
@@ -177,12 +259,45 @@ jobs:
           echo "ref=${ref}" >> "${GITHUB_OUTPUT}"
           echo "requested rollback target: ${ref}"
 
+      - name: Resolve requested landing ref
+        id: landing_image
+        if: steps.scope.outputs.landing == 'true'
+        env:
+          REQUESTED: ${{ inputs.landing_image }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          repo="$(echo "${REPOSITORY}" | tr '[:upper:]' '[:lower:]')"
+          image="ghcr.io/${repo}-landing"
+          if [[ -z "${REQUESTED}" ]]; then
+            echo "ref=" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          if [[ "${REQUESTED}" == *$'\n'* || "${REQUESTED}" == *$'\r'* ]]; then
+            echo "landing_image input must be a single line" >&2
+            exit 1
+          fi
+          # Only this repository's landing images, pinned by a full git sha or a digest.
+          suffix="${REQUESTED#"${image}"}"
+          if [[ "${REQUESTED}" =~ ^[0-9a-f]{40}$ ]]; then
+            ref="${image}:${REQUESTED}"
+          elif [[ "${REQUESTED}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            ref="${image}@${REQUESTED}"
+          elif [[ "${suffix}" != "${REQUESTED}" && ("${suffix}" =~ ^:[0-9a-f]{40}$ || "${suffix}" =~ ^@sha256:[0-9a-f]{64}$) ]]; then
+            ref="${REQUESTED}"
+          else
+            echo "unsupported landing_image '${REQUESTED}': use a full 40-character git SHA, sha256:<64 hex>, ${image}:<full git sha> or ${image}@sha256:<64 hex>" >&2
+            exit 1
+          fi
+          echo "ref=${ref}" >> "${GITHUB_OUTPUT}"
+          echo "requested landing rollback target: ${ref}"
+
       - name: Read previous deploy from VM
-        if: steps.image.outputs.ref == ''
+        if: (steps.scope.outputs.ui == 'true' && steps.image.outputs.ref == '') || (steps.scope.outputs.landing == 'true' && steps.landing_image.outputs.ref == '')
         id: vm_previous
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         env:
           APP_DIR: ${{ steps.target.outputs.app_dir }}
+          LANDING_APP_DIR: ${{ steps.scope.outputs.landing == 'true' && steps.target.outputs.landing_app_dir || '' }}
         with:
           host: ${{ steps.target.outputs.host }}
           port: ${{ steps.target.outputs.port }}
@@ -192,15 +307,19 @@ jobs:
           fingerprint: ${{ vars.STAGING_SSH_FINGERPRINT }}
           debug: false
           capture_stdout: true
-          envs: APP_DIR
+          envs: APP_DIR,LANDING_APP_DIR
           script: |
             previous="${APP_DIR}/.deploy-state.previous"
             if [[ -f "${previous}" ]]; then
               awk -F= '/^current_image=/{print "previous_image=" $2; exit}' "${previous}"
             fi
+            if [[ -n "${LANDING_APP_DIR}" && -f "${LANDING_APP_DIR}/.deploy-state.previous" ]]; then
+              awk -F= '/^current_image=/{print "landing_previous_image=" $2; exit}' "${LANDING_APP_DIR}/.deploy-state.previous"
+            fi
 
       - name: Resolve rollback target to digest
         id: digest
+        if: steps.scope.outputs.ui == 'true'
         env:
           REQUESTED_REF: ${{ steps.image.outputs.ref }}
           VM_PREVIOUS_STDOUT: ${{ steps.vm_previous.outputs.stdout }}
@@ -257,6 +376,66 @@ jobs:
           echo "image_ref=${image_ref}" >> "${GITHUB_OUTPUT}"
           echo "resolved rollback target ${image_ref}"
 
+      # The same resolution for the landing: requested ref, else the VM's previous landing release,
+      # else :staging-previous of the landing package. Unlike the UI there is no bootstrap: without
+      # a previous release the running landing stays (skip with a warning), and component=landing
+      # fails here, before any change on the host.
+      - name: Resolve landing rollback target to digest
+        id: landing_digest
+        if: steps.scope.outputs.landing == 'true'
+        env:
+          COMPONENT: ${{ inputs.component }}
+          REQUESTED_REF: ${{ steps.landing_image.outputs.ref }}
+          VM_PREVIOUS_STDOUT: ${{ steps.vm_previous.outputs.stdout }}
+          STAGING_PREVIOUS: ${{ steps.meta.outputs.landing_previous }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
+
+          vm_previous="$(awk '/^landing_previous_image=/ { sub(/^landing_previous_image=/, ""); sub(/\r$/, ""); print; exit }' <<< "${VM_PREVIOUS_STDOUT}")"
+          echo "previous landing release on the VM: ${vm_previous:-<none>}"
+
+          if [[ -n "${REQUESTED_REF}" ]]; then
+            candidate="${REQUESTED_REF}"
+          elif [[ -n "${vm_previous}" ]]; then
+            candidate="${vm_previous}"
+          else
+            candidate="${STAGING_PREVIOUS}"
+          fi
+
+          if [[ "${candidate}" == *'@sha256:'* ]]; then
+            if ! docker pull "${candidate}"; then
+              echo "failed to pull ${candidate}" >&2
+              exit 1
+            fi
+            image_ref="${candidate}"
+          else
+            if ! docker pull "${candidate}"; then
+              if [[ -z "${REQUESTED_REF}" && -z "${vm_previous}" ]]; then
+                if [[ "${COMPONENT:-ui-and-landing}" == "landing" ]]; then
+                  echo "the landing has no previous release (no .deploy-state.previous on the VM, no ${STAGING_PREVIOUS}); set landing_image to roll back to a specific release" >&2
+                  exit 1
+                fi
+                echo "skip=true" >> "${GITHUB_OUTPUT}"
+                echo "::warning::the landing has no previous release (no .deploy-state.previous on the VM, no ${STAGING_PREVIOUS}); the running landing is left as is, only the UI is rolled back"
+                exit 0
+              fi
+              echo "failed to pull ${candidate}" >&2
+              exit 1
+            fi
+            image_ref="$(docker inspect --format='{{index .RepoDigests 0}}' "${candidate}")"
+          fi
+
+          if [[ -z "${image_ref}" || "${image_ref}" == "<no value>" ]]; then
+            echo "failed to resolve landing rollback target to immutable digest for ${candidate}" >&2
+            exit 1
+          fi
+
+          echo "image_ref=${image_ref}" >> "${GITHUB_OUTPUT}"
+          echo "resolved landing rollback target ${image_ref}"
+
       # In both modes, before any change on the host: a course VPS may be bare, and the host
       # scripts must match this workflow (a first deploy may predate the current rollback.sh).
       - name: Upload deploy files
@@ -272,13 +451,30 @@ jobs:
           target: ${{ steps.target.outputs.app_dir }}
           strip_components: 2
 
+      # The landing gets its own APP_DIR with the same host scripts (course VPS only).
+      - name: Upload landing deploy files
+        if: steps.scope.outputs.landing == 'true'
+        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1.0.0
+        with:
+          host: ${{ steps.target.outputs.host }}
+          port: ${{ steps.target.outputs.port }}
+          username: ${{ steps.target.outputs.mode == 'course' && secrets.VPS_DMC268_U || vars.STAGING_SSH_USER }}
+          key: ${{ steps.target.outputs.mode == 'terraform' && secrets.STAGING_SSH_KEY || '' }}
+          password: ${{ steps.target.outputs.mode == 'course' && secrets.VPS_DMC268_P || '' }}
+          fingerprint: ${{ vars.STAGING_SSH_FINGERPRINT }}
+          source: 'deploy/compose/landing.yml,deploy/compose/landing.edge.yml,deploy/scripts/deploy.sh,deploy/scripts/rollback.sh,deploy/scripts/env-file.sh'
+          target: ${{ steps.target.outputs.landing_app_dir }}
+          strip_components: 2
+
       # Docker on a bare host and, in edge mode, the shared network. The edge proxy itself is
       # deployed only by the API repo.
       - name: Prepare host
+        id: prepare
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         env:
           APP_DIR: ${{ steps.target.outputs.app_dir }}
           EDGE_NETWORK: ${{ steps.target.outputs.deploy_mode == 'edge' && 'dmc268-edge' || '' }}
+          LANDING_APP_DIR: ${{ steps.scope.outputs.landing == 'true' && steps.target.outputs.landing_app_dir || '' }}
         with:
           host: ${{ steps.target.outputs.host }}
           port: ${{ steps.target.outputs.port }}
@@ -287,7 +483,7 @@ jobs:
           password: ${{ steps.target.outputs.mode == 'course' && secrets.VPS_DMC268_P || '' }}
           fingerprint: ${{ vars.STAGING_SSH_FINGERPRINT }}
           debug: false
-          envs: APP_DIR,EDGE_NETWORK
+          envs: APP_DIR,EDGE_NETWORK,LANDING_APP_DIR
           script: |
             set -euo pipefail
             set +o xtrace
@@ -297,9 +493,15 @@ jobs:
             mv staging.edge.yml compose.edge.yml
             chmod +x provision.sh deploy.sh rollback.sh healthcheck.sh env-file.sh
             ./provision.sh
+            if [[ -n "${LANDING_APP_DIR}" ]]; then
+              cd "${LANDING_APP_DIR}"
+              mv landing.yml compose.yml
+              mv landing.edge.yml compose.edge.yml
+              chmod +x deploy.sh rollback.sh env-file.sh
+            fi
 
       - name: Wait for the edge certificate
-        if: steps.target.outputs.deploy_mode == 'edge'
+        if: steps.target.outputs.deploy_mode == 'edge' && steps.scope.outputs.ui == 'true'
         env:
           BASE_URL: ${{ steps.target.outputs.base_url }}
         run: |
@@ -319,6 +521,7 @@ jobs:
           echo "TLS handshake with ${BASE_URL} succeeded"
 
       - name: Rollback
+        if: steps.scope.outputs.ui == 'true'
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -347,6 +550,7 @@ jobs:
 
       - name: Health check
         id: health
+        if: steps.scope.outputs.ui == 'true'
         env:
           HEALTH_URL: ${{ steps.target.outputs.health_url }}
           BASE_URL: ${{ steps.target.outputs.base_url }}
@@ -369,12 +573,58 @@ jobs:
           chmod +x deploy/scripts/healthcheck.sh
           deploy/scripts/healthcheck.sh "${HEALTH_URL}"
 
+      # !cancelled(): a failed UI rollback or UI health check does not stop the landing part (and
+      # the other way round); a landing that failed to resolve or a host that was not prepared does.
+      - name: Rollback landing
+        id: rollback_landing
+        if: ${{ !cancelled() && steps.scope.outputs.landing == 'true' && steps.landing_digest.outcome == 'success' && steps.landing_digest.outputs.skip != 'true' && steps.prepare.outcome == 'success' }}
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+          IMAGE: ${{ steps.landing_digest.outputs.image_ref }}
+          APP_DIR: ${{ steps.target.outputs.landing_app_dir }}
+          DEPLOY_MODE: ${{ steps.target.outputs.deploy_mode }}
+          EDGE_ALIAS: ${{ steps.target.outputs.landing_edge_alias }}
+          APP_URL: ${{ steps.target.outputs.landing_app_url }}
+          NO_PREVIOUS_RELEASE: stop
+        with:
+          host: ${{ steps.target.outputs.host }}
+          port: ${{ steps.target.outputs.port }}
+          username: ${{ steps.target.outputs.mode == 'course' && secrets.VPS_DMC268_U || vars.STAGING_SSH_USER }}
+          key: ${{ steps.target.outputs.mode == 'terraform' && secrets.STAGING_SSH_KEY || '' }}
+          password: ${{ steps.target.outputs.mode == 'course' && secrets.VPS_DMC268_P || '' }}
+          fingerprint: ${{ vars.STAGING_SSH_FINGERPRINT }}
+          debug: false
+          envs: GHCR_TOKEN,GHCR_USER,IMAGE,APP_DIR,DEPLOY_MODE,EDGE_ALIAS,APP_URL,NO_PREVIOUS_RELEASE
+          script: |
+            set -euo pipefail
+            set +o xtrace
+            # Always a resolved digest here: the landing has no bootstrap fallback.
+            if [[ -z "${IMAGE}" ]]; then
+              echo "no landing rollback target" >&2
+              exit 1
+            fi
+            "${APP_DIR}/rollback.sh" "${IMAGE}"
+
+      - name: Landing health check
+        id: health_landing
+        if: ${{ !cancelled() && steps.rollback_landing.outcome == 'success' }}
+        env:
+          BASE_URL: ${{ steps.target.outputs.landing_base_url }}
+          APP_URL: ${{ steps.target.outputs.landing_app_url }}
+        run: |
+          chmod +x deploy/scripts/healthcheck.sh deploy/scripts/landing-healthcheck.sh
+          deploy/scripts/landing-healthcheck.sh "${BASE_URL}" "${APP_URL}"
+
+      # Runs when either part passed its health check: each promote flag below checks its own part.
       - name: Read deployed image
         id: deployed
-        if: steps.health.outcome == 'success'
+        if: ${{ !cancelled() && (steps.health.outcome == 'success' || steps.health_landing.outcome == 'success') }}
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         env:
           APP_DIR: ${{ steps.target.outputs.app_dir }}
+          LANDING_APP_DIR: ${{ steps.scope.outputs.landing == 'true' && steps.target.outputs.landing_app_dir || '' }}
         with:
           host: ${{ steps.target.outputs.host }}
           port: ${{ steps.target.outputs.port }}
@@ -384,14 +634,22 @@ jobs:
           fingerprint: ${{ vars.STAGING_SSH_FINGERPRINT }}
           debug: false
           capture_stdout: true
-          envs: APP_DIR
-          # One keyed line: restore_bootstrap removes .deploy-state, which leaves the marker.
+          envs: APP_DIR,LANDING_APP_DIR
+          # One keyed line per part: restore_bootstrap removes .deploy-state, which leaves the marker.
           script: |
             state="${APP_DIR}/.deploy-state"
             if [[ -f "${state}" ]]; then
               awk -F= '/^current_image=/{print "current_image=" $2; exit}' "${state}"
             else
               echo "bootstrap=true"
+            fi
+            if [[ -n "${LANDING_APP_DIR}" ]]; then
+              landing_state="${LANDING_APP_DIR}/.deploy-state"
+              if [[ -f "${landing_state}" ]]; then
+                awk -F= '/^current_image=/{print "landing_current_image=" $2; exit}' "${landing_state}"
+              else
+                echo "landing_bootstrap=true"
+              fi
             fi
 
       - name: Set promote flag
@@ -430,13 +688,43 @@ jobs:
           echo "image_ref=${deployed}" >> "${GITHUB_OUTPUT}"
           echo "promote=true" >> "${GITHUB_OUTPUT}"
 
+      - name: Set landing promote flag
+        id: result_landing
+        if: always()
+        env:
+          HEALTH_OUTCOME: ${{ steps.health_landing.outcome }}
+          EXPECTED_IMAGE: ${{ steps.landing_digest.outputs.image_ref }}
+          DEPLOYED_STDOUT: ${{ steps.deployed.outputs.stdout }}
+        run: |
+          if [[ "${HEALTH_OUTCOME}" != "success" ]]; then
+            echo "promote=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          deployed="$(awk '/^landing_current_image=/ { sub(/^landing_current_image=/, ""); sub(/\r$/, ""); print; exit }' <<< "${DEPLOYED_STDOUT}")"
+          # The landing is always rolled back to a resolved image (no bootstrap fallback).
+          vm_bootstrap="$(awk '{ sub(/\r$/, "") } $0 == "landing_bootstrap=true" { print "true"; exit }' <<< "${DEPLOYED_STDOUT}")"
+          if [[ "${vm_bootstrap}" == "true" || -z "${deployed}" ]]; then
+            echo "the staging landing reports ${deployed:-no image}${vm_bootstrap:+ and the no-release marker}, expected ${EXPECTED_IMAGE:-<none>}; refusing to promote registry tags" >&2
+            echo "promote=false" >> "${GITHUB_OUTPUT}"
+            exit 1
+          fi
+          if [[ -z "${EXPECTED_IMAGE}" || "${deployed}" != "${EXPECTED_IMAGE}" ]]; then
+            echo "the staging landing runs ${deployed}, not the resolved target ${EXPECTED_IMAGE:-<none>}; refusing to promote registry tags" >&2
+            echo "promote=false" >> "${GITHUB_OUTPUT}"
+            exit 1
+          fi
+          echo "the staging landing runs ${deployed}"
+          echo "image_ref=${deployed}" >> "${GITHUB_OUTPUT}"
+          echo "promote=true" >> "${GITHUB_OUTPUT}"
+
       - name: Fail on health check error
         if: steps.health.outcome == 'failure'
         run: exit 1
 
   promote-staging:
     name: Promote staging tag
-    if: github.ref == 'refs/heads/main' && needs.rollback.outputs.promote == 'true'
+    # !cancelled(): a part that rolled back cleanly keeps its tag in sync even if the other failed.
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && (needs.rollback.outputs.promote == 'true' || needs.rollback.outputs.landing_promote == 'true') }}
     needs: rollback
     permissions:
       contents: read
@@ -444,6 +732,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Promote rolled-back image to staging
+        if: needs.rollback.outputs.promote == 'true'
         env:
           DEPLOYED_IMAGE: ${{ needs.rollback.outputs.image_ref }}
           STAGING_TAG: ${{ needs.rollback.outputs.staging }}
@@ -467,10 +756,56 @@ jobs:
           echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
           docker pull "${image_ref}"
           if docker pull "${staging}"; then
+            # A re-run after a partial promote: :staging already is this image, and retagging
+            # would overwrite :staging-previous with it.
+            if [[ "$(docker inspect --format='{{.Id}}' "${staging}")" == "$(docker inspect --format='{{.Id}}' "${image_ref}")" ]]; then
+              echo "${staging} already points to ${image_ref}; nothing to promote"
+              exit 0
+            fi
             docker tag "${staging}" "${previous}"
             docker push "${previous}"
           else
             echo "no existing staging image; skip previous-tag"
+          fi
+          docker tag "${image_ref}" "${staging}"
+          docker push "${staging}"
+          echo "promoted ${image_ref} to ${staging}"
+
+      - name: Promote rolled-back landing image to staging
+        if: ${{ !cancelled() && needs.rollback.outputs.landing_promote == 'true' }}
+        env:
+          DEPLOYED_IMAGE: ${{ needs.rollback.outputs.landing_image_ref }}
+          STAGING_TAG: ${{ needs.rollback.outputs.landing_staging }}
+          PREVIOUS_TAG: ${{ needs.rollback.outputs.landing_previous }}
+          REPOSITORY: ${{ github.repository }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: |
+          image_ref="${DEPLOYED_IMAGE}"
+          staging="${STAGING_TAG}"
+          previous="${PREVIOUS_TAG}"
+          # image_ref comes from .deploy-state on the VM: promote only this repository's landing
+          # images, pinned by a full git sha or a digest.
+          repo="$(echo "${REPOSITORY}" | tr '[:upper:]' '[:lower:]')"
+          image="ghcr.io/${repo}-landing"
+          suffix="${image_ref#"${image}"}"
+          if [[ "${suffix}" == "${image_ref}" ]] || [[ ! "${suffix}" =~ ^@sha256:[0-9a-f]{64}$ && ! "${suffix}" =~ ^:[0-9a-f]{40}$ ]]; then
+            echo "refusing to promote '${image_ref}': expected ${image}@sha256:<64 hex> or ${image}:<full git sha>" >&2
+            exit 1
+          fi
+          echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
+          docker pull "${image_ref}"
+          if docker pull "${staging}"; then
+            # A re-run after a partial promote: :staging already is this image, and retagging
+            # would overwrite :staging-previous with it.
+            if [[ "$(docker inspect --format='{{.Id}}' "${staging}")" == "$(docker inspect --format='{{.Id}}' "${image_ref}")" ]]; then
+              echo "${staging} already points to ${image_ref}; nothing to promote"
+              exit 0
+            fi
+            docker tag "${staging}" "${previous}"
+            docker push "${previous}"
+          else
+            echo "no existing landing staging image; skip previous-tag"
           fi
           docker tag "${image_ref}" "${staging}"
           docker push "${staging}"

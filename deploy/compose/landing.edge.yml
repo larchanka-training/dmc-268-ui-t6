@@ -1,0 +1,14 @@
+# Course VPS: no host port. The landing joins the edge proxy network (deployed by the API repo)
+# as EDGE_ALIAS (landing-staging); the proxy dials <alias>:8080 for staging.<APP_DOMAIN>,
+# staging-www.<APP_DOMAIN> and, until a prod rollout exists, <APP_DOMAIN> and www.<APP_DOMAIN>.
+services:
+  landing:
+    networks:
+      edge:
+        aliases:
+          - ${EDGE_ALIAS:?EDGE_ALIAS is required}
+
+networks:
+  edge:
+    name: dmc268-edge
+    external: true
