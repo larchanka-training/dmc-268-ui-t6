@@ -8,9 +8,11 @@ import {
   RAG_ERROR_TITLE,
   RAG_HINT,
   RAG_LABEL,
+  RAG_LAST_BUILD_FAILED,
   RAG_NO_ACCESS_TEXT,
   RAG_POLL_TIMED_OUT_TEXT,
   ragIndexView,
+  type RagIndexView,
 } from '../lib/ragIndexView'
 import styles from './RagSection.module.css'
 
@@ -37,6 +39,16 @@ export interface RagSectionProps {
   /** Text of an error shown under the status. */
   describeError: (error: unknown) => string
 }
+
+/** The text of an error code with the code after it, or the code alone when it has no text. */
+const Reason: FC<{ reason: NonNullable<RagIndexView['reason']> }> = ({ reason }) =>
+  reason.text === null ? (
+    <code>{reason.code}</code>
+  ) : (
+    <>
+      {reason.text} (<code>{reason.code}</code>)
+    </>
+  )
 
 /**
  * RAG is `ragEnabled`. Like the auto-review switch, it takes effect at once, apart from the form
@@ -118,7 +130,16 @@ export const RagSection: FC<RagSectionProps> = ({
           </>
         ) : null}
         {view.detail !== null ? <Text type="secondary">{view.detail}</Text> : null}
-        {view.code !== null ? <code>{view.code}</code> : null}
+        {view.reason !== null && ragIndex.status === 'failed' ? (
+          <Text type="secondary">
+            <Reason reason={view.reason} />
+          </Text>
+        ) : null}
+        {view.reason !== null && ragIndex.status !== 'failed' ? (
+          <Text className={styles.wide} type="secondary">
+            {RAG_LAST_BUILD_FAILED}: <Reason reason={view.reason} />
+          </Text>
+        ) : null}
         {polling === 'timedOut' ? (
           <Text className={styles.wide} type="secondary">
             {RAG_POLL_TIMED_OUT_TEXT}

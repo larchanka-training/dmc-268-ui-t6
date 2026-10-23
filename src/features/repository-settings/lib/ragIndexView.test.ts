@@ -38,7 +38,7 @@ describe('ragIndexView', () => {
       pulse: false,
       publication: null,
       detail: null,
-      code: null,
+      reason: null,
     })
   })
 
@@ -56,7 +56,7 @@ describe('ragIndexView', () => {
       pulse: false,
       publication: null,
       detail: null,
-      code: null,
+      reason: null,
     })
   })
 
@@ -67,7 +67,7 @@ describe('ragIndexView', () => {
       pulse: false,
       publication: null,
       detail: null,
-      code: null,
+      reason: null,
     })
   })
 
@@ -78,7 +78,7 @@ describe('ragIndexView', () => {
       pulse: true,
       publication: null,
       detail: null,
-      code: null,
+      reason: null,
     })
   })
 
@@ -89,7 +89,7 @@ describe('ragIndexView', () => {
       pulse: false,
       publication: PUBLICATION,
       detail: null,
-      code: null,
+      reason: null,
     })
   })
 
@@ -102,7 +102,7 @@ describe('ragIndexView', () => {
       pulse: false,
       publication: PUBLICATION,
       detail: null,
-      code: null,
+      reason: null,
     })
   })
 
@@ -113,12 +113,12 @@ describe('ragIndexView', () => {
       pulse: false,
       publication: PUBLICATION,
       detail: RAG_STALE_DETAIL,
-      code: null,
+      reason: null,
     })
     expect(RAG_STALE_DETAIL).toBe('индекс отстаёт от default branch, используется')
   })
 
-  it('says «Ошибка» with the raw error code for a `failed` index, and no publication', () => {
+  it('says «Ошибка» with the reason and the raw error code for a `failed` index, and no publication', () => {
     expect(
       ragIndexView(index({ status: 'failed', lastErrorCode: 'limit_exceeded:symbols' }), true),
     ).toEqual<RagIndexView>({
@@ -127,7 +127,10 @@ describe('ragIndexView', () => {
       pulse: false,
       publication: null,
       detail: null,
-      code: 'limit_exceeded:symbols',
+      reason: {
+        code: 'limit_exceeded:symbols',
+        text: 'индекс слишком большой: превышен лимит символов',
+      },
     })
   })
 
@@ -140,7 +143,7 @@ describe('ragIndexView', () => {
       pulse: false,
       publication: null,
       detail: null,
-      code: null,
+      reason: null,
     })
   })
 
@@ -156,6 +159,76 @@ describe('ragIndexView', () => {
 
       expect(view.publication).toBeNull()
       expect(view.label).toBe(status === 'ready' ? 'Готов' : 'Устарел')
+    },
+  )
+})
+
+describe('ragIndexView: the reason of the last build', () => {
+  it.each([
+    ['limit_exceeded:files', 'индекс слишком большой: превышен лимит файлов'],
+    ['limit_exceeded:symbols', 'индекс слишком большой: превышен лимит символов'],
+    ['limit_exceeded:edges', 'индекс слишком большой: превышен лимит рёбер'],
+    ['limit_exceeded:bytes', 'индекс слишком большой: превышен лимит размера'],
+    ['limit_exceeded:parsed_files', 'индекс слишком большой: превышен лимит parsed_files'],
+    ['archive_unsafe', 'архив репозитория отклонён проверкой безопасности'],
+  ])('explains %s and keeps the code', (code, text) => {
+    expect(ragIndexView(index({ status: 'failed', lastErrorCode: code }), true).reason).toEqual({
+      code,
+      text,
+    })
+  })
+
+  it.each(['internal_error', 'vcs_unavailable', 'limit_exceeded:', 'constructor'])(
+    'keeps the unknown code %s with no text',
+    (code) => {
+      expect(ragIndexView(index({ status: 'failed', lastErrorCode: code }), true).reason).toEqual({
+        code,
+        text: null,
+      })
+    },
+  )
+
+  it('gives the reason of the last build for an `empty` index that carries a code', () => {
+    expect(
+      ragIndexView(index({ status: 'empty', lastErrorCode: 'limit_exceeded:files' }), true),
+    ).toEqual<RagIndexView>({
+      label: 'Не построен',
+      tone: 'neutral',
+      pulse: false,
+      publication: null,
+      detail: null,
+      reason: {
+        code: 'limit_exceeded:files',
+        text: 'индекс слишком большой: превышен лимит файлов',
+      },
+    })
+  })
+
+  it('gives the reason of the last build next to the publication of a `ready` index', () => {
+    expect(
+      ragIndexView(index({ status: 'ready', ...PUBLISHED, lastErrorCode: 'internal_error' }), true),
+    ).toEqual<RagIndexView>({
+      label: 'Готов',
+      tone: 'success',
+      pulse: false,
+      publication: PUBLICATION,
+      detail: null,
+      reason: { code: 'internal_error', text: null },
+    })
+  })
+
+  it.each(['building', 'stale'] as const)('gives the reason for a `%s` index too', (status) => {
+    expect(
+      ragIndexView(index({ status, ...PUBLISHED, lastErrorCode: 'internal_error' }), true).reason,
+    ).toEqual({ code: 'internal_error', text: null })
+  })
+
+  it.each(['disabled', 'empty', 'building', 'ready', 'stale', 'failed'] as const)(
+    'gives no reason for the %s index while RAG is off',
+    (status) => {
+      expect(
+        ragIndexView(index({ status, lastErrorCode: 'limit_exceeded:symbols' }), false).reason,
+      ).toBeNull()
     },
   )
 })

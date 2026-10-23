@@ -7,6 +7,7 @@ export const RAG_NO_ACCESS_TEXT = 'Нет доступа GitHub App — RAG не
 export const RAG_ERROR_TITLE = 'Не удалось изменить настройку RAG'
 export const RAG_POLL_TIMED_OUT_TEXT = 'Автообновление остановлено — обновите страницу'
 export const RAG_STALE_DETAIL = 'индекс отстаёт от default branch, используется'
+export const RAG_LAST_BUILD_FAILED = 'Последняя сборка не удалась'
 
 export interface RagIndexView {
   /** The status text. */
@@ -18,8 +19,12 @@ export interface RagIndexView {
   publication: { sha: string; shortSha: string; indexedAt: string } | null
   /** An explanation next to the status; only `stale` has one. */
   detail: string | null
-  /** `lastErrorCode` of a `failed` index, as the server sent it. */
-  code: string | null
+  /**
+   * Why the last build attempt ended without a publication: `lastErrorCode` as the server sent it,
+   * and a text for the codes that have one. A `failed` index carries its refusal here; any other
+   * status (but `disabled`) may carry the code of a later attempt next to what it shows.
+   */
+  reason: { code: string; text: string | null } | null
 }
 
 /** The seven characters git itself shows; the full sha stays in a tooltip. */
@@ -33,6 +38,30 @@ export function shortSha(sha: string): string {
  */
 export function formatIndexedAt(iso: string): string {
   return new Date(iso).toISOString().replace('T', ' ').slice(0, 19)
+}
+
+// contracts/openapi.yaml, `RagIndexStatus`: the codes of a `failed` index.
+const ERROR_REASONS: Record<string, string> = {
+  'limit_exceeded:files': 'индекс слишком большой: превышен лимит файлов',
+  'limit_exceeded:symbols': 'индекс слишком большой: превышен лимит символов',
+  'limit_exceeded:edges': 'индекс слишком большой: превышен лимит рёбер',
+  'limit_exceeded:bytes': 'индекс слишком большой: превышен лимит размера',
+  archive_unsafe: 'архив репозитория отклонён проверкой безопасности',
+}
+const LIMIT_EXCEEDED = 'limit_exceeded:'
+
+/**
+ * The text of an error code, or null for a code that has none. A code is looked up only where it
+ * is a key of the map, so `constructor` is not; any other limit is named as the server names it.
+ */
+function errorReason(code: string): string | null {
+  if (Object.keys(ERROR_REASONS).includes(code)) {
+    return ERROR_REASONS[code] ?? null
+  }
+  if (code.startsWith(LIMIT_EXCEEDED) && code.length > LIMIT_EXCEEDED.length) {
+    return `индекс слишком большой: превышен лимит ${code.slice(LIMIT_EXCEEDED.length)}`
+  }
+  return null
 }
 
 function publicationOf(index: RagIndex): RagIndexView['publication'] {
@@ -60,33 +89,38 @@ export function ragIndexView(index: RagIndex, ragEnabled: boolean): RagIndexView
     pulse: false,
     publication: null,
     detail: null,
-    code: null,
+    reason: null,
   }
   if (!ragEnabled) {
     return base
   }
+  const code = index.lastErrorCode
+  const on: RagIndexView = {
+    ...base,
+    reason: code === null ? null : { code, text: errorReason(code) },
+  }
   switch (index.status) {
     case 'disabled':
     case 'empty':
-      return { ...base, label: 'Не построен' }
+      return { ...on, label: 'Не построен' }
     case 'building':
-      return { ...base, label: 'Строится…', tone: 'info', pulse: true }
+      return { ...on, label: 'Строится…', tone: 'info', pulse: true }
     case 'ready':
       return {
-        ...base,
+        ...on,
         label: index.fileCount === 0 ? 'Готов — репозиторий пустой' : 'Готов',
         tone: 'success',
         publication: publicationOf(index),
       }
     case 'stale':
       return {
-        ...base,
+        ...on,
         label: 'Устарел',
         tone: 'warning',
         publication: publicationOf(index),
         detail: RAG_STALE_DETAIL,
       }
     case 'failed':
-      return { ...base, label: 'Ошибка', tone: 'danger', code: index.lastErrorCode }
+      return { ...on, label: 'Ошибка', tone: 'danger' }
   }
 }
