@@ -13,7 +13,12 @@ import {
   stepFrame,
   updatedFrame,
 } from './runStreamConnect.page.fixture'
-import { fetchRunActionResponse, fetchRunActions, runQueryKeys } from '../../entities/run'
+import {
+  fetchRunActionResponse,
+  fetchRunActions,
+  fetchRunList,
+  runQueryKeys,
+} from '../../entities/run'
 import { setAccessToken, setMockTransport } from '../../shared/api/client'
 import { useDiffViewerStore } from '../../widgets/diff-viewer'
 import { useRunInspectorStore } from '../../widgets/run-inspector'
@@ -137,6 +142,60 @@ describe('RunDetailPage live step stream', () => {
     expect(Date.now() - NOW.getTime()).toBe(0)
   })
 
+  it.each([
+    ['keepalive', ': keepalive\n\n'],
+    ['malformed update', 'event: run.updated\ndata: not json\n\n'],
+  ])('a %s-only chunk after an update refetches nothing', async (_label, frame) => {
+    fixture.mountPage()
+    await settle()
+    fixture.streams[0]?.send(updatedFrame())
+    await settle()
+
+    fixture.streams[0]?.send(frame)
+    await settle()
+
+    expect(fixture.requestCount(`/api/runs/${RUN_A}`)).toBe(2)
+    expect(fixture.requestCount(`/api/runs/${RUN_A}/actions`)).toBe(2)
+    expect(fixture.requestCount(`/api/runs/${RUN_A}/diff`)).toBe(2)
+    expect(fixture.requestCount(`/api/runs/${RUN_A}/comments`)).toBe(2)
+    expect(Date.now() - NOW.getTime()).toBe(0)
+  })
+
+  it('retains the diff target when another step follows fetch-diff in the same chunk', async () => {
+    fixture.mountPage()
+    await settle()
+    fixture.actions = [action('vcs.fetch_diff')]
+    fixture.diffReady = true
+
+    fixture.streams[0]?.send(stepFrame('vcs.fetch_diff') + stepFrame('context.build'))
+    await settle()
+
+    expect(fixture.requestCount(`/api/runs/${RUN_A}/actions`)).toBe(2)
+    expect(fixture.requestCount(`/api/runs/${RUN_A}/diff`)).toBe(2)
+    expect(fixture.requestCount(`/api/runs/${RUN_A}`)).toBe(1)
+    expect(fixture.requestCount(`/api/runs/${RUN_A}/comments`)).toBe(1)
+    expect(screen.getByText('src/stream.ts')).toBeTruthy()
+    expect(Date.now() - NOW.getTime()).toBe(0)
+  })
+
+  it('refreshes the mounted list once for two different run updates in one stream chunk', async () => {
+    const list = new QueryObserver(queryClient, {
+      queryKey: runQueryKeys.list(),
+      queryFn: () => fetchRunList(),
+    })
+    unsubscribe.push(list.subscribe(() => undefined))
+    fixture.mountPage()
+    await settle()
+    expect(fixture.requestCount('/api/runs')).toBe(1)
+
+    fixture.streams[0]?.send(updatedFrame(RUN_A) + updatedFrame(RUN_B))
+    await settle()
+
+    expect(fixture.requestCount('/api/runs')).toBe(2)
+    expect(list.getCurrentResult().isError).toBe(false)
+    expect(Date.now() - NOW.getTime()).toBe(0)
+  })
+
   it.each(['step first', 'update first'])(
     'refreshes each endpoint once for a fetch-diff step and update in one chunk: %s',
     async (order) => {
@@ -166,6 +225,10 @@ describe('RunDetailPage live step stream', () => {
   )
 
   it('keeps different runs separate when a chunk mixes a full update and repeated steps', async () => {
+    queryClient.setQueryData(runQueryKeys.detail(RUN_B), { status: 'running' })
+    queryClient.setQueryData(runQueryKeys.diff(RUN_B), [])
+    queryClient.setQueryData(runQueryKeys.comments(RUN_B), [])
+    queryClient.setQueryData(runQueryKeys.actionResponse(RUN_B, 1), { body: 'other response' })
     const otherRun = new QueryObserver(queryClient, {
       queryKey: runQueryKeys.actions(RUN_B),
       queryFn: () => fetchRunActions(RUN_B),
@@ -184,6 +247,12 @@ describe('RunDetailPage live step stream', () => {
 
     expect(fixture.requestCount(`/api/runs/${RUN_A}/actions`)).toBe(2)
     expect(fixture.requestCount(`/api/runs/${RUN_B}/actions`)).toBe(2)
+    expect(queryClient.getQueryState(runQueryKeys.detail(RUN_B))?.isInvalidated).toBe(false)
+    expect(queryClient.getQueryState(runQueryKeys.diff(RUN_B))?.isInvalidated).toBe(false)
+    expect(queryClient.getQueryState(runQueryKeys.comments(RUN_B))?.isInvalidated).toBe(false)
+    expect(queryClient.getQueryState(runQueryKeys.actionResponse(RUN_B, 1))?.isInvalidated).toBe(
+      false,
+    )
     expect(fixture.requestCount(`/api/runs/${RUN_A}`)).toBe(2)
     expect(fixture.requestCount(`/api/runs/${RUN_A}/diff`)).toBe(2)
     expect(fixture.requestCount(`/api/runs/${RUN_A}/comments`)).toBe(2)
@@ -202,6 +271,8 @@ describe('RunDetailPage live step stream', () => {
     fixture.streams[0]?.send(updatedFrame(RUN_A, 'succeeded'))
     await settle()
 
+    // Locks the chosen cancel/restart mechanism as well as freshness. A bounded trailing
+    // refresh would require revisiting this count and the architecture decision together.
     expect(fixture.requestCount(`/api/runs/${RUN_A}/actions`)).toBe(3)
     expect(screen.getByText('succeeded')).toBeTruthy()
     expect(screen.getByText('#1 llm.generate_review (<1 с)')).toBeTruthy()
@@ -212,36 +283,51 @@ describe('RunDetailPage live step stream', () => {
     expect(Date.now() - NOW.getTime()).toBe(0)
   })
 
-  it('recovers the observed journal after reconnect without replay or a polling refetch', async () => {
-    // Query's documented hidden-tab mode suppresses polling ticks; reconnect must recover on its own.
-    focusManager.setFocused(false)
-    fixture.mountPage()
-    await settle()
-    expect(fixture.requestCount(`/api/runs/${RUN_A}/actions`)).toBe(1)
-    await advance(3000)
-    await settle()
-    expect(fixture.requestCount(`/api/runs/${RUN_A}/actions`)).toBe(1)
+  it.each(['without an event cursor', 'with an event cursor'])(
+    'recovers the observed journal after reconnect %s before replay or polling',
+    async (cursor) => {
+      // Query's documented hidden-tab mode suppresses polling ticks; reconnect must recover on its own.
+      focusManager.setFocused(false)
+      fixture.mountPage()
+      await settle()
+      expect(fixture.requestCount(`/api/runs/${RUN_A}/actions`)).toBe(1)
+      if (cursor === 'with an event cursor') {
+        fixture.streams[0]?.send('event: ping\nid: 42\ndata: ignored\n\n')
+        await settle()
+      }
+      await advance(3000)
+      await settle()
+      expect(fixture.requestCount(`/api/runs/${RUN_A}/actions`)).toBe(1)
 
-    fixture.actions = [action('context.build')]
-    fixture.streams[0]?.close()
-    await settle()
-    await advance(2999)
-    expect(fixture.requestCount('/api/stream')).toBe(1)
-    expect(fixture.requestCount(`/api/runs/${RUN_A}/actions`)).toBe(1)
-    await advance(1)
-    await settle()
-    // Query notifications scheduled during the reconnect timer flush on the following turn.
-    await advance(1)
-    await settle()
+      fixture.actions = [action('context.build')]
+      fixture.streams[0]?.close()
+      await settle()
+      await advance(2999)
+      expect(fixture.requestCount('/api/stream')).toBe(1)
+      expect(fixture.requestCount(`/api/runs/${RUN_A}/actions`)).toBe(1)
+      await advance(1)
+      await settle()
+      // Query notifications scheduled during the reconnect timer flush on the following turn.
+      await advance(1)
+      await settle()
 
-    expect(fixture.requestCount('/api/stream')).toBe(2)
-    expect(fixture.requestCount(`/api/runs/${RUN_A}/actions`)).toBe(2)
-    expect(fixture.requestCount(`/api/runs/${RUN_A}`)).toBe(2)
-    expect(fixture.requestCount(`/api/runs/${RUN_A}/diff`)).toBe(2)
-    expect(fixture.requestCount(`/api/runs/${RUN_A}/comments`)).toBe(2)
-    expect(screen.getByText('#1 context.build (<1 с)')).toBeTruthy()
-    expect(screen.getByTestId('run-progress-analysis').getAttribute('data-stage-state')).toBe(
-      'process',
-    )
-  })
+      expect(fixture.requestCount('/api/stream')).toBe(2)
+      expect(fixture.requestCount(`/api/runs/${RUN_A}/actions`)).toBe(2)
+      expect(fixture.requestCount(`/api/runs/${RUN_A}`)).toBe(2)
+      expect(fixture.requestCount(`/api/runs/${RUN_A}/diff`)).toBe(2)
+      expect(fixture.requestCount(`/api/runs/${RUN_A}/comments`)).toBe(2)
+      expect(screen.getByText('#1 context.build (<1 с)')).toBeTruthy()
+      expect(screen.getByTestId('run-progress-analysis').getAttribute('data-stage-state')).toBe(
+        'process',
+      )
+      const streamCalls = vi.mocked(fetch).mock.calls.filter(([input]) => {
+        const url =
+          typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        return url.endsWith('/stream')
+      })
+      expect(new Headers(streamCalls[1]?.[1]?.headers).get('Last-Event-ID')).toBe(
+        cursor === 'with an event cursor' ? '42' : null,
+      )
+    },
+  )
 })

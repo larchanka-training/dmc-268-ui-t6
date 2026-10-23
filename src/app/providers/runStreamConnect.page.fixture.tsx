@@ -162,6 +162,9 @@ export function createRunStreamPageFixture(): RunStreamPageFixture {
           new Response(stream.body, { headers: { 'content-type': 'text/event-stream' } }),
         )
       }
+      if (path === '/api/runs') {
+        return Promise.resolve(Response.json({ items: [], nextCursor: null }))
+      }
       if (path === `/api/runs/${RUN_A}`) {
         return Promise.resolve(Response.json(fixture.run))
       }

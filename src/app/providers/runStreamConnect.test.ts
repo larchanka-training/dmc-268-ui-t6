@@ -278,6 +278,7 @@ describe('applyRunUpdated', () => {
   const RUN_ID = '11111111-1111-4111-8111-000000000004'
 
   afterEach(() => {
+    queryClient.clear()
     vi.restoreAllMocks()
   })
 
@@ -309,7 +310,6 @@ describe('applyRunUpdated', () => {
       true,
     )
     expect(queryClient.getQueryState(runQueryKeys.actions(RUN_B))?.isInvalidated).toBe(false)
-    queryClient.clear()
   })
 
   it('invalidates the same keys whatever the status', () => {

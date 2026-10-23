@@ -4,20 +4,20 @@
 
 Address [ui#161](https://github.com/larchanka-training/dmc-268-ui-t6/issues/161): remove overlapping run-query invalidations and combine refreshes for consecutive frames in one parsed SSE chunk. Preserve immediate step-driven journal updates, successful `vcs.fetch_diff` updates, reconnect catch-up, list refreshes, and the existing 3000 ms actions poll.
 
-**Status: published as ready PR #166; implementation, local verification, and independent review complete. Staging acceptance remains pending deployment and authenticated access.**
+**Status: PR #166 review round 1 corrections implemented, verified, and independently reviewed; the publication-preparation snapshot is recorded below. Staging acceptance remains pending deployment and authenticated access.**
 
 ## Inspected baseline
 
-Source baseline is refreshed `origin/main` at `1b1e702558db700908cfacdaf3daf95dd78a3a9f`. The existing checkout is unrelated `fix/110-mock-rerun` at `e4a19fe6edc29af3bbf892e246adcfc2d715b6f5`; its untracked plans and `.pnpm-store/` must be preserved. Latest-main source was inspected with `git show`, including `runStreamConnect.ts`, its unit/page tests and page fixture, entity query keys, and FRONTEND_ARCHITECTURE §2.
+Source baseline is `origin/main` at `1b1e702558db700908cfacdaf3daf95dd78a3a9f`. Inspected `runStreamConnect.ts`, its unit/page tests and page fixture, entity query keys, and FRONTEND_ARCHITECTURE §2.
 
 On main, `invalidateRunQueries` invalidates `['runs', id]`, already a prefix of actions/diff/comments (and action responses), then invalidates the three nested keys again. The step path separately invalidates exact actions and, on successful fetch-diff, exact diff. Reconnect calls the same overlapping helper. Existing unit tests assert invocation counts; page tests exercise a real QueryClient and count HTTP calls.
 
-Attempted the issue's targeted baseline command on the existing checkout; `pnpm` produced no output and was interrupted (exit 130). This is **not** a successful baseline and would not cover latest-main page tests anyway. First development task reruns it in an isolated checkout based on latest main, with the supported Node version (package requires >=22.22.0; current shell reports Node 22.18.0) and pinned pnpm.
+The targeted baseline was run successfully on that source baseline using the supported Node runtime and pinned pnpm; results are recorded below.
 
 ## Architecture decisions
 
 1. **One prefix per full-run refresh.** `run.updated`, mock `applyRunUpdated`, and reconnect invalidate `runQueryKeys.detail(runId)` once. Do not add the overlapping actions/diff/comments calls. This preserves existing descendant semantics, including cached action-response queries, and avoids editing entity query keys or hooks. Keep `invalidateRunLists` unchanged.
-2. **Coalesce within each parsed chunk.** Parse and validate frames using existing boundary parsers, collect refresh targets by run ID, then flush before reading the next chunk. A full-run target subsumes exact actions/diff targets for that run; repeated step targets coalesce. Any valid update still causes list invalidation. Steps alone retain exact targeting, and successful fetch-diff still adds exact diff. No timer, debounce interval, or wait for polling is introduced.
+2. **Coalesce within each parsed chunk.** Parse and validate frames using existing boundary parsers, collect refresh targets by run ID, then flush before reading the next chunk. A full-run target subsumes exact actions/diff targets for that run; repeated step targets coalesce. Each chunk containing at least one valid update invalidates the list once; existing pagination protection is preserved. Steps alone retain exact targeting, and successful fetch-diff still adds exact diff. No timer, debounce interval, or wait for polling is introduced.
 3. **Keep freshness across later chunks.** Retain TanStack Query's default `cancelRefetch: true`. A genuinely later chunk may cancel/restart an in-flight cached query so newer server data wins; this plan does not promise deduplication across an arbitrary time window. Do not blindly use `cancelRefetch: false`: joining a request that began before the event can return old data, clear invalidation on success, and miss terminal actions after polling stops. If implementation changes this choice, first add a controlled stale-in-flight regression and a bounded trailing refresh, then update this plan/review the tradeoff.
 4. **Stay within the bridge boundary.** Limit production changes to `src/app/providers/runStreamConnect.ts`, tests/fixture, and architecture documentation. Keep transport/auth/backoff/watchdog, event cursor, 3000 ms polling, and progress ordering unchanged. No new dependencies.
 
@@ -93,8 +93,7 @@ No product choice is required beyond approval of this plan. Staging deployment/a
 
 ## Development evidence
 
-- Worktree `/private/tmp/dmc-268-ui-161`, branch `fix/161-run-stream-dedupe`, base `1b1e702`.
-- Runtime Node 24.20.0 / pnpm 12.4.1; reuse existing installed node_modules via an untracked symlink; no dependency changes. pnpm commands require execution outside the sandbox because the wrapper hangs inside it.
+- Source baseline `1b1e702`; runtime Node 24.20.0 / pnpm 12.4.1; no dependency changes.
 - Baseline targeted stream/page suite: 2 files, 56 tests passed on latest main.
 - RED: new page suite had 6 failures and 2 passes. One update/reconnect issued 2 actions refetches (total 3 including mount); same-chunk step/update in either order issued 3 (total 4), where one is required.
 - GREEN: stream/page, list, polling/API and progress suites: 5 files, 209 tests passed after implementation. Full refresh spy expectations intentionally changed from four overlapping keys to one detail prefix; exact step assertions remain.
@@ -126,17 +125,77 @@ by the existing passing tests. All nine final scenarios passed with no query err
 | Two separated update chunks               | detail/actions/diff/comments/action-response/list: 2 each; unrelated run: 0                                           |
 
 The pre-change browser baseline issued actions/diff/comments/action-response twice for one
-update, and actions three times for same-chunk step + update. Evidence is saved locally in
-`/private/tmp/ui161-qa/results.jsonl` and `/private/tmp/ui161-qa/http.jsonl`; the fixture is
-outside the repository and is not a product dependency. Timing numbers include its artificial
+update, and actions three times for same-chunk step + update. The table is a summary of local observations, not a repository-hosted raw trace. The disposable
+fixture is not a product dependency. Timing numbers include its artificial
 HTTP delay and are not production performance claims.
 
 Staging Network acceptance remains pending until this change is deployed and authenticated
-access is available. Record deployment SHA/run ID and separate SSE requests from polling at
-that point; no staging success is claimed from local browser or component tests.
+access is available. Record deployment SHA/run ID and separate SSE requests from initial loads and polling.
+For one isolated status update expect one GET each for detail/actions/diff/comments. For a
+step plus update in the same `reader.read()` chunk expect one actions refresh; separate chunks
+produce two actions refreshes, one per frame. Server yields do not establish browser read
+boundaries: correlate grouping with stream-read instrumentation when available or record it
+as unknown. Reconnect resync plus the API's overlapping replay can produce a second refresh
+per endpoint; this is a known limitation, not cross-chunk deduplication. No staging success is
+claimed from local browser or component tests.
 
-## Independent review and publication
+## Initial independent review and publication
 
-Fresh independent standards/spec review completed with zero code findings (Standards: 0 hard violations, 0 baseline smells; Spec: 0 code findings). The only acceptance limitation is staging Network validation, which remains pending deployment and authenticated access.
+Initial independent standards/spec review completed with zero code findings (Standards: 0 hard violations, 0 baseline smells; Spec: 0 code findings). The only acceptance limitation is staging Network validation, which remains pending deployment and authenticated access.
 
-The publisher fetched `origin/main` before publication; it remains `1b1e702558db700908cfacdaf3daf95dd78a3a9f`, the tested source baseline. No source rebase was needed. The user confirmed a normal ready PR and will select the reviewer. Published [PR #166](https://github.com/larchanka-training/dmc-268-ui-t6/pull/166) as a normal ready PR with no reviewer assigned, as requested. Implementation commit: `d12c6ee0f801390420d031fdaec11adbb78c60e3`. Normal pre-commit and pre-push checks passed; the seven intended files were verified on the PR, with no runtime symlink or dependency changes and zero closing issue references. GitHub CI was running when this publication record was written; the project card remains In Progress until CI is green. The user will choose the reviewer. Staging validation, current-head approval, and merge remain outstanding; this publication does not accept or close the issue.
+Initial publication used the tested `origin/main` baseline `1b1e702558db700908cfacdaf3daf95dd78a3a9f`;
+no source rebase was needed. Published [PR #166](https://github.com/larchanka-training/dmc-268-ui-t6/pull/166)
+as a normal ready PR, initially without a reviewer as requested. Implementation commit:
+`d12c6ee0f801390420d031fdaec11adbb78c60e3`. Normal pre-commit and pre-push checks passed;
+the seven intended files contained no dependency changes or closing issue references.
+Staging validation, current-head approval, and merge remain outstanding; publication does not
+accept or close the issue.
+
+## Review round 1 corrections
+
+Reviewed head `d56f6c3` against the full review and both inline threads. No production
+refresh algorithm changes were needed; this round strengthens boundary regressions and
+clarifies the contract.
+
+- P2-1: SSE decision is Ф-25 in the table and §2. Audited current main and every open UI PR;
+  only #109 and #166 change the architecture document, and #109 retains its RAG Ф-24.
+  Coordination was posted before editing: [PR #109 note](https://github.com/larchanka-training/dmc-268-ui-t6/pull/109#issuecomment-6365194705).
+- P2-2: new HTTP regressions cover update followed by a keepalive-only or malformed-only
+  chunk (M4), successful fetch-diff followed by a non-diff step in one chunk (M18), and exact
+  B targeting when A has a full update (M19). B detail/diff/comments/action-response stay
+  fresh while its observed actions refresh once.
+- P3-1/2: architecture and staging instructions state immediate reconnect resync versus
+  overlapping replay, and same-read versus separate-read expectations. Reconnect catch-up
+  is tested with both empty and nonempty Last-Event-ID, before replay arrives; no replay
+  deduplication or delay until the first chunk was introduced.
+- P3-3/4: the production stream test observes one list HTTP refresh for two valid updates
+  of different runs in one chunk (M11). Standalone mock `applyRunUpdated` still refreshes
+  once per event; its JSDoc makes this distinction explicit. Existing list pagination
+  protection is unchanged.
+- P3-5/6: inactive-cache cleanup now runs in afterEach even on assertion failure; local-only
+  paths and unrelated checkout/runtime history were removed from the implementation record.
+- P3-7: the pending-response test intentionally retains total actions count 3: mount, old
+  request, replacement request. It verifies the chosen cancellation mechanism and newest
+  terminal data. A future bounded trailing refresh would need a revised test and documented
+  tradeoff; this correction retains the current contract.
+
+Mutation RED evidence: each mutant was applied alone and the intended regression failed.
+M4 produced 2 failures (detail count 3 instead of 2 after keepalive/malformed chunks); M18
+produced 1 (diff count 1 instead of 2); M19 produced 1 (other-run descendant invalidated);
+M11 produced 1 (list count 3 instead of 2); M20 produced 1 (nonempty-cursor reconnect count
+1 instead of 2). The production source was restored byte-for-byte after each check. All new
+tests passed against the unchanged production algorithm before mutation (2 files / 67 tests).
+Restored-source verification then passed 6 files / 154 tests across stream, list, API, polling,
+and progress suites.
+Fresh independent review of the correction diff, including final typed URL handling, reports
+Standards: 0 hard violations / 0 baseline smells; Spec: 0 code findings. The review confirms
+both P2 items and all seven P3 items are addressed within the approved scope. The card remains
+On Review during the correction cycle; staging acceptance remains pending.
+Final correction gates passed on Node 24.20.0 / pnpm 12.4.1: `pnpm lint`,
+`pnpm check-types`, `pnpm format:check`, `pnpm test` (137 files / 2112 tests),
+`pnpm build`, and `pnpm verify:prod-bundle` (29 JS assets clean). The initial lint attempt
+found a typed URL extraction issue in the new test; it was corrected before this successful
+six-gate run. Existing jsdom notices and the Vite large-chunk advisory remained non-failing.
+The source algorithm is unchanged from reviewed head `d56f6c3`; only its helper JSDoc changed.
+No new browser or staging observation is claimed for this test/documentation correction.
+Publication-preparation snapshot: the publisher re-fetched main at `1b1e702` and rechecked the unchanged open architecture branches. The verified correction is ready for one commit. Push, PR-body update, replies, current-head CI, and review re-request occur after this snapshot; consult the PR timeline for those external actions. Current-head approval and staging acceptance remain outstanding.

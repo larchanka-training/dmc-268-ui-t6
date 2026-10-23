@@ -66,9 +66,10 @@ function invalidateRunQueries(runId: string): void {
 }
 
 /**
- * Applies one `run.updated` event: the queries of that run, plus the runs list, whose status
- * column shows the new status (a page of the list that is being loaded is kept, see
- * `invalidateRunLists`). The resync after a reconnect does not touch the list.
+ * Applies one standalone `run.updated` from the mock transport: one run prefix plus the list.
+ * Production SSE collects targets per parsed chunk in `readStream`, refreshing the list once
+ * for all valid updates in that chunk. Both paths preserve a list page being loaded through
+ * `invalidateRunLists`; reconnect resync refreshes run prefixes without touching the list.
  */
 export function applyRunUpdated(event: RunUpdatedEvent): void {
   invalidateRunQueries(event.runId)
