@@ -1,3 +1,4 @@
+import { getAppUrl } from '../lib/appUrl'
 import { HeroGlass } from './HeroGlass'
 import { ReviewDemo } from './ReviewDemo'
 import { cx } from '../lib/cx'
@@ -21,8 +22,8 @@ export function Hero() {
         <p className={styles.subtitle}>
           Your code, your rules. Let AI handle the reviews while you focus on building.
         </p>
-        <a href="#waitlist" className={styles.cta}>
-          Get early access
+        <a href={getAppUrl()} className={styles.cta}>
+          Try it now
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <path
               d="M3 8h10m0 0L9 4m4 4-4 4"

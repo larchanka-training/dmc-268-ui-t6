@@ -4,7 +4,7 @@ import { Footer } from './components/Footer'
 import { Header } from './components/Header'
 import { Hero } from './components/Hero'
 import { HowItWorks } from './components/HowItWorks'
-import { Waitlist } from './components/Waitlist'
+import { AppCta } from './components/AppCta'
 
 export function App() {
   return (
@@ -19,7 +19,7 @@ export function App() {
         <HowItWorks />
         <Features />
         <CustomRules />
-        <Waitlist />
+        <AppCta />
       </main>
       <Footer />
     </>
