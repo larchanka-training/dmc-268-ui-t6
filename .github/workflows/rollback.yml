@@ -12,7 +12,7 @@ on:
         required: false
         type: string
       component:
-        description: 'What to roll back: ui-and-landing (one release), ui or landing. The landing runs only on the course VPS.'
+        description: 'What to roll back: ui-and-landing (both parts, each resolved on its own), ui or landing. The landing runs only on the course VPS.'
         required: false
         type: choice
         options:
@@ -196,8 +196,9 @@ jobs:
           TARGET_LANDING: ${{ steps.target.outputs.landing }}
           REQUESTED: ${{ inputs.image }}
           REQUESTED_LANDING: ${{ inputs.landing_image }}
+          LANDING_EDGE_ROUTED: ${{ vars.LANDING_EDGE_ROUTED }}
         run: |
-          # ui-and-landing rolls back one release; on the Terraform host there is no landing, so
+          # ui-and-landing rolls back both parts; on the Terraform host there is no landing, so
           # it means the UI alone there.
           case "${COMPONENT:-ui-and-landing}" in
             ui-and-landing) ui=true; landing="${TARGET_LANDING}" ;;
@@ -215,6 +216,10 @@ jobs:
           fi
           if [[ "${landing}" != "true" && -n "${REQUESTED_LANDING}" ]]; then
             echo "landing_image is set, but the landing is not rolled back (component '${COMPONENT}', target without landing)" >&2
+            exit 1
+          fi
+          if [[ "${landing}" == "true" && ! "${LANDING_EDGE_ROUTED}" =~ ^(true|false|)$ ]]; then
+            echo "repository variable LANDING_EDGE_ROUTED must be true, false or unset, got: ${LANDING_EDGE_ROUTED}" >&2
             exit 1
           fi
           {
@@ -377,11 +382,14 @@ jobs:
           echo "resolved rollback target ${image_ref}"
 
       # The same resolution for the landing: requested ref, else the VM's previous landing release,
-      # else :staging-previous of the landing package, else the bootstrap container.
+      # else :staging-previous of the landing package. Unlike the UI there is no bootstrap: without
+      # a previous release the running landing stays (skip with a warning), and component=landing
+      # fails here, before any change on the host.
       - name: Resolve landing rollback target to digest
         id: landing_digest
         if: steps.scope.outputs.landing == 'true'
         env:
+          COMPONENT: ${{ inputs.component }}
           REQUESTED_REF: ${{ steps.landing_image.outputs.ref }}
           VM_PREVIOUS_STDOUT: ${{ steps.vm_previous.outputs.stdout }}
           STAGING_PREVIOUS: ${{ steps.meta.outputs.landing_previous }}
@@ -411,8 +419,12 @@ jobs:
           else
             if ! docker pull "${candidate}"; then
               if [[ -z "${REQUESTED_REF}" && -z "${vm_previous}" ]]; then
-                echo "bootstrap=true" >> "${GITHUB_OUTPUT}"
-                echo "landing registry previous tag missing; will restore the bootstrap container"
+                if [[ "${COMPONENT:-ui-and-landing}" == "landing" ]]; then
+                  echo "the landing has no previous release (no .deploy-state.previous on the VM, no ${STAGING_PREVIOUS}); set landing_image to roll back to a specific release" >&2
+                  exit 1
+                fi
+                echo "skip=true" >> "${GITHUB_OUTPUT}"
+                echo "::warning::the landing has no previous release (no .deploy-state.previous on the VM, no ${STAGING_PREVIOUS}); the running landing is left as is, only the UI is rolled back"
                 exit 0
               fi
               echo "failed to pull ${candidate}" >&2
@@ -462,6 +474,7 @@ jobs:
       # Docker on a bare host and, in edge mode, the shared network. The edge proxy itself is
       # deployed only by the API repo.
       - name: Prepare host
+        id: prepare
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         env:
           APP_DIR: ${{ steps.target.outputs.app_dir }}
@@ -565,8 +578,11 @@ jobs:
           chmod +x deploy/scripts/healthcheck.sh
           deploy/scripts/healthcheck.sh "${HEALTH_URL}"
 
+      # !cancelled(): a failed UI rollback or UI health check does not stop the landing part (and
+      # the other way round); a landing that failed to resolve or a host that was not prepared does.
       - name: Rollback landing
-        if: steps.scope.outputs.landing == 'true'
+        id: rollback_landing
+        if: ${{ !cancelled() && steps.scope.outputs.landing == 'true' && steps.landing_digest.outcome == 'success' && steps.landing_digest.outputs.skip != 'true' && steps.prepare.outcome == 'success' }}
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -576,6 +592,7 @@ jobs:
           DEPLOY_MODE: ${{ steps.target.outputs.deploy_mode }}
           EDGE_ALIAS: ${{ steps.target.outputs.landing_edge_alias }}
           APP_URL: ${{ steps.target.outputs.landing_app_url }}
+          NO_PREVIOUS_RELEASE: stop
         with:
           host: ${{ steps.target.outputs.host }}
           port: ${{ steps.target.outputs.port }}
@@ -584,30 +601,27 @@ jobs:
           password: ${{ steps.target.outputs.mode == 'course' && secrets.VPS_DMC268_P || '' }}
           fingerprint: ${{ vars.STAGING_SSH_FINGERPRINT }}
           debug: false
-          envs: GHCR_TOKEN,GHCR_USER,IMAGE,APP_DIR,DEPLOY_MODE,EDGE_ALIAS,APP_URL
+          envs: GHCR_TOKEN,GHCR_USER,IMAGE,APP_DIR,DEPLOY_MODE,EDGE_ALIAS,APP_URL,NO_PREVIOUS_RELEASE
           script: |
             set -euo pipefail
             set +o xtrace
-            if [[ -n "${IMAGE}" ]]; then
-              "${APP_DIR}/rollback.sh" "${IMAGE}"
-            else
-              "${APP_DIR}/rollback.sh"
+            # Always a resolved digest here: the landing has no bootstrap fallback.
+            if [[ -z "${IMAGE}" ]]; then
+              echo "no landing rollback target" >&2
+              exit 1
             fi
+            "${APP_DIR}/rollback.sh" "${IMAGE}"
 
       - name: Landing health check
         id: health_landing
-        if: steps.scope.outputs.landing == 'true'
+        if: ${{ !cancelled() && steps.rollback_landing.outcome == 'success' }}
         env:
           BASE_URL: ${{ steps.target.outputs.landing_base_url }}
           APP_URL: ${{ steps.target.outputs.landing_app_url }}
-          BOOTSTRAP: ${{ steps.landing_digest.outputs.bootstrap }}
+          LANDING_EDGE_ROUTED: ${{ vars.LANDING_EDGE_ROUTED }}
         run: |
           chmod +x deploy/scripts/healthcheck.sh deploy/scripts/landing-healthcheck.sh
-          if [[ "${BOOTSTRAP}" == "true" ]]; then
-            deploy/scripts/landing-healthcheck.sh "${BASE_URL}" --bootstrap
-          else
-            deploy/scripts/landing-healthcheck.sh "${BASE_URL}" "${APP_URL}"
-          fi
+          deploy/scripts/landing-healthcheck.sh "${BASE_URL}" "${APP_URL}"
 
       # Runs when either part passed its health check: each promote flag below checks its own part.
       - name: Read deployed image
@@ -685,7 +699,6 @@ jobs:
         if: always()
         env:
           HEALTH_OUTCOME: ${{ steps.health_landing.outcome }}
-          EXPECTED_BOOTSTRAP: ${{ steps.landing_digest.outputs.bootstrap }}
           EXPECTED_IMAGE: ${{ steps.landing_digest.outputs.image_ref }}
           DEPLOYED_STDOUT: ${{ steps.deployed.outputs.stdout }}
         run: |
@@ -694,19 +707,15 @@ jobs:
             exit 0
           fi
           deployed="$(awk '/^landing_current_image=/ { sub(/^landing_current_image=/, ""); sub(/\r$/, ""); print; exit }' <<< "${DEPLOYED_STDOUT}")"
+          # The landing is always rolled back to a resolved image (no bootstrap fallback).
           vm_bootstrap="$(awk '{ sub(/\r$/, "") } $0 == "landing_bootstrap=true" { print "true"; exit }' <<< "${DEPLOYED_STDOUT}")"
-          if [[ "${vm_bootstrap}" == "true" && -z "${deployed}" && "${EXPECTED_BOOTSTRAP}" == "true" ]]; then
-            echo "the staging landing runs the bootstrap container; skip registry promotion"
-            echo "promote=false" >> "${GITHUB_OUTPUT}"
-            exit 0
-          fi
           if [[ "${vm_bootstrap}" == "true" || -z "${deployed}" ]]; then
-            echo "the staging landing reports ${deployed:-no image}${vm_bootstrap:+ and the bootstrap marker}, expected ${EXPECTED_IMAGE:-the bootstrap container}; refusing to promote registry tags" >&2
+            echo "the staging landing reports ${deployed:-no image}${vm_bootstrap:+ and the no-release marker}, expected ${EXPECTED_IMAGE:-<none>}; refusing to promote registry tags" >&2
             echo "promote=false" >> "${GITHUB_OUTPUT}"
             exit 1
           fi
-          if [[ "${EXPECTED_BOOTSTRAP}" == "true" || "${deployed}" != "${EXPECTED_IMAGE}" ]]; then
-            echo "the staging landing runs ${deployed}, not the resolved target ${EXPECTED_IMAGE:-(bootstrap)}; refusing to promote registry tags" >&2
+          if [[ -z "${EXPECTED_IMAGE}" || "${deployed}" != "${EXPECTED_IMAGE}" ]]; then
+            echo "the staging landing runs ${deployed}, not the resolved target ${EXPECTED_IMAGE:-<none>}; refusing to promote registry tags" >&2
             echo "promote=false" >> "${GITHUB_OUTPUT}"
             exit 1
           fi
@@ -753,6 +762,12 @@ jobs:
           echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
           docker pull "${image_ref}"
           if docker pull "${staging}"; then
+            # A re-run after a partial promote: :staging already is this image, and retagging
+            # would overwrite :staging-previous with it.
+            if [[ "$(docker inspect --format='{{.Id}}' "${staging}")" == "$(docker inspect --format='{{.Id}}' "${image_ref}")" ]]; then
+              echo "${staging} already points to ${image_ref}; nothing to promote"
+              exit 0
+            fi
             docker tag "${staging}" "${previous}"
             docker push "${previous}"
           else
@@ -763,7 +778,7 @@ jobs:
           echo "promoted ${image_ref} to ${staging}"
 
       - name: Promote rolled-back landing image to staging
-        if: needs.rollback.outputs.landing_promote == 'true'
+        if: ${{ !cancelled() && needs.rollback.outputs.landing_promote == 'true' }}
         env:
           DEPLOYED_IMAGE: ${{ needs.rollback.outputs.landing_image_ref }}
           STAGING_TAG: ${{ needs.rollback.outputs.landing_staging }}
@@ -787,6 +802,12 @@ jobs:
           echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
           docker pull "${image_ref}"
           if docker pull "${staging}"; then
+            # A re-run after a partial promote: :staging already is this image, and retagging
+            # would overwrite :staging-previous with it.
+            if [[ "$(docker inspect --format='{{.Id}}' "${staging}")" == "$(docker inspect --format='{{.Id}}' "${image_ref}")" ]]; then
+              echo "${staging} already points to ${image_ref}; nothing to promote"
+              exit 0
+            fi
             docker tag "${staging}" "${previous}"
             docker push "${previous}"
           else

@@ -280,6 +280,7 @@ jobs:
       url: ${{ steps.target.outputs.base_url }}
     outputs:
       promote: ${{ steps.result.outputs.promote }}
+      promote_landing: ${{ steps.result.outputs.promote_landing }}
       image_ref: ${{ needs.push-image.outputs.image_ref }}
       staging: ${{ needs.push-image.outputs.staging }}
       landing_image_ref: ${{ needs.push-image.outputs.landing_image_ref }}
@@ -402,6 +403,18 @@ jobs:
           } >> "${GITHUB_OUTPUT}"
           echo "staging target: ${mode} (${host}:${port}, ${base_url})"
 
+      # Checked before any change on the host: a typo would otherwise fail only the landing check.
+      - name: Check landing edge flag
+        if: steps.target.outputs.landing == 'true'
+        env:
+          LANDING_EDGE_ROUTED: ${{ vars.LANDING_EDGE_ROUTED }}
+        run: |
+          case "${LANDING_EDGE_ROUTED}" in
+            true) echo "landing hosts are routed by the edge proxy: the external landing check is strict" ;;
+            '' | false) echo "::notice::LANDING_EDGE_ROUTED is not true: until it is, the external landing check is skipped on curl exit 35 (no edge site yet)" ;;
+            *) echo "repository variable LANDING_EDGE_ROUTED must be true, false or unset, got: ${LANDING_EDGE_ROUTED}" >&2; exit 1 ;;
+          esac
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -520,8 +533,10 @@ jobs:
           chmod +x deploy/scripts/healthcheck.sh
           deploy/scripts/healthcheck.sh "${HEALTH_URL}"
 
-      # The landing of the same commit, only after the UI is healthy. UI and landing are one
-      # release: a landing failure rolls back both, and the :staging tags move only together.
+      # The landing of the same commit, only after the UI is healthy. A landing failure rolls back
+      # the landing alone: the UI release stays and keeps its :staging promotion, the job is red.
+      # NO_PREVIOUS_RELEASE=stop: without a previous landing release the stack is only taken
+      # down (the edge proxy answers 503), never replaced with the stock nginx page.
       - name: Deploy landing image
         id: deploy_landing
         if: steps.target.outputs.landing == 'true' && steps.deploy.outcome == 'success' && steps.health.outcome == 'success'
@@ -534,6 +549,7 @@ jobs:
           DEPLOY_MODE: ${{ steps.target.outputs.deploy_mode }}
           EDGE_ALIAS: ${{ steps.target.outputs.landing_edge_alias }}
           APP_URL: ${{ steps.target.outputs.landing_app_url }}
+          NO_PREVIOUS_RELEASE: stop
         with:
           host: ${{ steps.target.outputs.host }}
           port: ${{ steps.target.outputs.port }}
@@ -542,7 +558,7 @@ jobs:
           password: ${{ steps.target.outputs.mode == 'course' && secrets.VPS_DMC268_P || '' }}
           fingerprint: ${{ vars.STAGING_SSH_FINGERPRINT }}
           debug: false
-          envs: GHCR_TOKEN,GHCR_USER,IMAGE,APP_DIR,DEPLOY_MODE,EDGE_ALIAS,APP_URL
+          envs: GHCR_TOKEN,GHCR_USER,IMAGE,APP_DIR,DEPLOY_MODE,EDGE_ALIAS,APP_URL,NO_PREVIOUS_RELEASE
           script: |
             set -euo pipefail
             set +o xtrace
@@ -555,6 +571,7 @@ jobs:
         env:
           BASE_URL: ${{ steps.target.outputs.landing_base_url }}
           APP_URL: ${{ steps.target.outputs.landing_app_url }}
+          LANDING_EDGE_ROUTED: ${{ vars.LANDING_EDGE_ROUTED }}
         run: |
           chmod +x deploy/scripts/healthcheck.sh deploy/scripts/landing-healthcheck.sh
           deploy/scripts/landing-healthcheck.sh "${BASE_URL}" "${APP_URL}"
@@ -571,6 +588,7 @@ jobs:
           DEPLOY_MODE: ${{ steps.target.outputs.deploy_mode }}
           EDGE_ALIAS: ${{ steps.target.outputs.landing_edge_alias }}
           APP_URL: ${{ steps.target.outputs.landing_app_url }}
+          NO_PREVIOUS_RELEASE: stop
         with:
           host: ${{ steps.target.outputs.host }}
           port: ${{ steps.target.outputs.port }}
@@ -579,15 +597,16 @@ jobs:
           password: ${{ steps.target.outputs.mode == 'course' && secrets.VPS_DMC268_P || '' }}
           fingerprint: ${{ vars.STAGING_SSH_FINGERPRINT }}
           debug: false
-          envs: GHCR_TOKEN,GHCR_USER,APP_DIR,DEPLOY_MODE,EDGE_ALIAS,APP_URL
+          envs: GHCR_TOKEN,GHCR_USER,APP_DIR,DEPLOY_MODE,EDGE_ALIAS,APP_URL,NO_PREVIOUS_RELEASE
           script: |
             set -euo pipefail
             set +o xtrace
             ROLLBACK_MODE=auto "${APP_DIR}/rollback.sh"
 
+      # The UI only: a landing failure never touches the healthy UI release.
       - name: Rollback on failed deploy or health check
         id: rollback
-        if: always() && (steps.deploy.outcome == 'failure' || steps.health.outcome == 'failure' || steps.deploy_landing.outcome == 'failure' || steps.health_landing.outcome == 'failure')
+        if: always() && (steps.deploy.outcome == 'failure' || steps.health.outcome == 'failure')
         continue-on-error: true
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         env:
@@ -618,13 +637,19 @@ jobs:
           DEPLOY_LANDING: ${{ steps.deploy_landing.outcome }}
           HEALTH_LANDING: ${{ steps.health_landing.outcome }}
         run: |
+          # One flag per image: a landing failure keeps the UI promotion.
           promote=false
+          promote_landing=false
           if [[ "${{ steps.deploy.outcome }}" == "success" && "${{ steps.health.outcome }}" == "success" ]]; then
-            if [[ "${LANDING}" != "true" || ("${DEPLOY_LANDING}" == "success" && "${HEALTH_LANDING}" == "success") ]]; then
-              promote=true
+            promote=true
+            if [[ "${LANDING}" == "true" && "${DEPLOY_LANDING}" == "success" && "${HEALTH_LANDING}" == "success" ]]; then
+              promote_landing=true
             fi
           fi
-          echo "promote=${promote}" >> "${GITHUB_OUTPUT}"
+          {
+            echo "promote=${promote}"
+            echo "promote_landing=${promote_landing}"
+          } >> "${GITHUB_OUTPUT}"
 
       - name: Fail the pipeline after rollback
         if: always() && (steps.deploy.outcome == 'failure' || steps.health.outcome == 'failure' || steps.deploy_landing.outcome == 'failure' || steps.health_landing.outcome == 'failure')
@@ -634,9 +659,9 @@ jobs:
           elif [[ "${{ steps.health.outcome }}" == "failure" ]]; then
             echo "staging health check failed; rollback was triggered"
           elif [[ "${{ steps.deploy_landing.outcome }}" == "failure" ]]; then
-            echo "landing deploy failed; landing and UI were rolled back"
+            echo "::error::landing deploy failed; only the landing was rolled back; the healthy UI release stays and its :staging promotion still runs"
           else
-            echo "landing health check failed; landing and UI were rolled back"
+            echo "::error::landing health check failed; only the landing was rolled back; the healthy UI release stays and its :staging promotion still runs"
           fi
           if [[ "${{ steps.rollback.outcome }}" == "failure" || "${{ steps.rollback_landing.outcome }}" == "failure" ]]; then
             echo "rollback failed" >&2
@@ -646,7 +671,9 @@ jobs:
 
   promote-staging:
     name: Promote staging tag
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && needs.deploy-staging.outputs.promote == 'true'
+    # !cancelled(): deploy-staging is red after a landing failure, but the healthy UI is still
+    # promoted (its flag says so); the landing has a flag of its own.
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && needs.push-image.result == 'success' && needs.deploy-staging.outputs.promote == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -850,6 +877,12 @@ jobs:
           fi
           docker pull "${image_ref}"
           if docker pull "${staging}"; then
+            # A re-run after a partial promote: :staging already is this image, and retagging
+            # would overwrite :staging-previous with it.
+            if [[ "$(docker inspect --format='{{.Id}}' "${staging}")" == "$(docker inspect --format='{{.Id}}' "${image_ref}")" ]]; then
+              echo "${staging} already points to ${image_ref}; nothing to promote"
+              exit 0
+            fi
             docker tag "${staging}" "${previous}"
             docker push "${previous}"
           else
@@ -861,7 +894,7 @@ jobs:
 
       - name: Check staging landing still runs this digest
         id: guard_landing
-        if: steps.target.outputs.landing == 'true'
+        if: ${{ !cancelled() && steps.target.outputs.landing == 'true' && needs.deploy-staging.outputs.promote_landing == 'true' }}
         env:
           DEPLOYED_STDOUT: ${{ steps.deployed.outputs.stdout }}
           EXPECTED_IMAGE: ${{ needs.deploy-staging.outputs.landing_image_ref }}
@@ -876,7 +909,7 @@ jobs:
           fi
 
       - name: Promote verified landing digest to staging
-        if: steps.guard_landing.outputs.promote == 'true'
+        if: ${{ !cancelled() && steps.guard_landing.outputs.promote == 'true' }}
         env:
           DEPLOYED_IMAGE: ${{ needs.deploy-staging.outputs.landing_image_ref }}
           STAGING_TAG: ${{ needs.push-image.outputs.landing_staging }}
@@ -894,6 +927,12 @@ jobs:
           fi
           docker pull "${image_ref}"
           if docker pull "${staging}"; then
+            # A re-run after a partial promote: :staging already is this image, and retagging
+            # would overwrite :staging-previous with it.
+            if [[ "$(docker inspect --format='{{.Id}}' "${staging}")" == "$(docker inspect --format='{{.Id}}' "${image_ref}")" ]]; then
+              echo "${staging} already points to ${image_ref}; nothing to promote"
+              exit 0
+            fi
             docker tag "${staging}" "${previous}"
             docker push "${previous}"
           else
