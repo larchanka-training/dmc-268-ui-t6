@@ -350,8 +350,9 @@ describe('danger colours', () => {
   })
 })
 
-// A press goes one step further than hover on every button (§7). The values are the literals of
-// the specification; the second test checks the rule itself, from the colours Ant Design receives.
+// This group pins text/danger press values and danger-primary hover/press to §7 literals;
+// primary/default press literals live in `buildTheme` above. Separate checks cover token scope,
+// darker presses and readable text, using the colours Ant Design receives.
 describe('pressed buttons', () => {
   const BACKDROPS = ['bg', 'bgRaised', 'surface'] as const
   const BLACK = '#000000'
@@ -416,6 +417,13 @@ describe('pressed buttons', () => {
       },
     }
   }
+
+  it('pins danger-primary hover and press to the specification in both modes', () => {
+    const dark = variants('dark')['danger primary']
+    expect([dark.hover, dark.pressed]).toEqual(['#fa8a8a', '#e06060'])
+    const light = variants('light')['danger primary']
+    expect([light.hover, light.pressed]).toEqual(['#c52020', '#b01c1c'])
+  })
 
   it('gives a text button and a danger button their own press values in both modes', () => {
     const dark = buildTheme('dark').components?.Button
