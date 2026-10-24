@@ -1002,9 +1002,11 @@ actions, diff, comments и дочерние action-response. Отдельной 
 обновляется без перезагрузки (Refs ui#84). На `run.step` payload проходит `parseRunStepEvent` /
 `RunStepEventSchema` в `entities/run`: UUID `runId`, строка `tool` (свободное имя, не enum),
 целые неотрицательные `index` и `durationMs`, boolean `ok`, UTC `startedAt` с суффиксом `Z`,
-обязательное целое `attempt` ≥ 1 и необязательное `llmOperation` (`conventions` | `review`, только
-для `tool === 'llm.call'`; Refs larchanka-training/dmc-268-api-t6#170). UI разбирает эти поля на
-границе, но мост по-прежнему смотрит только `runId`, `tool` и `ok`.
+обязательное целое `attempt` ≥ 1 и необязательное `llmOperation` (`conventions` | `review`; api
+шлёт его только при `tool === 'llm.call'`, но кросс-полевые ограничения OpenAPI не выражает —
+схема UI поле не ограничивает и ужесточать заранее не нужно; пин в `schemas.test.ts`, Refs
+larchanka-training/dmc-268-api-t6#170). UI разбирает эти поля на границе, но мост по-прежнему
+смотрит только `runId`, `tool` и `ok`.
 Валидный шаг инвалидирует только `runQueryKeys.actions(runId)` с `exact: true`; успешный
 `tool === 'vcs.fetch_diff'` дополнительно инвалидирует точный `runQueryKeys.diff(runId)`, чтобы
 страница, открытая до загрузки диффа, показала файлы ещё в `running`. Неуспешный fetch-diff

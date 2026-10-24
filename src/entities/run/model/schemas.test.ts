@@ -51,6 +51,14 @@ describe('RunStepEventSchema', () => {
     )
   })
 
+  it('accepts llmOperation on any tool: the llm.call-only rule is descriptive, not enforced', () => {
+    // API contracts/openapi.yaml RunStepEvent carries no cross-field constraint; see FRONTEND_ARCHITECTURE §2.
+    expect(RunStepEventSchema.parse({ ...runStep, llmOperation: 'conventions' })).toEqual({
+      ...runStep,
+      llmOperation: 'conventions',
+    })
+  })
+
   it.each(['runId', 'tool', 'index', 'ok', 'startedAt', 'durationMs', 'attempt'] as const)(
     'rejects an event missing required field %s',
     (field) => {
