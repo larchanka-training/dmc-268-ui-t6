@@ -99,6 +99,9 @@ def write_json(path: Path, data: Any) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
 
+PAGE_END: dict[str, Any] = {"hasNextPage": False, "endCursor": None}
+
+
 # ─── golden reports ─────────────────────────────────────────────────────────
 CASES: list[tuple[str, list[str], int]] = [
     ("cycle", ["--issues", "api#1", "api#2", "api#3", "api#4"], 1),
@@ -124,6 +127,20 @@ def test_golden_report(case: str, args: list[str], code: int) -> None:
     assert r.stderr == ""
     assert r.returncode == code
     assert r.stdout == golden_body(case), f"{case} report drifted"
+
+
+@pytest.mark.parametrize("case,args,code", CASES, ids=[c[0] for c in CASES])
+def test_report_does_not_depend_on_the_hash_seed(
+    case: str, args: list[str], code: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Edges live in a set, whose order follows the per-process string hash. A list
+    that is not sorted passes under some seeds only; fixed seeds make that a
+    deterministic failure instead of a flaky one."""
+    for seed in range(8):
+        monkeypatch.setenv("PYTHONHASHSEED", str(seed))
+        r = run(*args, fixtures=FIXTURES / case)
+        assert r.returncode == code
+        assert r.stdout == golden_body(case), f"{case} drifted under PYTHONHASHSEED={seed}"
 
 
 def test_every_fixture_set_has_a_golden_and_a_case() -> None:
@@ -464,10 +481,48 @@ def test_cycles_are_ordered_by_first_key_not_by_discovery() -> None:
         ("ping @octocat and @Bob1", "ping @&#8203;octocat and @&#8203;Bob1"),
         ("#5@octocat", "#&#8203;5@&#8203;octocat"),
         ("a # b, #x, @ c, @-x, end@", "a # b, #x, @ c, @-x, end@"),
+        ("@1abc", "@&#8203;1abc"),
+        # code spans do not decode entities: their text stays as is
+        ("`#12`", "`#12`"),
+        ("a `#1` b #2", "a `#1` b #&#8203;2"),
+        ("``x`#3``", "``x`#3``"),
+        ("a ` #4", "a ` #&#8203;4"),
     ],
 )
 def test_markdown_title_breaks_autolinks_and_mentions(text: str, expected: str) -> None:
     assert ig.md_text(text) == expected
+
+
+def test_epic_scope_title_is_guarded(tmp_path: Path) -> None:
+    epic = {"title": "Epic #7 for @team", "subIssues": {"pageInfo": PAGE_END, "nodes": []}}
+    write_json(tmp_path / "epic-api-9-p1.json", {"data": {"repository": {"issue": epic}}})
+    r = run("--epic", "api#9", fixtures=tmp_path)
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.split("\n", 1)[0] == (
+        "### Граф задач: эпик [api#9](https://github.com/larchanka-training/dmc-268-api-t6/issues/9)"
+        " Epic #&#8203;7 for @&#8203;team"
+    )
+
+
+def test_milestone_title_is_guarded_in_scope_and_warning(tmp_path: Path) -> None:
+    def milestones(*titles: str) -> dict[str, Any]:
+        nodes = [{"number": n, "title": t} for n, t in enumerate(titles, 1)]
+        return {"data": {"repository": {"milestones": {"nodes": nodes}}}}
+
+    write_json(tmp_path / "milestones-api.json", milestones("Спринт #8"))
+    write_json(tmp_path / "milestones-ui.json", milestones("Спринт #8 (архив)"))
+    write_json(
+        tmp_path / "milestone-api-1-p1.json",
+        {"data": {"repository": {"milestone": {"issues": {"pageInfo": PAGE_END, "nodes": []}}}}},
+    )
+    r = run("--milestone", "Спринт #8", fixtures=tmp_path)
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.split("\n")[:4] == [
+        "### Граф задач: майлстоун «Спринт #&#8203;8»",
+        "",
+        "> Майлстоун «Спринт #&#8203;8» не найден в ui.",
+        "",
+    ]
 
 
 # ─── not_found names every ref, once ────────────────────────────────────────
@@ -589,28 +644,40 @@ def passed(argv: list[str], key: str) -> list[tuple[str, str]]:
 def test_live_paging_sends_cursors_and_renders_like_the_fixture_seam(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A fake gh serves the `pagination` fixture pages chosen by argv alone."""
+    """A fake gh serves fixture pages chosen by argv alone: the `pagination` set
+    in milestone mode, then the `epic` set in epic mode."""
     log = tmp_path / "calls.jsonl"
     body = (
         "import json, sys\n"
         "from pathlib import Path\n"
-        f"FIX = Path({str(FIXTURES / 'pagination')!r})\n"
+        f"FIX = Path({str(FIXTURES)!r})\n"
         "argv = sys.argv[1:]\n"
         f"with open({str(log)!r}, 'a', encoding='utf-8') as f:\n"
         "    f.write(json.dumps(argv) + '\\n')\n"
         "query = next(a for a in argv if a.startswith('query='))\n"
         "args = dict(a.split('=', 1) for a in argv if '=' in a and a != query)\n"
-        "if 'milestones(' in query:\n"
-        "    name = 'milestones-api'\n"
+        "if 'subIssues(' in query:\n"
+        "    name = 'epic/epic-api-139-p1'\n"
+        "elif 'milestones(' in query:\n"
+        "    name = 'pagination/milestones-api'\n"
         "elif 'node(id' in query:\n"
         "    field = 'blockedBy' if 'blockedBy(first' in query else 'blocking'\n"
         "    page = {'MQ': 2, 'Ymwx': 2, 'Ymwy': 3}[args['after']]\n"
-        "    name = 'node-' + args['id'] + '-' + field + '-p' + str(page)\n"
+        "    name = 'pagination/node-' + args['id'] + '-' + field + '-p' + str(page)\n"
         "else:\n"
-        "    name = 'milestone-api-7-p2' if 'after' in args else 'milestone-api-7-p1'\n"
+        "    page = 2 if 'after' in args else 1\n"
+        "    name = 'pagination/milestone-api-7-p' + str(page)\n"
         "sys.stdout.write((FIX / (name + '.json')).read_text(encoding='utf-8'))\n"
     )
     prepend_path(monkeypatch, fake_gh(tmp_path / "rec-bin", body))
+
+    def connections(query: str) -> list[tuple[str, str]]:
+        """Every `<connection>(first: <n>` in a query, sorted."""
+        return sorted(re.findall(r"(\w+)\(first: (\d+)", query))
+
+    # Brief 01: one fragment everywhere; every connection pages by 50,
+    # projectItems and the milestone search take the first 20.
+    fragment = [("blockedBy", "50"), ("blocking", "50"), ("projectItems", "20")]
 
     r = run("--milestone", "Спринт 7", "--repo", API)
 
@@ -625,30 +692,38 @@ def test_live_paging_sends_cursors_and_renders_like_the_fixture_seam(
     assert passed(search[0], "title") == [("-f", "Спринт 7")]
     assert passed(search[0], "after") == []
     search_query = next(q for q in queries if "milestones(" in q)
-    for text in ("first: 20", "query: $title", "states: [OPEN, CLOSED]"):
+    assert connections(search_query) == [("milestones", "20")]
+    for text in ("query: $title", "states: [OPEN, CLOSED]"):
         assert text in search_query
 
     pages = [c for c, q in zip(calls, queries, strict=True) if "milestone(number" in q]
     assert [passed(c, "number") for c in pages] == [[("-F", "7")], [("-F", "7")]]
     assert passed(pages[0], "after") == []
     assert passed(pages[1], "after") == [("-f", "Y3Vyc29yOnYyOpHOAAAAAQ==")]
-    page_query = next(q for q in queries if "milestone(number" in q)
-    for text in (
-        "first: 50",
-        "blockedBy",
-        "blocking",
-        "parent",
-        'fieldValueByName(name: "Status")',
-    ):
-        assert text in page_query
+    for page_query in (q for q in queries if "milestone(number" in q):
+        assert connections(page_query) == sorted([("issues", "50"), *fragment])
+        assert "parent { number repository { nameWithOwner } }" in page_query
+        assert 'fieldValueByName(name: "Status")' in page_query
 
     follow_ups = sorted(
-        (passed(c, "id"), "blockedBy(first" in q, passed(c, "after"))
+        (passed(c, "id"), connections(q), passed(c, "after"))
         for c, q in zip(calls, queries, strict=True)
         if "node(id" in q
     )
     assert follow_ups == [
-        ([("-f", "I_kwDOEIOM8AAAABAPI0040")], False, [("-f", "Ymwx")]),
-        ([("-f", "I_kwDOEIOM8AAAABAPI0040")], False, [("-f", "Ymwy")]),
-        ([("-f", "I_kwDOEIOM8AAAABAPI0042")], True, [("-f", "MQ")]),
+        ([("-f", "I_kwDOEIOM8AAAABAPI0040")], [("blocking", "50")], [("-f", "Ymwx")]),
+        ([("-f", "I_kwDOEIOM8AAAABAPI0040")], [("blocking", "50")], [("-f", "Ymwy")]),
+        ([("-f", "I_kwDOEIOM8AAAABAPI0042")], [("blockedBy", "50")], [("-f", "MQ")]),
     ]
+
+    log.unlink()
+    r = run("--epic", "api#139")
+
+    assert r.returncode == 0, r.stderr
+    assert r.stdout == golden_body("epic")
+    (call,) = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+    assert passed(call, "number") == [("-F", "139")]
+    assert passed(call, "after") == []
+    epic_query = next(a for a in call if a.startswith("query="))
+    assert connections(epic_query) == sorted([("subIssues", "50"), *fragment])
+    assert "parent { number repository { nameWithOwner } }" in epic_query
