@@ -21,8 +21,9 @@ Contract
 stdout carries the report only (Markdown, Russian, ends with one newline).
 Errors go to stderr as one line {"error": "..."}. Exit 0 report printed; 1
 report printed and the graph has a cycle; 2 usage or input (bad REF, milestone
-found in no repo, epic or issue not resolvable); 3 gh / GraphQL failure
-(non-zero gh exit, `errors` in the response, missing fixture, unexpected shape).
+found in no repo, epic or issue not resolvable — including a response whose
+`errors` are all NOT_FOUND); 3 gh / GraphQL failure (non-zero gh exit without
+such a response, any other `errors`, missing fixture, unexpected shape).
 
 Offline seam: with ISSUE_GRAPH_FIXTURE_DIR set, gh is never called and every
 request reads <dir>/<name>.json (the full {"data": ...} response) instead:
@@ -230,6 +231,7 @@ def request(
     """One GraphQL request: gh, or the fixture `<name>.json` when the seam is set.
     `typed` go as `-F` (owner, name, number), `strings` as `-f`; a None is omitted."""
     fixture_dir = os.environ.get(FIXTURE_ENV)
+    gh_failure: str | None = None
     if fixture_dir:
         path = Path(fixture_dir) / f"{name}.json"
         try:
@@ -248,15 +250,25 @@ def request(
         except OSError as exc:
             fail(f"cannot run gh: {exc}", 3)
         if proc.returncode != 0:
-            fail(f"gh api graphql ({name}) exited {proc.returncode}: {proc.stderr.strip()}", 3)
+            gh_failure = f"gh api graphql ({name}) exited {proc.returncode}: {proc.stderr.strip()}"
         raw = proc.stdout
     try:
         response = json.loads(raw)
     except json.JSONDecodeError as exc:
-        fail(f"{name}: response is not JSON: {exc}", 3)
+        fail(gh_failure or f"{name}: response is not JSON: {exc}", 3)
+    errors = response.get("errors") if isinstance(response, dict) else None
+    # A ref that does not exist is input, not a transport failure. Live gh exits 1
+    # for it with the full response on stdout, so this is checked before the exit code.
+    if (
+        isinstance(errors, list)
+        and errors
+        and all(isinstance(e, dict) and e.get("type") == "NOT_FOUND" for e in errors)
+    ):
+        fail(not_found(errors, typed, strings), 2)
+    if gh_failure:
+        fail(gh_failure, 3)
     if not isinstance(response, dict):
         fail(f"{name}: response is not a JSON object", 3)
-    errors = response.get("errors")
     if errors:
         messages = [e.get("message", e) if isinstance(e, dict) else e for e in errors]
         fail(f"{name}: GraphQL errors: {'; '.join(str(m) for m in messages)}", 3)
@@ -264,6 +276,35 @@ def request(
     if not isinstance(data, dict):
         fail(f"{name}: response has no data", 3)
     return data
+
+
+def not_found(
+    errors: list[dict[str, Any]], typed: dict[str, str | int], strings: dict[str, str | None]
+) -> str:
+    """Name what each NOT_FOUND error points at, from the last `path` element and
+    the request's own variables: `issue api#5 not found`, `repository o/n not found`."""
+    repo = f"{typed.get('owner')}/{typed.get('name')}"
+    number = typed.get("number")
+    found: list[str] = []
+    for error in errors:
+        path = error.get("path")
+        last = str(path[-1]) if isinstance(path, list) and path else ""
+        alias = re.fullmatch(r"i([1-9][0-9]*)", last)
+        if alias:
+            entry = f"issue {short((repo, int(alias.group(1))))} not found"
+        elif last == "issue" and number is not None:
+            entry = f"issue {short((repo, int(number)))} not found"
+        elif last == "repository":
+            entry = f"repository {repo} not found"
+        elif last == "milestone" and number is not None:
+            entry = f"milestone {number} not found in {display(repo)}"
+        elif last == "node":
+            entry = f"issue {strings.get('id')} not found"
+        else:
+            entry = str(error.get("message", "not found"))
+        if entry not in found:
+            found.append(entry)
+    return "; ".join(found)
 
 
 def repository(data: dict[str, Any], repo: str) -> dict[str, Any]:
@@ -706,7 +747,7 @@ def render(scope: Scope, g: Graph) -> tuple[str, bool]:
         path = critical_path(layers, dag)
         section(
             "Критический путь",
-            [f"{' → '.join(ref(k) for k in path)} ({len(path)} задач)"] if len(path) >= 2 else [],
+            [f"{' → '.join(ref(k) for k in path)} (задач: {len(path)})"] if len(path) >= 2 else [],
             "Нет: между открытыми задачами нет связей.",
         )
     section(

@@ -335,6 +335,82 @@ def test_live_transport_is_gh_api_graphql_without_a_shell(
     assert re.search(r"i5: issue\(number: ?5\) ?\{", query)
 
 
+# ─── NOT_FOUND is input (exit 2), any other GraphQL error is a failure (3) ──
+def not_found_error(path: list[str], message: str) -> dict[str, Any]:
+    return {
+        "type": "NOT_FOUND",
+        "path": path,
+        "locations": [{"line": 3, "column": 5}],
+        "message": message,
+    }
+
+
+# The live shape: a missing alias is null in `data` and named by one NOT_FOUND error.
+MISSING_ISSUE: dict[str, Any] = {
+    "data": {"repository": {"i99999": None, "i268": dict(CANNED_ISSUE, number=268)}},
+    "errors": [
+        not_found_error(
+            ["repository", "i99999"], "Could not resolve to an Issue with the number of 99999."
+        )
+    ],
+}
+
+
+def test_not_found_in_a_fixture_exits_2(tmp_path: Path) -> None:
+    write_json(tmp_path / "issues-api.json", MISSING_ISSUE)
+    r = run("--issues", "api#99999", "api#268", fixtures=tmp_path)
+    assert r.returncode == 2
+    assert error_of(r) == "issue api#99999 not found"
+
+
+def test_not_found_from_live_gh_exits_2(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Live gh exits 1 for NOT_FOUND, with the message on stderr and the full
+    response on stdout; the response decides, not the exit code."""
+    canned = tmp_path / "canned.json"
+    write_json(canned, MISSING_ISSUE)
+    body = (
+        "import sys\n"
+        f"with open({str(canned)!r}, encoding='utf-8') as f:\n"
+        "    sys.stdout.write(f.read())\n"
+        "sys.stderr.write('gh: Could not resolve to an Issue with the number of 99999.\\n')\n"
+        "sys.exit(1)\n"
+    )
+    prepend_path(monkeypatch, fake_gh(tmp_path / "bin", body))
+    r = run("--issues", "api#99999", "api#268")
+    assert r.returncode == 2
+    assert error_of(r) == "issue api#99999 not found"
+
+
+def test_missing_repository_is_named(tmp_path: Path) -> None:
+    write_json(
+        tmp_path / "milestones-larchanka_training_nope.json",
+        {
+            "data": {"repository": None},
+            "errors": [
+                not_found_error(
+                    ["repository"],
+                    "Could not resolve to a Repository with the name 'larchanka-training/nope'.",
+                )
+            ],
+        },
+    )
+    r = run("--milestone", "Спринт 5", "--repo", "larchanka-training/nope", fixtures=tmp_path)
+    assert r.returncode == 2
+    assert error_of(r) == "repository larchanka-training/nope not found"
+
+
+def test_not_found_mixed_with_another_error_exits_3(tmp_path: Path) -> None:
+    mixed = dict(MISSING_ISSUE)
+    mixed["errors"] = [
+        *MISSING_ISSUE["errors"],
+        {"type": "FORBIDDEN", "path": ["repository", "i268"], "message": "Resource not accessible"},
+    ]
+    write_json(tmp_path / "issues-api.json", mixed)
+    r = run("--issues", "api#99999", "api#268", fixtures=tmp_path)
+    assert r.returncode == 3
+    assert "Resource not accessible" in error_of(r)
+
+
 # ─── cycle walk ─────────────────────────────────────────────────────────────
 def k(n: int) -> tuple[str, int]:
     return (API, n)
