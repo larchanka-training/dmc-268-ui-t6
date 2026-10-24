@@ -57,18 +57,19 @@ function createStreamSession(): StreamSession {
  */
 const SENDABLE_EVENT_ID = /^[\t\x20-\x7e]*$/
 
-/** The queries one `run.updated` event invalidates for a run; also used after a reconnect. */
+/**
+ * The detail key is a prefix of all queries for this run, including action responses.
+ * Keep default cancellation: a later chunk must replace a request begun before its event.
+ */
 function invalidateRunQueries(runId: string): void {
   void queryClient.invalidateQueries({ queryKey: runQueryKeys.detail(runId) })
-  void queryClient.invalidateQueries({ queryKey: runQueryKeys.actions(runId) })
-  void queryClient.invalidateQueries({ queryKey: runQueryKeys.diff(runId) })
-  void queryClient.invalidateQueries({ queryKey: runQueryKeys.comments(runId) })
 }
 
 /**
- * Applies one `run.updated` event: the queries of that run, plus the runs list, whose status
- * column shows the new status (a page of the list that is being loaded is kept, see
- * `invalidateRunLists`). The resync after a reconnect does not touch the list.
+ * Applies one standalone `run.updated` from the mock transport: one run prefix plus the list.
+ * Production SSE collects targets per parsed chunk in `readStream`, refreshing the list once
+ * for all valid updates in that chunk. Both paths preserve a list page being loaded through
+ * `invalidateRunLists`; reconnect resync refreshes run prefixes without touching the list.
  */
 export function applyRunUpdated(event: RunUpdatedEvent): void {
   invalidateRunQueries(event.runId)
@@ -142,20 +143,21 @@ async function readStream(
       if (session.sawKeepAlive) {
         armWatchdog()
       }
+      const refreshTargets = new Map<
+        string,
+        { needsFullRefresh: boolean; needsDiffRefresh: boolean }
+      >()
+      let refreshLists = false
       for (const frame of parsed.events) {
         if (frame.event === 'run.step') {
           const step = parseRunStepEvent(frame.data)
           if (step !== null) {
-            void queryClient.invalidateQueries({
-              queryKey: runQueryKeys.actions(step.runId),
-              exact: true,
-            })
-            if (step.ok && step.tool === RUN_FETCH_DIFF_TOOL) {
-              void queryClient.invalidateQueries({
-                queryKey: runQueryKeys.diff(step.runId),
-                exact: true,
-              })
+            const target = refreshTargets.get(step.runId) ?? {
+              needsFullRefresh: false,
+              needsDiffRefresh: false,
             }
+            target.needsDiffRefresh ||= step.ok && step.tool === RUN_FETCH_DIFF_TOOL
+            refreshTargets.set(step.runId, target)
           }
           continue
         }
@@ -166,7 +168,23 @@ async function readStream(
         if (payload === null) {
           continue
         }
-        applyRunUpdated(payload)
+        refreshTargets.set(payload.runId, { needsFullRefresh: true, needsDiffRefresh: false })
+        refreshLists = true
+      }
+      // Union this parsed chunk before refetching: a full prefix subsumes exact step targets.
+      // Flush before the next read, without delaying journal updates until a timer or poll.
+      for (const [runId, target] of refreshTargets) {
+        if (target.needsFullRefresh) {
+          invalidateRunQueries(runId)
+        } else {
+          void queryClient.invalidateQueries({ queryKey: runQueryKeys.actions(runId), exact: true })
+          if (target.needsDiffRefresh) {
+            void queryClient.invalidateQueries({ queryKey: runQueryKeys.diff(runId), exact: true })
+          }
+        }
+      }
+      if (refreshLists) {
+        invalidateRunLists(queryClient)
       }
     }
   } catch (error: unknown) {
