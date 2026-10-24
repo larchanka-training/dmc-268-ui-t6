@@ -6,10 +6,10 @@ const RUN_ID = '11111111-1111-4111-8111-000000000001'
 const DATA = `data: {"runId":"${RUN_ID}","status":"running"}`
 
 const STEP_DATA =
-  '{"runId":"11111111-1111-4111-8111-000000000001","tool":"vcs.fetch_diff","index":1,"ok":true,"startedAt":"2026-09-18T10:00:00.000Z","durationMs":5}'
+  '{"runId":"11111111-1111-4111-8111-000000000001","tool":"vcs.fetch_diff","index":1,"ok":true,"startedAt":"2026-09-18T10:00:00.000Z","durationMs":5,"attempt":1}'
 
 describe('parseRunStepEvent', () => {
-  it('parses current six-field run.step data through the run API export', () => {
+  it('parses current run.step data through the run API export', () => {
     const { events, lastEventId } = parseSseBuffer(`event: run.step\ndata: ${STEP_DATA}\n\n`)
     expect(events).toEqual([{ event: 'run.step', data: STEP_DATA }])
     expect(lastEventId).toBeUndefined()
@@ -20,6 +20,7 @@ describe('parseRunStepEvent', () => {
       ok: true,
       startedAt: '2026-09-18T10:00:00.000Z',
       durationMs: 5,
+      attempt: 1,
     })
   })
 
@@ -36,6 +37,9 @@ describe('parseRunStepEvent', () => {
     { startedAt: '2026-09-18T10:00:00+00:00' },
     { durationMs: -1 },
     { durationMs: 1.5 },
+    { attempt: 0 },
+    { attempt: 1.5 },
+    { attempt: undefined },
   ])('returns null for schema-invalid data: %j', (invalid) => {
     expect(
       parseRunStepEvent(
@@ -46,6 +50,7 @@ describe('parseRunStepEvent', () => {
           ok: true,
           startedAt: '2026-09-18T10:00:00.000Z',
           durationMs: 5,
+          attempt: 1,
           ...invalid,
         }),
       ),
@@ -68,6 +73,26 @@ describe('parseRunStepEvent', () => {
 })
 
 describe('runStreamParse', () => {
+  it('parses run.step SSE data through RunStepEventSchema', () => {
+    const chunk =
+      'event: run.step\ndata: {"runId":"11111111-1111-4111-8111-000000000001","tool":"llm.call","index":1,"ok":true,"startedAt":"2026-09-18T10:00:00.000Z","durationMs":5,"attempt":2,"llmOperation":"conventions"}\n\n'
+    const { events } = parseSseBuffer(chunk)
+    expect(events).toHaveLength(1)
+    expect(events[0]?.event).toBe('run.step')
+    const payload = parseRunStepEvent(events[0]?.data ?? '')
+    expect(payload?.attempt).toBe(2)
+    expect(payload?.llmOperation).toBe('conventions')
+  })
+
+  it('returns null for run.step data that fails RunStepEventSchema', () => {
+    expect(
+      parseRunStepEvent(
+        '{"runId":"not-a-uuid","tool":"x","index":0,"ok":true,"startedAt":"2026-09-18T10:00:00.000Z","durationMs":1,"attempt":1}',
+      ),
+    ).toBeNull()
+    expect(parseRunStepEvent('not json')).toBeNull()
+  })
+
   it('parses run.updated SSE frames', () => {
     const chunk =
       'event: run.updated\ndata: {"runId":"11111111-1111-4111-8111-000000000001","status":"running"}\n\n'

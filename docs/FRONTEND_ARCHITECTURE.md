@@ -1001,8 +1001,10 @@ actions, diff, comments и дочерние action-response. Отдельной 
 (Ф-25, Refs ui#161). Список `['runs', 'list']` тоже инвалидируется: колонка «Статус» на `/runs`
 обновляется без перезагрузки (Refs ui#84). На `run.step` payload проходит `parseRunStepEvent` /
 `RunStepEventSchema` в `entities/run`: UUID `runId`, строка `tool` (свободное имя, не enum),
-целые неотрицательные `index` и `durationMs`, boolean `ok`, UTC `startedAt` с суффиксом `Z`.
-Текущий контракт содержит шесть обязательных полей, без `attempt` (Refs ui#113).
+целые неотрицательные `index` и `durationMs`, boolean `ok`, UTC `startedAt` с суффиксом `Z`,
+обязательное целое `attempt` ≥ 1 и необязательное `llmOperation` (`conventions` | `review`, только
+для `tool === 'llm.call'`; Refs larchanka-training/dmc-268-api-t6#170). UI разбирает эти поля на
+границе, но мост по-прежнему смотрит только `runId`, `tool` и `ok`.
 Валидный шаг инвалидирует только `runQueryKeys.actions(runId)` с `exact: true`; успешный
 `tool === 'vcs.fetch_diff'` дополнительно инвалидирует точный `runQueryKeys.diff(runId)`, чтобы
 страница, открытая до загрузки диффа, показала файлы ещё в `running`. Неуспешный fetch-diff
@@ -1080,7 +1082,7 @@ sequenceDiagram
   Bridge->>QC: invalidateQueries(['runs', 'list'])
   QC->>QC: refetch активных запросов
   QC-->>UI: новые данные прогона и списка
-  SSE->>Bridge: run.step { runId, tool, index, ok, startedAt, durationMs } без id
+  SSE->>Bridge: run.step { runId, tool, index, ok, startedAt, durationMs, attempt, llmOperation? } без id
   Note over Bridge: точные цели шага нужны только без run.updated того же runId в чанке
   Bridge->>QC: invalidateQueries(actions(runId), exact)
   opt ok и tool == vcs.fetch_diff
@@ -1325,7 +1327,7 @@ newLine` (`RIGHT→newLine`, `LEFT→oldLine`), `line_end → endLine`. — ро
    роль 6.
 8. Статусы в DTO: `publishing` добавить в [SD §12][sd-12]; `POST /cancel` отдаёт
    `RunSession` со `status: cancelled` или `cancelRequested: true`. — роль 1 и роль 6.
-9. `GET /api/stream` — SSE `run.updated` с `{ runId, status }` и `run.step` с `{ runId, tool, index, ok, startedAt, durationMs }` (§2). — роль 6.
+9. `GET /api/stream` — SSE `run.updated` с `{ runId, status }` и `run.step` с `{ runId, tool, index, ok, startedAt, durationMs, attempt, llmOperation? }` (§2). — роль 6.
 10. Неточности [SD][sd], которые нужно поправить или подтвердить: [§2][sd-2] «фронт не парсит
     дифф» — фронт парсит библиотекой (`react-diff-view`) за адаптером, а не вручную; терминология
     `ReviewJob` → `Run` ([§11][sd-11], ERD роли 6) / `RunSession` ([§2][sd-2], [§12][sd-12]) —

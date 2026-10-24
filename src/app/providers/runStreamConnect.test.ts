@@ -51,6 +51,7 @@ function runStep(runId: string, tool = 'context.build', ok = true): string {
     ok,
     startedAt: '2026-09-18T10:00:00.000Z',
     durationMs: 5,
+    attempt: 1,
   })}\n\n`
 }
 
