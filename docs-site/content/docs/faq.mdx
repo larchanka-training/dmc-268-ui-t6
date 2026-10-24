@@ -1,0 +1,116 @@
+---
+title: FAQ
+description: Access, stored data, cost, security and fixes for common problems.
+icon: CircleQuestionMark
+---
+
+## Access and data
+
+### Which access does Reviewer need?
+
+The GitHub App reads code and pull requests, posts reviews and check runs, and creates the
+`ai-review` label. It works only in the repositories you select when you install it. To add or
+remove repositories, change the installation on GitHub, then click **Обновить доступ** (Refresh
+access) in the dashboard.
+
+Signing in to the dashboard uses GitHub as well. You see the repositories of the installations
+your GitHub account can access.
+
+### Who can see my reviews in the dashboard?
+
+People who sign in with a GitHub account that has access to the same installation and
+repository. Access is removed when the repository leaves the installation.
+
+### What is sent to the AI model?
+
+The pull request diff, its title, description and commit messages, `.review/rules.md` and the
+root `AGENTS.md`. To learn your project's conventions, Reviewer also sends the file tree and a
+few files from the base branch. Files that match `review-ignore`, lock files, generated files
+and binaries are not sent.
+
+### What does Reviewer store?
+
+- Runs, with the diff, the findings and the step log you see in the dashboard. They are kept
+  while your workspace exists.
+- A short-lived cache of file contents, cleared after 7 days.
+- If RAG is on, the code index: structure only (symbols, imports, paths, line numbers), no code
+  text. It is deleted when you turn RAG off or after 30 days without use.
+
+### Does Reviewer run my code?
+
+No. It does not check out, build or run anything from your repository. It reads text through
+the GitHub API.
+
+### Can a pull request trick the reviewer?
+
+Reviewer treats code, comments, the description and commit messages as data, not as
+instructions. Rules are read only from the base branch, so a pull request cannot change the
+rules it is reviewed with. Every finding is checked by a second model pass before posting.
+These measures reduce the risk of prompt injection; they do not make it impossible, so treat
+the review as advice from a teammate.
+
+## Cost
+
+### How much does it cost?
+
+There is no pricing or billing in the product yet. Each run has a fixed limit on model spend; a
+run that would go over it stops with `budget_exceeded`. Turning on RAG may increase the cost of
+reviews later, as the settings page notes.
+
+## Support
+
+### Does it work with GitLab?
+
+Not yet. Reviewer works with GitHub. Parts of GitLab support exist in the backend, but a GitLab
+merge request cannot start a review today.
+
+### Why is the dashboard in Russian?
+
+The dashboard is in Russian for now. These docs give each label with its English meaning.
+
+## Troubleshooting
+
+### No review appeared
+
+Check these in order:
+
+1. **The label.** It must be exactly `ai-review`. If you deleted the label from the repository,
+   create it again with that name.
+2. **The repository.** It must be connected and its review switch on, under **Репозитории**.
+   If it is missing, click **Обновить доступ** (Refresh access).
+3. **The pull request is open** and targets a branch that matches the branch filter.
+4. **CI.** With the default CI setting the review waits until other checks pass. A failed or
+   stuck check keeps it waiting. Fix CI or set **Ожидание CI** to Never.
+5. **Already reviewed.** The same commit is reviewed once. Push a new commit or click
+   **Перезапустить** (Restart) on the run.
+6. **The run.** Open **Прогоны** (Runs). A `skipped` or `failed` run shows the reason.
+
+### A run was skipped
+
+| Reason | What it means |
+| --- | --- |
+| `rule_not_matched` | The target branch does not match the branch filter. |
+| `all_changes_ignored` | Every changed file is ignored, generated or binary. |
+| `no_changes` | The pull request has no changed files. |
+| `budget_paused` | The daily budget of the workspace is used up. |
+
+### A run failed
+
+| Code | What to do |
+| --- | --- |
+| `policy_*` | The rules file or `AGENTS.md` has a problem. The check run and **Правила ревью** show the file, line and fix. |
+| `llm_context_overflow` | The change does not fit in the model context. Split the pull request. |
+| `budget_exceeded` | The run hit its spend limit. Split the pull request or restart. |
+| `deadline_exceeded` | The run took too long. Restart it. |
+| `github_forbidden` | The GitHub App lost access to the repository. Check the installation. |
+| `llm_timeout`, `llm_unavailable`, `llm_rate_limited` | The model service had trouble. These are retried automatically; restart if all attempts failed. |
+
+### The review has no line comments
+
+The pull request may have more than 3,000 changed lines, which makes the run summary-only. Or
+the findings could not be tied to changed lines, in which case they are in the review body.
+
+### My rules change did nothing
+
+Rules are read from the base branch. Merge the change to `.review/rules.md` first; reviews of
+later pull requests use it.

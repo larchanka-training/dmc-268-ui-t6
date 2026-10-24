@@ -1,13 +1,38 @@
 ---
-title: Hello World
-description: Your first document
+title: Introduction
+description: Reviewer is an AI code reviewer for GitHub pull requests.
+icon: BookOpen
 ---
 
-Welcome to the docs! You can start writing documents in `/content/docs`.
+Reviewer is a GitHub App. When you ask for a review on a pull request, it reads the change,
+checks it against your project rules and posts one GitHub review with inline comments,
+severity levels, suggested fixes and a verdict.
 
-## What is Next?
+## What you get on a pull request
+
+- **A GitHub review** from the Reviewer bot. Each finding is an inline comment on the changed
+  line: a short title, an explanation and, when it helps, a suggested change you can commit.
+- **A summary in the review body**: the verdict, a count of findings per severity and the list
+  of checked files. Findings that cannot sit on a diff line are listed there too.
+- **A check run named `AI Review`** that shows progress and the outcome. It always ends as
+  `neutral`, so it never blocks a merge by itself.
+- **A verdict**: `Blocking` (critical or high findings), `Attention` (medium or low) or `Clean`.
+  You can choose to post `Blocking` reviews as "Request changes".
+
+## What it looks at
+
+The review reads the pull request diff, its title, description and commit messages, your
+[rules file](/docs/features#rules-file) `.review/rules.md` and the root `AGENTS.md`. A second
+model pass checks every candidate finding against the code before anything is posted, so weak
+or unproven comments are dropped.
+
+## What it does not do
+
+- It does not run your code, tests or build. It only reads text.
+- It does not merge, approve, dismiss old reviews or resolve threads.
+- It does not start on its own when a pull request opens. You add the `ai-review` label.
 
 <Cards>
-  <Card title="Learn more about Next.js" href="https://nextjs.org/docs" />
-  <Card title="Learn more about Fumadocs" href="https://fumadocs.dev" />
+  <Card title="Quickstart" href="/docs/quickstart" description="Get the first review in a few minutes." />
+  <Card title="How it works" href="/docs/how-it-works" description="Triggers, runs and how to read the result." />
 </Cards>
