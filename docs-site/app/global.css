@@ -1,0 +1,103 @@
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+
+@source '../components';
+@source '../content';
+
+/*
+ * Brand palette from landing/src/styles/global.css. The site is dark only,
+ * so the same values are set for :root and .dark.
+ */
+:root,
+.dark {
+  --bg: #090d18;
+  --bg-raised: #0c1121;
+  --surface: #0f1526;
+  --surface-2: #141b2f;
+  --surface-3: #1a2238;
+  --border: rgb(148 163 184 / 12%);
+  --border-strong: rgb(148 163 184 / 20%);
+  --text: #f8fafc;
+  --text-2: #94a3b8;
+  --text-3: #64748b;
+  --blue: #2563eb;
+  --blue-hover: #3b74f0;
+  --glow: #60a5fa;
+  --orange: #fb923c;
+  --amber: #fbbf24;
+  --green: #4ade80;
+  --red: #f87171;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --color-fd-background: var(--bg);
+  --color-fd-foreground: #e2e8f0;
+  --color-fd-muted: var(--surface);
+  --color-fd-muted-foreground: var(--text-2);
+  --color-fd-popover: var(--surface);
+  --color-fd-popover-foreground: var(--text);
+  --color-fd-card: rgb(20 27 47 / 55%);
+  --color-fd-card-foreground: var(--text);
+  --color-fd-border: var(--border);
+  --color-fd-primary: var(--glow);
+  --color-fd-primary-foreground: var(--bg);
+  --color-fd-secondary: var(--surface-2);
+  --color-fd-secondary-foreground: var(--text);
+  --color-fd-accent: rgb(96 165 250 / 10%);
+  --color-fd-accent-foreground: var(--text);
+  --color-fd-ring: var(--glow);
+  --color-fd-overlay: rgb(9 13 24 / 60%);
+
+  color-scheme: dark;
+}
+
+.dark #nd-sidebar {
+  --color-fd-muted: var(--surface);
+  --color-fd-secondary: var(--surface-2);
+  --color-fd-muted-foreground: var(--text-2);
+}
+
+@theme {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SFMono-Regular', menlo, monospace;
+}
+
+html {
+  scrollbar-gutter: stable;
+}
+
+html > body[data-scroll-locked] {
+  margin-right: 0px !important;
+  --removed-body-scroll-bar-size: 0px !important;
+}
+
+body {
+  font-feature-settings: 'cv11', 'ss01';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: rgb(96 165 250 / 30%);
+}
+
+/* Glass surface, same recipe as the landing cards. */
+.glass {
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgb(20 27 47 / 70%), rgb(12 17 33 / 50%));
+  backdrop-filter: blur(16px) saturate(140%);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 5%) inset;
+}
+
+/* Header blur like the landing header. */
+#nd-nav,
+#nd-subnav {
+  backdrop-filter: blur(16px) saturate(140%);
+}
+
+/* Faint brand glow behind the docs content. */
+#nd-docs-layout,
+#nd-home-layout {
+  background:
+    radial-gradient(ellipse 60% 40% at 70% -10%, rgb(37 99 235 / 12%), transparent 70%), var(--bg);
+}
