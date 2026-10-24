@@ -1,0 +1,356 @@
+"""Contract tests for scripts/issue_graph.py.
+
+Offline: no network, no tokens, no live `gh`. An autouse guard puts a fake `gh`
+first on PATH that fails with exit 97, so any request that escapes the fixture
+seam (`ISSUE_GRAPH_FIXTURE_DIR`) or a test's own fake is an error, never a call.
+
+Covers: byte-exact golden reports for six GraphQL fixture sets (a cycle, a
+milestone found in one repo only, a full sprint milestone, an epic, nested
+pagination, explicit issues across both repos), label stripping/cutting/escaping,
+REF parsing, the one-mode rule, the cycle walk, exit codes 2 and 3, and the argv
+the script hands to `gh`.
+"""
+# SYNC: mirrored in dmc-268-{ui,api}-t6/.agents/skills/issue-graph/tests/test_issue_graph.py
+
+from __future__ import annotations
+
+import importlib.util
+import json
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+from types import ModuleType
+from typing import Any
+
+import pytest
+
+HERE = Path(__file__).resolve().parent
+SCRIPT = HERE.parent / "scripts" / "issue_graph.py"
+FIXTURES = HERE / "fixtures"
+GOLDEN = HERE / "golden"
+API = "larchanka-training/dmc-268-api-t6"
+UI = "larchanka-training/dmc-268-ui-t6"
+
+
+def _load(path: Path, name: str) -> ModuleType:
+    spec = importlib.util.spec_from_file_location(name, path)
+    assert spec is not None and spec.loader is not None
+    mod = importlib.util.module_from_spec(spec)
+    # dataclasses resolve string annotations through sys.modules[__module__].
+    sys.modules[name] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+ig = _load(SCRIPT, "issue_graph")
+
+
+def fake_gh(bin_dir: Path, body: str) -> Path:
+    """Write an executable `gh` (a Python script) into bin_dir."""
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    gh = bin_dir / "gh"
+    gh.write_text(f"#!{sys.executable}\n{body}", encoding="utf-8")
+    gh.chmod(0o755)
+    return bin_dir
+
+
+def prepend_path(monkeypatch: pytest.MonkeyPatch, bin_dir: Path) -> None:
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}")
+
+
+@pytest.fixture(autouse=True)
+def no_live_gh(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every test starts with a `gh` that refuses to run and no fixture dir."""
+    guard = fake_gh(
+        tmp_path / "guard-bin",
+        'import sys\nsys.stderr.write("unexpected gh call\\n")\nsys.exit(97)\n',
+    )
+    prepend_path(monkeypatch, guard)
+    monkeypatch.delenv("ISSUE_GRAPH_FIXTURE_DIR", raising=False)
+
+
+def run(*args: str, fixtures: Path | None = None) -> subprocess.CompletedProcess[str]:
+    env = dict(os.environ)
+    if fixtures is not None:
+        env["ISSUE_GRAPH_FIXTURE_DIR"] = str(fixtures)
+    return subprocess.run(
+        [sys.executable, str(SCRIPT), *args],
+        capture_output=True,
+        encoding="utf-8",
+        env=env,
+    )
+
+
+def error_of(r: subprocess.CompletedProcess[str]) -> str:
+    """stderr is exactly one JSON line `{"error": "..."}`; stdout stays empty."""
+    assert r.stdout == "", "stdout must carry the report only"
+    assert "Traceback" not in r.stderr
+    assert r.stderr.count("\n") == 1, r.stderr
+    message = json.loads(r.stderr)["error"]
+    assert isinstance(message, str)
+    return message
+
+
+def write_json(path: Path, data: Any) -> None:
+    path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+
+# ─── golden reports ─────────────────────────────────────────────────────────
+CASES: list[tuple[str, list[str], int]] = [
+    ("cycle", ["--issues", "api#1", "api#2", "api#3", "api#4"], 1),
+    ("no-links", ["--milestone", "Спринт 9"], 0),
+    ("milestone", ["--milestone", "Спринт 5"], 0),
+    ("epic", ["--epic", "api#139"], 0),
+    ("pagination", ["--milestone", "Спринт 7", "--repo", API], 0),
+    ("issues", ["--issues", "ui#9", "api#31", "api#32", "api#30"], 0),
+]
+
+
+def golden_body(name: str) -> str:
+    """A golden is a SYNC line, a blank line, then the report. Drop exactly those
+    two lines and keep the rest byte for byte: no strip, no normalisation. A
+    missing golden is an error — it is never written on the fly."""
+    text = (GOLDEN / f"{name}.md").read_bytes().decode("utf-8")
+    return text.split("\n", 2)[2]
+
+
+@pytest.mark.parametrize("case,args,code", CASES, ids=[c[0] for c in CASES])
+def test_golden_report(case: str, args: list[str], code: int) -> None:
+    r = run(*args, fixtures=FIXTURES / case)
+    assert r.stderr == ""
+    assert r.returncode == code
+    assert r.stdout == golden_body(case), f"{case} report drifted"
+
+
+def test_every_fixture_set_has_a_golden_and_a_case() -> None:
+    names = sorted(c[0] for c in CASES)
+    assert sorted(p.name for p in FIXTURES.iterdir() if p.is_dir()) == names
+    assert sorted(p.stem for p in GOLDEN.glob("*.md")) == names
+
+
+def test_every_golden_carries_the_sync_header() -> None:
+    files = sorted(GOLDEN.glob("*.md"))
+    assert files, "no golden files found"
+    for path in files:
+        first, second, body = path.read_bytes().decode("utf-8").split("\n", 2)
+        assert first == (
+            "<!-- SYNC: mirrored in dmc-268-{ui,api}-t6/.agents/skills/issue-graph/"
+            f"tests/golden/{path.name} -->"
+        )
+        assert second == "", path.name
+        assert body.endswith("\n") and not body.endswith("\n\n"), path.name
+
+
+# ─── mermaid label ──────────────────────────────────────────────────────────
+@pytest.mark.parametrize(
+    "title,expected",
+    [
+        ("[rag][139] RagContextProvider", "api#35;7 RagContextProvider"),
+        ("  [a] [b]  Spaced out  ", "api#35;7 Spaced out"),
+        ("Инженер 3 - [reviews] Добавьте", "api#35;7 Инженер 3 - [reviews] Добавьте"),
+        ("x" * 40, "api#35;7 " + "x" * 40),
+        ("x" * 41, "api#35;7 " + "x" * 39 + "…"),
+        ("[tag] " + "x" * 41, "api#35;7 " + "x" * 39 + "…"),
+        ('A & B # "q" <x>', "api#35;7 A #amp; B #35; #quot;q#quot; #lt;x#gt;"),
+        ("&#", "api#35;7 #amp;#35;"),
+        # cut first, escape after: 40 characters stay, both specials survive
+        ("y" * 38 + "#&", "api#35;7 " + "y" * 38 + "#35;#amp;"),
+        # 41 characters: the specials past position 39 are cut away
+        ("y" * 39 + "<>", "api#35;7 " + "y" * 39 + "…"),
+    ],
+)
+def test_label_strips_cuts_and_escapes(title: str, expected: str) -> None:
+    assert ig.label((API, 7), title) == expected
+
+
+def test_label_of_another_repo_uses_owner_name() -> None:
+    assert ig.label(("octo/tools", 5), "Export") == "octo/tools#35;5 Export"
+    assert ig.label((UI, 12), "[ui] Badge") == "ui#35;12 Badge"
+
+
+# ─── REF parsing ────────────────────────────────────────────────────────────
+@pytest.mark.parametrize(
+    "text,key",
+    [
+        ("api#5", (API, 5)),
+        ("ui#7", (UI, 7)),
+        ("o/n#3", ("o/n", 3)),
+        ("octo/tools.js#12", ("octo/tools.js", 12)),
+    ],
+)
+def test_parse_ref(text: str, key: tuple[str, int]) -> None:
+    assert ig.parse_ref(text) == key
+
+
+@pytest.mark.parametrize(
+    "bad",
+    ["api5", "api#", "api#x", "web#3", "o/n/x#3", "#3", "api#0", "api#3a", "o/#3"],
+)
+def test_bad_ref_exits_2(bad: str) -> None:
+    for mode in ("--issues", "--epic"):
+        r = run(mode, bad)
+        assert r.returncode == 2
+        assert bad in error_of(r)
+
+
+# ─── CLI: exactly one mode, usage errors ────────────────────────────────────
+@pytest.mark.parametrize(
+    "args",
+    [
+        [],
+        ["--project", "12"],
+        ["--epic", "api#1", "--issues", "api#2"],
+        ["--milestone", "Спринт 5", "--epic", "api#1"],
+        ["--milestone", "Спринт 5", "--issues", "api#1"],
+        ["--issues"],
+        ["--epic", "api#1", "--repo", API],
+        ["--issues", "api#1", "--repo", API],
+        ["--milestone", "Спринт 5", "--repo", "not-a-repo"],
+        ["--milestone", "Спринт 5", "--project", "twelve"],
+        ["--milestone", "Спринт 5", "--unknown"],
+    ],
+)
+def test_usage_errors_exit_2_with_json(args: list[str]) -> None:
+    r = run(*args)
+    assert r.returncode == 2
+    assert error_of(r)
+
+
+def test_help_exits_0() -> None:
+    r = run("-h")
+    assert r.returncode == 0
+    assert "--milestone" in r.stdout
+    assert r.stderr == ""
+
+
+# ─── input that resolves to nothing: exit 2 ─────────────────────────────────
+def test_milestone_found_in_no_repo_exits_2(tmp_path: Path) -> None:
+    decoy = {"data": {"repository": {"milestones": {"nodes": [{"number": 1, "title": "S 9 x"}]}}}}
+    write_json(tmp_path / "milestones-api.json", decoy)
+    write_json(tmp_path / "milestones-ui.json", decoy)
+    r = run("--milestone", "S 9", fixtures=tmp_path)
+    assert r.returncode == 2
+    assert "S 9" in error_of(r)
+
+
+def test_unresolvable_issue_exits_2(tmp_path: Path) -> None:
+    write_json(tmp_path / "issues-api.json", {"data": {"repository": {"i5": None}}})
+    r = run("--issues", "api#5", fixtures=tmp_path)
+    assert r.returncode == 2
+    assert "api#5" in error_of(r)
+
+
+def test_unresolvable_epic_exits_2(tmp_path: Path) -> None:
+    write_json(tmp_path / "epic-ui-8-p1.json", {"data": {"repository": {"issue": None}}})
+    r = run("--epic", "ui#8", fixtures=tmp_path)
+    assert r.returncode == 2
+    assert "ui#8" in error_of(r)
+
+
+# ─── transport failures: exit 3 ─────────────────────────────────────────────
+def test_missing_fixture_exits_3(tmp_path: Path) -> None:
+    r = run("--issues", "api#1", fixtures=tmp_path)
+    assert r.returncode == 3
+    assert "issues-api.json" in error_of(r)
+
+
+def test_graphql_errors_exit_3(tmp_path: Path) -> None:
+    write_json(tmp_path / "issues-api.json", {"data": None, "errors": [{"message": "boom"}]})
+    r = run("--issues", "api#1", fixtures=tmp_path)
+    assert r.returncode == 3
+    assert "boom" in error_of(r)
+
+
+def test_unfaked_gh_call_is_caught_by_the_guard() -> None:
+    r = run("--issues", "api#1")
+    assert r.returncode == 3
+    assert "unexpected gh call" in error_of(r)
+
+
+def test_gh_failure_exits_3(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    prepend_path(
+        monkeypatch,
+        fake_gh(tmp_path / "bin", 'import sys\nsys.stderr.write("HTTP 502\\n")\nsys.exit(1)\n'),
+    )
+    r = run("--issues", "api#5")
+    assert r.returncode == 3
+    assert "HTTP 502" in error_of(r)
+
+
+# ─── live transport: argv handed to gh ──────────────────────────────────────
+CANNED_ISSUE: dict[str, Any] = {
+    "id": "I_kwDOEIOM8AAAABAPI0005",
+    "number": 5,
+    "title": "[api] Canned",
+    "state": "OPEN",
+    "repository": {"nameWithOwner": API},
+    "parent": None,
+    "blockedBy": {
+        "totalCount": 0,
+        "pageInfo": {"hasNextPage": False, "endCursor": None},
+        "nodes": [],
+    },
+    "blocking": {
+        "totalCount": 0,
+        "pageInfo": {"hasNextPage": False, "endCursor": None},
+        "nodes": [],
+    },
+    "projectItems": {"nodes": []},
+}
+
+
+def test_live_transport_is_gh_api_graphql_without_a_shell(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    log = tmp_path / "calls.jsonl"
+    canned = tmp_path / "canned.json"
+    write_json(canned, {"data": {"repository": {"i5": CANNED_ISSUE}}})
+    body = (
+        "import json, sys\n"
+        f"with open({str(log)!r}, 'a', encoding='utf-8') as f:\n"
+        "    f.write(json.dumps(sys.argv[1:]) + '\\n')\n"
+        f"with open({str(canned)!r}, encoding='utf-8') as f:\n"
+        "    sys.stdout.write(f.read())\n"
+    )
+    prepend_path(monkeypatch, fake_gh(tmp_path / "rec-bin", body))
+
+    r = run("--issues", "api#5")
+
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.startswith(
+        "### Граф задач: задачи [api#5](https://github.com/larchanka-training/dmc-268-api-t6/issues/5)\n"
+    )
+    calls = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+    assert len(calls) == 1
+    argv = calls[0]
+    assert argv[:2] == ["api", "graphql"]
+    assert argv[argv.index("owner=larchanka-training") - 1] == "-F"
+    assert argv[argv.index("name=dmc-268-api-t6") - 1] == "-F"
+    query = next(a for a in argv if a.startswith("query="))
+    assert argv[argv.index(query) - 1] == "-f"
+    # `$owner` and the braces reach gh verbatim: no shell expanded or split them.
+    assert "$owner" in query
+    assert re.search(r"i5: issue\(number: ?5\) ?\{", query)
+
+
+# ─── cycle walk ─────────────────────────────────────────────────────────────
+def k(n: int) -> tuple[str, int]:
+    return (API, n)
+
+
+def test_cycle_walk_backtracks_out_of_a_dead_end() -> None:
+    """1 → 2 → 3 dead-ends (3 only returns to 2); the walk backs up and closes
+    the cycle through 5 instead of looping between 2 and 3."""
+    edges = {(k(1), k(2)), (k(2), k(3)), (k(3), k(2)), (k(2), k(5)), (k(5), k(1))}
+    assert ig.find_cycles(edges) == [[k(1), k(2), k(5), k(1)]]
+
+
+def test_self_loop_is_a_cycle_and_cycles_sort_by_first_key() -> None:
+    edges = {(k(9), k(9)), (k(4), k(6)), (k(6), k(4)), (k(1), k(4))}
+    assert ig.find_cycles(edges) == [[k(4), k(6), k(4)], [k(9), k(9)]]
+
+
+def test_acyclic_graph_has_no_cycles() -> None:
+    assert ig.find_cycles({(k(1), k(2)), (k(2), k(3)), (k(1), k(3))}) == []
