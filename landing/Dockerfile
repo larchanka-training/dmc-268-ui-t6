@@ -19,7 +19,7 @@ RUN pnpm --dir landing run build
 FROM nginxinc/nginx-unprivileged:1.30-alpine AS runtime
 
 USER root
-RUN apk update && apk upgrade --no-cache && apk add --no-cache --upgrade pcre2 tiff libexpat
+RUN apk update && apk upgrade --no-cache && apk add --no-cache --upgrade pcre2 tiff libexpat brotli-libs
 
 # config.json is rendered from APP_URL at start by the image's envsubst step into a dir of its
 # own (not the web root, which stays read-only for nginx); 15-check-app-url.sh runs before it.
