@@ -72,6 +72,7 @@ LABEL_WIDTH = 40
 # only a zero-width space between them breaks it (literal entity text, not U+200B).
 AUTOLINK = re.compile(r"#(?=[0-9])|@(?=[A-Za-z0-9])")
 ZERO_WIDTH = "&#8203;"
+BACKTICKS = re.compile(r"`+")
 GH_TIMEOUT = 120  # seconds per gh call
 REVIEW_STATUSES = ("On Review", "AC Check")
 IN_PROGRESS = "In Progress"
@@ -220,8 +221,33 @@ def label(key: Key, title: str) -> str:
 
 
 def md_text(text: str) -> str:
-    """Raw title text for Markdown outside the Mermaid block: no autolink, no mention."""
-    return AUTOLINK.sub(lambda m: m.group(0) + ZERO_WIDTH, text)
+    """Raw title text for Markdown outside the Mermaid block: no autolink, no mention.
+    Code spans keep their text — they do not decode entities, so the zero-width
+    space would show. A span is a run of N backticks up to the next run of exactly
+    N; a run without such a partner is plain text."""
+
+    def guard(plain: str) -> str:
+        return AUTOLINK.sub(lambda m: m.group(0) + ZERO_WIDTH, plain)
+
+    out: list[str] = []
+    done = 0  # text before this offset is already in `out`
+    search = 0
+    while opener := BACKTICKS.search(text, search):
+        closer = next(
+            (
+                run
+                for run in BACKTICKS.finditer(text, opener.end())
+                if len(run.group(0)) == len(opener.group(0))
+            ),
+            None,
+        )
+        if closer is None:
+            search = opener.end()
+            continue
+        out += [guard(text[done : opener.start()]), text[opener.start() : closer.end()]]
+        done = search = closer.end()
+    out.append(guard(text[done:]))
+    return "".join(out)
 
 
 def valid_repo(repo: str) -> bool:

@@ -2,7 +2,7 @@
 
 ### Граф задач: задачи [api#1](https://github.com/larchanka-training/dmc-268-api-t6/issues/1), [api#2](https://github.com/larchanka-training/dmc-268-api-t6/issues/2), [api#3](https://github.com/larchanka-training/dmc-268-api-t6/issues/3), [api#4](https://github.com/larchanka-training/dmc-268-api-t6/issues/4)
 
-Задач: 4 (открыто 4, закрыто 0). Связей блокировки: 9. Вне выборки: 2.
+Задач: 4 (открыто 4, закрыто 0). Связей блокировки: 11. Вне выборки: 2.
 
 ```mermaid
 flowchart LR
@@ -13,6 +13,7 @@ flowchart LR
   api_5["api#35;5 Общий раннер для шагов цикла"]
   api_6["api#35;6 Старый раннер"]
   api_1 --> api_2
+  api_1 --> api_5
   api_2 --> api_3
   api_2 --> api_5
   api_2 --> api_6
@@ -20,6 +21,7 @@ flowchart LR
   api_3 --> api_5
   api_5 --> api_1
   api_5 --> api_2
+  api_5 --> api_3
   api_6 -.-> api_3
   classDef done fill:#f1f3f5,stroke:#adb5bd,color:#868e96
   classDef progress fill:#e7f5ff,stroke:#1c7ed6
@@ -51,5 +53,5 @@ flowchart LR
 
 #### Вне выборки
 
-- [api#5](https://github.com/larchanka-training/dmc-268-api-t6/issues/5) [infra] Общий раннер для шагов цикла — блокирует [api#1](https://github.com/larchanka-training/dmc-268-api-t6/issues/1), [api#2](https://github.com/larchanka-training/dmc-268-api-t6/issues/2); ждёт [api#2](https://github.com/larchanka-training/dmc-268-api-t6/issues/2), [api#3](https://github.com/larchanka-training/dmc-268-api-t6/issues/3)
+- [api#5](https://github.com/larchanka-training/dmc-268-api-t6/issues/5) [infra] Общий раннер для шагов цикла — блокирует [api#1](https://github.com/larchanka-training/dmc-268-api-t6/issues/1), [api#2](https://github.com/larchanka-training/dmc-268-api-t6/issues/2), [api#3](https://github.com/larchanka-training/dmc-268-api-t6/issues/3); ждёт [api#1](https://github.com/larchanka-training/dmc-268-api-t6/issues/1), [api#2](https://github.com/larchanka-training/dmc-268-api-t6/issues/2), [api#3](https://github.com/larchanka-training/dmc-268-api-t6/issues/3)
 - [api#6](https://github.com/larchanka-training/dmc-268-api-t6/issues/6) [infra] Старый раннер (закрыта) — блокирует [api#3](https://github.com/larchanka-training/dmc-268-api-t6/issues/3); ждёт [api#2](https://github.com/larchanka-training/dmc-268-api-t6/issues/2)
