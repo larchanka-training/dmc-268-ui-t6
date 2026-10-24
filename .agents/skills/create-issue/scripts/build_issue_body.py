@@ -19,7 +19,9 @@ Contract
 --------
 stdout carries the deliverable only. Errors go to stderr as {"error": "..."}.
 Exit 0 ok, 2 invalid spec. Never exits 0 on a spec it could not honour — a key
-the emitter does not know is a bug in the caller, not a no-op.
+the emitter does not know is a bug in the caller, not a no-op. With the body (not
+with --emit-*), a blocker written only in prose — a blocked-by group in
+`dependencies` and no `blocked_by` — is {"warning": "..."} on stderr, exit unchanged.
 """
 # SYNC: mirrored in dmc-268-{ui,api}-t6/.agents/skills/create-issue/scripts/build_issue_body.py
 
@@ -91,6 +93,36 @@ KICKOFF_LABEL = {
     },
 }
 
+# Dependencies group labels that mean "this issue is blocked by", in the body languages,
+# compared trimmed and case-insensitively. Such a group without `blocked_by` is a blocker
+# only in prose: the body is fine, the native link is missing — a warning, not an error.
+BLOCKED_BY_LABELS = ("blocked by", "блокирующие", "блокируется", "blockiert durch")
+
+# Parts — one issue sliced into PRs (references/slicing.md): each part is a separate PR
+# with its own boundary, stop criterion and acceptance criteria, rendered after the
+# plain scope and criteria, numbered from 1, labelled in the body's language.
+PART_KEYS = ("scope", "boundary", "done_when", "acceptance_criteria")
+PART_LABEL = {
+    "en": {
+        "part": "Part {n} (separate PR)",
+        "boundary": "PR boundary",
+        "done_when": "Done when",
+        "ac": "Part {n}: ",
+    },
+    "ru": {
+        "part": "Ч.{n} (отдельный PR)",
+        "boundary": "Граница PR",
+        "done_when": "Готово, когда",
+        "ac": "Ч.{n}: ",
+    },
+    "de": {
+        "part": "Teil {n} (eigener PR)",
+        "boundary": "PR-Grenze",
+        "done_when": "Fertig, wenn",
+        "ac": "Teil {n}: ",
+    },
+}
+
 # Whitelist of top-level keys. Anything else — including keys of the sibling
 # skills this one was ported from — is rejected, never silently dropped.
 ALLOWED_KEYS = {
@@ -116,6 +148,7 @@ ALLOWED_KEYS = {
     "assignees",
     "milestone",
     "kickoff",
+    "parts",
     # Native links and the board, set by issue-create.sh after the create; they do
     # not change the body (Dependencies stays the author's prose).
     "parent",
@@ -125,7 +158,7 @@ ALLOWED_KEYS = {
 KICKOFF_KEYS = set(KICKOFF_PROSE) | set(KICKOFF_LISTS)
 BUG_KEYS = {"environment", "steps", "expected", "actual", "severity"}
 # The Bug layout has no place for these; the other layouts have none for BUG_KEYS.
-STORY_KEYS = {"as_role", "i_want", "so_that", "background", "scope"}
+STORY_KEYS = {"as_role", "i_want", "so_that", "background", "scope", "parts"}
 
 STR_KEYS = (
     "repo",
@@ -168,6 +201,10 @@ ISSUE_REF = re.compile(r"(?:([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+))?#([1-9][0-9]*)")
 def err(msg: str) -> NoReturn:
     print(json.dumps({"error": msg}, ensure_ascii=False), file=sys.stderr)
     sys.exit(2)
+
+
+def warn(msg: str) -> None:
+    print(json.dumps({"warning": msg}, ensure_ascii=False), file=sys.stderr)
 
 
 # ─── escaping ───────────────────────────────────────────────────────────────
@@ -245,6 +282,30 @@ def _dependencies(s: dict[str, Any]) -> str:
     return safe_block(dep)
 
 
+def _part_label(s: dict[str, Any]) -> dict[str, str]:
+    return PART_LABEL.get(s.get("lang", "en"), PART_LABEL["en"])
+
+
+def _part_scope(s: dict[str, Any]) -> list[str]:
+    """One bullet per part, its PR boundary and stop criterion nested under it."""
+    label = _part_label(s)
+    return [
+        f"- {label['part'].format(n=n)}: {safe_inline(part['scope'])}\n"
+        f"  - {label['boundary']}: {safe_inline(part['boundary'])}\n"
+        f"  - {label['done_when']}: {safe_inline(part['done_when'])}"
+        for n, part in enumerate(s.get("parts", []), 1)
+    ]
+
+
+def _part_criteria(s: dict[str, Any]) -> list[str]:
+    label = _part_label(s)
+    return [
+        f"- [ ] {label['ac'].format(n=n)}{safe_inline(ac)}"
+        for n, part in enumerate(s.get("parts", []), 1)
+        for ac in part["acceptance_criteria"]
+    ]
+
+
 def render_body(s: dict[str, Any]) -> str:
     """Fixed section order. Dependencies and the DoD checklist are emitted
     unconditionally: an issue without them is missing information, not being
@@ -276,11 +337,15 @@ def render_body(s: dict[str, Any]) -> str:
             )
         if s.get("background"):
             out.append(f"## Background\n\n{safe_block(s['background'])}")
-        if s.get("scope"):
-            out.append(f"## Scope\n\n{_bullets(s['scope'])}")
+        scope = [_bullets(s["scope"])] if s.get("scope") else []
+        scope += _part_scope(s)
+        if scope:
+            out.append("## Scope\n\n" + "\n".join(scope))
 
-    if s.get("acceptance_criteria"):
-        out.append("## Acceptance Criteria\n\n" + _tasks(s["acceptance_criteria"]))
+    criteria = [_tasks(s["acceptance_criteria"])] if s.get("acceptance_criteria") else []
+    criteria += _part_criteria(s)
+    if criteria:
+        out.append("## Acceptance Criteria\n\n" + "\n".join(criteria))
 
     out.append(f"## Dependencies\n\n{_dependencies(s)}")
     out.append("## DoD Checklist\n\n" + _tasks(s.get("dod") or DEFAULT_DOD))
@@ -326,6 +391,23 @@ def render_links(s: dict[str, Any]) -> list[dict[str, Any]]:
         repo, num = parse_ref("blocked_by", ref, s["repo"])
         links.append({"kind": "blocked_by", "repo": repo, "number": num})
     return links
+
+
+def prose_blocker(s: dict[str, Any]) -> str | None:
+    """The warning for a blocker written only in prose — a Dependencies group the body
+    shows under a blocked-by label, and no `blocked_by` to set the native link — or
+    None. Only `blocked_by` silences it: a parent is not a blocker."""
+    dep = s.get("dependencies")
+    if s.get("blocked_by") or not isinstance(dep, dict):
+        return None
+    for group, value in dep.items():
+        # `value` as _dependencies() reads it: an empty group renders nothing.
+        if value and group.strip().casefold() in BLOCKED_BY_LABELS:
+            return (
+                f'dependencies has a "{group.strip()}" group but no blocked_by — '
+                "the native link will be missing"
+            )
+    return None
 
 
 # ─── CLI argv ───────────────────────────────────────────────────────────────
@@ -416,6 +498,41 @@ def _check_links(s: dict[str, Any]) -> None:
             )
 
 
+def _check_parts(parts: Any) -> None:
+    """Every part is a PR: scope, boundary and stop criterion as one-line strings, and
+    at least one acceptance criterion. One part is just the issue."""
+    if not isinstance(parts, list):
+        err(f'"parts" must be a list of objects, got {_kind(parts)}')
+    if len(parts) < 2:
+        err('"parts" needs at least two parts — one part is just the issue, leave "parts" out')
+    for n, part in enumerate(parts, 1):
+        name = f'"parts" part {n}'
+        if not isinstance(part, dict):
+            err(f"{name} must be an object, got {_kind(part)}")
+        unknown = set(part) - set(PART_KEYS)
+        if unknown:
+            err(f'unknown key(s) in "parts" part {n}: {", ".join(sorted(unknown))}')
+        for key in PART_KEYS:
+            if key not in part:
+                err(f'{name} lacks "{key}"')
+        for key in PART_KEYS[:3]:
+            if not isinstance(part[key], str):
+                err(f'{name} "{key}" must be a string, got {_kind(part[key])}')
+            if not part[key].strip():
+                err(f'{name} "{key}" must not be blank')
+            if any(c in part[key] for c in "\r\n"):
+                err(f'{name} "{key}" must be a single line')
+        ac = part["acceptance_criteria"]
+        if not _is_str_list(ac):
+            err(f'{name} "acceptance_criteria" must be a list of strings, got {_kind(ac)}')
+        if not ac:
+            err(f"{name} needs at least one acceptance criterion")
+        if any(not item.strip() for item in ac):
+            err(f'{name} "acceptance_criteria" must not contain blank entries')
+        if any(c in item for item in ac for c in "\r\n"):
+            err(f'{name} "acceptance_criteria" entries must be single lines')
+
+
 def validate(s: Any) -> None:
     if not isinstance(s, dict):
         err("spec must be a JSON object")
@@ -478,6 +595,8 @@ def validate(s: Any) -> None:
 
     if "background" in s:
         _check_fence("background", s["background"])
+    if "parts" in s:
+        _check_parts(s["parts"])
 
     # Each layout silently ignores the other's fields; refuse them instead.
     if typ == "Bug":
@@ -518,6 +637,11 @@ def main(argv: list[str]) -> int:
         print(json.dumps(render_links(spec), ensure_ascii=False))
     else:
         sys.stdout.write(render_body(spec))
+        # With the body only: issue-create.sh runs the emit modes as well, and one
+        # warning per issue is enough.
+        warning = prose_blocker(spec)
+        if warning:
+            warn(warning)
     return 0
 
 

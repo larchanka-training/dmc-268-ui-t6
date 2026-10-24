@@ -1,6 +1,6 @@
 ---
 name: create-issue
-description: This skill should be used when the user wants to file, open, raise or write up a GitHub issue, bug report or task from a conversation — resolving the repo from the git remote, enforcing a Definition-of-Ready gate, previewing the full body for explicit approval, guarding against duplicates and putting the issue on the course board (larchanka-training project 12). Also when asked to turn something just discussed into a tracked task.
+description: This skill should be used when the user wants to file, open, raise or write up a GitHub issue, bug report or task from a conversation — resolving the repo from the git remote, enforcing a Definition-of-Ready gate, previewing the full body for explicit approval, guarding against duplicates and putting the issue on the course board (larchanka-training project 12). Also when asked to turn something just discussed into a tracked task, to slice a large task into PR-sized parts, or to file a batch of linked issues.
 metadata:
   version: 1.0.0
   source: team
@@ -15,14 +15,14 @@ Turn a conversation into a properly formed GitHub issue and post it exactly once
 Russian body in the layout of `larchanka-training/dmc-268-api-t6#33` and
 `larchanka-training/dmc-268-api-t6#46`, a full preview with explicit approval, a
 duplicate guard, a read-back, and placement on the course board. Nothing is created
-without the user's explicit **Create**, so the worst a stray trigger can do is offer a
-draft.
+without the user's explicit **Create** («Создать»), so the worst a stray trigger can do is
+offer a draft.
 
 ## Preconditions
 
 - `gh` authenticated with scopes `repo` and `project` (`gh auth status`); without `project`
   the run stops before the create (exit 3) unless `--no-board` — `gh auth refresh -s project`.
-- bash 4+ (`mapfile`), GNU `find`, `curl` and python3 (stdlib only) on `PATH`.
+- bash 4+ (`mapfile`), GNU `find`, `curl` and python3 ≥ 3.10 (stdlib only) on `PATH`.
 - Run from the clone the issue belongs to. Paths in this file are from the repo root.
 
 ## Scripts — the agent never calls the REST APIs directly; the scripts do
@@ -36,6 +36,8 @@ All in `.agents/skills/create-issue/scripts/`:
 | `issue-create.sh <spec.json> [--dry-run] [--allow-duplicate] [--no-board]` | Validate → duplicate guard → create once → read back → board + Status → links        |
 | `issue-link.sh OWNER/REPO#N [--parent REF] [--blocked-by REF]...`          | Set native links on an existing issue, idempotently, each read back                  |
 | `issue-link.sh OWNER/REPO --check [--parent REF] [--blocked-by REF]...`    | Look the link targets up for an issue not created yet; writes nothing                |
+| `issue-batch.py <batch.json> [--dry-run] [--no-board]`                     | A batch of issues: validate, preview, create in order once, resume on a rerun        |
+| `issue-batch.py --compare-shape GOLDEN CANDIDATE`                          | Compare two batch files by shape — how the golden `examples/` are checked            |
 
 Creating labels or milestones, comments, closing: plain `gh` calls — `references/hosts.md`.
 
@@ -85,13 +87,17 @@ convention, follow its recent issues (`gh issue list --repo OWNER/REPO --limit 5
 Three hard blockers — do not create until resolved, ask the user:
 
 - a clear title describing **one** piece of work, in the form `[component] description`;
-- at least one acceptance criterion;
+- at least one acceptance criterion — with `parts`, each part's own, its PR boundary and `done_when`;
 - a `kickoff` block with `repo`, one `read_first` entry and `problem_shape`, when the
   issue is technical (a Bug or Task, or anything naming a service or a path). Purely
   non-technical issues (a decision to record) are exempt.
 
 Two soft warnings — mention, then proceed: dependencies unstated ("None" is fine); no
 obvious way to test it. An issue without acceptance criteria is a note to self.
+
+**Slicing** — more than one PR or repo, or independent parts: slice before the spec, into
+parts of one issue or sub-issues (`references/slicing.md`, goldens in `examples/`).
+**Batch** — several issues go through `issue-batch.py` (`references/batch.md`).
 
 ### 6. Build the spec and the body
 
@@ -121,10 +127,10 @@ that is not `#N` / `OWNER/REPO#N`, a `parent` of another owner. `parent` / `bloc
 become native links after the create; the body is unchanged. Field contents, dependency
 shapes, the default DoD, titles, language and reference hygiene: `references/templates.md`.
 
-`issue-create.sh "$SPEC" --dry-run` prints the body, `milestone`, `status` and resolved
-`links`, creating nothing. It is **not offline**: after the attribution guard it runs
-preflight and the validation (milestone open in the repo, Status a board option, every
-link target an existing issue), so a bad value fails the preview, not the create.
+`issue-create.sh "$SPEC" --dry-run` prints the body, `milestone`, `status`, resolved `links`
+and the exact-title `duplicate` (or null), creating nothing. It is **not offline**: it runs
+preflight, the validation (milestone open in the repo, Status a board option, every link
+target an existing issue) and the duplicate search, so a bad value fails the preview.
 
 ### 7. Preview, then confirm
 
@@ -140,9 +146,11 @@ Milestone:  <title, or —>
 Parent:     <OWNER/REPO#N, or —>
 Blocked by: <OWNER/REPO#N, …, or —>
 Board:      projects/12, Status: Todo   (the default; --no-board skips both)
+Duplicate:  <url (state, author) from the dry-run, or —>
 ```
 
-Then ask for confirmation. The preview alone is never a green light.
+Then ask for confirmation. The preview alone is never a green light. A batch gets one
+preview and ONE confirmation for the whole set (`references/batch.md` § 3).
 
 **Confirmation across harnesses** (same idea as "Sub-agents across harnesses" in
 `.agents/README.md` — the step must finish in every harness):
@@ -150,8 +158,9 @@ Then ask for confirmation. The preview alone is never a green light.
 - **Claude Code** — call `AskUserQuestion`: question "Create this issue?", options
   **Create** / **Edit fields** / **Cancel**.
 - **Codex and any harness without a structured-question tool** — print the same preview,
-  then ask in plain text: "Reply `Create` to post this issue, `Edit` to change something,
-  or `Cancel`." Only the word `Create` posts; "ok", "да" or silence do not.
+  then ask: "Reply `Create` / «Создать» to post this issue, `Edit` / «Изменить» to change
+  something, or `Cancel` / «Отмена»." Only `Create` or «Создать» posts; "ok", "да" or
+  silence do not.
 
 On **Edit**, ask what to change, rebuild, re-print the full preview, ask again. On
 **Cancel** or no answer, stop and create nothing.
@@ -184,7 +193,7 @@ and look at the issue before anything else. Success is the read-back, not create
 | 0    | created — read `verified` (it can be `false`), `board`, `status` and `links` in the JSON                                                                                         |
 | 2    | usage, bad spec or ref, unknown key, non-GitHub remote, attribution guard; milestone not open, unknown Status, `status` with `--no-board`, link target missing or a pull request |
 | 3    | not authenticated (`gh auth login`), or no `project` scope with the board on                                                                                                     |
-| 4    | 4xx, issue tracker disabled or repo not visible, or an exact-title duplicate blocked                                                                                             |
+| 4    | 4xx, issue tracker disabled or repo not visible, or an exact-title duplicate blocked (its `url`, `state`, `author` on stdout)                                                    |
 | 5    | 5xx, network/TLS failure or a rate-limited 403, or a failed create whose outcome could not be checked                                                                            |
 | 6    | **issue created**, board step (item-add or Status) failed — never re-run the create; run only the `gh` commands stderr names                                                     |
 | 7    | **issue created**, a native link failed (wins over 6) — never re-run the create; run only the `repair:` command from stderr                                                      |
@@ -199,7 +208,7 @@ Every line PASS, or stop. No partial.
       `python3 -m json.tool "$SPEC" | grep -nE '~/|/home/|/Users/|/tmp/|\$TMPDIR|\.\./'`
       Every hit is rewritten per reference hygiene or keeps its precondition in the same line.
 - [ ] Body produced by `build_issue_body.py`, not written by hand
-- [ ] The user confirmed **Create**, by the structured question or by the word
+- [ ] The user confirmed **Create**, by the structured question or the word `Create` / «Создать»
 
 ## Attribution guard
 
@@ -218,7 +227,7 @@ on `PATH` that pins the real command lines). From the repo root:
 ```bash
 # api
 uv run pytest .agents/skills/create-issue/tests
-uv run mypy .agents/skills/create-issue/scripts/build_issue_body.py .agents/skills/create-issue/tests
+uv run mypy .agents/skills/create-issue/scripts/*.py .agents/skills/create-issue/tests
 # ui — no Python project; pytest is fetched ephemerally, nothing is added to dependencies
 uv run --no-project --with pytest pytest -p no:cacheprovider .agents/skills/create-issue/tests
 ```
@@ -231,7 +240,7 @@ the explicit line), then `diff -r` against the other repo (`.agents/README.md`).
 
 ## Limits
 
-- GitHub only. No GitLab, and no bulk mode: one issue per run, each with its own approval.
+- GitHub only, no GitLab. Several issues: one batch, one approval (`references/batch.md`).
 - The repo is the one resolved by preflight; to file elsewhere put it in `repo` and run
   `issue-preflight.sh --repo OWNER/REPO` first. The script puts **every** issue on board
   12, including one filed into another repo — pass `--no-board` when filing outside the
