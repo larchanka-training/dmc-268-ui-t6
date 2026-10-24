@@ -4,3 +4,5 @@ coverage
 storybook-static
 pnpm-lock.yaml
 .agents/skills/create-issue/tests/golden/
+.agents/skills/issue-graph/tests/golden/
+.agents/skills/issue-graph/tests/fixtures/
