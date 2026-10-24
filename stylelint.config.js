@@ -1,7 +1,13 @@
 /** @type {import('stylelint').Config} */
 export default {
   extends: ['stylelint-config-standard'],
-  ignoreFiles: ['dist/**', 'node_modules/**', 'landing/dist/**', 'storybook-static/**'],
+  ignoreFiles: [
+    'dist/**',
+    'node_modules/**',
+    'landing/dist/**',
+    'storybook-static/**',
+    'docs-site/**',
+  ],
   overrides: [
     // CSS Modules (Ф-13): свои классы читаются как `styles.fileHeader`, поэтому camelCase;
     // `ant-*` — классы antd, и только внутри `:global(...)`: вне его CSS Modules хеширует

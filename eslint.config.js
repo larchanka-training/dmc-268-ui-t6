@@ -6,7 +6,9 @@ import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules', 'coverage', 'landing/dist', 'storybook-static'] },
+  {
+    ignores: ['dist', 'node_modules', 'coverage', 'landing/dist', 'storybook-static', 'docs-site'],
+  },
 
   // Исходники приложения: полный type-aware набор.
   {
