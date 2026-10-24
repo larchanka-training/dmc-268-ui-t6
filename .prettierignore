@@ -6,3 +6,4 @@ pnpm-lock.yaml
 .agents/skills/create-issue/tests/golden/
 .agents/skills/issue-graph/tests/golden/
 .agents/skills/issue-graph/tests/fixtures/
+.agents/skills/create-issue/examples/
