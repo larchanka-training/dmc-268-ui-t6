@@ -20,10 +20,11 @@ const runStep = {
   ok: true,
   startedAt: ISO,
   durationMs: 0,
+  attempt: 1,
 }
 
 describe('RunStepEventSchema', () => {
-  it('parses the six-field API event with an unknown tool and no attempt', () => {
+  it('parses the API event with an unknown tool', () => {
     expect(RunStepEventSchema.parse(runStep)).toEqual({
       runId: '0f3b2c1e-6a1d-4c8b-9e2f-1a2b3c4d5e6f',
       tool: 'future.unknown_tool',
@@ -31,10 +32,34 @@ describe('RunStepEventSchema', () => {
       ok: true,
       startedAt: '2026-09-18T10:00:00.000Z',
       durationMs: 0,
+      attempt: 1,
     })
   })
 
-  it.each(['runId', 'tool', 'index', 'ok', 'startedAt', 'durationMs'] as const)(
+  it('accepts llm.call with llmOperation and rejects unknown llmOperation values', () => {
+    const llmStep = {
+      ...runStep,
+      tool: 'llm.call',
+      index: 2,
+      ok: false,
+      attempt: 3,
+      llmOperation: 'review' as const,
+    }
+    expect(RunStepEventSchema.safeParse(llmStep).success).toBe(true)
+    expect(RunStepEventSchema.safeParse({ ...llmStep, llmOperation: 'summarize' }).success).toBe(
+      false,
+    )
+  })
+
+  it('accepts llmOperation on any tool: the llm.call-only rule is descriptive, not enforced', () => {
+    // API contracts/openapi.yaml RunStepEvent carries no cross-field constraint; see FRONTEND_ARCHITECTURE §2.
+    expect(RunStepEventSchema.parse({ ...runStep, llmOperation: 'conventions' })).toEqual({
+      ...runStep,
+      llmOperation: 'conventions',
+    })
+  })
+
+  it.each(['runId', 'tool', 'index', 'ok', 'startedAt', 'durationMs', 'attempt'] as const)(
     'rejects an event missing required field %s',
     (field) => {
       const result = RunStepEventSchema.safeParse({ ...runStep, [field]: undefined })
@@ -56,18 +81,28 @@ describe('RunStepEventSchema', () => {
     { startedAt: 'not-a-date' },
     { durationMs: -1 },
     { durationMs: 0.5 },
+    { attempt: 0 },
+    { attempt: 1.5 },
   ])('rejects a field outside the wire contract: %j', (invalid) => {
     expect(RunStepEventSchema.safeParse({ ...runStep, ...invalid }).success).toBe(false)
   })
 
   it('strips future fields using the existing object-schema convention', () => {
-    expect(RunStepEventSchema.parse({ ...runStep, attempt: 2 })).toEqual(runStep)
+    expect(RunStepEventSchema.parse({ ...runStep, futureTelemetry: true })).toEqual(runStep)
   })
 
-  it('exports the six required OpenAPI properties with closed output', () => {
-    // API contracts/openapi.yaml RunStepEvent on main, 2326273 (Refs #113).
+  it('exports the required OpenAPI properties with closed output', () => {
+    // API contracts/openapi.yaml RunStepEvent on api#227 head 0efe030 (Refs larchanka-training/dmc-268-api-t6#170).
     const jsonSchema = z.toJSONSchema(RunStepEventSchema)
-    expect(jsonSchema.required).toEqual(['runId', 'tool', 'index', 'ok', 'startedAt', 'durationMs'])
+    expect(jsonSchema.required).toEqual([
+      'runId',
+      'tool',
+      'index',
+      'ok',
+      'startedAt',
+      'durationMs',
+      'attempt',
+    ])
     expect(jsonSchema.additionalProperties).toBe(false)
     expect(Object.keys(jsonSchema.properties ?? {})).toEqual([
       'runId',
@@ -76,6 +111,8 @@ describe('RunStepEventSchema', () => {
       'ok',
       'startedAt',
       'durationMs',
+      'attempt',
+      'llmOperation',
     ])
     expect(jsonSchema.properties).toMatchObject({
       runId: { type: 'string', format: 'uuid' },
@@ -84,6 +121,8 @@ describe('RunStepEventSchema', () => {
       ok: { type: 'boolean' },
       startedAt: { type: 'string', format: 'date-time' },
       durationMs: { type: 'integer', minimum: 0 },
+      attempt: { type: 'integer', minimum: 1 },
+      llmOperation: { type: 'string', enum: ['conventions', 'review'] },
     })
     expect(jsonSchema.properties?.tool).toEqual({ type: 'string' })
   })

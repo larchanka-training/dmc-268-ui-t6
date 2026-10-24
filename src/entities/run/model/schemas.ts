@@ -102,6 +102,10 @@ export const RunUpdatedEventSchema = z.object({
 })
 export type RunUpdatedEvent = z.infer<typeof RunUpdatedEventSchema>
 
+/** Present on `run.step` when `tool` is `llm.call`; omitted for other tools (api `RunStepEvent`). */
+export const RunLlmOperationSchema = z.enum(['conventions', 'review'])
+export type RunLlmOperation = z.infer<typeof RunLlmOperationSchema>
+
 export const RunStepEventSchema = z.object({
   runId: z.uuid(),
   tool: z.string(),
@@ -109,6 +113,8 @@ export const RunStepEventSchema = z.object({
   ok: z.boolean(),
   startedAt: z.iso.datetime(),
   durationMs: z.int().nonnegative(),
+  attempt: z.int().min(1),
+  llmOperation: RunLlmOperationSchema.optional(),
 })
 export type RunStepEvent = z.infer<typeof RunStepEventSchema>
 

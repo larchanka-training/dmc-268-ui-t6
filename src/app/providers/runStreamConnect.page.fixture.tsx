@@ -62,6 +62,7 @@ export function stepFrame(tool: string, runId = RUN_A): string {
     ok: true,
     startedAt: STARTED_AT,
     durationMs: 5,
+    attempt: 1,
   })}\n\n`
 }
 
