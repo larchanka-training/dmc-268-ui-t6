@@ -2,7 +2,7 @@
 
 ### Граф задач: майлстоун «Спринт 5»
 
-Задач: 10 (открыто 9, закрыто 1). Связей блокировки: 8. Вне выборки: 2.
+Задач: 10 (открыто 9, закрыто 1). Связей блокировки: 9. Вне выборки: 2.
 
 ```mermaid
 flowchart LR
@@ -23,6 +23,7 @@ flowchart LR
   api_12 --> api_17
   api_12 --> ui_4
   api_13 -.-> api_14
+  api_13 -.-> api_15
   api_13 -.-> api_80
   api_80 -.-> api_14
   api_90 --> api_15
@@ -33,7 +34,7 @@ flowchart LR
   classDef alarm fill:#fff5f5,stroke:#e03131,stroke-width:3px
   classDef external fill:#ffffff,stroke:#868e96,stroke-dasharray:5 5
   class api_13,api_80 done
-  class ui_3 progress
+  class api_14,ui_3 progress
   class api_11 review
   class api_15 alarm
   class api_90 external
