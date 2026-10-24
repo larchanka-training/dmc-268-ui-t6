@@ -1,0 +1,191 @@
+---
+title: Features
+description: Repository settings, the rules file, the code index (RAG) and the dashboard.
+icon: Settings2
+---
+
+## Repository settings
+
+Open **Репозитории** (Repositories) and click the gear next to a repository. Changes to the form
+apply to the next run.
+
+<RepositorySettingsMock />
+
+| Setting | What it does |
+| --- | --- |
+| **Автоматическое ревью** (Auto review) | Turns reviews on or off for the repository. When off, the `ai-review` label does nothing. Saved at once. |
+| **RAG** | Builds a code index of the repository. See [Code index (RAG)](#code-index-rag). Saved at once. |
+| **Ожидание CI** (CI waiting) | Auto, Always or Never. See [CI waiting](/docs/how-it-works#ci-waiting). |
+| **Лимит замечаний** (Comment limit) | How many findings are posted as inline comments, from 1 to 10. The rest go to the review body. |
+| **Публикация вердикта** (Verdict) | "Комментарий" posts every review as a comment. "Запрос изменений" posts `Blocking` reviews as Request changes. |
+| **Фильтр веток** (Branch filter) | Target branch masks, one per line, for example `main` or `release/*`. Empty means all branches. Up to 20 masks. |
+| **Порог важности замечаний** (Severity threshold) | `All` posts every level. `Warn & Crit` drops `info`. `Only Critical` keeps `critical` and `high`. |
+
+In a branch mask, `*` matches inside one path segment and `**` crosses `/`. The characters
+`? [ ] { } ! \ ~ ^ :` are not allowed. A pull request to a branch outside the filter is
+`skipped`.
+
+Findings below the threshold are not posted, but the check run tells you how many were hidden.
+
+## Rules file
+
+Put project rules in `.review/rules.md` at the repository root. It is plain Markdown in any
+language: write requirements the way you would explain them to a new teammate. Reviewer sends
+the whole file to the model with every review. It also reads the root `AGENTS.md`, if there is
+one, as general project conventions. Both files are optional.
+
+````markdown title=".review/rules.md"
+# Security
+
+SQL queries with user input must be parameterized.
+
+## Python
+
+In Python files (`**/*.py`), an expected-error handler must catch a specific
+exception type. Catching `Exception` is fine at the outer edge of a background job
+if the error is logged and the job fails.
+
+## TypeScript
+
+In TypeScript files (`**/*.ts`, `**/*.tsx`), treat the result of an external JSON
+API as `unknown` until its shape is checked. An `as User` assertion alone does not
+replace input validation; use the project's validator or a type guard.
+
+# Performance
+
+When processing the list of orders, do not run a separate database query per order.
+
+# Style
+
+Duplicated test setup is fine in tests when it helps readability.
+
+# Ignore
+
+The following files must not become model context.
+
+```review-ignore
+generated/**
+dist/**
+**/*.min.js
+```
+````
+
+This is the example from the format spec, translated. A few things to know:
+
+- **Headings are only for people.** `# Security`, `# Performance` and `# Style` are suggested,
+  but names, order and levels are free. Leaving out `Security` does not turn off the built-in
+  security checks.
+- **Paths in prose are hints.** In the example, `**/*.py` tells the model where the rule
+  applies. Reviewer does not parse it.
+- **Rules come from the base branch.** The file is read from the pull request's base commit,
+  not from the pull request itself. A change to the rules takes effect after it is merged.
+- **Your rules win over defaults.** When your file and the built-in defaults disagree, your file
+  wins, and it wins over `AGENTS.md` too. Rules cannot change how Reviewer works, for example
+  where it posts or the output format.
+
+### Ignoring files
+
+The only part Reviewer reads by itself is one fenced block with the info string
+`review-ignore`. Each non-empty line is a path mask. Matching files are never sent to the model.
+If every changed file is ignored, the run is `skipped`.
+
+| Mask | Matches |
+| --- | --- |
+| `generated/**` | Everything under `generated/` at the root. Use this form for folders, not `generated/`. |
+| `*.py` | `main.py` at the root only. |
+| `**/*.py` | Any `.py` file, at any depth, including in dot folders. |
+| `src/*` | `src/a.ts`, but not `src/a/b.ts`. |
+
+Rules for masks:
+
+- A mask matches the whole path from the repository root and is case sensitive.
+- `*` matches within one path segment. `**` must be a whole segment and matches zero or more
+  segments.
+- No negation (`!`), no `?`, `[ ]`, `{ }` or backslash. `#` is a normal character, not a
+  comment, so write explanations outside the block.
+- Only one block, at the top level (not inside a list or quote), and it must be closed.
+
+### Limits and errors
+
+| Limit | Value |
+| --- | --- |
+| Size of each file (`.review/rules.md`, `AGENTS.md`) | 64 KiB |
+| Both files together in the prompt | 12,000 tokens |
+| Lines in `review-ignore` | 256 |
+| One mask | 256 bytes, 32 segments |
+
+Files must be valid UTF-8 and regular files in Git (not a symlink, submodule or LFS pointer).
+A broken rules file stops the review: the run fails and the check run names the file, the line
+and the problem. A missing file is fine; Reviewer then uses its built-in defaults.
+
+The repository settings page shows the file status under **Правила ревью** (Review rules):
+**Файл найден** (found), a note that defaults are used, or **Файл правил содержит ошибки**
+(the file has errors) with a list of problems. The status reflects the default branch and
+updates after each push to it.
+
+## Code index (RAG)
+
+The **RAG** switch builds an index of the repository's default branch: which symbols each file
+defines and which files import each other. It stores only this structure, with file paths and
+line numbers, never the code text. There are no embeddings.
+
+<Callout title="Current state">
+  Today the index is built and kept up to date, but the review step does not read from it yet.
+  Turning RAG on now prepares the repository for that.
+</Callout>
+
+**How to turn it on.** Open the repository settings and switch on **RAG**. The status next to
+**Статус индекса** (Index status) changes as the index builds:
+
+| Status | Meaning |
+| --- | --- |
+| Выключен | RAG is off, or the GitHub App has no access. |
+| Не построен | On, but nothing is built yet. |
+| Строится… | Building. |
+| Готов | Ready, with the indexed commit and time. |
+| Устарел | The default branch moved; the last index is still used until the update lands. |
+| Ошибка | The build failed. The reason is shown next to it. |
+
+**What is indexed.** Python, TypeScript, JavaScript and Go files on the default branch. Secrets
+(`.env*`, keys, credentials), vendored folders (`node_modules`, `vendor`, `.venv` and similar),
+generated files, files matching your `review-ignore` masks and files over 1 MiB are skipped.
+
+**When it updates.** A full build when you turn it on, then on every push or merge to the
+default branch and a check every 10 minutes.
+
+**Limits.** A build fails if the repository archive is over 100 MiB, has over 100,000 entries,
+over 20,000 parsed files, or takes over 15 minutes. To retry a failed build, switch RAG off and
+on.
+
+**Turning it off** deletes the index. It is also deleted when the repository leaves the
+installation, or after 30 days without use.
+
+## Dashboard
+
+The dashboard has two sections: **Репозитории** (Repositories) and **Прогоны** (Runs). From a
+repository's settings, **История проверок** (Review history) opens the runs for that repository.
+
+### Runs
+
+**Прогоны** lists every pull request that was reviewed or is being reviewed, newest first, with
+the repository and the [run status](/docs/how-it-works#run-statuses). The list updates live.
+
+<RunsListMock />
+
+### Run details
+
+Click a run to open it. The page shows:
+
+- **Run card**: repository, pull request, commit, branches, model, status, verdict, finding
+  counts per severity, timings and the error code if it failed.
+- **Stages**: **Сбор контекста** (collecting context), **Анализ LLM** (model analysis) and
+  **Публикация** (publishing), with the failing stage marked.
+- **Сессия ревью** (Review session): the agent trace. Every step the run took, in order, with its
+  duration, for example `vcs.fetch_diff` or `llm.call`. Click a step to see its `request` and
+  `response`.
+- **Дифф и замечания** (Diff and findings): the diff with findings inline. Filter by file,
+  severity or text, and switch between Unified and Split views.
+- **Отменить** (Cancel) for an active run, **Перезапустить** (Restart) for a finished one. A
+  restart reviews the pull request's current head commit, even if it was reviewed before.
+
+<RunDetailMock />

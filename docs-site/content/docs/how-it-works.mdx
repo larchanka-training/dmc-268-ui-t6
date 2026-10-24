@@ -1,0 +1,108 @@
+---
+title: How it works
+description: When a review starts, what a run is and how to read the result.
+icon: Workflow
+---
+
+<Flow
+  steps={[
+    { title: 'Label', text: 'You add ai-review to an open pull request.' },
+    { title: 'Wait for CI', text: 'Reviewer waits until the other checks on the head commit pass.' },
+    { title: 'Run', text: 'It reads the diff and your rules, drafts findings and verifies them.' },
+    { title: 'Review', text: 'It posts one GitHub review and finishes the AI Review check.' },
+  ]}
+/>
+
+## When a review starts
+
+A review starts when all of these are true:
+
+- The repository is connected and its review switch is on.
+- The pull request is open and has the label `ai-review`.
+- The target branch matches the repository [branch filter](/docs/features#repository-settings)
+  (empty filter means every branch).
+- CI on the head commit is green, or the CI rule allows starting without it.
+
+Opening a pull request without the label does nothing. Labels other than `ai-review` are
+ignored, and so are events caused by the Reviewer bot itself.
+
+### CI waiting
+
+The **Ожидание CI** (CI waiting) setting decides what "CI is green" means:
+
+| Value | Behaviour |
+| --- | --- |
+| Авто (Auto, default) | Waits for checks if the commit has any. With no checks at all, starts about 2 minutes after the label. |
+| Всегда (Always) | Always waits for successful CI. With no CI, the review never starts. |
+| Никогда (Never) | Starts right away. |
+
+A check suite counts as passed when it finished as `success`, `neutral` or `skipped`. Anything
+still running, failed, cancelled or timed out keeps the review waiting. Reviewer looks again
+every time a check finishes, so a fixed CI starts the review without any action from you. The
+`AI Review` check itself is not counted.
+
+## One review per commit
+
+Each attempt to review a pull request is a **run**. Reviewer keeps at most one active run per
+pull request and reviews each head commit once.
+
+- **New push.** A new commit cancels the run for the old commit (reason `superseded`) and the
+  new commit gets its own review once CI passes. The label stays, so you do not need to add it
+  again.
+- **Same commit again.** Removing and adding the label on the same commit does not start a new
+  review. Use **Перезапустить** (Restart) on the run page in the dashboard instead.
+- **Closed pull request.** An active run stops with the reason `pr_closed`.
+
+Older reviews stay on the pull request; Reviewer does not dismiss or edit them.
+
+## Run statuses
+
+The dashboard and the API use these values:
+
+| Status | Meaning |
+| --- | --- |
+| `queued` | Waiting for a worker. |
+| `running` | Collecting context and analysing the change. |
+| `publishing` | Posting the review to GitHub. |
+| `succeeded` | The review is posted. |
+| `failed` | The run stopped with an error. Temporary errors get up to 3 attempts first. |
+| `cancelled` | Stopped by a new push, a closed pull request or by you. |
+| `skipped` | Nothing to review, for example the branch filter did not match or every changed file is ignored. |
+
+## How to read the result
+
+### The verdict
+
+| Verdict | When |
+| --- | --- |
+| `Blocking` | At least one `critical` or `high` finding. |
+| `Attention` | Only `medium` or `low` findings. |
+| `Clean` | No findings above `info`. |
+
+The review is posted as a comment. If the repository verdict setting is "Request changes",
+a `Blocking` review is posted as **Request changes** instead.
+
+### Findings
+
+Every finding has a severity (`critical`, `high`, `medium`, `low`, `info`), a category
+(`security`, `correctness`, `performance`, `readability`), a title and an explanation. Some have
+a suggested change you can commit from GitHub.
+
+A finding goes inline on the diff when it points to a changed line and the model is confident
+about it. Otherwise it moves to the review body. Findings over the comment limit also move to
+the body. Pure style nits (formatting, import order, unused imports and similar) are dropped
+unless they are serious.
+
+### How complete the check was
+
+The review body lists the files that were checked. Some files are never sent to the model:
+
+- Lock files and generated output, for example `pnpm-lock.yaml`, `uv.lock`, `go.sum`, `*.min.js`
+  and anything under a top level `dist/`.
+- Binary files.
+- Very large files: more than 20,000 changed lines or more than 1 MiB.
+- Files that match the `review-ignore` block in your [rules file](/docs/features#rules-file).
+
+If the pull request has more than 3,000 changed lines (not counting ignored files), the run is
+**summary-only**: the model sees only the list of files, so expect no line comments. The check
+run then reads "AI-ревью: только сводка" (summary only). Split big changes to get a full review.
