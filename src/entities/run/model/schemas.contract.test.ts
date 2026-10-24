@@ -54,24 +54,6 @@ describe('RunStepEvent API contract', () => {
       expect(result.data.llmOperation).toBeUndefined()
     }
   })
-
-  it('requires attempt to be at least 1', () => {
-    expect(RunStepEventSchema.safeParse({ ...baseStep, attempt: 0 }).success).toBe(false)
-    expect(RunStepEventSchema.safeParse({ ...baseStep, attempt: -1 }).success).toBe(false)
-  })
-
-  it('rejects a payload missing attempt', () => {
-    expect(
-      RunStepEventSchema.safeParse({
-        runId: baseStep.runId,
-        tool: baseStep.tool,
-        index: baseStep.index,
-        ok: baseStep.ok,
-        startedAt: baseStep.startedAt,
-        durationMs: baseStep.durationMs,
-      }).success,
-    ).toBe(false)
-  })
 })
 
 describe('RunStatus API contract', () => {

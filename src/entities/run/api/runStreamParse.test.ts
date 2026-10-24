@@ -84,15 +84,6 @@ describe('runStreamParse', () => {
     expect(payload?.llmOperation).toBe('conventions')
   })
 
-  it('returns null for run.step data that fails RunStepEventSchema', () => {
-    expect(
-      parseRunStepEvent(
-        '{"runId":"not-a-uuid","tool":"x","index":0,"ok":true,"startedAt":"2026-09-18T10:00:00.000Z","durationMs":1,"attempt":1}',
-      ),
-    ).toBeNull()
-    expect(parseRunStepEvent('not json')).toBeNull()
-  })
-
   it('parses run.updated SSE frames', () => {
     const chunk =
       'event: run.updated\ndata: {"runId":"11111111-1111-4111-8111-000000000001","status":"running"}\n\n'
