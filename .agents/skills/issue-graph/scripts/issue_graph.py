@@ -23,7 +23,8 @@ Errors go to stderr as one line {"error": "..."}. Exit 0 report printed; 1
 report printed and the graph has a cycle; 2 usage or input (bad REF, milestone
 found in no repo, epic or issue not resolvable — including a response whose
 `errors` are all NOT_FOUND); 3 gh / GraphQL failure (non-zero gh exit without
-such a response, any other `errors`, missing fixture, unexpected shape).
+such a response, gh timeout after 120 s, any other `errors`, missing fixture,
+unexpected shape).
 
 Offline seam: with ISSUE_GRAPH_FIXTURE_DIR set, gh is never called and every
 request reads <dir>/<name>.json (the full {"data": ...} response) instead:
@@ -67,6 +68,11 @@ MERMAID_ESCAPES = str.maketrans(
     {"&": "#amp;", "#": "#35;", '"': "#quot;", "<": "#lt;", ">": "#gt;"}
 )
 LABEL_WIDTH = 40
+# GitHub autolinks `#<digit>` and mentions `@<login>` even after `\` or `&#35;`;
+# only a zero-width space between them breaks it (literal entity text, not U+200B).
+AUTOLINK = re.compile(r"#(?=[0-9])|@(?=[A-Za-z0-9])")
+ZERO_WIDTH = "&#8203;"
+GH_TIMEOUT = 120  # seconds per gh call
 REVIEW_STATUSES = ("On Review", "AC Check")
 IN_PROGRESS = "In Progress"
 CLASS_DEFS = (
@@ -98,6 +104,8 @@ ISSUE_FRAGMENT = (
     "  } }\n"
     "}\n"
 )
+# The `query:` search is fuzzy and not paged: the exact title is filtered after the fetch,
+# and 20 candidates is enough for a sprint title.
 MILESTONES_QUERY = """query($owner: String!, $name: String!, $title: String!) {
   repository(owner: $owner, name: $name) {
     milestones(first: 20, query: $title, states: [OPEN, CLOSED]) { nodes { number title } }
@@ -211,6 +219,11 @@ def label(key: Key, title: str) -> str:
     return f"{display(key[0])}#35;{key[1]} {text.translate(MERMAID_ESCAPES)}"
 
 
+def md_text(text: str) -> str:
+    """Raw title text for Markdown outside the Mermaid block: no autolink, no mention."""
+    return AUTOLINK.sub(lambda m: m.group(0) + ZERO_WIDTH, text)
+
+
 def valid_repo(repo: str) -> bool:
     return bool(REPO_NAME.fullmatch(repo)) and not any(
         set(part) == {"."} for part in repo.split("/")
@@ -246,7 +259,9 @@ def request(
             if text is not None:
                 argv += ["-f", f"{key}={text}"]
         try:
-            proc = subprocess.run(argv, capture_output=True, encoding="utf-8")
+            proc = subprocess.run(argv, capture_output=True, encoding="utf-8", timeout=GH_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            fail(f"gh api graphql ({name}) timed out after {GH_TIMEOUT} s", 3)
         except OSError as exc:
             fail(f"cannot run gh: {exc}", 3)
         if proc.returncode != 0:
@@ -375,7 +390,7 @@ def fetch_milestone(title: str, repos: list[str]) -> Scope:
         nodes = [obj(m) for m in obj(repository(data, repo)["milestones"])["nodes"]]
         numbers = [int(m["number"]) for m in nodes if m.get("title") == title]
         if not numbers:
-            warnings.append(f"Майлстоун «{title}» не найден в {display(repo)}.")
+            warnings.append(f"Майлстоун «{md_text(title)}» не найден в {display(repo)}.")
             continue
         found = True
 
@@ -390,7 +405,7 @@ def fetch_milestone(title: str, repos: list[str]) -> Scope:
         )
     if not found:
         fail(f"milestone {title!r} not found in {', '.join(display(r) for r in repos)}", 2)
-    return Scope(f"майлстоун «{title}»", warnings, issues)
+    return Scope(f"майлстоун «{md_text(title)}»", warnings, issues)
 
 
 def fetch_epic(epic: Key) -> Scope:
@@ -411,7 +426,7 @@ def fetch_epic(epic: Key) -> Scope:
         {"owner": owner, "name": name, "number": number},
         sub_issues,
     )
-    return Scope(f"эпик {ref(epic)} {titles[0]}", [], issues)
+    return Scope(f"эпик {ref(epic)} {md_text(titles[0])}", [], issues)
 
 
 def fetch_issues(keys: list[Key]) -> Scope:
@@ -506,9 +521,11 @@ def build_graph(issues: list[dict[str, Any]], owner: str, project: int) -> Graph
 
     scope = {k for k, n in nodes.items() if n.in_scope}
     containers = {
-        n.parent for n in nodes.values() if n.in_scope and n.parent in scope and n.parent != n.key
+        n.parent
+        for n in nodes.values()
+        if n.in_scope and n.parent is not None and n.parent in scope and n.parent != n.key
     }
-    return Graph(nodes, edges, {c for c in containers if c is not None})
+    return Graph(nodes, edges, containers)
 
 
 def successors(edges: set[Edge]) -> dict[Key, list[Key]]:
@@ -753,7 +770,7 @@ def render(scope: Scope, g: Graph) -> tuple[str, bool]:
     section(
         "Без связей",
         [
-            f"- {ref(k)} {g.nodes[k].title}"
+            f"- {ref(k)} {md_text(g.nodes[k].title)}"
             for k in in_scope
             if g.nodes[k].is_open and k not in g.containers and k not in linked
         ],
@@ -768,7 +785,7 @@ def render(scope: Scope, g: Graph) -> tuple[str, bool]:
         if waits_on:
             parts.append("ждёт " + ", ".join(ref(k) for k in waits_on))
         closed = "" if g.nodes[key].is_open else " (закрыта)"
-        outside.append(f"- {ref(key)} {g.nodes[key].title}{closed} — {'; '.join(parts)}")
+        outside.append(f"- {ref(key)} {md_text(g.nodes[key].title)}{closed} — {'; '.join(parts)}")
     section("Вне выборки", outside)
     return "\n".join(out) + "\n", bool(cycles)
 

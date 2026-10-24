@@ -57,4 +57,4 @@ flowchart LR
 #### Вне выборки
 
 - [api#130](https://github.com/larchanka-training/dmc-268-api-t6/issues/130) Инженер 3 - [reviews] Добавьте чтение VCS, DiffMap, загрузчик политики и AST-контекст — блокирует [api#144](https://github.com/larchanka-training/dmc-268-api-t6/issues/144)
-- [api#219](https://github.com/larchanka-training/dmc-268-api-t6/issues/219) [reviews][120] Остаток #120: guard, бюджет, summary и отбрасывание кандидатов по CVS/RFS — блокирует [api#144](https://github.com/larchanka-training/dmc-268-api-t6/issues/144)
+- [api#219](https://github.com/larchanka-training/dmc-268-api-t6/issues/219) [reviews][120] Остаток #&#8203;120: guard, бюджет, summary и отбрасывание кандидатов по CVS/RFS — блокирует [api#144](https://github.com/larchanka-training/dmc-268-api-t6/issues/144)

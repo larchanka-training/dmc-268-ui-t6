@@ -75,11 +75,13 @@ def run(*args: str, fixtures: Path | None = None) -> subprocess.CompletedProcess
     env = dict(os.environ)
     if fixtures is not None:
         env["ISSUE_GRAPH_FIXTURE_DIR"] = str(fixtures)
+    # A paging bug loops forever on a fixture page that always has a next page.
     return subprocess.run(
         [sys.executable, str(SCRIPT), *args],
         capture_output=True,
         encoding="utf-8",
         env=env,
+        timeout=60,
     )
 
 
@@ -186,7 +188,21 @@ def test_parse_ref(text: str, key: tuple[str, int]) -> None:
 
 @pytest.mark.parametrize(
     "bad",
-    ["api5", "api#", "api#x", "web#3", "o/n/x#3", "#3", "api#0", "api#3a", "o/#3"],
+    [
+        "api5",
+        "api#",
+        "api#x",
+        "web#3",
+        "o/n/x#3",
+        "#3",
+        "api#0",
+        "api#3a",
+        "o/#3",
+        # dot-only path parts would point the REST-style URL elsewhere
+        "o/..#3",
+        "../n#3",
+        "./n#3",
+    ],
 )
 def test_bad_ref_exits_2(bad: str) -> None:
     for mode in ("--issues", "--epic"):
@@ -208,6 +224,8 @@ def test_bad_ref_exits_2(bad: str) -> None:
         ["--epic", "api#1", "--repo", API],
         ["--issues", "api#1", "--repo", API],
         ["--milestone", "Спринт 5", "--repo", "not-a-repo"],
+        ["--milestone", "Спринт 5", "--repo", "o/.."],
+        ["--milestone", "Спринт 5", "--repo", "./n"],
         ["--milestone", "Спринт 5", "--project", "twelve"],
         ["--milestone", "Спринт 5", "--unknown"],
     ],
@@ -430,3 +448,207 @@ def test_self_loop_is_a_cycle_and_cycles_sort_by_first_key() -> None:
 
 def test_acyclic_graph_has_no_cycles() -> None:
     assert ig.find_cycles({(k(1), k(2)), (k(2), k(3)), (k(1), k(3))}) == []
+
+
+def test_cycles_are_ordered_by_first_key_not_by_discovery() -> None:
+    """Tarjan completes {3, 4} before {1, 2}; the report still lists 1 first."""
+    edges = {(k(1), k(2)), (k(2), k(1)), (k(1), k(3)), (k(3), k(4)), (k(4), k(3))}
+    assert ig.find_cycles(edges) == [[k(1), k(2), k(1)], [k(3), k(4), k(3)]]
+
+
+# ─── Markdown titles: no autolink, no mention ───────────────────────────────
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("Остаток #120: guard", "Остаток #&#8203;120: guard"),
+        ("ping @octocat and @Bob1", "ping @&#8203;octocat and @&#8203;Bob1"),
+        ("#5@octocat", "#&#8203;5@&#8203;octocat"),
+        ("a # b, #x, @ c, @-x, end@", "a # b, #x, @ c, @-x, end@"),
+    ],
+)
+def test_markdown_title_breaks_autolinks_and_mentions(text: str, expected: str) -> None:
+    assert ig.md_text(text) == expected
+
+
+# ─── not_found names every ref, once ────────────────────────────────────────
+TYPED: dict[str, Any] = {"owner": "larchanka-training", "name": "dmc-268-api-t6"}
+
+
+@pytest.mark.parametrize(
+    "paths,typed,strings,expected",
+    [
+        ([["repository", "i7"]], TYPED, {}, "issue api#7 not found"),
+        (
+            [["repository", "issue"]],
+            {**TYPED, "number": 9},
+            {"after": None},
+            "issue api#9 not found",
+        ),
+        ([["repository"]], TYPED, {}, "repository larchanka-training/dmc-268-api-t6 not found"),
+        (
+            [["repository", "milestone"]],
+            {**TYPED, "number": 6},
+            {"after": None},
+            "milestone 6 not found in api",
+        ),
+        ([["node"]], {}, {"id": "I_kwDOX", "after": "MQ"}, "issue I_kwDOX not found"),
+        ([["repository", "i7"], ["repository", "i7"]], TYPED, {}, "issue api#7 not found"),
+        (
+            [["repository", "i8"], ["repository", "i7"]],
+            TYPED,
+            {},
+            "issue api#8 not found; issue api#7 not found",
+        ),
+        ([["viewer"]], TYPED, {}, "Could not resolve."),
+    ],
+)
+def test_not_found_names_each_ref_once(
+    paths: list[list[str]], typed: dict[str, Any], strings: dict[str, Any], expected: str
+) -> None:
+    errors = [not_found_error(path, "Could not resolve.") for path in paths]
+    assert ig.not_found(errors, typed, strings) == expected
+
+
+# ─── gh timeout ─────────────────────────────────────────────────────────────
+def test_gh_call_times_out_after_120_seconds(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    seen: dict[str, Any] = {}
+
+    def hang(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        seen.update(kwargs)
+        raise subprocess.TimeoutExpired(argv, kwargs["timeout"])
+
+    monkeypatch.setattr(ig.subprocess, "run", hang)
+    with pytest.raises(SystemExit) as exit_info:
+        ig.request("issues-api", "query { x }", dict(TYPED), {})
+    assert exit_info.value.code == 3
+    assert seen["timeout"] == 120
+    assert "timed out" in json.loads(capsys.readouterr().err)["error"]
+
+
+# ─── report sections outside the goldens ────────────────────────────────────
+def section(report: str, title: str) -> str:
+    """Body of `#### <title>` up to the next heading, without the blank lines."""
+    body = report.split(f"\n#### {title}\n\n", 1)[1]
+    return body.split("\n\n#### ", 1)[0].rstrip("\n")
+
+
+def class_lines(report: str) -> list[str]:
+    return [line for line in report.splitlines() if line.startswith("  class ")]
+
+
+def test_all_closed_scope_has_no_open_tasks(tmp_path: Path) -> None:
+    closed = dict(CANNED_ISSUE, state="CLOSED")
+    write_json(tmp_path / "issues-api.json", {"data": {"repository": {"i5": closed}}})
+    r = run("--issues", "api#5", fixtures=tmp_path)
+    assert r.returncode == 0, r.stderr
+    assert section(r.stdout, "Слои: что можно брать параллельно") == "Нет открытых задач."
+    assert section(r.stdout, "Критический путь") == "Нет: между открытыми задачами нет связей."
+    assert section(r.stdout, "Без связей") == "Нет."
+
+
+def test_board_is_chosen_by_project_number() -> None:
+    """On board 7 api#15 is Todo and nobody else has a status: no alarm, no In Progress."""
+    r = run("--milestone", "Спринт 5", "--project", "7", fixtures=FIXTURES / "milestone")
+    assert r.returncode == 0, r.stderr
+    assert section(r.stdout, "In Progress с открытым блокером") == "Нет."
+    assert class_lines(r.stdout) == ["  class api_13,api_80 done", "  class api_90 external"]
+
+
+def test_board_is_chosen_by_project_owner() -> None:
+    """Board 12 owned by `axyi` has only api#11, In Progress there and unblocked."""
+    r = run("--milestone", "Спринт 5", "--project-owner", "axyi", fixtures=FIXTURES / "milestone")
+    assert r.returncode == 0, r.stderr
+    assert section(r.stdout, "In Progress с открытым блокером") == "Нет."
+    assert class_lines(r.stdout) == [
+        "  class api_13,api_80 done",
+        "  class api_11 progress",
+        "  class api_90 external",
+    ]
+
+
+def test_repeated_issue_refs_are_deduplicated(tmp_path: Path) -> None:
+    write_json(tmp_path / "issues-api.json", {"data": {"repository": {"i5": CANNED_ISSUE}}})
+    r = run("--issues", "api#5", "api#5", fixtures=tmp_path)
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.split("\n", 1)[0] == (
+        "### Граф задач: задачи [api#5](https://github.com/larchanka-training/dmc-268-api-t6/issues/5)"
+    )
+    assert "Задач: 1 (" in r.stdout
+
+
+# ─── live wire format: pages and cursors ────────────────────────────────────
+def passed(argv: list[str], key: str) -> list[tuple[str, str]]:
+    """(flag, value) of every `key=value` argument in a recorded gh argv."""
+    return [
+        (argv[i - 1], a.split("=", 1)[1]) for i, a in enumerate(argv) if a.startswith(f"{key}=")
+    ]
+
+
+def test_live_paging_sends_cursors_and_renders_like_the_fixture_seam(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A fake gh serves the `pagination` fixture pages chosen by argv alone."""
+    log = tmp_path / "calls.jsonl"
+    body = (
+        "import json, sys\n"
+        "from pathlib import Path\n"
+        f"FIX = Path({str(FIXTURES / 'pagination')!r})\n"
+        "argv = sys.argv[1:]\n"
+        f"with open({str(log)!r}, 'a', encoding='utf-8') as f:\n"
+        "    f.write(json.dumps(argv) + '\\n')\n"
+        "query = next(a for a in argv if a.startswith('query='))\n"
+        "args = dict(a.split('=', 1) for a in argv if '=' in a and a != query)\n"
+        "if 'milestones(' in query:\n"
+        "    name = 'milestones-api'\n"
+        "elif 'node(id' in query:\n"
+        "    field = 'blockedBy' if 'blockedBy(first' in query else 'blocking'\n"
+        "    page = {'MQ': 2, 'Ymwx': 2, 'Ymwy': 3}[args['after']]\n"
+        "    name = 'node-' + args['id'] + '-' + field + '-p' + str(page)\n"
+        "else:\n"
+        "    name = 'milestone-api-7-p2' if 'after' in args else 'milestone-api-7-p1'\n"
+        "sys.stdout.write((FIX / (name + '.json')).read_text(encoding='utf-8'))\n"
+    )
+    prepend_path(monkeypatch, fake_gh(tmp_path / "rec-bin", body))
+
+    r = run("--milestone", "Спринт 7", "--repo", API)
+
+    assert r.returncode == 0, r.stderr
+    assert r.stdout == golden_body("pagination")
+    calls = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+    queries = [next(a for a in c if a.startswith("query=")) for c in calls]
+    assert len(calls) == 6
+
+    search = [c for c, q in zip(calls, queries, strict=True) if "milestones(" in q]
+    assert len(search) == 1
+    assert passed(search[0], "title") == [("-f", "Спринт 7")]
+    assert passed(search[0], "after") == []
+    search_query = next(q for q in queries if "milestones(" in q)
+    for text in ("first: 20", "query: $title", "states: [OPEN, CLOSED]"):
+        assert text in search_query
+
+    pages = [c for c, q in zip(calls, queries, strict=True) if "milestone(number" in q]
+    assert [passed(c, "number") for c in pages] == [[("-F", "7")], [("-F", "7")]]
+    assert passed(pages[0], "after") == []
+    assert passed(pages[1], "after") == [("-f", "Y3Vyc29yOnYyOpHOAAAAAQ==")]
+    page_query = next(q for q in queries if "milestone(number" in q)
+    for text in (
+        "first: 50",
+        "blockedBy",
+        "blocking",
+        "parent",
+        'fieldValueByName(name: "Status")',
+    ):
+        assert text in page_query
+
+    follow_ups = sorted(
+        (passed(c, "id"), "blockedBy(first" in q, passed(c, "after"))
+        for c, q in zip(calls, queries, strict=True)
+        if "node(id" in q
+    )
+    assert follow_ups == [
+        ([("-f", "I_kwDOEIOM8AAAABAPI0040")], False, [("-f", "Ymwx")]),
+        ([("-f", "I_kwDOEIOM8AAAABAPI0040")], False, [("-f", "Ymwy")]),
+        ([("-f", "I_kwDOEIOM8AAAABAPI0042")], True, [("-f", "MQ")]),
+    ]

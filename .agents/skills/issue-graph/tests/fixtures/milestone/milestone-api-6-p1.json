@@ -98,7 +98,7 @@
                       }
                     },
                     "fieldValueByName": {
-                      "name": "Done"
+                      "name": "In Progress"
                     }
                   },
                   {
@@ -205,7 +205,7 @@
                 "nodes": []
               },
               "blocking": {
-                "totalCount": 2,
+                "totalCount": 3,
                 "pageInfo": {
                   "hasNextPage": false,
                   "endCursor": "MQ"
@@ -223,6 +223,14 @@
                     "number": 80,
                     "title": "[db] Схема хранения графа",
                     "state": "CLOSED",
+                    "repository": {
+                      "nameWithOwner": "larchanka-training/dmc-268-api-t6"
+                    }
+                  },
+                  {
+                    "number": 15,
+                    "title": "[worker] Очередь пересборки индекса",
+                    "state": "OPEN",
                     "repository": {
                       "nameWithOwner": "larchanka-training/dmc-268-api-t6"
                     }
@@ -297,7 +305,7 @@
                       }
                     },
                     "fieldValueByName": {
-                      "name": "Todo"
+                      "name": "In Progress"
                     }
                   }
                 ]
@@ -313,7 +321,7 @@
               },
               "parent": null,
               "blockedBy": {
-                "totalCount": 2,
+                "totalCount": 3,
                 "pageInfo": {
                   "hasNextPage": false,
                   "endCursor": "MQ"
@@ -323,6 +331,14 @@
                     "number": 90,
                     "title": "[infra] Стенд для нагрузочных прогонов",
                     "state": "OPEN",
+                    "repository": {
+                      "nameWithOwner": "larchanka-training/dmc-268-api-t6"
+                    }
+                  },
+                  {
+                    "number": 13,
+                    "title": "[db] Миграция таблицы индекса",
+                    "state": "CLOSED",
                     "repository": {
                       "nameWithOwner": "larchanka-training/dmc-268-api-t6"
                     }

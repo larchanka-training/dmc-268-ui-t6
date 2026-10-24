@@ -11,12 +11,20 @@
         },
         "parent": null,
         "blockedBy": {
-          "totalCount": 1,
+          "totalCount": 2,
           "pageInfo": {
             "hasNextPage": false,
             "endCursor": "MQ"
           },
           "nodes": [
+            {
+              "number": 5,
+              "title": "[infra] Общий раннер для шагов цикла",
+              "state": "OPEN",
+              "repository": {
+                "nameWithOwner": "larchanka-training/dmc-268-api-t6"
+              }
+            },
             {
               "number": 3,
               "title": "[core] Третий шаг цикла",
@@ -70,12 +78,20 @@
         },
         "parent": null,
         "blockedBy": {
-          "totalCount": 1,
+          "totalCount": 2,
           "pageInfo": {
             "hasNextPage": false,
             "endCursor": "MQ"
           },
           "nodes": [
+            {
+              "number": 5,
+              "title": "[infra] Общий раннер для шагов цикла",
+              "state": "OPEN",
+              "repository": {
+                "nameWithOwner": "larchanka-training/dmc-268-api-t6"
+              }
+            },
             {
               "number": 1,
               "title": "[core] Первый шаг цикла",
@@ -87,12 +103,28 @@
           ]
         },
         "blocking": {
-          "totalCount": 1,
+          "totalCount": 3,
           "pageInfo": {
             "hasNextPage": false,
             "endCursor": "MQ"
           },
           "nodes": [
+            {
+              "number": 6,
+              "title": "[infra] Старый раннер",
+              "state": "CLOSED",
+              "repository": {
+                "nameWithOwner": "larchanka-training/dmc-268-api-t6"
+              }
+            },
+            {
+              "number": 5,
+              "title": "[infra] Общий раннер для шагов цикла",
+              "state": "OPEN",
+              "repository": {
+                "nameWithOwner": "larchanka-training/dmc-268-api-t6"
+              }
+            },
             {
               "number": 3,
               "title": "[core] Третий шаг цикла",
@@ -129,12 +161,20 @@
         },
         "parent": null,
         "blockedBy": {
-          "totalCount": 1,
+          "totalCount": 2,
           "pageInfo": {
             "hasNextPage": false,
             "endCursor": "MQ"
           },
           "nodes": [
+            {
+              "number": 6,
+              "title": "[infra] Старый раннер",
+              "state": "CLOSED",
+              "repository": {
+                "nameWithOwner": "larchanka-training/dmc-268-api-t6"
+              }
+            },
             {
               "number": 2,
               "title": "[core] Второй шаг цикла",
@@ -146,12 +186,20 @@
           ]
         },
         "blocking": {
-          "totalCount": 1,
+          "totalCount": 2,
           "pageInfo": {
             "hasNextPage": false,
             "endCursor": "MQ"
           },
           "nodes": [
+            {
+              "number": 5,
+              "title": "[infra] Общий раннер для шагов цикла",
+              "state": "OPEN",
+              "repository": {
+                "nameWithOwner": "larchanka-training/dmc-268-api-t6"
+              }
+            },
             {
               "number": 1,
               "title": "[core] Первый шаг цикла",
@@ -181,7 +229,7 @@
       "i4": {
         "id": "I_kwDOEIOM8AAAABAPI0004",
         "number": 4,
-        "title": "[docs] Свободная задача",
+        "title": "[docs] Свободная задача для @octocat по #5",
         "state": "OPEN",
         "repository": {
           "nameWithOwner": "larchanka-training/dmc-268-api-t6"
