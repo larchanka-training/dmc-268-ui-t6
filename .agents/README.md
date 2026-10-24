@@ -65,10 +65,11 @@ These files are byte-identical between the two repos, marked with a
 
 The marker takes the form the file type allows: `.md` — the `<!-- SYNC: … -->` line
 (after the H1 in a skill file); `.py` / `.sh` — a `# SYNC: …` comment after the shebang or
-the module docstring; golden files under `skills/create-issue/tests/golden/` — the SYNC
-line, a blank line, then the body (the golden test drops exactly those two lines). In ui
-that directory is listed in `.prettierignore`, so lint-staged never rewrites the
-byte-exact goldens.
+the module docstring; golden files under `skills/create-issue/tests/golden/` and the `.md`
+files under `skills/create-issue/examples/` — the SYNC line, a blank line, then the body
+(the golden test drops exactly those two lines); `examples/*/batch.json` carries none (JSON
+has no comments). In ui both directories are listed in `.prettierignore`, so lint-staged
+never rewrites the byte-exact goldens.
 
 Everything else (`rules/frontend.md` / `rules/backend.md`, stack-specific
 skills, `templates/`) is per-repo.
