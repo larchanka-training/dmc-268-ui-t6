@@ -55,7 +55,7 @@ flowchart LR
 
 #### Критический путь
 
-[ui#3](https://github.com/larchanka-training/dmc-268-ui-t6/issues/3) → [api#12](https://github.com/larchanka-training/dmc-268-api-t6/issues/12) → [api#17](https://github.com/larchanka-training/dmc-268-api-t6/issues/17) (3 задач)
+[ui#3](https://github.com/larchanka-training/dmc-268-ui-t6/issues/3) → [api#12](https://github.com/larchanka-training/dmc-268-api-t6/issues/12) → [api#17](https://github.com/larchanka-training/dmc-268-api-t6/issues/17) (задач: 3)
 
 #### Без связей
 
