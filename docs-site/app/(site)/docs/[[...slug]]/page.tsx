@@ -23,7 +23,7 @@ export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
   )
 
   return (
-    <DocsPage toc={page.data.toc} full={page.data.full}>
+    <DocsPage toc={page.data.toc} full={page.data.full} tableOfContentPopover={{ enabled: false }}>
       {intro ? <IntroHero>{heading}</IntroHero> : heading}
       <DocsBody>
         <MDX
