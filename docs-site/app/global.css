@@ -205,3 +205,8 @@ body {
 #nd-docs-layout {
   padding-top: var(--site-header-h);
 }
+
+/* Sidebar collapsing is off; the floating panel Fumadocs keeps for it must not linger in the DOM. */
+[data-sidebar-panel] {
+  display: none;
+}

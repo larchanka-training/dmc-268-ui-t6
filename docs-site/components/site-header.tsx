@@ -10,7 +10,7 @@ import styles from './site-header.module.css'
  * The landing header (landing/src/components/Header.tsx) with a "Docs" item. Landing items link
  * back to the landing sections, "Try it now" opens the dashboard.
  */
-export function SiteHeader({ wide = false }: { wide?: boolean }) {
+export function SiteHeader() {
   const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
@@ -25,7 +25,7 @@ export function SiteHeader({ wide = false }: { wide?: boolean }) {
   }, [])
 
   return (
-    <header className={styles.header} data-scrolled={scrolled} data-wide={wide || undefined}>
+    <header className={styles.header} data-scrolled={scrolled}>
       <div className={styles.bar}>
         <a href={`${landingUrl}/`} className={styles.brand} aria-label={`${appName} home`}>
           <Logo size={20} />

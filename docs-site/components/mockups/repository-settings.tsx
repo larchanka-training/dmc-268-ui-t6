@@ -50,7 +50,7 @@ export function RepositorySettingsMock() {
         <div className={s.grid2}>
           <div className={s.field}>
             <span className={s.label}>CI waiting</span>
-            <span className={s.input}>Auto (wait for CI when the commit has checks)</span>
+            <span className={s.input}>Auto (wait if checks exist)</span>
           </div>
           <div className={s.field}>
             <span className={s.label}>Comment limit (1 to 10)</span>
