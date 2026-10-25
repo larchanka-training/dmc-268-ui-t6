@@ -1,7 +1,7 @@
 /*
  * Copy of landing/src/components/Header.module.css, so the docs header matches the landing one.
- * Additions: an active state for the current item, a visible "Docs" item on small screens and
- * a wide variant that lines up with the docs container.
+ * Changes: the bar spans the docs container instead of 1080px, the current item is marked and
+ * "Docs" stays visible on small screens.
  */
 .header {
   position: fixed;
@@ -16,7 +16,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  max-width: 1080px;
+  /* One container for every page (app/global.css), so the logo stays put between pages. */
+  max-width: var(--docs-width);
   height: 64px;
   margin-inline: auto;
   padding-inline: 20px 12px;
@@ -71,11 +72,6 @@
 .link:hover,
 .link[aria-current='page'] {
   color: var(--text);
-}
-
-/* On docs pages the bar spans the docs container, so its edges line up with sidebar and TOC. */
-.header[data-wide] .bar {
-  max-width: var(--docs-width);
 }
 
 @media (width <= 640px) {

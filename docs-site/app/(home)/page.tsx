@@ -57,7 +57,7 @@ const SECTIONS = [
 export default function HomePage() {
   return (
     <main className="flex flex-1 flex-col">
-      <section className="mx-auto grid w-full max-w-[1080px] items-center gap-12 px-6 pt-16 pb-16 lg:grid-cols-[1fr_minmax(0,460px)]">
+      <section className="mx-auto grid w-full max-w-(--docs-width) items-center gap-12 px-6 sm:px-11 pt-16 pb-16 lg:grid-cols-[1fr_minmax(0,460px)]">
         <div>
           <p className="text-xs font-medium tracking-[0.08em] text-[var(--glow)] uppercase">
             Reviewer docs
@@ -97,7 +97,7 @@ export default function HomePage() {
         <ReviewPreview />
       </section>
 
-      <section className="mx-auto grid w-full max-w-[1080px] gap-3 px-6 pb-24 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="mx-auto grid w-full max-w-(--docs-width) gap-3 px-6 sm:px-11 pb-24 sm:grid-cols-2 lg:grid-cols-3">
         {SECTIONS.map(({ href, icon: Icon, title, text }) => (
           <Link
             key={href}

@@ -45,7 +45,9 @@ export function MockShell({ active, path, caption, children }: ShellProps) {
           <div className={s.main}>{children}</div>
         </div>
       </div>
-      <figcaption className={s.caption}>{caption}</figcaption>
+      <figcaption className={s.caption}>
+        {caption} Labels translated from the Russian dashboard.
+      </figcaption>
     </figure>
   )
 }
