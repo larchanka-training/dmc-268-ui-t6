@@ -1,4 +1,5 @@
 import { ImageZoom } from 'fumadocs-ui/components/image-zoom'
+import { basePath } from '@/lib/shared'
 import screens from './screens.json'
 
 export type ShotName = keyof typeof screens
@@ -22,7 +23,9 @@ interface ScreenImageProps {
  * not a white box. Click or tap opens it zoomed in on the same page.
  */
 export function ScreenImage({ name, alt, caption, note, centerCaption = false }: ScreenImageProps) {
-  const { src, width, height } = screens[name]
+  const { width, height } = screens[name]
+  // A plain <img> does not get the base path from Next.js; screens.json keeps it out.
+  const src = `${basePath}${screens[name].src}`
   return (
     <figure className="not-prose my-6" style={{ maxWidth: width }}>
       <ImageZoom src={src} alt={alt} zoomInProps={{ src, alt }}>

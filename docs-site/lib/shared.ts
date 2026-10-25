@@ -1,7 +1,7 @@
 export const appName = 'Reviewer'
 /**
  * URL prefix of the whole site (next.config.mjs basePath, served at <landing host>/docs). Next.js
- * adds it to <Link> and its assets; plain URLs (an <iframe> src, metadata icons, the search API)
+ * adds it to <Link> and its assets; plain URLs (an <img> src, metadata icons, the search API)
  * take it from here.
  */
 export const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? ''

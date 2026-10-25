@@ -15,7 +15,7 @@ const config = {
   basePath,
   // Static HTML in out/, served by nginx in the docs image (docs-site/Dockerfile).
   output: 'export',
-  // Plain <iframe>, metadata icons and the search client do not add the base path themselves;
+  // Plain <img>, metadata icons and the search client do not add the base path themselves;
   // they read it from lib/shared.ts.
   env: { NEXT_PUBLIC_BASE_PATH: basePath },
 }
