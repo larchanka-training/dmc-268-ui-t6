@@ -36,10 +36,12 @@ suggested fixes and a verdict.
 
 - It does not run your code, tests or build. It only reads text through the GitHub API.
 - It does not merge, approve, dismiss old reviews or resolve threads.
-- It does not start when a pull request opens. You add the `ai-review` label.
+- It does not start when a pull request opens. Today you ask for a review with the `ai-review`
+  label.
 
 ## Coming next
 
+- <StatusBadge /> An automatic mode that reviews every pull request, without the label.
 - <StatusBadge /> Your own rules in `.review/rules.md` sent to the model. Today the file is
   checked and its `review-ignore` block works, see [Rules file](/docs/rules-file).
 - <StatusBadge /> A second model pass that checks every finding before it is posted.
