@@ -1,0 +1,14 @@
+# Course VPS: no host port. The docs join the edge proxy network (deployed by the API repo) as
+# EDGE_ALIAS (docs-staging); the proxy dials <alias>:8080 for /docs and /docs/* on the landing
+# hosts (staging.<APP_DOMAIN> and the others that serve the landing).
+services:
+  docs:
+    networks:
+      edge:
+        aliases:
+          - ${EDGE_ALIAS:?EDGE_ALIAS is required}
+
+networks:
+  edge:
+    name: dmc268-edge
+    external: true

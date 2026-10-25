@@ -18,3 +18,7 @@ deploy
 .env.*
 .husky
 .vscode
+# docs-site build output and caches (the image builds them itself)
+docs-site/.next
+docs-site/out
+docs-site/.source

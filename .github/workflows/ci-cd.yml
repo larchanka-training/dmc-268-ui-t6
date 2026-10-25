@@ -17,6 +17,7 @@ env:
   REGISTRY: ghcr.io
   LOCAL_IMAGE: dmc-268-ui:ci
   LANDING_LOCAL_IMAGE: dmc-268-landing:ci
+  DOCS_LOCAL_IMAGE: dmc-268-docs:ci
 
 jobs:
   ui-quality:
@@ -86,6 +87,9 @@ jobs:
       landing_immutable: ${{ steps.meta.outputs.landing_immutable }}
       landing_staging: ${{ steps.meta.outputs.landing_staging }}
       landing_previous: ${{ steps.meta.outputs.landing_previous }}
+      docs_immutable: ${{ steps.meta.outputs.docs_immutable }}
+      docs_staging: ${{ steps.meta.outputs.docs_staging }}
+      docs_previous: ${{ steps.meta.outputs.docs_previous }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -97,6 +101,8 @@ jobs:
           image="${REGISTRY}/${repo}"
           # The landing (landing/Dockerfile) is a package of its own, tagged like the UI.
           landing="${image}-landing"
+          # The user docs (docs-site/Dockerfile) too.
+          docs="${image}-docs"
           {
             echo "image=${image}"
             echo "immutable=${image}:${{ github.sha }}"
@@ -105,6 +111,9 @@ jobs:
             echo "landing_immutable=${landing}:${{ github.sha }}"
             echo "landing_staging=${landing}:staging"
             echo "landing_previous=${landing}:staging-previous"
+            echo "docs_immutable=${docs}:${{ github.sha }}"
+            echo "docs_staging=${docs}:staging"
+            echo "docs_previous=${docs}:staging-previous"
           } >> "${GITHUB_OUTPUT}"
 
       - name: Set up Docker Buildx
@@ -120,6 +129,7 @@ jobs:
           build-args: |
             VITE_GITHUB_CLIENT_ID=${{ vars.VITE_GITHUB_CLIENT_ID }}
             VITE_GITHUB_APP_SLUG=${{ vars.VITE_GITHUB_APP_SLUG }}
+            VITE_DOCS_URL=${{ vars.VITE_DOCS_URL }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
@@ -154,6 +164,28 @@ jobs:
         with:
           name: landing-image
           path: /tmp/landing-image.tar.gz
+          retention-days: 1
+
+      # And the docs: a docs image that does not build blocks the PR as well.
+      - name: Build docs image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: docs-site/Dockerfile
+          load: true
+          tags: ${{ env.DOCS_LOCAL_IMAGE }}
+          cache-from: type=gha,scope=docs
+          cache-to: type=gha,mode=max,scope=docs
+          provenance: false
+
+      - name: Export docs image artifact
+        run: docker save "${DOCS_LOCAL_IMAGE}" | gzip > /tmp/docs-image.tar.gz
+
+      - name: Upload docs image artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: docs-image
+          path: /tmp/docs-image.tar.gz
           retention-days: 1
 
   docker-scan:
@@ -197,6 +229,24 @@ jobs:
           format: table
           scanners: vuln,secret,misconfig
 
+      - name: Download docs image artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: docs-image
+
+      - name: Load docs image
+        run: gunzip -c docs-image.tar.gz | docker load
+
+      - name: Trivy scan docs
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
+        with:
+          image-ref: ${{ env.DOCS_LOCAL_IMAGE }}
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          ignore-unfixed: true
+          format: table
+          scanners: vuln,secret,misconfig
+
   push-image:
     name: Push Docker image
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
@@ -216,6 +266,9 @@ jobs:
       landing_image_ref: ${{ steps.push_landing.outputs.image_ref }}
       landing_staging: ${{ needs.docker-build.outputs.landing_staging }}
       landing_previous: ${{ needs.docker-build.outputs.landing_previous }}
+      docs_image_ref: ${{ steps.push_docs.outputs.image_ref }}
+      docs_staging: ${{ needs.docker-build.outputs.docs_staging }}
+      docs_previous: ${{ needs.docker-build.outputs.docs_previous }}
     steps:
       - name: Download image artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -226,6 +279,11 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: landing-image
+
+      - name: Download docs image artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: docs-image
 
       - name: Set tags
         id: tags
@@ -270,6 +328,22 @@ jobs:
           echo "image_ref=${image_ref}" >> "${GITHUB_OUTPUT}"
           echo "pushed ${image_ref}"
 
+      - name: Load and push scanned docs image
+        id: push_docs
+        env:
+          IMMUTABLE: ${{ needs.docker-build.outputs.docs_immutable }}
+        run: |
+          gunzip -c docs-image.tar.gz | docker load
+          docker tag "${DOCS_LOCAL_IMAGE}" "${IMMUTABLE}"
+          docker push "${IMMUTABLE}"
+          image_ref="$(docker inspect --format='{{index .RepoDigests 0}}' "${IMMUTABLE}")"
+          if [[ -z "${image_ref}" || "${image_ref}" == "<no value>" ]]; then
+            echo "failed to resolve pushed docs image digest" >&2
+            exit 1
+          fi
+          echo "image_ref=${image_ref}" >> "${GITHUB_OUTPUT}"
+          echo "pushed ${image_ref}"
+
   deploy-staging:
     name: Deploy staging
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
@@ -287,9 +361,11 @@ jobs:
     outputs:
       promote: ${{ steps.result.outputs.promote }}
       promote_landing: ${{ steps.result.outputs.promote_landing }}
+      promote_docs: ${{ steps.result.outputs.promote_docs }}
       image_ref: ${{ needs.push-image.outputs.image_ref }}
       staging: ${{ needs.push-image.outputs.staging }}
       landing_image_ref: ${{ needs.push-image.outputs.landing_image_ref }}
+      docs_image_ref: ${{ needs.push-image.outputs.docs_image_ref }}
     steps:
       - name: Resolve staging target
         id: target
@@ -333,6 +409,10 @@ jobs:
             landing_base_url=""
             landing_health_url=""
             landing_app_url=""
+            docs=false
+            docs_app_dir=""
+            docs_edge_alias=""
+            docs_url=""
           elif [[ -n "${VPS_HOST}" ]]; then
             mode=course
             host="${VPS_HOST}"
@@ -358,6 +438,12 @@ jobs:
             landing_base_url="https://staging.${APP_DOMAIN}"
             landing_health_url="${landing_base_url}/health"
             landing_app_url="${base_url}"
+            # User docs: own APP_DIR and compose project, alias docs-staging; the edge proxy sends
+            # /docs and /docs/* on the landing hosts there (deploy/scripts/docs-healthcheck.sh).
+            docs=true
+            docs_app_dir=/opt/dmc-268-docs-staging
+            docs_edge_alias="docs-staging"
+            docs_url="${landing_base_url}/docs"
           else
             echo "No staging target: set STAGING_HOST, STAGING_SSH_PORT, STAGING_SSH_USER and STAGING_SSH_KEY (Terraform host)" \
               "or organization variable VPS_DMC268_IP_T6 with secrets VPS_DMC268_U and VPS_DMC268_P (course VPS)" >&2
@@ -375,7 +461,8 @@ jobs:
           # One key=value line per output: a CR/LF inside a value (e.g. from STAGING_HEALTH_URL) could
           # otherwise append lines that override mode, host or port.
           for value in "${mode}" "${host}" "${port}" "${app_dir}" "${deploy_mode}" "${edge_alias}" "${base_url}" "${health_url}" \
-            "${landing_app_dir}" "${landing_edge_alias}" "${landing_base_url}" "${landing_health_url}" "${landing_app_url}"; do
+            "${landing_app_dir}" "${landing_edge_alias}" "${landing_base_url}" "${landing_health_url}" "${landing_app_url}" \
+            "${docs_app_dir}" "${docs_edge_alias}" "${docs_url}"; do
             if [[ "${value}" == *$'\n'* || "${value}" == *$'\r'* ]]; then
               echo "staging target values must be single-line" >&2
               exit 1
@@ -384,6 +471,9 @@ jobs:
           urls=("${base_url}" "${health_url}")
           if [[ "${landing}" == "true" ]]; then
             urls+=("${landing_base_url}" "${landing_health_url}" "${landing_app_url}")
+          fi
+          if [[ "${docs}" == "true" ]]; then
+            urls+=("${docs_url}")
           fi
           for url in "${urls[@]}"; do
             if [[ ! "${url}" =~ ^https?://[^[:space:]]+$ ]]; then
@@ -406,6 +496,10 @@ jobs:
             echo "landing_base_url=${landing_base_url}"
             echo "landing_health_url=${landing_health_url}"
             echo "landing_app_url=${landing_app_url}"
+            echo "docs=${docs}"
+            echo "docs_app_dir=${docs_app_dir}"
+            echo "docs_edge_alias=${docs_edge_alias}"
+            echo "docs_url=${docs_url}"
           } >> "${GITHUB_OUTPUT}"
           echo "staging target: ${mode} (${host}:${port}, ${base_url})"
 
@@ -440,6 +534,21 @@ jobs:
           target: ${{ steps.target.outputs.landing_app_dir }}
           strip_components: 2
 
+      # The docs get their own APP_DIR with the same host scripts (course VPS only).
+      - name: Upload docs deploy files
+        if: steps.target.outputs.docs == 'true'
+        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1.0.0
+        with:
+          host: ${{ steps.target.outputs.host }}
+          port: ${{ steps.target.outputs.port }}
+          username: ${{ steps.target.outputs.mode == 'course' && secrets.VPS_DMC268_U || vars.STAGING_SSH_USER }}
+          key: ${{ steps.target.outputs.mode == 'terraform' && secrets.STAGING_SSH_KEY || '' }}
+          password: ${{ steps.target.outputs.mode == 'course' && secrets.VPS_DMC268_P || '' }}
+          fingerprint: ${{ vars.STAGING_SSH_FINGERPRINT }}
+          source: 'deploy/compose/docs.yml,deploy/compose/docs.edge.yml,deploy/scripts/deploy.sh,deploy/scripts/rollback.sh,deploy/scripts/env-file.sh'
+          target: ${{ steps.target.outputs.docs_app_dir }}
+          strip_components: 2
+
       # Docker on a bare host and, in edge mode, the shared network. The edge proxy itself is
       # deployed only by the API repo.
       - name: Prepare host
@@ -448,6 +557,7 @@ jobs:
           APP_DIR: ${{ steps.target.outputs.app_dir }}
           EDGE_NETWORK: ${{ steps.target.outputs.deploy_mode == 'edge' && 'dmc268-edge' || '' }}
           LANDING_APP_DIR: ${{ steps.target.outputs.landing_app_dir }}
+          DOCS_APP_DIR: ${{ steps.target.outputs.docs_app_dir }}
         with:
           host: ${{ steps.target.outputs.host }}
           port: ${{ steps.target.outputs.port }}
@@ -456,7 +566,7 @@ jobs:
           password: ${{ steps.target.outputs.mode == 'course' && secrets.VPS_DMC268_P || '' }}
           fingerprint: ${{ vars.STAGING_SSH_FINGERPRINT }}
           debug: false
-          envs: APP_DIR,EDGE_NETWORK,LANDING_APP_DIR
+          envs: APP_DIR,EDGE_NETWORK,LANDING_APP_DIR,DOCS_APP_DIR
           script: |
             set -euo pipefail
             set +o xtrace
@@ -470,6 +580,12 @@ jobs:
               cd "${LANDING_APP_DIR}"
               mv landing.yml compose.yml
               mv landing.edge.yml compose.edge.yml
+              chmod +x deploy.sh rollback.sh env-file.sh
+            fi
+            if [[ -n "${DOCS_APP_DIR}" ]]; then
+              cd "${DOCS_APP_DIR}"
+              mv docs.yml compose.yml
+              mv docs.edge.yml compose.edge.yml
               chmod +x deploy.sh rollback.sh env-file.sh
             fi
 
@@ -596,7 +712,73 @@ jobs:
             set +o xtrace
             ROLLBACK_MODE=auto "${APP_DIR}/rollback.sh"
 
-      # The UI only: a landing failure never touches the healthy UI release.
+      # The docs of the same commit, only after the UI is healthy, independent of the landing. A
+      # docs failure rolls back the docs alone (NO_PREVIOUS_RELEASE=stop, as the landing: the edge
+      # proxy answers 503 on /docs instead of the stock nginx page); UI and landing keep their
+      # promotions, the job is red.
+      - name: Deploy docs image
+        id: deploy_docs
+        if: ${{ !cancelled() && steps.target.outputs.docs == 'true' && steps.deploy.outcome == 'success' && steps.health.outcome == 'success' }}
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+          IMAGE: ${{ needs.push-image.outputs.docs_image_ref }}
+          APP_DIR: ${{ steps.target.outputs.docs_app_dir }}
+          DEPLOY_MODE: ${{ steps.target.outputs.deploy_mode }}
+          EDGE_ALIAS: ${{ steps.target.outputs.docs_edge_alias }}
+          NO_PREVIOUS_RELEASE: stop
+        with:
+          host: ${{ steps.target.outputs.host }}
+          port: ${{ steps.target.outputs.port }}
+          username: ${{ steps.target.outputs.mode == 'course' && secrets.VPS_DMC268_U || vars.STAGING_SSH_USER }}
+          key: ${{ steps.target.outputs.mode == 'terraform' && secrets.STAGING_SSH_KEY || '' }}
+          password: ${{ steps.target.outputs.mode == 'course' && secrets.VPS_DMC268_P || '' }}
+          fingerprint: ${{ vars.STAGING_SSH_FINGERPRINT }}
+          debug: false
+          envs: GHCR_TOKEN,GHCR_USER,IMAGE,APP_DIR,DEPLOY_MODE,EDGE_ALIAS,NO_PREVIOUS_RELEASE
+          script: |
+            set -euo pipefail
+            set +o xtrace
+            "${APP_DIR}/deploy.sh" "${IMAGE}"
+
+      - name: Docs health check
+        id: health_docs
+        if: ${{ !cancelled() && steps.deploy_docs.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          DOCS_URL: ${{ steps.target.outputs.docs_url }}
+        run: |
+          chmod +x deploy/scripts/healthcheck.sh deploy/scripts/docs-healthcheck.sh
+          deploy/scripts/docs-healthcheck.sh "${DOCS_URL}"
+
+      - name: Rollback docs on failed deploy or health check
+        id: rollback_docs
+        if: always() && (steps.deploy_docs.outcome == 'failure' || steps.health_docs.outcome == 'failure')
+        continue-on-error: true
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+          APP_DIR: ${{ steps.target.outputs.docs_app_dir }}
+          DEPLOY_MODE: ${{ steps.target.outputs.deploy_mode }}
+          EDGE_ALIAS: ${{ steps.target.outputs.docs_edge_alias }}
+          NO_PREVIOUS_RELEASE: stop
+        with:
+          host: ${{ steps.target.outputs.host }}
+          port: ${{ steps.target.outputs.port }}
+          username: ${{ steps.target.outputs.mode == 'course' && secrets.VPS_DMC268_U || vars.STAGING_SSH_USER }}
+          key: ${{ steps.target.outputs.mode == 'terraform' && secrets.STAGING_SSH_KEY || '' }}
+          password: ${{ steps.target.outputs.mode == 'course' && secrets.VPS_DMC268_P || '' }}
+          fingerprint: ${{ vars.STAGING_SSH_FINGERPRINT }}
+          debug: false
+          envs: GHCR_TOKEN,GHCR_USER,APP_DIR,DEPLOY_MODE,EDGE_ALIAS,NO_PREVIOUS_RELEASE
+          script: |
+            set -euo pipefail
+            set +o xtrace
+            ROLLBACK_MODE=auto "${APP_DIR}/rollback.sh"
+
+      # The UI only: a landing or docs failure never touches the healthy UI release.
       - name: Rollback on failed deploy or health check
         id: rollback
         if: always() && (steps.deploy.outcome == 'failure' || steps.health.outcome == 'failure')
@@ -629,34 +811,49 @@ jobs:
           LANDING: ${{ steps.target.outputs.landing }}
           DEPLOY_LANDING: ${{ steps.deploy_landing.outcome }}
           HEALTH_LANDING: ${{ steps.health_landing.outcome }}
+          DOCS: ${{ steps.target.outputs.docs }}
+          DEPLOY_DOCS: ${{ steps.deploy_docs.outcome }}
+          HEALTH_DOCS: ${{ steps.health_docs.outcome }}
         run: |
-          # One flag per image: a landing failure keeps the UI promotion.
+          # One flag per image: a landing or docs failure keeps the UI promotion.
           promote=false
           promote_landing=false
+          promote_docs=false
           if [[ "${{ steps.deploy.outcome }}" == "success" && "${{ steps.health.outcome }}" == "success" ]]; then
             promote=true
             if [[ "${LANDING}" == "true" && "${DEPLOY_LANDING}" == "success" && "${HEALTH_LANDING}" == "success" ]]; then
               promote_landing=true
             fi
+            if [[ "${DOCS}" == "true" && "${DEPLOY_DOCS}" == "success" && "${HEALTH_DOCS}" == "success" ]]; then
+              promote_docs=true
+            fi
           fi
           {
             echo "promote=${promote}"
             echo "promote_landing=${promote_landing}"
+            echo "promote_docs=${promote_docs}"
           } >> "${GITHUB_OUTPUT}"
 
       - name: Fail the pipeline after rollback
-        if: always() && (steps.deploy.outcome == 'failure' || steps.health.outcome == 'failure' || steps.deploy_landing.outcome == 'failure' || steps.health_landing.outcome == 'failure')
+        if: always() && (steps.deploy.outcome == 'failure' || steps.health.outcome == 'failure' || steps.deploy_landing.outcome == 'failure' || steps.health_landing.outcome == 'failure' || steps.deploy_docs.outcome == 'failure' || steps.health_docs.outcome == 'failure')
         run: |
           if [[ "${{ steps.deploy.outcome }}" == "failure" ]]; then
             echo "staging deploy failed; rollback was triggered"
           elif [[ "${{ steps.health.outcome }}" == "failure" ]]; then
             echo "staging health check failed; rollback was triggered"
-          elif [[ "${{ steps.deploy_landing.outcome }}" == "failure" ]]; then
+          fi
+          # The landing and the docs are separate parts: report each one that failed.
+          if [[ "${{ steps.deploy_landing.outcome }}" == "failure" ]]; then
             echo "::error::landing deploy failed; only the landing was rolled back; the healthy UI release stays and its :staging promotion still runs"
-          else
+          elif [[ "${{ steps.health_landing.outcome }}" == "failure" ]]; then
             echo "::error::landing health check failed; only the landing was rolled back; the healthy UI release stays and its :staging promotion still runs"
           fi
-          if [[ "${{ steps.rollback.outcome }}" == "failure" || "${{ steps.rollback_landing.outcome }}" == "failure" ]]; then
+          if [[ "${{ steps.deploy_docs.outcome }}" == "failure" ]]; then
+            echo "::error::docs deploy failed; only the docs were rolled back; the healthy UI release stays and its :staging promotion still runs"
+          elif [[ "${{ steps.health_docs.outcome }}" == "failure" ]]; then
+            echo "::error::docs health check failed (is /docs routed to docs-staging on the edge proxy?); only the docs were rolled back; the healthy UI release stays and its :staging promotion still runs"
+          fi
+          if [[ "${{ steps.rollback.outcome }}" == "failure" || "${{ steps.rollback_landing.outcome }}" == "failure" || "${{ steps.rollback_docs.outcome }}" == "failure" ]]; then
             echo "rollback failed" >&2
             exit 1
           fi
@@ -725,6 +922,10 @@ jobs:
             landing_base_url=""
             landing_health_url=""
             landing_app_url=""
+            docs=false
+            docs_app_dir=""
+            docs_edge_alias=""
+            docs_url=""
           elif [[ -n "${VPS_HOST}" ]]; then
             mode=course
             host="${VPS_HOST}"
@@ -750,6 +951,12 @@ jobs:
             landing_base_url="https://staging.${APP_DOMAIN}"
             landing_health_url="${landing_base_url}/health"
             landing_app_url="${base_url}"
+            # User docs: own APP_DIR and compose project, alias docs-staging; the edge proxy sends
+            # /docs and /docs/* on the landing hosts there (deploy/scripts/docs-healthcheck.sh).
+            docs=true
+            docs_app_dir=/opt/dmc-268-docs-staging
+            docs_edge_alias="docs-staging"
+            docs_url="${landing_base_url}/docs"
           else
             echo "No staging target: set STAGING_HOST, STAGING_SSH_PORT, STAGING_SSH_USER and STAGING_SSH_KEY (Terraform host)" \
               "or organization variable VPS_DMC268_IP_T6 with secrets VPS_DMC268_U and VPS_DMC268_P (course VPS)" >&2
@@ -767,7 +974,8 @@ jobs:
           # One key=value line per output: a CR/LF inside a value (e.g. from STAGING_HEALTH_URL) could
           # otherwise append lines that override mode, host or port.
           for value in "${mode}" "${host}" "${port}" "${app_dir}" "${deploy_mode}" "${edge_alias}" "${base_url}" "${health_url}" \
-            "${landing_app_dir}" "${landing_edge_alias}" "${landing_base_url}" "${landing_health_url}" "${landing_app_url}"; do
+            "${landing_app_dir}" "${landing_edge_alias}" "${landing_base_url}" "${landing_health_url}" "${landing_app_url}" \
+            "${docs_app_dir}" "${docs_edge_alias}" "${docs_url}"; do
             if [[ "${value}" == *$'\n'* || "${value}" == *$'\r'* ]]; then
               echo "staging target values must be single-line" >&2
               exit 1
@@ -776,6 +984,9 @@ jobs:
           urls=("${base_url}" "${health_url}")
           if [[ "${landing}" == "true" ]]; then
             urls+=("${landing_base_url}" "${landing_health_url}" "${landing_app_url}")
+          fi
+          if [[ "${docs}" == "true" ]]; then
+            urls+=("${docs_url}")
           fi
           for url in "${urls[@]}"; do
             if [[ ! "${url}" =~ ^https?://[^[:space:]]+$ ]]; then
@@ -798,6 +1009,10 @@ jobs:
             echo "landing_base_url=${landing_base_url}"
             echo "landing_health_url=${landing_health_url}"
             echo "landing_app_url=${landing_app_url}"
+            echo "docs=${docs}"
+            echo "docs_app_dir=${docs_app_dir}"
+            echo "docs_edge_alias=${docs_edge_alias}"
+            echo "docs_url=${docs_url}"
           } >> "${GITHUB_OUTPUT}"
           echo "staging target: ${mode} (${host}:${port}, ${base_url})"
 
@@ -808,6 +1023,7 @@ jobs:
         env:
           APP_DIR: ${{ steps.target.outputs.app_dir }}
           LANDING_APP_DIR: ${{ steps.target.outputs.landing_app_dir }}
+          DOCS_APP_DIR: ${{ steps.target.outputs.docs_app_dir }}
         with:
           host: ${{ steps.target.outputs.host }}
           port: ${{ steps.target.outputs.port }}
@@ -817,7 +1033,7 @@ jobs:
           fingerprint: ${{ vars.STAGING_SSH_FINGERPRINT }}
           debug: false
           capture_stdout: true
-          envs: APP_DIR,LANDING_APP_DIR
+          envs: APP_DIR,LANDING_APP_DIR,DOCS_APP_DIR
           script: |
             state="${APP_DIR}/.deploy-state"
             if [[ -f "${state}" ]]; then
@@ -831,6 +1047,14 @@ jobs:
                 awk -F= '/^current_image=/{print "landing_current_image=" $2; exit}' "${landing_state}"
               else
                 echo "landing_bootstrap=true"
+              fi
+            fi
+            if [[ -n "${DOCS_APP_DIR}" ]]; then
+              docs_state="${DOCS_APP_DIR}/.deploy-state"
+              if [[ -f "${docs_state}" ]]; then
+                awk -F= '/^current_image=/{print "docs_current_image=" $2; exit}' "${docs_state}"
+              else
+                echo "docs_bootstrap=true"
               fi
             fi
 
@@ -930,6 +1154,56 @@ jobs:
             docker push "${previous}"
           else
             echo "no existing landing staging image; skip previous-tag"
+          fi
+          docker tag "${image_ref}" "${staging}"
+          docker push "${staging}"
+          echo "promoted ${image_ref} to ${staging}"
+
+      - name: Check staging docs still run this digest
+        id: guard_docs
+        if: ${{ !cancelled() && steps.target.outputs.docs == 'true' && needs.deploy-staging.outputs.promote_docs == 'true' }}
+        env:
+          DEPLOYED_STDOUT: ${{ steps.deployed.outputs.stdout }}
+          EXPECTED_IMAGE: ${{ needs.deploy-staging.outputs.docs_image_ref }}
+        run: |
+          running="$(awk '/^docs_current_image=/ { sub(/^docs_current_image=/, ""); sub(/\r$/, ""); print; exit } /^docs_bootstrap=true/ { print "bootstrap"; exit }' <<< "${DEPLOYED_STDOUT}")"
+          if [[ -n "${EXPECTED_IMAGE}" && "${running}" == "${EXPECTED_IMAGE}" ]]; then
+            echo "promote=true" >> "${GITHUB_OUTPUT}"
+            echo "staging docs still run ${running}"
+          else
+            echo "promote=false" >> "${GITHUB_OUTPUT}"
+            echo "::warning::staging docs run '${running:-<unknown>}', not ${EXPECTED_IMAGE}: a rollback ran after this deploy, skipping docs promotion"
+          fi
+
+      - name: Promote verified docs digest to staging
+        if: ${{ !cancelled() && steps.guard_docs.outputs.promote == 'true' }}
+        env:
+          DEPLOYED_IMAGE: ${{ needs.deploy-staging.outputs.docs_image_ref }}
+          STAGING_TAG: ${{ needs.push-image.outputs.docs_staging }}
+          PREVIOUS_TAG: ${{ needs.push-image.outputs.docs_previous }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: |
+          echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
+          image_ref="${DEPLOYED_IMAGE}"
+          staging="${STAGING_TAG}"
+          previous="${PREVIOUS_TAG}"
+          if [[ -z "${image_ref}" ]]; then
+            echo "deployed docs image reference is empty; refusing to promote registry tags" >&2
+            exit 1
+          fi
+          docker pull "${image_ref}"
+          if docker pull "${staging}"; then
+            # A re-run after a partial promote: :staging already is this image, and retagging
+            # would overwrite :staging-previous with it.
+            if [[ "$(docker inspect --format='{{.Id}}' "${staging}")" == "$(docker inspect --format='{{.Id}}' "${image_ref}")" ]]; then
+              echo "${staging} already points to ${image_ref}; nothing to promote"
+              exit 0
+            fi
+            docker tag "${staging}" "${previous}"
+            docker push "${previous}"
+          else
+            echo "no existing docs staging image; skip previous-tag"
           fi
           docker tag "${image_ref}" "${staging}"
           docker push "${staging}"
