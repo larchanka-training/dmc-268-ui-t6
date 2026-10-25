@@ -79,20 +79,27 @@
 .button {
   display: inline-flex;
   align-items: center;
-  height: 36px;
-  padding: 0 14px;
+  height: 32px;
+  padding: 0 12px;
   border-radius: 8px;
-  background: var(--blue);
-  color: #fff;
+  background: #f1f5f9;
+  color: #0b1220;
   font-size: 13px;
   font-weight: 500;
   text-decoration: none;
   white-space: nowrap;
+  box-shadow: inset 0 -1px 0 rgb(15 23 42 / 12%);
   transition: background-color 0.15s;
 }
 
+/* Near-white on the dark header, a shade dimmer under the pointer. */
 .button:hover {
-  background: var(--blue-hover);
+  background: #dbe2ea;
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
 }
 
 /* Hamburger for the docs sidebar, phones and small tablets only (the sidebar shows from 768px). */
