@@ -24,6 +24,11 @@ side-by-side), Zod 4, Zustand 5, TanStack Query 5, antd 6, Vitest 5.
 - Never edit files owned by another open PR without a comment there.
 - Unknown external input goes through Zod at the boundary — never trust an
   API response's shape without parsing it.
+- A PR that changes user-visible behavior updates the user docs in
+  `docs-site/content/docs/` in the same PR, or links a follow-up issue.
+- The core user docs pages, `index.mdx` (Introduction), `how-it-works.mdx` and
+  `features.mdx`, change only with an explicit review of that page. Prefer
+  adding to Roadmap or FAQ, or a status badge, over rewriting a core page.
 
 ## Commands
 
@@ -73,6 +78,8 @@ only flow downward, `shared` never imports `entities`); details in
 - `.agents/agents/` — agent definitions.
 - `.agents/templates/` — code/test templates with proof blocks.
 - `docs/FRONTEND_ARCHITECTURE.md` — FSD conventions in full.
+- `docs-site/` — the public user docs (Fumadocs); pages, badges and the update
+  rule in `docs-site/README.md`.
 - `docs/DESIGN_SYSTEM.md` — the design system (Flat Console): every number, the usage rules and
   the checklist for a new Ant Design component. Base components come only from it.
 - [`TEST_PLAN.md`](https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/TEST_PLAN.md) —
