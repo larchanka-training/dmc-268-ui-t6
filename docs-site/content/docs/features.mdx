@@ -55,8 +55,9 @@ says how many were hidden.
 ## Code index (RAG) <StatusBadge status="inactive" />
 
 The **RAG** switch builds an index of the default branch: which symbols each file defines and
-which files import each other, without the code text. Reviews do not use it yet, so it changes
-nothing and adds no cost today.
+which files import each other, without the code text. Reviews already read the index while they
+build their context, but its results are not sent to the model yet, so it does not change the
+review and adds no model cost today.
 
 <RagSnippet />
 
@@ -66,8 +67,9 @@ nothing and adds no cost today.
 Python, TypeScript, JavaScript and Go files. Secrets, vendored folders, generated files and
 `review-ignore` matches are skipped. The index updates after pushes to the default branch. A
 build stops at fixed limits, for example a 100 MiB archive or 15 minutes, and then shows
-**Error**. The index is deleted when you switch RAG off, when the repository leaves the
-installation, and 30 days after you switched it on; switch RAG off and on to rebuild.
+**Error**; switch RAG off and on to try again. The index is deleted when you switch RAG off, when
+the repository leaves the installation, and after 30 days without reviews. The next review then
+rebuilds it.
 
 </Accordion>
 </Accordions>
