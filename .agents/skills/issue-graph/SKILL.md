@@ -126,7 +126,8 @@ the report's Russian headings.
 - **Narrow question** (who is blocked, is there a cycle, what is free now) → only the section that
   answers it (step 7 for In Progress), nothing else, no publish offer.
 
-Show the Mermaid block only when the user wants the picture.
+Show the Mermaid block only when the user asks for the picture, and then copy it from the report
+verbatim — never redraw, simplify or relabel it.
 
 ### 5. After a publish
 
@@ -140,12 +141,18 @@ user names (§ 2). Never post, patch, delete or re-mark a comment by hand (`gh i
 ### 6. Cycle (exit 1)
 
 Not a failure: the report is printed, and nothing was published — a request to publish does not
-override this, and nothing works around it. With `--publish-to` lead with «не опубликовано»; either
-way name the cycle from «Циклы» first (`api#1 → api#2 → api#3 → api#1`), keep the In Progress
-alarms, and say that a person removes a `blocked by` link in GitHub and re-runs, repeating while
-«Циклы» is not «Нет.» (one line can stand for a larger tangle — `references/report.md`). Which
-link is wrong is the team's call: never suggest one, never edit links, never narrow the scope to
-make the cycle disappear, never re-run — with or without `--publish-to`, the report is printed.
+override this, and nothing works around it. The reply carries all of these, in this order:
+
+1. With `--publish-to`: «не опубликовано» and why (the graph has a cycle).
+2. The cycle line from «Циклы», as printed (`api#1 → api#2 → api#3 → api#1`).
+3. A person removes a `blocked by` link in GitHub and re-runs, repeating until «Циклы» reads
+   «Нет.» — one line can stand for a larger tangle; name the other issues the report links to the
+   cycle (`references/report.md`).
+4. Which link is wrong is the team's call.
+5. The «In Progress с открытым блокером» lines, if any (step 7).
+
+Never suggest a link, never edit links, never narrow the scope to make the cycle disappear, never
+re-run — with or without `--publish-to`, the report is already printed.
 
 ### 7. In Progress with an open blocker
 
@@ -183,6 +190,8 @@ its author or a maintainer re-runs, or a person removes it (`references/publishi
 
 Golden examples in `.agents/skills/issue-graph/examples/`: `input.md` is the request (a fixture
 case adds an `ISSUE_GRAPH_FIXTURE_DIR=…` environment line), `expected.md` the checkable outcome.
+They are for the people who check the skill: while serving a request, do not open `examples/` —
+the reply follows from this file and the report alone.
 
 - `01-show-sprint` — live, show only: alarms first, layer 1, critical path, «Без связей», the offer.
 - `02-publish-rerun` — live, two turns: publish to `#261`, then a re-run updates the same comment.
