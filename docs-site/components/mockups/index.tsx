@@ -24,7 +24,7 @@ export function RunDetailMock() {
   return (
     <DashboardFrame
       caption="A finished run: three stages, the review session on the left, the diff with findings on the right."
-      height={1100}
+      height={1120}
       screen="run-detail"
     />
   )
