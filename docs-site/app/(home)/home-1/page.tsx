@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
-import { HomeTextList } from '@/components/home/variants'
+import { HomeStacked } from '@/components/home/variants'
 
-// Home page variant 1 for review: text only, title, Quickstart and a plain list of pages.
+// Home variant 1 for review: Mintlify, stacked link cards.
 export const metadata: Metadata = { title: 'Home variant 1', robots: { index: false } }
 
 export default function Page() {
-  return <HomeTextList />
+  return <HomeStacked />
 }

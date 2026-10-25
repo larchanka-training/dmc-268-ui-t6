@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
-import { HomeSplit } from '@/components/home/variants'
+import { HomeText } from '@/components/home/variants'
 
-// Home page variant 4 for review: split layout with three short steps.
+// Home variant 4 for review: Next.js, text first.
 export const metadata: Metadata = { title: 'Home variant 4', robots: { index: false } }
 
 export default function Page() {
-  return <HomeSplit />
+  return <HomeText />
 }

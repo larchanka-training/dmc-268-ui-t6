@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
-import { HomeCentered } from '@/components/home/variants'
+import { HomeJourney } from '@/components/home/variants'
 
-// Home page variant 3 for review: centered hero and one quiet row of page links.
+// Home variant 3 for review: Claude platform, hero, chips and a journey.
 export const metadata: Metadata = { title: 'Home variant 3', robots: { index: false } }
 
 export default function Page() {
-  return <HomeCentered />
+  return <HomeJourney />
 }
