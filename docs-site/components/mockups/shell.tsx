@@ -13,7 +13,7 @@ interface ShellProps {
 
 /**
  * Window frame plus the dashboard sidebar. Labels are English equivalents of
- * src/widgets/app-layout/ui/AppSidebar.tsx (the live dashboard is in Russian for now).
+ * src/widgets/app-layout/ui/AppSidebar.tsx.
  */
 export function MockShell({ active, path, caption, children }: ShellProps) {
   return (
@@ -45,9 +45,7 @@ export function MockShell({ active, path, caption, children }: ShellProps) {
           <div className={s.main}>{children}</div>
         </div>
       </div>
-      <figcaption className={s.caption}>
-        {caption} Labels translated from the Russian dashboard.
-      </figcaption>
+      <figcaption className={s.caption}>{caption}</figcaption>
     </figure>
   )
 }
