@@ -2,7 +2,7 @@ import { RootProvider } from 'fumadocs-ui/provider/next'
 import type { Metadata } from 'next'
 import '@fontsource-variable/inter'
 import '@fontsource-variable/jetbrains-mono'
-import './global.css'
+import '../global.css'
 
 export const metadata: Metadata = {
   title: {
