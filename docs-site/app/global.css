@@ -63,7 +63,7 @@
  * sticky part starts below the header (Fumadocs reads --fd-banner-height for that).
  */
 :root {
-  --site-header-h: 88px;
+  --site-header-h: 64px;
   --fd-banner-height: var(--site-header-h);
 }
 

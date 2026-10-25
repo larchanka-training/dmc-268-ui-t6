@@ -1,49 +1,28 @@
-/*
- * Copy of landing/src/components/Header.module.css, so the docs header matches the landing one.
- * Changes: the bar spans the docs container instead of 1080px, the current item is marked and
- * "Docs" stays visible on small screens.
- */
+/* Docs header: logo, search and a link to the dashboard. Flat, like the dashboard shell. */
 .header {
   position: fixed;
   inset: 0 0 auto;
   z-index: 50;
-  padding: 12px 24px 0;
-  pointer-events: none;
+  border-bottom: 1px solid var(--border);
+  background: rgb(9 13 24 / 85%);
+  backdrop-filter: blur(12px);
 }
 
+/* Same container as the docs layout (app/global.css), so left edges line up on every page. */
 .bar {
   display: flex;
+  gap: 12px;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  /* One container for every page (app/global.css), so the logo stays put between pages. */
   max-width: var(--docs-width);
-  height: 64px;
+  height: var(--site-header-h);
   margin-inline: auto;
-  padding-inline: 20px 12px;
-  border: 1px solid transparent;
-  border-radius: 16px;
-  pointer-events: auto;
-  transition:
-    background-color 0.4s var(--ease-out),
-    border-color 0.4s var(--ease-out),
-    backdrop-filter 0.4s var(--ease-out),
-    box-shadow 0.4s var(--ease-out);
-}
-
-.header[data-scrolled='true'] .bar {
-  background: rgb(12 17 33 / 72%);
-  border-color: var(--border);
-  box-shadow:
-    0 1px 0 rgb(255 255 255 / 4%) inset,
-    0 12px 32px -12px rgb(0 0 0 / 60%);
-  backdrop-filter: blur(16px) saturate(140%);
+  padding-inline: 16px;
 }
 
 .brand {
   display: inline-flex;
-  align-items: center;
   gap: 10px;
+  align-items: center;
   color: var(--text);
   font-size: 14px;
   font-weight: 600;
@@ -51,39 +30,80 @@
   text-decoration: none;
 }
 
-.nav {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+.pill {
+  padding: 1px 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 500;
 }
 
-.link {
-  display: inline-flex;
+.actions {
+  display: flex;
+  gap: 8px;
   align-items: center;
-  min-height: 44px;
-  padding: 0 12px;
+  margin-inline-start: auto;
+}
+
+.search {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  width: 240px;
+  height: 36px;
+  padding: 0 8px 0 10px;
+  border: 1px solid var(--border-strong);
   border-radius: 8px;
+  background: var(--surface);
   color: var(--text-2);
   font-size: 13px;
-  text-decoration: none;
-  transition: color 0.2s ease;
+  cursor: pointer;
+  transition: border-color 0.15s;
 }
 
-.link:hover,
-.link[aria-current='page'] {
+.search:hover {
+  border-color: rgb(148 163 184 / 32%);
   color: var(--text);
 }
 
+.search kbd {
+  margin-inline-start: auto;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 8px;
+  background: var(--blue);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.15s;
+}
+
+.button:hover {
+  background: var(--blue-hover);
+}
+
 @media (width <= 640px) {
-  .header {
-    padding: 8px 12px 0;
+  .search {
+    justify-content: center;
+    width: 36px;
+    padding: 0;
   }
 
-  .bar {
-    padding-inline: 14px 8px;
-  }
-
-  .link[data-landing] {
+  .search span,
+  .search kbd {
     display: none;
   }
 }

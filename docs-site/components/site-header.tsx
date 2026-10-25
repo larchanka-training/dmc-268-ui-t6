@@ -1,50 +1,41 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { appName, appUrl, landingUrl } from '@/lib/shared'
+import { Search } from 'lucide-react'
+import { useSearchContext } from 'fumadocs-ui/contexts/search'
+import { appName, appUrl } from '@/lib/shared'
 import { Logo } from './logo'
 import styles from './site-header.module.css'
 
-/**
- * The landing header (landing/src/components/Header.tsx) with a "Docs" item. Landing items link
- * back to the landing sections, "Try it now" opens the dashboard.
- */
+/** Docs header: logo, search (Ctrl K) and a link to the dashboard. */
 export function SiteHeader() {
-  const [scrolled, setScrolled] = useState(false)
-
-  useEffect(() => {
-    const onScroll = () => {
-      setScrolled(window.scrollY > 8)
-    }
-    onScroll()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => {
-      window.removeEventListener('scroll', onScroll)
-    }
-  }, [])
+  const { setOpenSearch } = useSearchContext()
 
   return (
-    <header className={styles.header} data-scrolled={scrolled}>
+    <header className={styles.header}>
       <div className={styles.bar}>
-        <a href={`${landingUrl}/`} className={styles.brand} aria-label={`${appName} home`}>
+        <Link href="/" className={styles.brand} aria-label={`${appName} docs home`}>
           <Logo size={20} />
           <span>{appName}</span>
-        </a>
-        <nav aria-label="Primary" className={styles.nav}>
-          <a href={`${landingUrl}/#how-it-works`} className={styles.link} data-landing>
-            How it works
+          <span className={styles.pill}>Docs</span>
+        </Link>
+        <div className={styles.actions}>
+          <button
+            type="button"
+            className={styles.search}
+            onClick={() => {
+              setOpenSearch(true)
+            }}
+            aria-label="Search the docs"
+          >
+            <Search className="size-4" aria-hidden />
+            <span>Search</span>
+            <kbd>Ctrl K</kbd>
+          </button>
+          <a href={appUrl} className={styles.button} target="_blank" rel="noreferrer">
+            Open dashboard
           </a>
-          <a href={`${landingUrl}/#features`} className={styles.link} data-landing>
-            Features
-          </a>
-          <Link href="/docs" className={styles.link} aria-current="page">
-            Docs
-          </Link>
-          <a href={appUrl} className={styles.link}>
-            Try it now
-          </a>
-        </nav>
+        </div>
       </div>
     </header>
   )
