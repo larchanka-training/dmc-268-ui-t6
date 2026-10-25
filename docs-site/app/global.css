@@ -215,3 +215,12 @@ body {
 [data-sidebar-panel] {
   display: none;
 }
+
+/* The phone menu button sits at the left of the header, so the docs drawer slides in from the left too. */
+#nd-sidebar-mobile {
+  --fd-sidebar-drawer-offset: -100%;
+
+  inset-inline: 0 auto;
+  border-inline-start: 0;
+  border-inline-end: 1px solid var(--color-fd-border);
+}
