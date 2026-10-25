@@ -1,13 +1,14 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import type { ScreenName } from '../dashboard/mock-names'
 
 /** The width the dashboard screens are laid out at, as on a laptop. */
 const NATIVE_WIDTH = 1280
 
 interface DashboardFrameProps {
   /** A screen of app/(mock)/mockups/[screen]. */
-  screen: 'settings' | 'runs' | 'run-detail'
+  screen: ScreenName
   /** Height of the screen at the native width, in pixels. */
   height: number
   caption: string
