@@ -1,25 +1,45 @@
 ---
 title: Features
-description: Repository settings, the code index and the dashboard.
+description: The dashboard, repository settings and the code index.
 icon: Settings2
 ---
 
 import { StatusBadge } from '@/components/status-badge'
 
+## Dashboard
+
+**Runs** lists every reviewed pull request with its [status](/docs/how-it-works#details). Click a
+run to see its steps, the diff with findings, and **Cancel** or **Restart**.
+
+<RunsListMock />
+
+<RunDetailMock />
+
 ## Repository settings
 
-In the dashboard, open **Repositories** and click the gear next to a repository.
+In the dashboard, open **Repositories** and click the gear next to a repository. Review rules
+live in `.review/rules.md` in the repository itself, see [Rules file](/docs/rules-file).
 
-<RepositorySettingsMock />
+**Automatic review** turns reviews on or off for the repository. Today a pull request still needs
+the `ai-review` label. <StatusBadge /> Soon: on reviews every pull request automatically, off
+reviews only pull requests with the label.
+
+<AutoReviewSnippet />
 
 | Setting | What it does |
 | --- | --- |
-| **Automatic review** | Turns reviews on or off for the repository. Today a pull request still needs the `ai-review` label. <StatusBadge /> Soon: on reviews every pull request automatically, off reviews only pull requests with the label. |
 | **CI waiting** | When to start: Auto, Always or Never, see [CI waiting](/docs/how-it-works#details). |
 | **Comment limit** | How many findings are posted inline, from 1 to 10. |
 | **Verdict** | Post blocking reviews as a comment or as Request changes. |
+
+<ReviewOptionsSnippet />
+
+| Setting | What it does |
+| --- | --- |
 | **Branch filter** | Review only pull requests into matching branches, for example `main` or `release/*`. Empty means all. |
 | **Severity threshold** | `All`, `Warn & Crit` (drops `info`) or `Only Critical` (keeps `critical` and `high`). |
+
+<BranchesSeveritySnippet />
 
 <Accordions>
 <Accordion title="Branch filter masks">
@@ -38,6 +58,8 @@ The **RAG** switch builds an index of the default branch: which symbols each fil
 which files import each other, without the code text. Reviews do not use it yet, so it changes
 nothing and adds no cost today.
 
+<RagSnippet />
+
 <Accordions>
 <Accordion title="What is indexed and when it is deleted">
 
@@ -49,12 +71,3 @@ installation, and 30 days after you switched it on; switch RAG off and on to reb
 
 </Accordion>
 </Accordions>
-
-## Dashboard
-
-**Runs** lists every reviewed pull request with its [status](/docs/how-it-works#details). Click a
-run to see its steps, the diff with findings, and **Cancel** or **Restart**.
-
-<RunsListMock />
-
-<RunDetailMock />
