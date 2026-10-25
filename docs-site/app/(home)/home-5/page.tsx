@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
-import { HomeSearch } from '@/components/home/variants'
+import { HomeQuickstartFirst } from '@/components/home/variants'
 
-// Home page variant 5 for review: search first, with page chips.
+// Home variant 5 for review: Resend, Quickstart block then Explore.
 export const metadata: Metadata = { title: 'Home variant 5', robots: { index: false } }
 
 export default function Page() {
-  return <HomeSearch />
+  return <HomeQuickstartFirst />
 }
