@@ -8,7 +8,7 @@ import { StatusBadge } from '@/components/status-badge'
 
 ## Dashboard
 
-<AppLink path="/runs">**Runs**</AppLink> lists every reviewed pull request with its [status](/docs/how-it-works#details). Click a
+<AppLink path="/runs">**Runs**</AppLink> lists every reviewed pull request with its [status](/how-it-works#details). Click a
 run to see its steps, the diff with findings, and **Cancel** or **Restart**.
 
 <RunsListMock />
@@ -18,7 +18,7 @@ run to see its steps, the diff with findings, and **Cancel** or **Restart**.
 ## Repository settings
 
 In the dashboard, open <AppLink path="/repositories">**Repositories**</AppLink> and click the gear next to a repository. Review rules
-live in `.review/rules.md` in the repository itself, see [Rules file](/docs/rules-file).
+live in `.review/rules.md` in the repository itself, see [Rules file](/rules-file).
 
 **Automatic review** turns reviews on or off for the repository. Today a pull request still needs
 the `ai-review` label. <StatusBadge /> Soon: on reviews every pull request automatically, off
@@ -28,7 +28,7 @@ reviews only pull requests with the label.
 
 | Setting | What it does |
 | --- | --- |
-| **CI waiting** | When to start: Auto, Always or Never, see [CI waiting](/docs/how-it-works#details). |
+| **CI waiting** | When to start: Auto, Always or Never, see [CI waiting](/how-it-works#details). |
 | **Comment limit** | How many findings are posted inline, from 1 to 10. |
 | **Verdict** | Post blocking reviews as a comment or as Request changes. |
 

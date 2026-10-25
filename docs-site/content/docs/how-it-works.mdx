@@ -75,7 +75,7 @@ counted.
 
 Each review attempt is a **run**: `queued`, `running`, `publishing`, then `succeeded`, `failed`,
 `cancelled` or `skipped`. Temporary errors are retried automatically. Reasons for skipped and
-failed runs are in the [FAQ](/docs/faq#a-run-was-skipped).
+failed runs are in the [FAQ](/faq#a-run-was-skipped).
 
 </Accordion>
 <Accordion title="Findings">
@@ -92,7 +92,7 @@ comment limit go to the review body. Pure style nits are dropped unless serious.
 - Lock files and build output, for example `pnpm-lock.yaml`, `go.sum`, `*.min.js` and a top
   level `dist/` folder.
 - Binary files and files with more than 20,000 changed lines or over 1 MiB.
-- Files that match `review-ignore` in your [rules file](/docs/rules-file).
+- Files that match `review-ignore` in your [rules file](/rules-file).
 
 With more than 3,000 changed lines, Reviewer reviews only the file list: no line comments, and
 the dashboard shows no verdict. Such a run has the `summary-only` tag in **Runs**, and its

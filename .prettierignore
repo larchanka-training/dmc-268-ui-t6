@@ -10,6 +10,7 @@ pnpm-lock.yaml
 
 # docs-site: build output, generated types, MDX content (prettier can reflow MDX JSX)
 docs-site/.next
+docs-site/out
 docs-site/.source
 docs-site/next-env.d.ts
 docs-site/content
