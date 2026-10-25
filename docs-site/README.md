@@ -13,9 +13,27 @@ pnpm --dir docs-site build
 
 - Pages live in `content/docs/*.mdx`, the order is set in `content/docs/meta.json`.
   The site opens on the Introduction (`content/docs/index.mdx`).
-- Dashboard mockups and settings snippets are in `components/mockups/` and
-  `components/dashboard/`; they render the real app components on `/mockups/*` pages.
+- Dashboard pictures are plain images in `public/screens/*.webp`, shown by
+  `components/mockups/` with their sizes from `components/mockups/screens.json`; a click opens
+  them zoomed in. They are shot from the `/mockups/*` pages, which render the real app components
+  from `components/dashboard/` (not indexed, no docs page links to them).
 - Colors and fonts follow `landing/src/styles/global.css`. The site is dark only.
+
+## Dashboard pictures
+
+After a change to a mockup in `components/dashboard/` or to the app components it uses, take the
+pictures again and commit `public/screens/` with `components/mockups/screens.json`:
+
+```bash
+NODE_PATH=/path/to/node_modules/with/playwright pnpm --dir docs-site shots
+```
+
+The script builds the site, starts it on port 3917 (`PORT`), opens every `/mockups/*` page in
+Chromium at 2x pixel density and saves WebP (with `sharp`, which Next.js installs; PNG without it).
+Playwright is not a dependency here: `NODE_PATH` points to an install of it. `CHROME_PATH` sets the
+browser (default `/usr/bin/google-chrome`), `BASE_URL=http://localhost:3000` uses a running server
+instead of building, `SKIP_BUILD=1` starts the last build. The list of pictures and their widths is
+at the top of `scripts/shoot-mockups.mjs`.
 
 ## Status badges
 
