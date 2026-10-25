@@ -195,6 +195,12 @@ body {
   color: #93c5fd;
 }
 
+.status-badge[data-tone='exploring'] {
+  border-color: rgb(148 163 184 / 30%);
+  background: rgb(148 163 184 / 10%);
+  color: #cbd5e1;
+}
+
 .prose :is(h2, h3) .status-badge {
   margin-inline-start: 10px;
   transform: translateY(-2px);

@@ -1,0 +1,34 @@
+---
+title: Roadmap
+description: What is planned next. Nothing here works yet, and the order is not fixed.
+icon: Map
+---
+
+import { StatusBadge } from '@/components/status-badge'
+
+## Reviews
+
+- <StatusBadge /> Automatic review of every pull request when the switch is on; the label only when it is off.
+- <StatusBadge /> Review only the new changes after a push, without repeating findings from earlier commits, and mark the outdated ones.
+- <StatusBadge /> Your `.review/rules.md` text sent to the model.
+- <StatusBadge /> A second model pass that checks each finding before it is posted.
+- <StatusBadge /> The code index (RAG) used as review context.
+- <StatusBadge /> A short summary at the top of the review: the risk, a checklist and what changed.
+- <StatusBadge /> A check result that follows the verdict.
+- <StatusBadge /> Labels on the pull request suggested by the review, if you want them.
+- <StatusBadge status="exploring" /> Skip pull requests by title keywords or by author, for example bots.
+
+## Rules
+
+- <StatusBadge /> A rules playground: paste code and rules and see a simulated review without running one on a pull request.
+
+## Dashboard
+
+- <StatusBadge /> A review quality dashboard, a run audit log and limit notifications.
+- <StatusBadge /> An English interface.
+- <StatusBadge /> First steps after sign-up.
+
+## Integrations
+
+- <StatusBadge /> GitLab merge requests.
+- <StatusBadge status="exploring" /> A public service status page.
