@@ -95,6 +95,28 @@
   background: var(--blue-hover);
 }
 
+/* Hamburger for the docs sidebar, phones and small tablets only (the sidebar shows from 768px). */
+.menu {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin-inline-start: -8px;
+  border-radius: 8px;
+  color: var(--text-2);
+}
+
+.menu:hover {
+  color: var(--text);
+}
+
+@media (width < 768px) {
+  .menu {
+    display: inline-flex;
+  }
+}
+
 @media (width <= 640px) {
   .search {
     justify-content: center;
