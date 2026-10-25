@@ -7,48 +7,31 @@ icon: BookOpen
 import { StatusBadge } from '@/components/status-badge'
 
 Reviewer is a GitHub App. Add the `ai-review` label to a pull request and, once CI passes,
-Reviewer reads the change and posts a GitHub review with inline comments, severity levels,
-suggested fixes and a verdict.
+Reviewer posts a review with inline comments, severity levels, suggested fixes and a verdict.
 
-## What you get on a pull request
+## What you get
 
-- **A review from the Reviewer bot.** Each finding is an inline comment on the changed line:
-  a short title, an explanation and, when it helps, a suggested change you can commit.
-- **A summary in the review body**: the verdict, the number of findings per severity and the
-  list of checked files. Findings that do not fit on a changed line are listed there too.
-- **A check named `AI Review`** that shows progress. It finishes as neutral, skipped or
-  cancelled and never fails, so it does not block a merge.
-- **A verdict**: `blocking` (critical or high findings), `attention` (medium or low) or `clean`.
-  You can choose to post blocking reviews as "Request changes".
+- **Inline comments** on changed lines, each with a short title, an explanation and sometimes a
+  suggested change you can commit.
+- **A summary** in the review body: the verdict, the number of findings per severity and the
+  checked files.
+- **An `AI Review` check** that shows progress. It never fails, so it does not block a merge.
 
-## What it reads
+Reviewer only reads text through the GitHub API. It never runs your code, merges or approves.
 
-- The diff of the pull request.
-- The title, description, author, branches, labels and commit messages.
-- The root `AGENTS.md` of your repository, if there is one.
-- A short summary of your project's conventions that Reviewer writes itself from the file tree
-  and up to 10 files of the branch your pull request targets.
-- Built-in review guidelines: naming, error handling, complex functions, comments, tests and
-  architecture boundaries. Reviewer picks a backend or a frontend set when the repository is
-  connected.
-
-## What it does not do
-
-- It does not run your code, tests or build. It only reads text through the GitHub API.
-- It does not merge, approve, dismiss old reviews or resolve threads.
-- It does not start when a pull request opens. Today you ask for a review with the `ai-review`
-  label.
-
-## Coming next
-
-- <StatusBadge /> One switch per repository: on reviews every pull request automatically, without
-  the label; off reviews only pull requests with the `ai-review` label.
-- <StatusBadge /> Your own rules in `.review/rules.md` sent to the model. Today the file is
-  checked and its `review-ignore` block works, see [Rules file](/docs/rules-file).
-- <StatusBadge /> A second model pass that checks every finding before it is posted.
-- <StatusBadge /> Reviews that use the code index (RAG) to look at related files.
+## Start here
 
 <Cards>
-  <Card title="Quickstart" href="/docs/quickstart" description="Get the first review in a few minutes." />
+  <Card title="Quickstart" href="/docs/quickstart" description="Install the GitHub App and get your first review." />
   <Card title="How it works" href="/docs/how-it-works" description="When a review starts and how to read the result." />
+  <Card title="Features" href="/docs/features" description="Repository settings, the code index and the dashboard." />
+  <Card title="Rules file" href="/docs/rules-file" description="Keep files out of reviews with .review/rules.md." />
 </Cards>
+
+## Coming soon
+
+- <StatusBadge /> One switch per repository: on reviews every pull request automatically, off
+  reviews only pull requests with the `ai-review` label.
+- <StatusBadge /> Your own rules from `.review/rules.md` sent to the model.
+- <StatusBadge /> A second model pass that checks every finding before it is posted.
+- <StatusBadge /> Reviews that use the code index (RAG) to look at related files.
