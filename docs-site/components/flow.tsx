@@ -7,7 +7,7 @@ export function Flow({ steps }: FlowProps) {
   return (
     <ol className="not-prose my-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {steps.map((step, i) => (
-        <li key={step.title} className="glass relative rounded-2xl p-4">
+        <li key={step.title} className="surface relative p-4">
           <span className="font-mono text-xs text-[var(--glow)]">
             {String(i + 1).padStart(2, '0')}
           </span>
