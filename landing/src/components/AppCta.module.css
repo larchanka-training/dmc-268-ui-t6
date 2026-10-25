@@ -78,6 +78,12 @@
   transform: scale(0.98);
 }
 
+.note {
+  margin-top: 14px;
+  color: var(--text-3);
+  font-size: 13px;
+}
+
 @media (width <= 640px) {
   .section {
     padding-block: 80px 64px;

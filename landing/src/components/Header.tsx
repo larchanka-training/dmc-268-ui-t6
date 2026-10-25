@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react'
 
 import { getAppUrl } from '../lib/appUrl'
+import { cx } from '../lib/cx'
 import { BRAND_NAME } from '../brand'
 import { Logo } from './Logo'
 import styles from './Header.module.css'
+
+// The user docs live on the landing host itself: the edge proxy sends /docs and /docs/* to the
+// docs container (docs-site/), so a same-origin path works in every environment.
+const DOCS_PATH = '/docs'
 
 export function Header() {
   const [scrolled, setScrolled] = useState(false)
@@ -33,7 +38,10 @@ export function Header() {
           <a href="#features" className={styles.link}>
             Features
           </a>
-          <a href={getAppUrl()} className={styles.link}>
+          <a href={DOCS_PATH} className={styles.link}>
+            Docs
+          </a>
+          <a href={getAppUrl()} className={cx(styles.link, styles.primary)}>
             Try it now
           </a>
         </nav>

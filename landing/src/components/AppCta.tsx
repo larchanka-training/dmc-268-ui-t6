@@ -17,6 +17,7 @@ export function AppCta() {
           <a href={getAppUrl()} className={styles.button}>
             Try it now
           </a>
+          <p className={styles.note}>Early access (EAP)</p>
         </Reveal>
       </div>
     </section>

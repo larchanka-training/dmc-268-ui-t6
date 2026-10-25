@@ -66,6 +66,12 @@
   color: var(--text);
 }
 
+/* The call to action stands out from the grey section links. */
+.primary {
+  color: var(--text);
+  font-weight: 500;
+}
+
 @media (width <= 640px) {
   .header {
     padding: 8px 12px 0;
