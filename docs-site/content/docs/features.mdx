@@ -1,6 +1,6 @@
 ---
 title: Features
-description: Repository settings, the code index (RAG) and the dashboard.
+description: Repository settings, the code index and the dashboard.
 icon: Settings2
 ---
 
@@ -8,68 +8,53 @@ import { StatusBadge } from '@/components/status-badge'
 
 ## Repository settings
 
-Open **Repositories** in the dashboard and click the gear next to a repository. Form changes
-apply to the next run.
+In the dashboard, open **Repositories** and click the gear next to a repository.
 
 <RepositorySettingsMock />
 
 | Setting | What it does |
 | --- | --- |
-| **Automatic review** | Turns reviews on or off for the repository. Today a pull request still needs the `ai-review` label. Saved at once. <StatusBadge /> Soon: on reviews every pull request automatically, off reviews only pull requests with the label. |
-| **RAG** | Builds a code index of the repository, see [Code index](#code-index-rag). Saved at once. |
-| **CI waiting** | Auto, Always or Never, see [CI waiting](/docs/how-it-works#ci-waiting). |
-| **Comment limit** | How many findings are posted as inline comments, from 1 to 10. The rest go to the review body. |
-| **Verdict** | "Comment" posts every review as a comment. "Request changes" posts blocking reviews as Request changes. |
-| **Branch filter** | Target branch masks, one per line, for example `main` or `release/*`. Empty means every branch. Up to 20 masks. |
-| **Severity threshold** | `All` posts every level. `Warn & Crit` drops `info`. `Only Critical` keeps `critical` and `high`. |
+| **Automatic review** | Turns reviews on or off for the repository. Today a pull request still needs the `ai-review` label. <StatusBadge /> Soon: on reviews every pull request automatically, off reviews only pull requests with the label. |
+| **CI waiting** | When to start: Auto, Always or Never, see [CI waiting](/docs/how-it-works#details). |
+| **Comment limit** | How many findings are posted inline, from 1 to 10. |
+| **Verdict** | Post blocking reviews as a comment or as Request changes. |
+| **Branch filter** | Review only pull requests into matching branches, for example `main` or `release/*`. Empty means all. |
+| **Severity threshold** | `All`, `Warn & Crit` (drops `info`) or `Only Critical` (keeps `critical` and `high`). |
 
-In a branch mask, `*` matches within one part of the name and `**` also crosses `/`. The
-characters `? [ ] { } ! \ ~ ^ :` are not allowed. A pull request to a branch outside the filter
-is skipped.
+<Accordions>
+<Accordion title="Branch filter masks">
 
-Findings below the severity threshold are not posted; the `AI Review` check says how many were
-hidden.
+One mask per line, up to 20. `*` matches within one part of the name, `**` also crosses `/`.
+The characters `? [ ] { } ! \ ~ ^ :` are not allowed. A pull request into a branch outside the
+filter is skipped. Findings below the severity threshold are not posted; the `AI Review` check
+says how many were hidden.
 
-Below the form, **Review rules** shows the status of your [rules file](/docs/rules-file).
+</Accordion>
+</Accordions>
 
 ## Code index (RAG) <StatusBadge status="inactive" />
 
-The **RAG** switch builds an index of the default branch: which symbols each Python, TypeScript,
-JavaScript or Go file defines and which files import each other. Only this structure is stored,
-with paths and line numbers, never the code text.
+The **RAG** switch builds an index of the default branch: which symbols each file defines and
+which files import each other, without the code text. Reviews do not use it yet, so it changes
+nothing and adds no cost today.
 
-Reviews do not use the index yet, so turning it on changes nothing in a review and adds no cost
-today. It keeps itself up to date after pushes and merges to the default branch.
+<Accordions>
+<Accordion title="What is indexed and when it is deleted">
 
-Builds stop at fixed limits, for example a 100 MiB repository archive or 15 minutes of build
-time; the status then shows **Error** with the reason. The index is deleted when you switch RAG
-off, when the repository leaves the installation, and 30 days after you switched it on. To
-rebuild it, switch RAG off and on.
+Python, TypeScript, JavaScript and Go files. Secrets, vendored folders, generated files and
+`review-ignore` matches are skipped. The index updates after pushes to the default branch. A
+build stops at fixed limits, for example a 100 MiB archive or 15 minutes, and then shows
+**Error**. The index is deleted when you switch RAG off, when the repository leaves the
+installation, and 30 days after you switched it on; switch RAG off and on to rebuild.
+
+</Accordion>
+</Accordions>
 
 ## Dashboard
 
-The dashboard has two sections: **Repositories** and **Runs**. From a repository's settings,
-**Review history** opens the runs of that repository.
-
-### Runs
-
-**Runs** lists every pull request that was reviewed or is being reviewed, newest first, with its
-repository and [status](/docs/how-it-works#run-statuses). The list updates live.
+**Runs** lists every reviewed pull request with its [status](/docs/how-it-works#details). Click a
+run to see its steps, the diff with findings, and **Cancel** or **Restart**.
 
 <RunsListMock />
-
-### Run details
-
-Click a run to open it:
-
-- **Run card**: repository, pull request, commit, branches, model, status, verdict, finding
-  counts per severity, timings and the error code if it failed.
-- **Stages**: collecting context, model analysis and publishing, with the failed stage marked.
-- **Review session**: a log of every step the run took, in order, with its duration. Click a
-  step to see what was sent and what came back.
-- **Diff and findings**: the diff with findings inline. Filter by file, severity or text, and
-  switch between unified and split views.
-- **Cancel** for an active run, **Restart** for a finished one. A restart reviews the latest
-  commit of the pull request, even if it was reviewed before.
 
 <RunDetailMock />

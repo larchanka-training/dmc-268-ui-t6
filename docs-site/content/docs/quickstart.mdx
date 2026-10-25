@@ -1,80 +1,53 @@
 ---
 title: Quickstart
-description: Install the GitHub App, connect a repository and get the first review.
+description: Install the GitHub App and get your first review.
 icon: Rocket
 ---
 
-You need a GitHub account that can install apps on the repositories you want reviewed.
-
 <Callout title="The dashboard is in Russian for now">
-  An English version is planned. The button and page names below are English translations of
-  the current labels.
+  An English version is planned. The names below are English translations of the current labels.
 </Callout>
 
 <Steps>
 <Step>
 
-### Sign in first
+### Sign in
 
-Open the <AppLink /> and click **Sign in with GitHub**. GitHub asks you to authorize the
-Reviewer app, then sends you back.
-
-Sign in before you install the app. Reviewer links an installation to your account when you
-sign in, so an app installed by someone who never signed in shows up only later.
+Open the <AppLink /> and click **Sign in with GitHub**. Sign in before you install the app, so
+Reviewer can link the installation to your account.
 
 </Step>
 <Step>
 
 ### Install the GitHub App
 
-On **Repositories**, click **Connect repository**. The GitHub install page opens in a new tab.
-Pick the account and the repositories, then confirm.
-
-Every repository you pick is connected with reviews turned on, and Reviewer creates the
-`ai-review` label in it.
+On **Repositories**, click **Connect repository** and pick the repositories on GitHub. Each one
+is connected with reviews on, and gets an `ai-review` label.
 
 </Step>
 <Step>
 
 ### Refresh access
 
-Back in the dashboard, click **Refresh access**. This signs you in to GitHub again so the
-dashboard sees the new installation. A repository can take a few minutes to appear; click
-**Refresh** if it is not there yet.
-
-Check that the **Review** switch is on for the repository.
+Back in the dashboard, click **Refresh access**. The repository can take a few minutes to
+appear.
 
 </Step>
 <Step>
 
-### Add the label to a pull request
+### Add the label
 
-Open a pull request in a connected repository and add the label `ai-review`. The name must
-match exactly.
-
-</Step>
-<Step>
-
-### Let CI finish
-
-Reviewer waits until the other checks on the latest commit have passed. If the repository has
-no CI at all, the review starts about two minutes after you add the label. See
-[CI waiting](/docs/how-it-works#ci-waiting) to change this.
+On a pull request in that repository, add the label `ai-review`.
 
 </Step>
 <Step>
 
-### Read the review
+### Get the review
 
-The `AI Review` check appears on the pull request while Reviewer works. When it is done, the
-Reviewer bot posts its review. To see each step, open **Runs** in the dashboard.
+Once CI passes, the Reviewer bot posts its review. If the repository has no CI, it starts about
+two minutes after the label. Follow each step in **Runs** in the dashboard.
 
 </Step>
 </Steps>
 
-## Next steps
-
-- Tune the [repository settings](/docs/features#repository-settings): comment limit, severity
-  threshold, branch filter and verdict.
-- Keep generated files out of reviews with a [rules file](/docs/rules-file).
-- Nothing happened? See [No review appeared](/docs/faq#no-review-appeared).
+Nothing happened? See [No review appeared](/docs/faq#no-review-appeared).
