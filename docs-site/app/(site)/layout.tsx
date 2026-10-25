@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     template: '%s | Reviewer Docs',
     default: 'Reviewer Docs',
   },
-  description: 'User guide for Reviewer, the AI code review GitHub App.',
+  description: 'User guide for Reviewer, an AI code review service for pull requests.',
   icons: { icon: '/favicon.svg' },
 }
 
