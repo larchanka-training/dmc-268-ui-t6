@@ -1,0 +1,124 @@
+---
+title: Rules file
+description: What .review/rules.md does today and what is coming.
+icon: FileText
+---
+
+import { StatusBadge } from '@/components/status-badge'
+
+Put a file named `.review/rules.md` at the root of your repository. It is plain Markdown in any
+language. The file is optional; without it Reviewer uses its built-in guidelines.
+
+## What works today
+
+### The file is read from the base commit
+
+Reviewer reads `.review/rules.md` and the root `AGENTS.md` from the commit your pull request is
+based on, never from the pull request itself. A change to the rules counts only after it is
+merged, and a pull request cannot change the rules it is reviewed with.
+
+### The file is checked
+
+Every run checks both files first. If one is broken, the run fails and the `AI Review` check
+names the file, the line and the problem. The error codes start with `policy_`, for example:
+
+| Code | Problem |
+| --- | --- |
+| `policy_document_too_large` | The file is over 64 KiB. |
+| `policy_document_decode_error` | The file is not valid UTF-8. |
+| `policy_document_type_unsupported` | The file is a symlink, submodule or LFS pointer, not a regular file. |
+| `policy_ignore_pattern_invalid` | A mask in `review-ignore` uses syntax that is not allowed. |
+| `policy_ignore_block_unclosed` | The `review-ignore` block has no closing fence. |
+
+The repository settings page shows the current state under **Review rules**: file found, no file
+(built-in guidelines are used), or a list of errors. It reflects the default branch and updates
+after each push to it.
+
+### `review-ignore` keeps files out of the review
+
+One fenced block with the info string `review-ignore` lists path masks, one per line. Matching
+files are never sent to the model. If every changed file is ignored, the run is skipped.
+
+````markdown title=".review/rules.md"
+# Ignore
+
+Generated code and build output.
+
+```review-ignore
+generated/**
+dist/**
+**/*.min.js
+```
+````
+
+| Mask | Matches |
+| --- | --- |
+| `generated/**` | Everything in `generated/` at the root. Use this form for folders, not `generated/`. |
+| `*.py` | `main.py` at the root only. |
+| `**/*.py` | Any `.py` file at any depth, also in dot folders. |
+| `src/*` | `src/a.ts`, but not `src/a/b.ts`. |
+
+Mask rules:
+
+- A mask matches the whole path from the repository root and is case sensitive.
+- `*` matches within one folder or file name. `**` must stand alone between slashes and matches
+  any number of folders, including none.
+- No `!`, `?`, `[ ]`, `{ }` or backslash. `#` is a normal character, not a comment, so write
+  notes outside the block.
+- Only one block, at the top level of the file (not inside a list or quote), and it must be
+  closed.
+- Up to 256 lines; each mask up to 256 bytes and 32 parts.
+
+## Coming soon
+
+### Your rules sent to the model <StatusBadge />
+
+The rest of the file is for rules in plain words: what your team wants checked and what is fine.
+Today Reviewer checks this text but does not send it to the model, so it has no effect on the
+review yet. You can already write it in this format:
+
+- Headings such as `# Security`, `# Performance` and `# Style` are suggested, but names, order and
+  levels are free. They are for people, not commands.
+- Paths in the text, like `**/*.py`, tell the model where a rule applies. Reviewer does not parse
+  them; only the `review-ignore` block is read by Reviewer itself.
+- Both files together must fit in 12,000 tokens.
+
+### Example
+
+````markdown title=".review/rules.md"
+# Security
+
+SQL queries with user input must be parameterized.
+
+## Python
+
+In Python files (`**/*.py`), an expected-error handler must catch a specific
+exception type. Catching `Exception` is fine at the outer edge of a background job
+if the error is logged and the job fails.
+
+## TypeScript
+
+In TypeScript files (`**/*.ts`, `**/*.tsx`), treat the result of an external JSON
+API as `unknown` until its shape is checked. An `as User` assertion alone does not
+replace input validation; use the project's validator or a type guard.
+
+# Performance
+
+When processing the list of orders, do not run a separate database query per order.
+
+# Style
+
+Duplicated test setup is fine in tests when it helps readability.
+
+# Ignore
+
+The following files must not become model context.
+
+```review-ignore
+generated/**
+dist/**
+**/*.min.js
+```
+````
+
+This is the example from the format spec, translated to English.
