@@ -3,7 +3,7 @@
 /*
  * Takes the pictures of the dashboard mockups that the docs pages show.
  *
- * Every /mockups/<name> page is opened in Chromium at 2x pixel density and saved as
+ * Every <basePath>/mockups/<name> page is opened in Chromium at 2x pixel density and saved as
  * public/screens/<name>.webp; the CSS size of each picture goes to
  * components/mockups/screens.json, so the docs can reserve the space before the picture loads.
  *
@@ -12,21 +12,23 @@
  * light; install Playwright anywhere and point NODE_PATH to its node_modules.
  *
  * Usage (from the repository root):
- *   pnpm --dir docs-site shots                        # builds the site, starts it, shoots, stops it
+ *   pnpm --dir docs-site shots              # builds the static export, serves out/, shoots, stops
  *   BASE_URL=http://localhost:3000 pnpm --dir docs-site shots   # uses a running server
  *
  * Environment:
  *   NODE_PATH        folders searched for `playwright` (it is not a dependency of this package)
  *   CHROME_PATH      Chromium or Chrome binary; default /usr/bin/google-chrome if present
- *   BASE_URL         a running docs server; when unset the script builds and starts its own
- *   PORT             port of the server the script starts (default 3917)
- *   SKIP_BUILD=1     start the existing .next build without building again
+ *   BASE_URL         a running docs server, with or without the base path (/docs is added when
+ *                    missing); when unset the script builds and serves out/ itself
+ *   PORT             port of the static server the script starts (default 3917)
+ *   SKIP_BUILD=1     serve the existing out/ without building again
  *
  * WebP encoding uses `sharp`, which Next.js already installs; without it the PNG is kept.
  */
 import { spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { createReadStream, existsSync } from 'node:fs'
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import http from 'node:http'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -100,33 +102,71 @@ async function waitForServer(url, timeoutMs = 60_000) {
   throw new Error(`No server at ${url} after ${String(timeoutMs / 1000)} s`)
 }
 
-/** Starts `next start` on its own port; returns the base URL and a stop function. */
-async function startServer() {
-  const port = process.env.PORT ?? '3917'
-  if (process.env.SKIP_BUILD !== '1') await run('pnpm', ['exec', 'next', 'build'])
-  const child = spawn('pnpm', ['exec', 'next', 'start', '-H', '127.0.0.1', '-p', port], {
-    cwd: ROOT,
-    stdio: 'inherit',
-    detached: true,
-  })
-  const baseUrl = `http://127.0.0.1:${port}`
-  const stop = () => {
-    // The whole process group: pnpm and the next server it started.
-    if (child.pid !== undefined && child.exitCode === null) {
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.txt': 'text/plain; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json',
+  '.svg': 'image/svg+xml',
+  '.webp': 'image/webp',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+  '.woff2': 'font/woff2',
+  '.woff': 'font/woff',
+}
+
+/**
+ * Serves the static export in `outDir` the way nginx does in the docs image: `<basePath>/x` is
+ * out/x, out/x.html or out/x/index.html; anything outside the base path is a 404.
+ */
+function serveStatic(outDir, basePath, port) {
+  const server = http.createServer(async (request, response) => {
+    const { pathname } = new URL(request.url ?? '/', 'http://localhost')
+    const inside =
+      pathname === basePath || pathname.startsWith(`${basePath}/`)
+        ? decodeURIComponent(pathname.slice(basePath.length))
+        : null
+    const file = inside === null ? null : path.join(outDir, path.normalize(`/${inside}`))
+    for (const candidate of file === null
+      ? []
+      : [file, `${file}.html`, path.join(file, 'index.html')]) {
       try {
-        process.kill(-child.pid, 'SIGTERM')
+        if (!(await stat(candidate)).isFile()) continue
+        const type = MIME[path.extname(candidate)] ?? 'application/octet-stream'
+        response.writeHead(200, { 'Content-Type': type })
+        createReadStream(candidate).pipe(response)
+        return
       } catch {
-        // already gone
+        // try the next candidate
       }
     }
+    response.writeHead(404, { 'Content-Type': 'text/plain' }).end('Not found')
+  })
+  return new Promise((resolve, reject) => {
+    server.once('error', reject)
+    server.listen(Number(port), '127.0.0.1', () => resolve(server))
+  })
+}
+
+/** Builds the static export and serves out/ on its own port; returns the URL and a stop function. */
+async function startServer(basePath) {
+  const port = process.env.PORT ?? '3917'
+  if (process.env.SKIP_BUILD !== '1') await run('pnpm', ['exec', 'next', 'build'])
+  const outDir = path.join(ROOT, 'out')
+  if (!existsSync(outDir))
+    throw new Error(`No static export in ${outDir}; build without SKIP_BUILD`)
+  const server = await serveStatic(outDir, basePath, port)
+  return {
+    baseUrl: `http://127.0.0.1:${port}${basePath}`,
+    stop: () => server.close(),
   }
-  try {
-    await waitForServer(`${baseUrl}/mockups/runs`)
-  } catch (error) {
-    stop()
-    throw error
-  }
-  return { baseUrl, stop }
+}
+
+/** BASE_URL with or without the base path; the result always ends with it. */
+function withBasePath(url, basePath) {
+  const trimmed = url.replace(/\/+$/, '')
+  return basePath !== '' && !trimmed.endsWith(basePath) ? `${trimmed}${basePath}` : trimmed
 }
 
 async function main() {
@@ -145,12 +185,17 @@ async function main() {
     process.env.CHROME_PATH ??
     (existsSync('/usr/bin/google-chrome') ? '/usr/bin/google-chrome' : undefined)
 
+  // The site prefix (basePath in next.config.mjs); every page URL below includes it.
+  const basePath = (await import('../next.config.mjs')).default.basePath ?? ''
   let server = null
-  let baseUrl = process.env.BASE_URL
-  if (baseUrl === undefined) {
-    server = await startServer()
+  let baseUrl
+  if (process.env.BASE_URL === undefined) {
+    server = await startServer(basePath)
     baseUrl = server.baseUrl
+  } else {
+    baseUrl = withBasePath(process.env.BASE_URL, basePath)
   }
+  await waitForServer(`${baseUrl}/mockups/runs`, 10_000)
 
   const manifest = {}
   let browser = null

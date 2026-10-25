@@ -49,13 +49,13 @@ What to take again after a change:
 
 The script takes all pictures every time; commit only the ones that changed.
 
-The script builds the site, starts it on 127.0.0.1, port 3917 (`PORT`), opens every `/mockups/*`
-page in Chromium at 2x pixel density and saves WebP (with `sharp`, which Next.js installs; PNG
-without it). Playwright is an outside tool, not a dependency of this package, so `pnpm install`
-stays light: `NODE_PATH` points to any install of `playwright` or `playwright-core`. `CHROME_PATH` sets the
-browser (default `/usr/bin/google-chrome`), `BASE_URL=http://localhost:3000` uses a running server
-instead of building (with the base path, e.g. `http://localhost:3000/docs`), `SKIP_BUILD=1` starts the last build. The list of pictures and their widths is
-at the top of `scripts/shoot-mockups.mjs`.
+The script builds the static export, serves `out/` under `/docs` with a small built-in server on
+port 3917 (`PORT`), opens every `/docs/mockups/*` page in Chromium at 2x pixel density and saves
+WebP (with `sharp`, which Next.js installs; PNG without it). Playwright is not a dependency here:
+`NODE_PATH` points to an install of it. `CHROME_PATH` sets the browser (default
+`/usr/bin/google-chrome`), `SKIP_BUILD=1` serves the last `out/`, and `BASE_URL` uses a running
+server instead (`http://localhost:3000` or `http://localhost:3000/docs`; the base path is added
+when missing). The list of pictures and their widths is at the top of `scripts/shoot-mockups.mjs`.
 
 ## Status badges
 
