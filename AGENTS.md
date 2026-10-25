@@ -69,7 +69,7 @@ only flow downward, `shared` never imports `entities`); details in
 - `.agents/rules/` — stack and git-workflow rules.
 - `.agents/skills/` — agent skills (agent-loop, code-review, tdd,
   pull-request, planning-and-task-breakdown, qa, e2e-test, manual-automation,
-  create-issue).
+  create-issue, issue-graph).
 - `.agents/agents/` — agent definitions.
 - `.agents/templates/` — code/test templates with proof blocks.
 - `docs/FRONTEND_ARCHITECTURE.md` — FSD conventions in full.
