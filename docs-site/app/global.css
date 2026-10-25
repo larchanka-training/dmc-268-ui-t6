@@ -151,8 +151,7 @@ body {
   background: var(--surface);
 }
 
-#nd-docs-layout,
-#nd-home-layout {
+#nd-docs-layout {
   background: var(--bg);
 }
 

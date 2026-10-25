@@ -4,6 +4,8 @@ import { notFound } from 'next/navigation'
 import { getMDXComponents } from '@/components/mdx'
 import type { Metadata } from 'next'
 import { createRelativeLink } from 'fumadocs-ui/mdx'
+import { IntroHero } from '@/components/intro-hero'
+import heroStyles from '@/components/intro-hero.module.css'
 
 export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
   const params = await props.params
@@ -11,11 +13,18 @@ export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
   if (!page) notFound()
 
   const MDX = page.data.body
+  // The Introduction opens with the landing glass behind its title.
+  const intro = params.slug === undefined || params.slug.length === 0
+  const heading = (
+    <>
+      <DocsTitle className={intro ? heroStyles.title : undefined}>{page.data.title}</DocsTitle>
+      <DocsDescription>{page.data.description}</DocsDescription>
+    </>
+  )
 
   return (
     <DocsPage toc={page.data.toc} full={page.data.full}>
-      <DocsTitle>{page.data.title}</DocsTitle>
-      <DocsDescription>{page.data.description}</DocsDescription>
+      {intro ? <IntroHero>{heading}</IntroHero> : heading}
       <DocsBody>
         <MDX
           components={getMDXComponents({
