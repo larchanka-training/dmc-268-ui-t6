@@ -1,0 +1,19 @@
+# User docs stack, course VPS only (edge mode; the Terraform host has no landing and no docs).
+# Deployed by the same deploy.sh / rollback.sh as the UI and the landing, from its own APP_DIR
+# (/opt/dmc-268-docs-staging) and compose project. A static site: no runtime settings.
+services:
+  docs:
+    image: ${IMAGE:?IMAGE is required}
+    restart: unless-stopped
+    pull_policy: always
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:8080/health']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'

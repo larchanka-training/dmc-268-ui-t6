@@ -6,17 +6,22 @@ Team docs for developers stay in `docs/`.
 
 ```bash
 pnpm install          # from the repository root
-pnpm --dir docs-site dev
+pnpm --dir docs-site dev           # http://localhost:3000/docs
 pnpm --dir docs-site check-types
-pnpm --dir docs-site build
+pnpm --dir docs-site build         # static export to docs-site/out
 ```
 
+- The site is served at `<landing host>/docs` (`basePath` in `next.config.mjs`); the edge proxy
+  sends `/docs` and `/docs/*` to the docs container. The Introduction is the base path itself.
 - Pages live in `content/docs/*.mdx`, the order is set in `content/docs/meta.json`.
-  The site opens on the Introduction (`content/docs/index.mdx`).
+  The site opens on the Introduction (`content/docs/index.mdx`). Links between pages leave out
+  the base path (`[FAQ](/faq)`): Next.js adds it. A plain URL (an image `src`, an icon) takes it
+  from `basePath` in `lib/shared.ts`.
+- Search is static: `app/api/search` writes the index at build time, the browser searches it.
 - Dashboard pictures are plain images in `public/screens/*.webp`, shown by
   `components/mockups/` with their sizes from `components/mockups/screens.json`; a click opens
-  them zoomed in. They are shot from the `/mockups/*` pages, which render the real app components
-  from `components/dashboard/` (not indexed, no docs page links to them).
+  them zoomed in. They are shot from the `/docs/mockups/*` pages, which render the real app
+  components from `components/dashboard/` (not indexed, no docs page links to them).
 - Colors and fonts follow `landing/src/styles/global.css`. The site is dark only.
 - Fumadocs packages are pinned to exact versions: `app/global.css` overrides some of their
   internal classes, so an update needs a look at every page in a browser (desktop and 390px).
@@ -49,7 +54,7 @@ page in Chromium at 2x pixel density and saves WebP (with `sharp`, which Next.js
 without it). Playwright is an outside tool, not a dependency of this package, so `pnpm install`
 stays light: `NODE_PATH` points to any install of `playwright` or `playwright-core`. `CHROME_PATH` sets the
 browser (default `/usr/bin/google-chrome`), `BASE_URL=http://localhost:3000` uses a running server
-instead of building, `SKIP_BUILD=1` starts the last build. The list of pictures and their widths is
+instead of building (with the base path, e.g. `http://localhost:3000/docs`), `SKIP_BUILD=1` starts the last build. The list of pictures and their widths is
 at the top of `scripts/shoot-mockups.mjs`.
 
 ## Status badges
@@ -86,5 +91,8 @@ The full rule is in [api `docs/CONTRIBUTING.md` §8](https://github.com/larchank
 
 ## Deploy
 
-The release path is not set up yet. Vercel is used only for preview builds: Root Directory
-`docs-site`, framework preset Next.js.
+Docker (from the repository root): `docker build -f docs-site/Dockerfile -t dmc-268-docs:local .`,
+then `docker run --rm -p 8082:8080 dmc-268-docs:local` and open `http://localhost:8082/docs`
+(nginx config: `docker/docs/nginx.conf`; staging deploy: `docs/CICD.md` §4.2).
+
+Vercel is used only for preview builds: Root Directory `docs-site`, framework preset Next.js.

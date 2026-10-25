@@ -6,7 +6,7 @@
 | Владелец            | инфраструктура (роль 3)                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | Связанные документы | в репозитории [dmc-268-api-t6](https://github.com/larchanka-training/dmc-268-api-t6): [SYSTEM_DESIGN.md](https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md#14-развёртывание-v1) (§14), [CICD.md](https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/CICD.md) (edge-прокси), [INFRASTRUCTURE.md](https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/INFRASTRUCTURE.md) (Terraform-стек `ui-staging`) |
 
-Пайплайн прогоняет гейты качества, собирает статический React UI и публичный лендинг (`landing/`) в два OCI-образа, сканирует их и выкатывает на staging. Реестр — **GitHub Container Registry**. Цель выката — общий курсовой VPS за edge-прокси (по умолчанию) или отдельный Terraform-хост в Hetzner Cloud (§2); лендинг выкатывается только на курсовой VPS (§4.1). Edge-прокси, Terraform-стек `terraform/ui-staging/` и DNS живут только в **API-репозитории**: этот репозиторий их не выкатывает и `terraform apply` не делает.
+Пайплайн прогоняет гейты качества, собирает статический React UI, публичный лендинг (`landing/`) и пользовательскую документацию (`docs-site/`) в три OCI-образа, сканирует их и выкатывает на staging. Реестр — **GitHub Container Registry**. Цель выката — общий курсовой VPS за edge-прокси (по умолчанию) или отдельный Terraform-хост в Hetzner Cloud (§2); лендинг и документация выкатываются только на курсовой VPS (§4.1, §4.2). Edge-прокси, Terraform-стек `terraform/ui-staging/` и DNS живут только в **API-репозитории**: этот репозиторий их не выкатывает и `terraform apply` не делает.
 
 ---
 
@@ -15,12 +15,12 @@
 ```mermaid
 flowchart TD
   pr["PR / push"] --> quality["lint, check-types, format:check, test, build<br/>(required check)"]
-  pr --> build["docker build UI + лендинг (один раз)<br/>(required check)"]
+  pr --> build["docker build UI + лендинг + docs (один раз)<br/>(required check)"]
   build --> scan["trivy: vuln / secret / misconfig"]
   quality --> gate{"main?"}
   scan --> gate
   gate -->|нет| stop["CI зелёный, без выката"]
-  gate -->|да| push["push :sha (@digest) обоих образов в GHCR"]
+  gate -->|да| push["push :sha (@digest) всех образов в GHCR"]
   push --> target["Resolve staging target"]
   target --> prep["Prepare host: provision.sh"]
   prep -->|Terraform-хост| deploy["deploy.sh: compose up по digest"]
@@ -32,26 +32,30 @@ flowchart TD
   landing -->|ok| promote
   landing -->|fail| rbl["откат только лендинга; UI остаётся и продвигается"]
   rbl --> fail
+  health -->|ok| docs["docs (курсовой VPS): deploy.sh + проверка /docs"]
+  docs -->|ok| promote
+  docs -->|fail| rbd["откат только docs; UI и лендинг остаются и продвигаются"]
+  rbd --> fail
   health -->|fail| rb["авто-rollback, ROLLBACK_MODE=auto"]
   deploy -->|fail| rb
   rb --> fail["job красный; ошибка rollback видна отдельно"]
 ```
 
-| Job                           | Когда                              | Permissions                                                                                            | Что делает                                                                                                                                                                                                                                                                                                                |
-| ----------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `UI quality`                  | PR и `main`                        | `contents: read`                                                                                       | гейты качества: `pnpm lint`, `pnpm check-types`, `pnpm format:check`, `pnpm test`, `pnpm build`, `pnpm verify:prod-bundle`, затем `pnpm --dir landing` check-types / test / build и `pnpm --dir docs-site` check-types / build; required check в правилах `main` (§8)                                                     |
-| `Docker image build`          | PR и `main`                        | `contents: read`                                                                                       | один build UI (`Dockerfile`) и один лендинга (`landing/Dockerfile`), artifacts для scan/push                                                                                                                                                                                                                              |
-| `Docker image security scan`  | после сборки                       | `contents: read`                                                                                       | Trivy тех же artifacts, обоих образов                                                                                                                                                                                                                                                                                     |
-| `Push Docker image`           | только `main`                      | `contents: read`, `packages: write`, `actions: read`                                                   | push `:sha` обоих образов, resolve digest (те же artifacts, что прошли Trivy)                                                                                                                                                                                                                                             |
-| `Deploy staging`              | только `main`                      | `contents: read`, `packages: read`                                                                     | выбор цели (§2), подготовка хоста, Compose по digest, внешний health check; на курсовом VPS следом лендинг (§4.1); авто-rollback при ошибке deploy или health, сбой лендинга откатывает только лендинг                                                                                                                    |
-| `Promote staging tag`         | после успешного health check UI    | `contents: read`, `packages: write`                                                                    | под lock `staging-deploy` читает `.deploy-state` UI и лендинга на VM (без токена); если там всё ещё эти digest — `:staging-previous` ← `:staging`, `:staging` ← проверенный digest для каждого образа (лендинг — только если прошёл и он), иначе warning и пропуск; если `:staging` уже на этом digest, теги не трогаются |
-| `Rollback staging` (workflow) | `workflow_dispatch`, только `main` | `rollback`: `contents: read`, `packages: read`; `promote-staging`: `contents: read`, `packages: write` | откат UI и/или лендинга на VM, проверка снаружи, синхронизация `:staging` (§6)                                                                                                                                                                                                                                            |
+| Job                           | Когда                              | Permissions                                                                                            | Что делает                                                                                                                                                                                                                                                                                                                                                   |
+| ----------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `UI quality`                  | PR и `main`                        | `contents: read`                                                                                       | гейты качества: `pnpm lint`, `pnpm check-types`, `pnpm format:check`, `pnpm test`, `pnpm build`, `pnpm verify:prod-bundle`, затем `pnpm --dir landing` check-types / test / build и `pnpm --dir docs-site` check-types / build; required check в правилах `main` (§8)                                                                                        |
+| `Docker image build`          | PR и `main`                        | `contents: read`                                                                                       | по одному build UI (`Dockerfile`), лендинга (`landing/Dockerfile`) и документации (`docs-site/Dockerfile`), artifacts для scan/push                                                                                                                                                                                                                          |
+| `Docker image security scan`  | после сборки                       | `contents: read`                                                                                       | Trivy тех же artifacts, всех трёх образов                                                                                                                                                                                                                                                                                                                    |
+| `Push Docker image`           | только `main`                      | `contents: read`, `packages: write`, `actions: read`                                                   | push `:sha` всех трёх образов, resolve digest (те же artifacts, что прошли Trivy)                                                                                                                                                                                                                                                                            |
+| `Deploy staging`              | только `main`                      | `contents: read`, `packages: read`                                                                     | выбор цели (§2), подготовка хоста, Compose по digest, внешний health check; на курсовом VPS следом лендинг (§4.1) и документация (§4.2); авто-rollback при ошибке deploy или health, сбой лендинга или документации откатывает только свою часть                                                                                                             |
+| `Promote staging tag`         | после успешного health check UI    | `contents: read`, `packages: write`                                                                    | под lock `staging-deploy` читает `.deploy-state` UI, лендинга и документации на VM (без токена); если там всё ещё эти digest — `:staging-previous` ← `:staging`, `:staging` ← проверенный digest для каждого образа (лендинг и документация — только если прошла своя часть), иначе warning и пропуск; если `:staging` уже на этом digest, теги не трогаются |
+| `Rollback staging` (workflow) | `workflow_dispatch`, только `main` | `rollback`: `contents: read`, `packages: read`; `promote-staging`: `contents: read`, `packages: write` | откат UI и/или лендинга либо документации на VM, проверка снаружи, синхронизация `:staging` (§6)                                                                                                                                                                                                                                                             |
 
 Корневые permissions: `contents: read`, остальное — только у job, которому нужно. Все jobs работают на `ubuntu-latest`.
 
 `UI quality` ставит Node.js 24 (как build-стадия `Dockerfile`) и pnpm версии из `packageManager`, затем выполняет `pnpm install --frozen-lockfile` и шесть гейтов по порядку (последний, `pnpm verify:prod-bundle`, идёт после `pnpm build` и проверяет `dist/assets`: нет mock/demo-кода, а вызов zod `jitless` исполняется раньше первой схемы); первый упавший шаг делает job красным. Job стоит в `needs` у `Push Docker image`: с красными гейтами образ не пушится и staging не выкатывается. На PR job отменяется вместе со всем run при новом push в ветку (`cancel-in-progress` в `concurrency` workflow). Лимит job — 15 минут (`timeout-minutes`): зависший прогон не держит обязательную проверку и `Push Docker image` до стандартных шести часов.
 
-Шаги `Deploy staging`: **Resolve staging target** → копирование `deploy/` в `APP_DIR` (`appleboy/scp-action`; на курсовом VPS ещё файлы лендинга в его `APP_DIR`) → **Prepare host** → (курсовой VPS) ожидание TLS → **Deploy image** (`deploy.sh`) → **Health check** → (курсовой VPS) **Deploy landing image** → **Landing health check** → при ошибке лендинга **Rollback landing on failed deploy or health check**, при ошибке UI **Rollback on failed deploy or health check** (оба `ROLLBACK_MODE=auto`, каждый откатывает только свою часть) → job красный, в логе сообщение о том, что упало (у сбоя лендинга это `::error::`). После сбоя лендинга `Promote staging tag` всё равно продвигает проверенный UI (`!cancelled()` и флаг `promote`), тег лендинга не двигается (`promote_landing=false`). UI тогда уже выкачен; повторный выкат того же коммита (**Re-run failed jobs**) не трогает точку отката UI на VM: `deploy.sh` переносит `.deploy-state` в `.deploy-state.previous`, только если выкатывается другой образ.
+Шаги `Deploy staging`: **Resolve staging target** → копирование `deploy/` в `APP_DIR` (`appleboy/scp-action`; на курсовом VPS ещё файлы лендинга в его `APP_DIR`) → **Prepare host** → (курсовой VPS) ожидание TLS → **Deploy image** (`deploy.sh`) → **Health check** → (курсовой VPS) **Deploy landing image** → **Landing health check** → (курсовой VPS, независимо от лендинга) **Deploy docs image** → **Docs health check** → при ошибке лендинга **Rollback landing on failed deploy or health check**, при ошибке документации **Rollback docs on failed deploy or health check**, при ошибке UI **Rollback on failed deploy or health check** (все `ROLLBACK_MODE=auto`, каждый откатывает только свою часть) → job красный, в логе сообщение о том, что упало (у сбоя лендинга и документации это `::error::`). После сбоя лендинга `Promote staging tag` всё равно продвигает проверенный UI (`!cancelled()` и флаг `promote`), тег лендинга не двигается (`promote_landing=false`); так же с документацией (`promote_docs`). UI тогда уже выкачен; повторный выкат того же коммита (**Re-run failed jobs**) не трогает точку отката UI на VM: `deploy.sh` переносит `.deploy-state` в `.deploy-state.previous`, только если выкатывается другой образ.
 
 **Prepare host** переименовывает `staging*.yml` в `compose.yml`, `compose.ports.yml`, `compose.edge.yml` и запускает `provision.sh` (копия из API-репозитория) с `APP_DIR` и `EDGE_NETWORK` (`dmc268-edge` только на курсовом VPS): при необходимости ставит Docker и Compose из пакетов Debian (под `flock` вместе с прогонами API), создаёт `APP_DIR` и сеть `dmc268-edge`. Workflow Rollback делает то же перед откатом.
 
@@ -72,6 +76,7 @@ flowchart TD
 | Docker                      | ставит `provision.sh` при первом прогоне                                                                                                                                    | из cloud-init; `provision.sh` ничего не ставит                                                                                     |
 | Bootstrap до первого выката | нет; после отката UI без previous — nginx в `dmc268-edge` с alias `ui-staging`, слушает 8080. У лендинга bootstrap нет: без previous его стек только останавливается (§4.1) | `dmc-268-ui-bootstrap` из cloud-init на `:80`                                                                                      |
 | Лендинг                     | `APP_DIR` `/opt/dmc-268-landing-staging` (compose project `dmc-268-landing-staging`), сеть `dmc268-edge`, alias `landing-staging`, `https://staging.<APP_DOMAIN>` (§4.1)    | не выкатывается: хост отдаёт только UI на `:80`                                                                                    |
+| Документация                | `APP_DIR` `/opt/dmc-268-docs-staging` (compose project `dmc-268-docs-staging`), сеть `dmc268-edge`, alias `docs-staging`, `https://staging.<APP_DOMAIN>/docs` (§4.2)        | не выкатывается                                                                                                                    |
 
 - `key` уходит только на Terraform-хост, пароль — только на VPS, и только как input `appleboy/*` (в скрипты на хосте он не передаётся).
 - `STAGING_SSH_FINGERPRINT` обязателен для обеих целей, формат `SHA256:<43 символа base64>`. С пустым fingerprint appleboy принимает любой host key, поэтому job с SSH падает первым шагом. Значения цели проверяются на одну строку, URL — на `http(s)://` без пробелов.
@@ -86,19 +91,19 @@ flowchart TD
 Caddy (compose project `dmc-268-edge`) принимает 80/443 на VPS, выпускает сертификаты Let's Encrypt и маршрутизирует по имени хоста.
 
 - **Владелец — API-репозиторий.** Этот репозиторий прокси не выкатывает и `deploy/edge/` не копирует. Маршруты меняются PR в `deploy/edge/Caddyfile` API-репозитория.
-- **Контракт UI:** контейнер подключён к внешней docker-сети `dmc268-edge` с alias `ui-staging` и слушает `8080`; host-порты на VPS не публикуются (80/443 заняты прокси). Лендинг — так же, alias `landing-staging`.
+- **Контракт UI:** контейнер подключён к внешней docker-сети `dmc268-edge` с alias `ui-staging` и слушает `8080`; host-порты на VPS не публикуются (80/443 заняты прокси). Лендинг — так же, alias `landing-staging`; документация — alias `docs-staging`.
 - Все вызовы Compose идут с `-p <basename APP_DIR>`: имя проекта не берётся из compose-файла, и UI не пересекается с API на общем VPS.
 - `DEPLOY_MODE` (`edge|ports`) и `EDGE_ALIAS` сохраняются в `<APP_DIR>/.env`; `rollback.sh` читает их оттуда.
 - Перед выкатом (и перед Rollback) job до 180 с ждёт успешного TLS-рукопожатия с `https://staging-ui.<APP_DOMAIN>/` (любой HTTP-статус, 502 тоже). Без сертификата job падает до изменения запущенного релиза (файлы деплоя уже загружены, **Prepare host** уже выполнен), поэтому медленный первый выпуск в Let's Encrypt не запускает авто-rollback.
 
-| Hostname (`APP_DOMAIN` = `dmc268-t6.axyi.ru`)      | Upstream в `dmc268-edge`                                     | Статус                                                                            |
-| -------------------------------------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------- |
-| `staging-ui.<APP_DOMAIN>`                          | `/api/*` → `api-staging:8000`, остальное → `ui-staging:8080` | UI выкатывает этот репозиторий, `/api/*` — репозиторий API                        |
-| `ui.<APP_DOMAIN>`                                  | `/api/*` → `api-prod:8000`, остальное → `ui-prod:8080`       | prod-выката пока нет → заглушка 503                                               |
-| `staging.<APP_DOMAIN>`, `staging-www.<APP_DOMAIN>` | `landing-staging:8080`                                       | лендинг выкатывает этот репозиторий (§4.1)                                        |
-| `<APP_DOMAIN>`, `www.<APP_DOMAIN>`                 | `landing-staging:8080`                                       | пока prod-выката нет — staging-лендинг; с prod-выкатом переедут на `landing-prod` |
+| Hostname (`APP_DOMAIN` = `dmc268-t6.axyi.ru`)      | Upstream в `dmc268-edge`                                                     | Статус                                                                                                         |
+| -------------------------------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `staging-ui.<APP_DOMAIN>`                          | `/api/*` → `api-staging:8000`, остальное → `ui-staging:8080`                 | UI выкатывает этот репозиторий, `/api/*` — репозиторий API                                                     |
+| `ui.<APP_DOMAIN>`                                  | `/api/*` → `api-prod:8000`, остальное → `ui-prod:8080`                       | prod-выката пока нет → заглушка 503                                                                            |
+| `staging.<APP_DOMAIN>`, `staging-www.<APP_DOMAIN>` | `/docs`, `/docs/*` → `docs-staging:8080`, остальное → `landing-staging:8080` | лендинг и документацию выкатывает этот репозиторий (§4.1, §4.2)                                                |
+| `<APP_DOMAIN>`, `www.<APP_DOMAIN>`                 | `/docs`, `/docs/*` → `docs-staging:8080`, остальное → `landing-staging:8080` | пока prod-выката нет — staging-лендинг и staging-docs; с prod-выкатом переедут на `landing-prod` и `docs-prod` |
 
-Пока upstream не запущен, `staging-ui` отвечает 502, а `ui` и хосты лендинга — заглушкой 503 edge-прокси ([CICD.md API, §8.2](https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/CICD.md#82-edge-прокси)); остальные маршруты прокси работают. Таблица выше — маршруты **после** выката PR в API-репозитории (api#240), который добавляет хосты лендинга. api#240 выкатывается раньше, чем лендинг из этого репозитория (§4.1): к первому выкату лендинга у Caddy уже есть сайты и сертификаты его хостов.
+Пока upstream не запущен, `staging-ui` отвечает 502, а `ui` и хосты лендинга — заглушкой 503 edge-прокси ([CICD.md API, §8.2](https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/CICD.md#82-edge-прокси)); остальные маршруты прокси работают. Таблица выше — маршруты **после** выката PR в API-репозитории (api#240), который добавляет хосты лендинга. api#240 выкатывается раньше, чем лендинг из этого репозитория (§4.1): к первому выкату лендинга у Caddy уже есть сайты и сертификаты его хостов. Маршрут `/docs` на хостах лендинга добавляет отдельный PR в API-репозитории (§4.2); он выкатывается до первого выката документации.
 
 ---
 
@@ -134,17 +139,36 @@ GET /config.json
 
   Порядок выката: PR #164 (лендинг читает `/config.json`, уже в `main`) → PR api#240 (маршруты лендинга в Caddy, его выкат делает `caddy reload`) → этот PR (первый выкат `landing-staging` сразу проходит строгую проверку) → проверить вручную основной домен и `www.`: `curl -sS https://<APP_DOMAIN>/config.json`.
 
+### 4.2 Документация
+
+Пользовательская документация (`docs-site/`, Fumadocs на Next.js, #173) живёт на хосте лендинга под `/docs`, своего домена у неё нет. Образ — `docs-site/Dockerfile` (контекст сборки — корень репозитория: lockfile workspace и `src/`, из которого макеты дашборда берут стили и компоненты): `pnpm --dir docs-site build` со статическим экспортом (`output: 'export'`, `basePath: '/docs'`), затем тот же `nginxinc/nginx-unprivileged:1.30-alpine`, что у UI и лендинга. Файлы лежат в `/usr/share/nginx/html/docs`, конфиг — `docker/docs/nginx.conf`. Пакет в GHCR — `ghcr.io/<owner>/dmc-268-ui-t6-docs`, теги как у UI (§5).
+
+```http
+GET /health          (внутри контейнера, для compose healthcheck)
+GET /docs/health     (то же через edge-прокси)
+200 {"status":"ok","service":"dmc-268-docs"}
+
+GET /docs            Introduction
+GET /docs/<page>     страницы, /docs/mockups/<screen> (iframe макетов), /docs/api/search (индекс поиска)
+```
+
+- **Маршрут на edge-прокси.** Caddy на хостах лендинга отправляет `/docs` и `/docs/*` в `docs-staging:8080` без изменения пути, остальное — в `landing-staging:8080`. Маршрут живёт в `deploy/edge/Caddyfile` API-репозитория и выкатывается там до первого выката документации, иначе проверка снаружи не проходит и документация откатывается.
+- **Статический сайт.** Страницы, макеты и индекс поиска собираются при `next build`; поиск идёт в браузере по `/docs/api/search`. Настроек при старте нет, `APP_URL` не нужен.
+- **Выкат и откат** — как у лендинга: те же `deploy.sh` / `rollback.sh`, свой `APP_DIR` `/opt/dmc-268-docs-staging`, compose project `dmc-268-docs-staging`, файлы `deploy/compose/docs.yml` и `docs.edge.yml`, alias `docs-staging`, `NO_PREVIOUS_RELEASE=stop`. Документация выкатывается после успешного health check UI того же коммита и не зависит от результата лендинга; её сбой откатывает только её, теги UI и лендинга продвигаются, job красный с `::error::` о документации.
+- **Проверка снаружи** (`deploy/scripts/docs-healthcheck.sh`): `https://staging.<APP_DOMAIN>/docs/health` (12 × 5 с) должен вернуть именно `"service":"dmc-268-docs"` (без маршрута `/docs` запрос уходит в лендинг), затем `/docs` и `/docs/quickstart` — HTTP 200.
+- **Ссылки.** Лендинг ведёт на документацию относительным `/docs` (пункт **Docs** в шапке). Приложение берёт адрес из `VITE_DOCS_URL` при сборке (§8), по умолчанию `https://staging.dmc268-t6.axyi.ru/docs` (`src/shared/config/env.ts`).
+
 ---
 
 ## 5. Container Registry и доступ с VM
 
-| Параметр               | Значение                                                                                                                |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Host                   | `ghcr.io`                                                                                                               |
-| Repository             | `ghcr.io/<owner>/dmc-268-ui-t6` (UI), `ghcr.io/<owner>/dmc-268-ui-t6-landing` (лендинг)                                 |
-| Auth CI (push/promote) | `GITHUB_TOKEN`; `packages: write` только у `push-image` и двух `promote-staging`, на runner. На VM этот токен не уходит |
-| Auth staging pull      | `GITHUB_TOKEN` с `packages: read`, только на время выката или отката                                                    |
-| Теги                   | у каждого образа: `:<git-sha>` + `@sha256:…` (deploy), `:staging` (текущий), `:staging-previous` (точка отката)         |
+| Параметр               | Значение                                                                                                                                     |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Host                   | `ghcr.io`                                                                                                                                    |
+| Repository             | `ghcr.io/<owner>/dmc-268-ui-t6` (UI), `ghcr.io/<owner>/dmc-268-ui-t6-landing` (лендинг), `ghcr.io/<owner>/dmc-268-ui-t6-docs` (документация) |
+| Auth CI (push/promote) | `GITHUB_TOKEN`; `packages: write` только у `push-image` и двух `promote-staging`, на runner. На VM этот токен не уходит                      |
+| Auth staging pull      | `GITHUB_TOKEN` с `packages: read`, только на время выката или отката                                                                         |
+| Теги                   | у каждого образа: `:<git-sha>` + `@sha256:…` (deploy), `:staging` (текущий), `:staging-previous` (точка отката)                              |
 
 На VM `deploy.sh` логинится в GHCR во временный `DOCKER_CONFIG` (`mktemp -d`), а не в `/root/.docker/config.json`: выкаты API и UI под общим root на курсовом VPS не мешают друг другу. Сразу после `compose up` — `docker logout`, при выходе каталог удаляется (trap). `rollback.sh`, запущенный из `deploy.sh`, использует тот же каталог и его логин; запущенный отдельно — создаёт и удаляет свой.
 
@@ -163,6 +187,7 @@ GET /config.json
    - Затем job читает с VM `.deploy-state` (строка `current_image=…` или маркер `bootstrap=true`) и продвигает в `:staging` только образ, который реально запущен и совпадает с целью; прежний `:staging` → `:staging-previous`. Promotion принимает только `ghcr.io/<owner>/dmc-268-ui-t6` с `:<полный sha>` или `@sha256:<digest>`. Bootstrap — без promotion, job зелёный. Расхождение — job красный, `:staging` не меняется.
    - `component` — `ui-and-landing` (по умолчанию, обе части), `ui` или `landing`. Цель каждой части разрешается отдельно: `image` не задаёт версию лендинга, для пары из одного коммита укажите оба поля. На Terraform-хосте лендинга нет: `ui-and-landing` откатывает только UI, `landing` — отказ до SSH. `image` при `component=landing` и `landing_image` без отката лендинга тоже отклоняются.
    - `landing_image` — версия лендинга в тех же форматах, но для `ghcr.io/<owner>/dmc-268-ui-t6-landing`; пустой — предыдущий релиз лендинга (`.deploy-state.previous` в его `APP_DIR`, иначе его `:staging-previous`). Bootstrap у лендинга нет: если previous нет нигде, при `ui-and-landing` лендинг не трогается (warning, откатывается только UI), при `component=landing` job падает до изменений на хосте (после чтения состояния с VM) с подсказкой задать `landing_image`. Проверка снаружи — как при выкате (§4.1).
+   - `component=docs` откатывает только документацию; `docs_image` — её версия в тех же форматах для `ghcr.io/<owner>/dmc-268-ui-t6-docs`, пустой — предыдущий релиз (`.deploy-state.previous` в её `APP_DIR`, иначе её `:staging-previous`). Bootstrap нет: без previous job падает до изменений на хосте с подсказкой задать `docs_image`. `docs_image` при другом `component` отклоняется. Проверка снаружи — как при выкате (§4.2).
    - Шаги лендинга идут с `!cancelled()`: упавший откат или health check UI не мешает откату лендинга, и наоборот. Исключение: при `ui-and-landing` упавший выбор версии лендинга (`landing_digest`) останавливает и шаги UI; тогда откатите UI отдельно, `component=ui`.
    - Promotion `:staging` идёт по каждому образу отдельно: часть, которая откатилась и прошла проверку, синхронизирует свой тег, даже если другая часть упала.
 
@@ -174,9 +199,11 @@ APP_DIR=/opt/dmc-268-ui-staging /opt/dmc-268-ui-staging/rollback.sh          # �
 /opt/dmc-268-ui/rollback.sh ghcr.io/<owner>/dmc-268-ui-t6@sha256:<digest>    # Terraform-хост, конкретный образ
 APP_DIR=/opt/dmc-268-landing-staging NO_PREVIOUS_RELEASE=stop DEPLOY_MODE=edge EDGE_ALIAS=landing-staging \
   /opt/dmc-268-landing-staging/rollback.sh                                   # лендинг, previous release
+APP_DIR=/opt/dmc-268-docs-staging NO_PREVIOUS_RELEASE=stop DEPLOY_MODE=edge EDGE_ALIAS=docs-staging \
+  /opt/dmc-268-docs-staging/rollback.sh                                      # документация, previous release
 ```
 
-Без `APP_DIR` скрипт берёт `/opt/dmc-268-ui`. У лендинга без previous скрипт только останавливает стек (`NO_PREVIOUS_RELEASE=stop`); не остановился стек, `rollback.sh` выходит с ошибкой. Переменные лендинга заданы в команде явно: если первый выкат упал на `docker pull`, `<APP_DIR>/.env` ещё нет, и без них скрипт поднял бы bootstrap nginx на порту 80. Пакет в GHCR приватный: без `GHCR_TOKEN` `docker pull` упадёт.
+Без `APP_DIR` скрипт берёт `/opt/dmc-268-ui`. У лендинга и документации без previous скрипт только останавливает стек (`NO_PREVIOUS_RELEASE=stop`); не остановился стек, `rollback.sh` выходит с ошибкой. Их переменные заданы в команде явно: если первый выкат упал на `docker pull`, `<APP_DIR>/.env` ещё нет, и без них скрипт поднял бы bootstrap nginx на порту 80. Пакет в GHCR приватный: без `GHCR_TOKEN` `docker pull` упадёт.
 
 ---
 
@@ -231,6 +258,7 @@ Runbook:
 | `APP_DOMAIN`              | да, для курсового VPS | `dmc268-t6.axyi.ru` — базовый домен маршрутов edge-прокси                                                                                                                         |
 | `VITE_GITHUB_CLIENT_ID`   | да, для входа         | Client ID зарегистрированного GitHub App (пробрасывается в `build-args` при сборке Docker-образа)                                                                                 |
 | `VITE_GITHUB_APP_SLUG`    | да, для подключения   | Slug зарегистрированного GitHub App для формирования ссылки установки приложения (пробрасывается в `build-args` при сборке Docker-образа)                                         |
+| `VITE_DOCS_URL`           | нет                   | адрес документации для пункта «Документация» в меню пользователя (`build-args` образа UI); пусто — `https://staging.dmc268-t6.axyi.ru/docs`, иначе только `http(s)://` URL        |
 
 ### Environment `staging`
 
@@ -258,7 +286,7 @@ Ruleset `Protect Default Branch` меняет только администра�
 | Required check       | Job в `ci-cd.yml` | Что не пропускает в `main`                                                                                                                                            |
 | -------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `UI quality`         | `ui-quality`      | ошибку eslint или stylelint, ошибку типов, неотформатированный файл, падающий тест, сломанную сборку, бандл с mock/demo-кодом или с нарушенным порядком zod `jitless` |
-| `Docker image build` | `docker-build`    | образ UI или лендинга, который не собирается                                                                                                                          |
+| `Docker image build` | `docker-build`    | образ UI, лендинга или документации, который не собирается                                                                                                            |
 
 - Ruleset сверяет check по имени: оно должно буквально совпадать с `name:` у job. Переименовали job без правки ruleset — проверка с прежним именем не приходит, и все PR блокируются. Имя job и ruleset меняются вместе.
 - Check добавляется в ruleset с источником GitHub Actions, как `Docker image build`: без источника требование закроет любой commit status с тем же именем.
@@ -282,4 +310,11 @@ trivy image --severity CRITICAL,HIGH --exit-code 1 dmc-268-landing:local
 docker run --rm -p 8081:8080 -e APP_URL=https://staging-ui.dmc268-t6.axyi.ru dmc-268-landing:local
 curl -fsS http://127.0.0.1:8081/health
 curl -fsS http://127.0.0.1:8081/config.json
+
+# документация: контекст — корень репозитория, всё под /docs
+docker build -f docs-site/Dockerfile -t dmc-268-docs:local .
+trivy image --severity CRITICAL,HIGH --exit-code 1 dmc-268-docs:local
+docker run --rm -p 8082:8080 dmc-268-docs:local
+curl -fsS http://127.0.0.1:8082/docs/health
+curl -fsS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8082/docs/quickstart
 ```
