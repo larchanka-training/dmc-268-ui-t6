@@ -14,7 +14,8 @@ the script makes no REST call at all.
 4. The comment body is built; over 65536 characters (GitHub's comment limit) → exit 2
    `report is N characters, over GitHub's 65536-character comment limit; narrow the scope`, no REST
    call.
-5. The target's comments are listed oldest first, page by page, up to the first marked one.
+5. The target's comments are listed oldest first, page by page, up to the first marked one; the
+   search stops after 100 pages (10000 comments) with exit 3.
 6. Found → `PATCH repos/<owner>/<name>/issues/comments/<id>`; none →
    `POST repos/<owner>/<name>/issues/<n>/comments`.
 7. stderr `{"published": "created" | "updated", "url": "<html_url>"}`, exit 0.
@@ -40,6 +41,9 @@ The comment's first line is the marker `<!-- issue-graph: <key> -->`, e.g.
   comment (and replaces a two-repo graph with the narrower one).
 - The order of `--issues` arguments does not matter; another set of issues is another key, so
   another comment.
+- In `epic=` and `issues=` keys `owner/name` is lower-cased (GitHub repo names are
+  case-insensitive, so `Owner/Name#5` and `owner/name#5` give one key); the milestone title is kept
+  as it is.
 - In the key `%` becomes `%25`, then `>` becomes `%3E`, so a title can never close the HTML comment.
 
 ## Matching
@@ -52,8 +56,9 @@ The comment's first line is the marker `<!-- issue-graph: <key> -->`, e.g.
 - With several matches the oldest (first seen) wins and paging stops there; the others are left as
   they are — a person may delete them, the agent never does.
 - Paging: `GET repos/<owner>/<name>/issues/<n>/comments?per_page=100&page=<k>` for k = 1, 2, …,
-  stopping at the first match or at a page with fewer than 100 items. Not `gh api --paginate`: gh
-  2.46 has no `--slurp` and concatenates the arrays.
+  stopping at the first match or at a page with fewer than 100 items; after page 100 (10000
+  comments) without either, exit 3. Not `gh api --paginate`: gh 2.46 has no `--slurp` and
+  concatenates the arrays.
 
 ## Body
 
@@ -65,21 +70,29 @@ It goes as the JSON `{"body": …}` on stdin (`gh api -X POST|PATCH <path> --inp
 
 ## Failures
 
-| Situation                                                                   | Exit | stderr `error`                         |
-| --------------------------------------------------------------------------- | ---- | -------------------------------------- |
-| the graph has a cycle                                                       | 1    | `not published: the graph has a cycle` |
-| the body is over 65536 characters                                           | 2    | `report is N characters, …`            |
-| 404 on the listing or the POST                                              | 2    | `issue <ref> not found`                |
-| 404 on the PATCH                                                            | 2    | `comment <id> not found`               |
-| 403 (no write access), 422, timeout after 120 s, non-JSON, a non-array page | 3    | gh's error                             |
+| Situation                                                                   | Exit | stderr `error`                                                     |
+| --------------------------------------------------------------------------- | ---- | ------------------------------------------------------------------ |
+| the graph has a cycle                                                       | 1    | `not published: the graph has a cycle`                             |
+| the body is over 65536 characters                                           | 2    | `report is N characters, …`                                        |
+| 404 on the listing or the POST                                              | 2    | `issue <ref> not found`                                            |
+| 404 on the PATCH                                                            | 2    | `comment <id> not found`                                           |
+| the marked comment is one this account cannot edit                          | 3    | `comment <id> carries the marker but this account cannot edit it`  |
+| 403 (no write access), 422, timeout after 120 s, non-JSON, a non-array page | 3    | gh's error                                                         |
+| the marker search ran past 100 pages (10000 comments)                       | 3    | `issue <ref>: more than 10000 comments, the marker search stopped` |
 
 The report is on stdout in every row. After an exit 3 a retry is safe — the marker turns it into an
-update of anything the failed run may have created — but whether to retry is the user's call.
+update of anything the failed run may have created — but whether to retry is the user's call. A
+write that timed out may still have landed: re-running is safe, it updates.
+
+A marked comment the account cannot edit gets no second comment: the script stops with exit 3.
+Whoever can edit it (its author or a maintainer) re-runs, or a person removes the comment. The agent
+neither retries nor works around it.
 
 ## Fixture seam
 
 With `ISSUE_GRAPH_FIXTURE_DIR=<dir>` set, `gh` is never called and every request reads
-`<dir>/<name>.json`:
+`<dir>/<name>.json`. Set but empty (`ISSUE_GRAPH_FIXTURE_DIR=`) is not "unset": the script exits 3
+and never goes live.
 
 - GraphQL, the full `{"data": …}` response: `milestones-<alias>`, `milestone-<alias>-<m>-p<k>`,
   `epic-<alias>-<n>-p<k>`, `issues-<alias>`, `node-<id>-<field>-p<k>` (the first follow-up page is

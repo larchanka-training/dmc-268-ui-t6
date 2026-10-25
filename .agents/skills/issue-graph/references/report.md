@@ -44,15 +44,15 @@ work: it is left out of the layers and of «Без связей».
 
 **Node classes**, the first that applies:
 
-| Class      | Node                                                                       |
-| ---------- | -------------------------------------------------------------------------- |
-| (none)     | a container                                                                |
-| `alarm`    | in a cyclic component, or In Progress with an open blocker — even closed   |
-| `done`     | closed                                                                     |
-| `external` | open and outside the scope (dashed border)                                 |
-| `review`   | Status `On Review` or `AC Check`                                           |
-| `progress` | Status `In Progress`                                                       |
-| (none)     | any other open in-scope issue (`Todo`, no status): the theme's own colours |
+| Class      | Node                                                                                      |
+| ---------- | ----------------------------------------------------------------------------------------- |
+| (none)     | a container                                                                               |
+| `alarm`    | in a cyclic component (closed and outside nodes too), or In Progress with an open blocker |
+| `done`     | closed                                                                                    |
+| `external` | open and outside the scope (dashed border)                                                |
+| `review`   | Status `On Review` or `AC Check`                                                          |
+| `progress` | Status `In Progress`                                                                      |
+| (none)     | any other open in-scope issue (`Todo`, no status): the theme's own colours                |
 
 `progress`, `review`, `alarm` and `external` have light fills and each sets a dark text colour,
 `color:#212529`: on GitHub's dark theme the label would otherwise keep the theme's light text and be
