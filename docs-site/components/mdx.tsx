@@ -8,6 +8,7 @@ import { RunsListMock } from './mockups/runs-list'
 import { RunDetailMock } from './mockups/run-detail'
 import { Flow } from './flow'
 import { AppLink } from './app-link'
+import { StatusBadge } from './status-badge'
 
 export function getMDXComponents(components?: MDXComponents) {
   return {
@@ -23,6 +24,7 @@ export function getMDXComponents(components?: MDXComponents) {
     RunDetailMock,
     Flow,
     AppLink,
+    StatusBadge,
     ...components,
   } satisfies MDXComponents
 }
