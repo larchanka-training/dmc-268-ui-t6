@@ -13,8 +13,11 @@ COPY src ./src
 
 ARG VITE_GITHUB_CLIENT_ID
 ARG VITE_GITHUB_APP_SLUG
+# User docs address for the user menu; empty: the staging docs (src/shared/config/env.ts).
+ARG VITE_DOCS_URL
 ENV VITE_GITHUB_CLIENT_ID=$VITE_GITHUB_CLIENT_ID
 ENV VITE_GITHUB_APP_SLUG=$VITE_GITHUB_APP_SLUG
+ENV VITE_DOCS_URL=$VITE_DOCS_URL
 
 RUN pnpm run build
 

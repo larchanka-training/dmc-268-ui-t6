@@ -146,4 +146,35 @@ describe('AppSidebar review navigation', () => {
     })
     expect(trigger.getAttribute('aria-expanded')).toBe('false')
   })
+
+  it('links Документация to the docs in a new tab, next to the theme choice', async () => {
+    vi.mocked(isMockMode).mockReturnValue(false)
+    renderWithQuery(<AppSidebar currentPath="/runs" onNavigate={vi.fn()} />)
+    fireEvent.click(screen.getByLabelText('Меню пользователя'))
+    const link = await screen.findByRole('link', { name: 'Документация' })
+    // Literal from the spec: the staging landing origin + /docs.
+    expect(link.getAttribute('href')).toBe('https://staging.dmc268-t6.axyi.ru/docs')
+    expect(link.getAttribute('target')).toBe('_blank')
+    expect(link.getAttribute('rel')).toContain('noreferrer')
+    const labels = screen.getAllByRole('menuitem').map((item) => item.textContent)
+    expect(labels).toContain('Документация')
+    expect(labels.indexOf('Документация')).toBeLessThan(labels.indexOf('Выйти'))
+  })
+
+  it('opens the docs in a new tab from the keyboard', async () => {
+    vi.mocked(isMockMode).mockReturnValue(false)
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+    renderWithQuery(<AppSidebar currentPath="/runs" onNavigate={vi.fn()} />)
+    fireEvent.click(screen.getByLabelText('Меню пользователя'))
+    const link = await screen.findByRole('link', { name: 'Документация' })
+    const item = link.closest('[role="menuitem"]')
+    if (item === null) throw new Error('the docs link is not inside a menu item')
+    fireEvent.keyDown(item, { key: 'Enter', code: 'Enter', keyCode: 13 })
+    expect(open).toHaveBeenCalledWith(
+      'https://staging.dmc268-t6.axyi.ru/docs',
+      '_blank',
+      'noopener,noreferrer',
+    )
+    open.mockRestore()
+  })
 })

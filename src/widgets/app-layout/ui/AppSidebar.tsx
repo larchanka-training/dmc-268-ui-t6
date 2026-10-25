@@ -1,11 +1,17 @@
-import { CheckOutlined, DesktopOutlined, MoonOutlined, SunOutlined } from '@ant-design/icons'
+import {
+  CheckOutlined,
+  DesktopOutlined,
+  MoonOutlined,
+  ReadOutlined,
+  SunOutlined,
+} from '@ant-design/icons'
 import { Button, Layout, type MenuProps } from 'antd'
 import { useEffect, useRef, useState, type FC, type MouseEvent, type ReactNode } from 'react'
 
 import { UserMenu } from '../../../features/auth'
 import { useThemeStore, type ThemePreference } from '../../../features/theme'
 import { mocksEnabledAtRuntime } from '../../../shared/config/buildFlags'
-import { isMockMode } from '../../../shared/config/env'
+import { DOCS_URL, isMockMode } from '../../../shared/config/env'
 import {
   IconRepositories,
   IconReview,
@@ -101,6 +107,23 @@ export const AppSidebar: FC<AppSidebarProps> = ({ currentPath = HOME_PATH, onNav
         themeItem('light', <SunOutlined />, 'Светлая'),
         themeItem('dark', <MoonOutlined />, 'Тёмная'),
       ],
+    },
+    { type: 'divider' },
+    {
+      key: 'docs',
+      icon: <ReadOutlined />,
+      // A real link, so a click, a middle click and "copy link" work as on any link; Ant Design
+      // stretches it over the whole row. The keyboard (Enter) reaches only the item's onClick.
+      label: (
+        <a href={DOCS_URL} rel="noreferrer" target="_blank">
+          Документация
+        </a>
+      ),
+      onClick: ({ domEvent }) => {
+        if (domEvent.type === 'keydown') {
+          window.open(DOCS_URL, '_blank', 'noopener,noreferrer')
+        }
+      },
     },
   ]
 
