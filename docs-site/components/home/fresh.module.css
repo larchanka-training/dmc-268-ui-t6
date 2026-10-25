@@ -1,0 +1,107 @@
+/*
+ * Light background touches for the home variants 7 to 14. Hero only, never behind the tiles.
+ * The layers span the viewport width, not the 960px content column, so no edge shows.
+ */
+
+/* Landing hero type: big, tight, white to slate gradient (landing/src/components/Hero.module.css). */
+.landingTitle {
+  font-size: clamp(2.25rem, 1.4rem + 3.6vw, 4rem);
+  font-weight: 600;
+  line-height: 1.04;
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+  background: linear-gradient(180deg, #fff 30%, #cbd5e1 100%);
+  background-clip: text;
+  color: transparent;
+  padding-bottom: 0.12em;
+  margin-bottom: -0.12em;
+}
+
+/* The WebGL glass behind the hero, faded into the page like the landing. */
+.glass {
+  position: absolute;
+  inset: -64px auto auto 50%;
+  width: 100vw;
+  translate: -50% 0;
+  height: 560px;
+  z-index: -1;
+  opacity: 0.35;
+  pointer-events: none;
+  mask-image: linear-gradient(180deg, #000 30%, transparent 92%);
+}
+
+/* A soft grid that fades out from the top center. */
+.grid {
+  position: absolute;
+  inset: -64px auto auto 50%;
+  width: 100vw;
+  translate: -50% 0;
+  height: 520px;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgb(148 163 184 / 7%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(148 163 184 / 7%) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 55% 70% at 50% 0%, #000 20%, transparent 75%);
+}
+
+/* Grain and a blue glow, the static fallback layers of the landing hero. */
+.grain {
+  position: absolute;
+  inset: -64px auto auto 50%;
+  width: 100vw;
+  translate: -50% 0;
+  height: 560px;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 45% 60% at 50% 0%, rgb(37 99 235 / 22%), transparent 70%), var(--bg);
+  mask-image: linear-gradient(180deg, #000 40%, transparent 100%);
+}
+
+.grain::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.12;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* A thin band of light at the very top, Mintlify style. */
+.band {
+  position: absolute;
+  inset: -64px auto auto 50%;
+  width: 100vw;
+  translate: -50% 0;
+  height: 380px;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgb(37 99 235 / 14%), transparent);
+}
+
+/* Tile hover with a soft spotlight, like the landing feature cards but flat. */
+.spot {
+  position: relative;
+  overflow: hidden;
+}
+
+.spot::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: radial-gradient(240px circle at 0% 0%, rgb(96 165 250 / 10%), transparent 70%);
+  transition: opacity 0.25s;
+}
+
+.spot:hover::before {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spot::before {
+    transition: none;
+  }
+}
