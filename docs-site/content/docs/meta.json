@@ -1,4 +1,12 @@
 {
   "title": "Reviewer",
-  "pages": ["index", "quickstart", "how-it-works", "features", "rules-file", "faq"]
+  "pages": [
+    "index",
+    "quickstart",
+    "how-it-works",
+    "features",
+    "rules-file",
+    "roadmap",
+    "faq"
+  ]
 }
