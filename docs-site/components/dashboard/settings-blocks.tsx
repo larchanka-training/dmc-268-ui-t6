@@ -11,6 +11,7 @@ import autoStyles from '../../../src/features/repository-settings/ui/AutoReviewS
 import ragStyles from '../../../src/features/repository-settings/ui/RagSection.module.css'
 import formStyles from '../../../src/features/repository-settings/ui/RepositorySettingsForm.module.css'
 import rulesStyles from '../../../src/widgets/repository-rules/ui/RulesStatusPanel.module.css'
+import blockStyles from './settings-blocks.module.css'
 
 const { Text } = Typography
 
@@ -145,7 +146,7 @@ export function RulesBlock() {
         <div>
           <h3 className={rulesStyles.sublabel}>File text</h3>
           <div className={rulesStyles.scroll}>
-            <CodeBlock>{RULES}</CodeBlock>
+            <CodeBlock className={blockStyles.wrap}>{RULES}</CodeBlock>
           </div>
         </div>
         <div>
