@@ -6,7 +6,8 @@
     "build": "next build",
     "dev": "next dev",
     "start": "next start",
-    "check-types": "next typegen && tsc --noEmit"
+    "check-types": "next typegen && tsc --noEmit",
+    "shots": "node scripts/shoot-mockups.mjs"
   },
   "dependencies": {
     "@ant-design/icons": "^6.3.4",
