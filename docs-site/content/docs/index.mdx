@@ -1,13 +1,13 @@
 ---
 title: Introduction
-description: Reviewer is an AI code reviewer for GitHub pull requests.
+description: An AI code review service for pull requests in Git hosting services.
 icon: BookOpen
 ---
 
 import { StatusBadge } from '@/components/status-badge'
 
-Reviewer is a GitHub App. Add the `ai-review` label to a pull request and, once CI passes,
-Reviewer posts a review with inline comments, severity levels, suggested fixes and a verdict.
+Reviewer reads the changes of a pull request and posts a review on it: inline comments, severity
+levels, suggested fixes and a verdict. It works with GitHub today.
 
 <StartHere />
 
@@ -17,15 +17,14 @@ Reviewer posts a review with inline comments, severity levels, suggested fixes a
   suggested change you can commit.
 - **A summary** in the review body: the verdict, the number of findings per severity and the
   checked files.
-- **An `AI Review` check** that shows progress. It never fails, so do not make it a required
-  check.
+- **An `AI Review` check** that shows progress.
 
 Reviewer only reads text through the GitHub API. It never runs your code, merges or approves.
 
 ## Coming soon
 
-- <StatusBadge /> One switch per repository: on reviews every pull request automatically, off
-  reviews only pull requests with the `ai-review` label.
+- <StatusBadge /> GitLab support.
+- <StatusBadge /> Automatic review of every pull request, switched on per repository.
 - <StatusBadge /> Your own rules from `.review/rules.md` sent to the model.
 - <StatusBadge /> A second model pass that checks every finding before it is posted.
 - <StatusBadge /> Reviews that use the code index (RAG) to look at related files.
