@@ -1,4 +1,4 @@
-/* The snippet iframe takes no input, so a wide line could not be scrolled: wrap it instead. */
+/* The snippet is shown as a still picture, so a wide line could not be scrolled: wrap it instead. */
 pre.wrap {
   overflow-x: visible;
   white-space: pre-wrap;

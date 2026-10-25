@@ -1,73 +1,53 @@
-import { DashboardFrame } from './dashboard-frame'
-import { SnippetFrame } from './snippet-frame'
+import { ScreenImage } from './screen-image'
 
 export function RunsListMock() {
   return (
-    <DashboardFrame
+    <ScreenImage
       caption="The runs list. Status values are shown as the raw API names."
-      height={712}
-      screen="runs"
+      centerCaption
+      name="runs"
     />
   )
 }
 
 export function RunDetailMock() {
   return (
-    <DashboardFrame
+    <ScreenImage
       caption="A finished run: three stages, the review session on the left, the diff with findings on the right."
-      height={1120}
-      screen="run-detail"
+      centerCaption
+      name="run-detail"
     />
   )
 }
 
 export function AutoReviewSnippet() {
-  return (
-    <SnippetFrame
-      caption="The Automatic review switch."
-      height={100}
-      snippet="settings-auto-review"
-    />
-  )
+  return <ScreenImage caption="The Automatic review switch." name="settings-auto-review" />
 }
 
 export function RagSnippet() {
-  return (
-    <SnippetFrame
-      caption="The RAG switch with the index status."
-      height={150}
-      snippet="settings-rag"
-    />
-  )
+  return <ScreenImage caption="The RAG switch with the index status." name="settings-rag" />
 }
 
 export function ReviewOptionsSnippet() {
   return (
-    <SnippetFrame
-      caption="CI waiting, comment limit and verdict."
-      height={264}
-      snippet="settings-review-options"
-    />
+    <ScreenImage caption="CI waiting, comment limit and verdict." name="settings-review-options" />
   )
 }
 
 export function BranchesSeveritySnippet() {
   return (
-    <SnippetFrame
+    <ScreenImage
       caption="Branch filter and severity threshold."
-      height={360}
-      snippet="settings-branches-severity"
+      name="settings-branches-severity"
     />
   )
 }
 
 export function RulesSnippet() {
   return (
-    <SnippetFrame
+    <ScreenImage
       caption="How your .review/rules.md shows up in repository settings."
-      height={500}
-      maxWidth={640}
-      snippet="settings-rules"
+      name="settings-rules"
     />
   )
 }

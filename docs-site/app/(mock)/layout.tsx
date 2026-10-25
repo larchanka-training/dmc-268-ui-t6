@@ -6,11 +6,14 @@ import '@fontsource-variable/jetbrains-mono'
 import '../../../src/shared/ui/styles/tokens.css'
 
 /*
- * Separate root layout for the dashboard mockups. They load in an iframe on the docs pages, so
- * Ant Design and the app styles never reach the docs, and the app's media queries see the
- * iframe width (the real dashboard width), not the phone or desktop the docs run on.
+ * Separate root layout for the dashboard mockups. They are the source of the pictures in
+ * public/screens (`pnpm --dir docs-site shots`), so Ant Design and the app styles never reach the
+ * docs pages. Not for readers: not indexed, not followed, and no docs page links here.
  */
-export const metadata: Metadata = { robots: { index: false }, icons: { icon: '/favicon.svg' } }
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+  icons: { icon: '/favicon.svg' },
+}
 
 export default function MockLayout({ children }: { children: ReactNode }) {
   return (
