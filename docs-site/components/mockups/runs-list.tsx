@@ -8,7 +8,8 @@ const RUNS = [
   { pr: 137, title: 'chore: bump the fastapi pin', status: 'skipped', tone: 'neutral' },
 ] as const
 
-/** Runs list, columns and status tags from src/pages/runs/RunsPage.tsx. */
+/** Runs list, English equivalent of src/pages/runs/RunsPage.tsx.
+ * The Engine column is left out: only one engine exists today. */
 export function RunsListMock() {
   return (
     <MockShell
@@ -18,21 +19,18 @@ export function RunsListMock() {
     >
       <div className={s.header}>
         <div>
-          <h3 className={s.title}>Прогоны</h3>
-          <p className={s.desc}>
-            Pull request&apos;ы, по которым выполнялось или выполняется ревью
-          </p>
+          <h3 className={s.title}>Runs</h3>
+          <p className={s.desc}>Pull requests that were reviewed or are being reviewed</p>
         </div>
-        <span className={s.button}>Обновить</span>
+        <span className={s.button}>Refresh</span>
       </div>
       <div className={s.card} style={{ padding: 0 }}>
         <table className={s.table}>
           <thead>
             <tr>
               <th>PR</th>
-              <th>Репозиторий</th>
-              <th>Статус ревью</th>
-              <th>Движок</th>
+              <th>Repository</th>
+              <th>Review status</th>
             </tr>
           </thead>
           <tbody>
@@ -55,12 +53,11 @@ export function RunsListMock() {
                     <>
                       {' '}
                       <span className={s.tag} data-variant="outline">
-                        в процессе
+                        in progress
                       </span>
                     </>
                   ) : null}
                 </td>
-                <td className={s.muted}>fast</td>
               </tr>
             ))}
           </tbody>
