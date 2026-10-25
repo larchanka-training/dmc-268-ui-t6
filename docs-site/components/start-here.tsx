@@ -2,15 +2,15 @@ import Link from 'next/link'
 import { ArrowRight, FileText, Rocket, Workflow } from 'lucide-react'
 
 const ITEMS = [
-  { href: '/docs/quickstart', icon: Rocket, title: 'Quickstart', text: 'Get your first review.' },
+  { href: '/quickstart', icon: Rocket, title: 'Quickstart', text: 'Get your first review.' },
   {
-    href: '/docs/how-it-works',
+    href: '/how-it-works',
     icon: Workflow,
     title: 'How it works',
     text: 'When a review starts.',
   },
   {
-    href: '/docs/rules-file',
+    href: '/rules-file',
     icon: FileText,
     title: 'Rules file',
     text: 'Keep files out of reviews.',

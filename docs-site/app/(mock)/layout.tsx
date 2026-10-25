@@ -4,6 +4,7 @@ import 'antd/dist/reset.css'
 import '@fontsource-variable/inter'
 import '@fontsource-variable/jetbrains-mono'
 import '../../../src/shared/ui/styles/tokens.css'
+import { basePath } from '@/lib/shared'
 
 /*
  * Separate root layout for the dashboard mockups. They are the source of the pictures in
@@ -12,7 +13,7 @@ import '../../../src/shared/ui/styles/tokens.css'
  */
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
-  icons: { icon: '/favicon.svg' },
+  icons: { icon: `${basePath}/favicon.svg` },
 }
 
 export default function MockLayout({ children }: { children: ReactNode }) {
