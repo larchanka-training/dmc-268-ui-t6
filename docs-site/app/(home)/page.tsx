@@ -57,7 +57,7 @@ const SECTIONS = [
 export default function HomePage() {
   return (
     <main className="flex flex-1 flex-col">
-      <section className="mx-auto grid w-full max-w-(--docs-width) items-center gap-12 px-6 sm:px-11 pt-16 pb-16 lg:grid-cols-[1fr_minmax(0,460px)]">
+      <section className="mx-auto grid w-full max-w-(--docs-width) items-center gap-12 px-4 pt-16 pb-16 lg:grid-cols-[1fr_minmax(0,460px)]">
         <div>
           <p className="text-xs font-medium tracking-[0.08em] text-[var(--glow)] uppercase">
             Reviewer docs
@@ -71,12 +71,11 @@ export default function HomePage() {
               paddingBottom: '0.12em',
             }}
           >
-            Add a label. Get a review.
+            AI code review for your pull requests.
           </h1>
           <p className="mt-4 max-w-lg text-[#cbd5e1]">
-            Reviewer is a GitHub App. Put the <code className="text-[0.9em]">ai-review</code> label
-            on a pull request and, once CI passes, it posts a review with inline comments, severity
-            levels and a verdict.
+            Reviewer is a GitHub App that reads each change and posts a review with inline comments,
+            severity levels, suggested fixes and a verdict, right in the pull request.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
@@ -97,7 +96,7 @@ export default function HomePage() {
         <ReviewPreview />
       </section>
 
-      <section className="mx-auto grid w-full max-w-(--docs-width) gap-3 px-6 sm:px-11 pb-24 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="mx-auto grid w-full max-w-(--docs-width) gap-3 px-4 pb-24 sm:grid-cols-2 lg:grid-cols-3">
         {SECTIONS.map(({ href, icon: Icon, title, text }) => (
           <Link
             key={href}
