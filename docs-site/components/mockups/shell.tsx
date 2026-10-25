@@ -12,8 +12,8 @@ interface ShellProps {
 }
 
 /**
- * Window frame plus the dashboard sidebar. Labels are the real ones from
- * src/widgets/app-layout/ui/AppSidebar.tsx (the dashboard is in Russian).
+ * Window frame plus the dashboard sidebar. Labels are English equivalents of
+ * src/widgets/app-layout/ui/AppSidebar.tsx (the live dashboard is in Russian for now).
  */
 export function MockShell({ active, path, caption, children }: ShellProps) {
   return (
@@ -35,10 +35,10 @@ export function MockShell({ active, path, caption, children }: ShellProps) {
             </div>
             <nav className={s.nav}>
               <span className={s.navItem} data-active={active === 'repositories' || undefined}>
-                Репозитории
+                Repositories
               </span>
               <span className={s.navItem} data-active={active === 'runs' || undefined}>
-                Прогоны
+                Runs
               </span>
             </nav>
           </aside>

@@ -24,13 +24,8 @@
   margin: 1.75rem 0;
   overflow: hidden;
   border: 1px solid var(--rv-border-strong);
-  border-radius: 16px;
-  background: linear-gradient(180deg, rgb(20 27 47 / 92%), rgb(12 17 33 / 96%));
-  box-shadow:
-    0 1px 0 rgb(255 255 255 / 8%) inset,
-    0 0 0 1px rgb(96 165 250 / 8%),
-    0 40px 80px -24px rgb(0 0 0 / 70%),
-    0 0 120px -40px rgb(37 99 235 / 50%);
+  border-radius: 10px;
+  background: var(--rv-bg);
   color: var(--rv-text);
   font-family: var(--font-sans);
   font-size: 13px;
@@ -45,7 +40,7 @@
   height: 36px;
   padding: 0 14px;
   border-bottom: 1px solid var(--rv-border);
-  background: rgb(9 13 24 / 55%);
+  background: var(--rv-surface);
   color: var(--rv-text-3);
   font-size: 12px;
 }
@@ -159,6 +154,7 @@
 .card {
   display: grid;
   gap: 12px;
+  align-content: start;
   padding: 14px 16px;
   border: 1px solid var(--rv-border);
   border-radius: 10px;
@@ -391,6 +387,7 @@
   display: grid;
   grid-template-columns: 0.85fr 1.15fr;
   gap: 14px;
+  align-items: start;
 }
 
 .h2 {
