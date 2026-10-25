@@ -48,6 +48,7 @@ Dev-сервер Vite настроен с прокси `server.proxy` для `/a
    - `VITE_GITHUB_APP_SLUG` — Slug зарегистрированного GitHub App для формирования ссылки подключения репозиториев (`dmc268-t6-reviewer-dev` для dev-стенда);
    - `VITE_USE_MOCKS` — при `true` включает мок-транспорт для автономной работы фронтенда без бэкенда;
    - `VITE_API_BASE_URL` — базовый префикс API (по умолчанию `/api`). При локальной разработке с Vite **не следует** указывать полный URL вида `http://localhost:8000/api`, иначе запросы пойдут мимо `server.proxy`, перестанут передаваться `HttpOnly`/`SameSite` cookies и авторизация сломается. Оставляйте значение по умолчанию (`/api`).
+   - `VITE_DOCS_URL` — адрес пользовательской документации для пункта «Документация» в меню пользователя (необязательно; по умолчанию `https://staging.dmc268-t6.axyi.ru/docs`).
 4. В настройках GitHub App указать Callback URL: `http://localhost:5173/auth/callback` (или `<origin>/auth/callback` для альтернативного порта/стенда).
 
 ## Landing
