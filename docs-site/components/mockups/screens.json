@@ -1,0 +1,37 @@
+{
+  "runs": {
+    "src": "/screens/runs.webp",
+    "width": 1280,
+    "height": 712
+  },
+  "run-detail": {
+    "src": "/screens/run-detail.webp",
+    "width": 1280,
+    "height": 1120
+  },
+  "settings-auto-review": {
+    "src": "/screens/settings-auto-review.webp",
+    "width": 560,
+    "height": 81
+  },
+  "settings-rag": {
+    "src": "/screens/settings-rag.webp",
+    "width": 560,
+    "height": 128
+  },
+  "settings-review-options": {
+    "src": "/screens/settings-review-options.webp",
+    "width": 560,
+    "height": 263
+  },
+  "settings-branches-severity": {
+    "src": "/screens/settings-branches-severity.webp",
+    "width": 560,
+    "height": 354
+  },
+  "settings-rules": {
+    "src": "/screens/settings-rules.webp",
+    "width": 640,
+    "height": 489
+  }
+}
