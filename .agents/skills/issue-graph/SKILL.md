@@ -23,7 +23,7 @@ Runs in one context: no sub-agents and no `.agents/agents/*.md` (Codex does not 
 ## Preconditions
 
 - `gh` authenticated (`gh auth status`) with scopes `repo` and `read:project` — the board Status
-  comes from project 12 (`gh auth refresh -s read:project`).
+  comes from project 12 (the user runs `gh auth refresh -s read:project`; the agent does not).
 - python3 (stdlib only).
 - Run from the root of either clone (the skill is byte-identical in both). Paths in this file are
   from the repo root.
@@ -40,7 +40,9 @@ Runs in one context: no sub-agents and no `.agents/agents/*.md` (Codex does not 
 
 `REF` is `api#N`, `ui#N` or `OWNER/NAME#N`. Common options: `--publish-to N|REF` (a bare `N` is
 `api#N`), `--project-owner ORG` / `--project NUMBER` (the board the Status is read from, default
-`larchanka-training` / `12`).
+`larchanka-training` / `12`). Use `--repo` only when the user names a repo, and never together with
+`--publish-to` unless they asked for exactly that: the repo set is not in the marker, so a narrower
+run replaces the two-repo comment.
 
 **stdout carries the report only, stderr is empty or one JSON line, the exit code carries the
 class.** What each report section means: `references/report.md`. How publishing finds, updates and
@@ -66,7 +68,8 @@ refuses: `references/publishing.md`.
 
 When the request names an environment `ISSUE_GRAPH_FIXTURE_DIR=<dir>` (golden examples, tests),
 put exactly that assignment in front of the command: the script then reads fixtures and never calls
-`gh`. `ISSUE_GRAPH_WRITE_LOG` is for the tests only — never set it.
+`gh`. `ISSUE_GRAPH_WRITE_LOG` is for the tests only — never set it. A fixture case run without the
+assignment is a live run; if the request names the environment, never run the command without it.
 
 ### 2. Publish or only show
 
@@ -77,35 +80,45 @@ yourself and never add `--publish-to` "while at it".
 
 Sprint-start ritual (api#273): once the sprint's issues are filed, the milestone graph is published
 to the «Спринт N» issue — for «Спринт 4» that is `api#261` (api#268, api#273); for another sprint
-the user or the tech lead names the number, never search titles for it. After a show-only reply to a
-whole-sprint graph request, end with one line offering it, e.g. «могу опубликовать граф в issue
-«Спринт 4» (#261) — `--publish-to 261`», and wait. With a cycle the offer is for later: once a
-person has removed links and a re-run shows «Нет.» under «Циклы» (a graph with a cycle is never
-published). No offer after a narrow question or a fixture run.
+the user or the tech lead names the number, never search titles for it. A request like «опубликуй
+граф спринта 4» without a number does not name a target: ask «в какой issue — в #261?» and wait. The
+offer names #261 only for «Спринт 4»; for any other sprint ask «в какой issue опубликовать граф?»
+and offer no number. After a show-only reply to a whole-sprint graph request, end with one line
+offering it, e.g. «могу опубликовать граф в issue «Спринт 4» (#261) — `--publish-to 261`», and wait.
+With a cycle there is no offer; say that publishing becomes possible once a person has removed links
+and a re-run shows «Нет.» under «Циклы». No offer after a narrow question or a fixture run.
 
 ### 3. Run once
 
 ```bash
+# show only (the default)
 .agents/skills/issue-graph/scripts/issue_graph.py --milestone "Спринт 4"
+# publish: only if the user asked and named the target
 .agents/skills/issue-graph/scripts/issue_graph.py --milestone "Спринт 4" --publish-to 261
 ```
 
-One run per request. Never re-run to look again, without `--publish-to`, or with a narrower scope.
-stdout is the report, the exit code is the class (§ Exit codes), stderr is empty or one JSON line:
-`{"error": …}`, or after a publish `{"published": "created" | "updated", "url": …}`.
+Run one of the two. One run per request. Never re-run to look again, without `--publish-to`, or
+with a narrower scope. stdout is the report, the exit code is the class (§ Exit codes), stderr is
+empty or one JSON line: `{"error": …}`, or after a publish
+`{"published": "created" | "updated", "url": …}`.
 
 ### 4. Reply
 
 Answer from the report only: quote its lines (links may be dropped), every issue number in the
-reply is in the report, and never invent an order it does not give — with a cycle it gives none
-(«Не считаются: в графе цикл.»). Sections are named by the report's Russian headings.
+reply is in the report, except the target number in the publish offer, and never invent an order it
+does not give — with a cycle it gives none («Не считаются: в графе цикл.»). Sections are named by
+the report's Russian headings.
 
 - **Publish requested** → the first line is the outcome: `created` / `updated` with the URL, or «не
-  опубликовано» and why (steps 5–6, § Exit codes). Then the reply below.
+  опубликовано» and why (steps 5–6, § Exit codes). If the report has the `> Майлстоун … не найден в …` line, state it
+  right after the outcome line. Then the reply below.
 - **Whole graph** («покажи граф спринта») → in this order:
   1. Alarms: «Циклы», then «In Progress с открытым блокером»; an empty one gets one line («Циклов
      нет»).
-  2. Layer 1 of «Слои: что можно брать параллельно» — «можно брать сейчас».
+  2. Layer 1 of «Слои: что можно брать параллельно» — «можно брать сейчас». The layers ignore the
+     board Status and the scope, so add one line: a layer-1 issue whose Mermaid `class` line says
+     `progress` or `review` is already underway, and one tagged «(вне выборки)» is not this scope's
+     to take (read the classes from the report's Mermaid block; do not show the block).
   3. «Критический путь», the chain as the report gives it.
   4. «Без связей».
   5. Warnings: the `> Майлстоун «…» не найден в …` line under the title, and «Вне выборки».
@@ -119,8 +132,10 @@ Show the Mermaid block only when the user wants the picture.
 
 Relay `created` or `updated` and the `url` from stderr verbatim. Re-running with the same scope
 updates that same comment (the marker on its first line), so «обнови граф» is the same command run
-again — a fresh run, never the earlier report retold. Never post, patch, delete or re-mark a comment
-by hand (`gh issue comment`, `gh api -X POST|PATCH`), and never edit the target issue's body.
+again — a fresh run, never the earlier report retold. «обнови граф» without a scope, in the same
+session, reuses the scope of the last publish; in a new session ask. The target is still the one the
+user names (§ 2). Never post, patch, delete or re-mark a comment by hand (`gh issue comment`,
+`gh api -X POST|PATCH`), and never edit the target issue's body.
 
 ### 6. Cycle (exit 1)
 
@@ -155,9 +170,14 @@ Never move the issue on the board, change a status, or add or remove a link.
 
 Exit 2 or 3 from the publish step (after the fetch) leaves the report on stdout: show it, say it was
 not published and why, and do not re-run. After a 3 a retry is the user's call, and safe (the marker
-turns it into an update); a 2 repeats until the target or the scope changes. Exit 2 or 3 before
-that leaves stdout empty: relay the error; a milestone not found is never retried under another
-title.
+turns it into an update, even if a timed-out write had landed); a 2 repeats until the target or the
+scope changes. Exit 2 or 3 before that leaves stdout empty: relay the error; a milestone not found
+is never retried under another title.
+
+Exit 3 also covers the marker search running past 100 pages (10000 comments), an empty
+`ISSUE_GRAPH_FIXTURE_DIR` (never a live run), and a marked comment this account cannot edit
+(`comment <id> carries the marker but this account cannot edit it`): no second comment is posted;
+its author or a maintainer re-runs, or a person removes it (`references/publishing.md`).
 
 ## Examples
 
@@ -209,5 +229,7 @@ above.
 - `--epic` takes direct sub-issues only, not their children.
 - Relations are read one hop out: an issue outside the scope shows only its links to in-scope ones.
 - One comment per (target issue, scope): another scope on the same issue gets its own comment; the
-  `--repo` set is not part of a milestone's scope (`references/publishing.md`).
-- A report over GitHub's 65536-character comment limit is not published (exit 2): narrow the scope.
+  `--repo` set is not part of a milestone's scope, and `owner/name` in an `epic=` / `issues=` key is
+  lower-cased, the milestone title is not (`references/publishing.md`).
+- A report over GitHub's 65536-character comment limit is not published (exit 2): ask the user to
+  narrow the scope; the agent does not re-run.
