@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { HeroGlass } from './home/hero-glass'
+import { HeroGlass } from './hero-glass'
 import s from './intro-hero.module.css'
 
 /**

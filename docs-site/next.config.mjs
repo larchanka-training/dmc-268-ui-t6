@@ -8,7 +8,7 @@ const config = {
   devIndicators: false,
   // No generated AGENTS.md in docs-site.
   agentRules: false,
-  // The docs open straight on the Introduction; /home-6 to /home-14 stay for comparison.
+  // The docs open straight on the Introduction.
   async redirects() {
     return [{ source: '/', destination: '/docs', permanent: false }]
   },
