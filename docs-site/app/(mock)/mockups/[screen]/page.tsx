@@ -1,14 +1,14 @@
 import { notFound } from 'next/navigation'
 import { MockScreen } from '@/components/dashboard/mock-screen'
-
-const SCREENS = ['settings', 'runs', 'run-detail'] as const
+import { MOCK_NAMES } from '@/components/dashboard/mock-names'
 
 export function generateStaticParams() {
-  return SCREENS.map((screen) => ({ screen }))
+  return MOCK_NAMES.map((screen) => ({ screen }))
 }
 
 export default async function Page(props: { params: Promise<{ screen: string }> }) {
   const { screen } = await props.params
-  if (!(SCREENS as readonly string[]).includes(screen)) notFound()
-  return <MockScreen screen={screen as (typeof SCREENS)[number]} />
+  const name = MOCK_NAMES.find((item) => item === screen)
+  if (name === undefined) notFound()
+  return <MockScreen screen={name} />
 }
