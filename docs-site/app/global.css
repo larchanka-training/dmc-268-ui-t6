@@ -36,7 +36,7 @@
   --color-fd-muted-foreground: var(--text-2);
   --color-fd-popover: var(--surface);
   --color-fd-popover-foreground: var(--text);
-  --color-fd-card: rgb(20 27 47 / 55%);
+  --color-fd-card: var(--surface);
   --color-fd-card-foreground: var(--text);
   --color-fd-border: var(--border);
   --color-fd-primary: var(--glow);
@@ -57,6 +57,58 @@
   --color-fd-muted-foreground: var(--text-2);
 }
 
+/*
+ * Docs layout like ui.shadcn.com/docs: sidebar, content and table of contents share one centered
+ * container that grows with the screen up to a cap. The site header sits above it, so every
+ * sticky part starts below the header (Fumadocs reads --fd-banner-height for that).
+ */
+:root {
+  --site-header-h: 88px;
+  --fd-banner-height: var(--site-header-h);
+}
+
+:root {
+  --docs-width: min(100%, 1600px);
+}
+
+#nd-docs-layout {
+  --fd-layout-width: var(--docs-width);
+}
+
+#nd-toc,
+#nd-docs-layout [class*='xl:border-s'] {
+  border-color: transparent;
+}
+
+/* Sidebar shares the page background: no panel, no border, plain items, a subtle active pill. */
+#nd-sidebar {
+  border-color: transparent;
+  background: transparent;
+}
+
+#nd-sidebar a[data-active] {
+  border-radius: 8px;
+  color: var(--text-2);
+  transition:
+    color 0.15s,
+    background-color 0.15s;
+}
+
+#nd-sidebar a[data-active]:hover {
+  background: rgb(148 163 184 / 6%);
+  color: var(--text);
+}
+
+#nd-sidebar a[data-active='true'] {
+  background: rgb(148 163 184 / 10%);
+  color: var(--text);
+  font-weight: 500;
+}
+
+#nd-sidebar a[data-active]::before {
+  display: none;
+}
+
 @theme {
   --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SFMono-Regular', menlo, monospace;
@@ -64,6 +116,17 @@
 
 html {
   scrollbar-gutter: stable;
+}
+
+/* Touch screens use overlay scrollbars: a reserved gutter shows as an empty strip on the right. */
+@media (pointer: coarse), (width <= 768px) {
+  html {
+    scrollbar-gutter: auto;
+  }
+}
+
+body {
+  overflow-x: clip;
 }
 
 html > body[data-scroll-locked] {
@@ -81,23 +144,64 @@ body {
   background: rgb(96 165 250 / 30%);
 }
 
-/* Glass surface, same recipe as the landing cards. */
-.glass {
+/* Flat surface, like the dashboard cards (src/shared/ui/styles/tokens.css). */
+.surface {
   border: 1px solid var(--border);
-  background: linear-gradient(180deg, rgb(20 27 47 / 70%), rgb(12 17 33 / 50%));
-  backdrop-filter: blur(16px) saturate(140%);
-  box-shadow: 0 1px 0 rgb(255 255 255 / 5%) inset;
+  border-radius: 10px;
+  background: var(--surface);
 }
 
-/* Header blur like the landing header. */
-#nd-nav,
-#nd-subnav {
-  backdrop-filter: blur(16px) saturate(140%);
-}
-
-/* Faint brand glow behind the docs content. */
 #nd-docs-layout,
 #nd-home-layout {
-  background:
-    radial-gradient(ellipse 60% 40% at 70% -10%, rgb(37 99 235 / 12%), transparent 70%), var(--bg);
+  background: var(--bg);
+}
+
+/* Flat callouts and cards: plain border, flat surface, small radius, no shadow. */
+#nd-page :is([class*='rounded-xl'], [class*='rounded-2xl']):is([class*='bg-fd-card']) {
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+/* Status badge for features that are not active yet. */
+.status-badge {
+  display: inline-flex;
+  flex: none;
+  gap: 6px;
+  align-items: center;
+  height: 22px;
+  padding: 0 9px;
+  border: 1px solid rgb(251 191 36 / 28%);
+  border-radius: 999px;
+  background: rgb(251 191 36 / 10%);
+  color: #fcd34d;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.status-badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentcolor;
+}
+
+.status-badge[data-tone='soon'] {
+  border-color: rgb(96 165 250 / 30%);
+  background: rgb(96 165 250 / 10%);
+  color: #93c5fd;
+}
+
+.prose :is(h2, h3) .status-badge {
+  margin-inline-start: 10px;
+  transform: translateY(-2px);
+}
+
+/* The site header is fixed, so the page content starts below it. */
+#nd-docs-layout {
+  padding-top: var(--site-header-h);
 }
