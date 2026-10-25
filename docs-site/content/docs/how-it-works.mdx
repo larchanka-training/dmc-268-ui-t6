@@ -4,6 +4,8 @@ description: When a review starts, what happens on a new push and how to read th
 icon: Workflow
 ---
 
+import { StatusBadge } from '@/components/status-badge'
+
 <Flow
   steps={[
     { title: 'Label', text: 'You add ai-review to an open pull request.' },
@@ -23,10 +25,13 @@ A review starts when all of these are true:
   filter means every branch.
 - CI on the latest commit has passed, or the CI setting allows starting without it.
 
-<Callout title="The label is always needed">
+<Callout title="Today the label is needed">
   Despite its name, the **Automatic review** switch does not review every pull request. It turns
   reviews on or off for the repository. A pull request still needs the `ai-review` label.
 </Callout>
+
+<StatusBadge /> **Automatic mode.** A mode that reviews every pull request without the label is
+planned. Until then, the label is how you ask for a review.
 
 Opening a pull request without the label does nothing. Other labels are ignored, and so are
 events caused by the Reviewer bot itself.
