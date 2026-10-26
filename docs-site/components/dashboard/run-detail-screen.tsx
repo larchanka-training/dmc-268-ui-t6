@@ -57,39 +57,36 @@ index 1a2b3c4..5d6e7f8 100644
 `
 
 // Same tag look as SEVERITY_TAG in src/widgets/diff-viewer/ui/InlineComment.tsx.
+type Severity = 'high' | 'medium'
 const SEVERITY: Record<
-  string,
+  Severity,
   { label: string; tone: TagProps['tone']; variant: TagProps['variant'] }
 > = {
   high: { label: 'High', tone: 'critical', variant: 'dot' },
   medium: { label: 'Medium', tone: 'high', variant: 'dot' },
 }
 
-const FINDINGS = [
+const FINDINGS: readonly { line: number; severity: Severity; title: string }[] = [
   { line: 13, severity: 'high', title: 'SQL injection through string interpolation' },
   { line: 15, severity: 'medium', title: 'Unknown id returns 200 with an empty body' },
 ]
 
-// The MCP tools of a review session; a run of the same tool folds into a group, as in ActionTree.
-type Action = readonly [tool: string, time: string]
-const ACTIONS: readonly (Action | readonly Action[])[] = [
-  ['get_pull_request', '<1 s'],
-  ['get_diff', '<1 s'],
-  [
-    ['get_tree', '<1 s'],
-    ['get_tree', '<1 s'],
-    ['get_tree', '<1 s'],
-  ],
-  [
-    ['get_blob', '<1 s'],
-    ['get_blob', '1 s'],
-    ['get_blob', '<1 s'],
-    ['get_blob', '<1 s'],
-  ],
-  ['get_pull_request', '<1 s'],
-  ['post_review', '1 s'],
+// The steps a fast run writes to its log (api process_run.py, review_context_stage.py,
+// llm_call_trace.py, findings_post_processor.py, publish_run_review.py), in that order.
+const ACTIONS: readonly (readonly [tool: string, time: string])[] = [
+  ['policy.load', '<1 s'],
+  ['vcs.fetch_diff', '1 s'],
+  ['context.build', '<1 s'],
+  ['llm.call', '19 s'],
+  ['review.postprocess', '<1 s'],
+  ['github.publish_review', '2 s'],
 ]
-const SELECTED = 6
+const SELECTED = 1
+const TREE_DATA = ACTIONS.map(([tool, time], index) => ({
+  key: `action-${String(index)}`,
+  title: `#${String(index)} ${tool} (${time})`,
+  isLeaf: true,
+}))
 
 const renderChangeGutter: RenderGutter = ({ change, renderDefault, wrapInAnchor }) => (
   <span className="diff-gutter-with-marker">
@@ -128,8 +125,7 @@ function Meta({ items }: { items: { label: string; value: ReactNode; wide?: bool
 
 function FileDiff() {
   const theme = useDiffThemeStyle()
-  const [file] = useMemo(() => parseDiff(PATCH), [])
-  const hunks = file?.hunks ?? []
+  const hunks = useMemo(() => parseDiff(PATCH).at(0)?.hunks ?? [], [])
   const tokens = useMemo(
     () =>
       tokenize(hunks, { highlight: true, refractor: refractorForDiffView, language: 'typescript' }),
@@ -144,8 +140,8 @@ function FileDiff() {
       widgets[getChangeKey(change)] = (
         <div className="inline-comment">
           <RowButton className="inline-comment-row">
-            <Tag tone={tag?.tone} variant={tag?.variant}>
-              {tag?.label ?? ''}
+            <Tag tone={tag.tone} variant={tag.variant}>
+              {tag.label}
             </Tag>
             <Text className="inline-comment-title" strong>
               {finding.title}
@@ -193,23 +189,6 @@ function FileDiff() {
 }
 
 export function RunDetailScreen() {
-  let index = 0
-  const leaf = ([tool, time]: Action) => {
-    const key = `action-${String(index)}`
-    const title = `#${String(index)} ${tool} (${time})`
-    index += 1
-    return { key, title, isLeaf: true }
-  }
-  const treeData = ACTIONS.map((item) => {
-    if (typeof item[0] === 'string') return leaf(item as Action)
-    const group = item as readonly Action[]
-    const key = `group-${String(index)}`
-    return {
-      key,
-      title: `${group[0]?.[0] ?? ''} ×${String(group.length)}`,
-      children: group.map(leaf),
-    }
-  })
   return (
     <AppShell active="/runs">
       <div className={pageStyles.page}>
@@ -261,7 +240,7 @@ export function RunDetailScreen() {
                 { label: 'Started', value: '2026-10-20 11:50:00' },
                 { label: 'Duration', value: '24 s' },
                 { label: 'Attempt', value: '1' },
-                { label: 'Actions', value: '11' },
+                { label: 'Actions', value: '6' },
                 { label: 'Error', value: '—' },
               ]}
             />
@@ -277,11 +256,7 @@ export function RunDetailScreen() {
             <section className={inspectorStyles.trace}>
               <h2 className={inspectorStyles.label}>Review session</h2>
               <div className={treeStyles.root}>
-                <TraceTree
-                  defaultExpandedKeys={['group-5']}
-                  selectedKeys={[`action-${String(SELECTED)}`]}
-                  treeData={treeData}
-                />
+                <TraceTree selectedKeys={[`action-${String(SELECTED)}`]} treeData={TREE_DATA} />
                 <Collapse
                   defaultActiveKey={['request', 'response']}
                   items={[
@@ -290,7 +265,9 @@ export function RunDetailScreen() {
                       label: 'request',
                       children: (
                         <CodeBlock>
-                          {'{\n  "path": "src/api/users.ts",\n  "ref": "5d6e7f8"\n}'}
+                          {
+                            '{\n  "pr_number": 142,\n  "head_sha": "5d6e7f8",\n  "base_sha": "1a2b3c4"\n}'
+                          }
                         </CodeBlock>
                       ),
                     },
@@ -298,7 +275,11 @@ export function RunDetailScreen() {
                       key: 'response',
                       label: 'response',
                       children: (
-                        <CodeBlock>{'{\n  "size": 1184,\n  "encoding": "utf-8"\n}'}</CodeBlock>
+                        <CodeBlock>
+                          {
+                            '{\n  "files": [\n    {\n      "filename": "src/api/users.ts",\n      "status": "modified",\n      "additions": 3,\n      "deletions": 1,\n      "too_large": false\n    }\n  ]\n}'
+                          }
+                        </CodeBlock>
                       ),
                     },
                   ]}
