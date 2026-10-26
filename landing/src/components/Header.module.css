@@ -66,6 +66,11 @@
   color: var(--text);
 }
 
+/* Docs stays visible on phones, next to the call to action (see the media query). */
+.docs {
+  white-space: nowrap;
+}
+
 /* The call to action stands out from the grey section links. */
 .primary {
   color: var(--text);
@@ -81,7 +86,7 @@
     padding-inline: 14px 8px;
   }
 
-  .link:not(:last-child) {
+  .link:not(.docs, :last-child) {
     display: none;
   }
 }

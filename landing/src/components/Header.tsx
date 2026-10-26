@@ -38,7 +38,7 @@ export function Header() {
           <a href="#features" className={styles.link}>
             Features
           </a>
-          <a href={DOCS_PATH} className={styles.link}>
+          <a href={DOCS_PATH} className={cx(styles.link, styles.docs)}>
             Docs
           </a>
           <a href={getAppUrl()} className={cx(styles.link, styles.primary)}>

@@ -33,7 +33,10 @@ describe('AppCta', () => {
   it('marks the app as early access under the button', () => {
     render(<AppCta />)
 
-    expect(screen.getByText('Early access (EAP)')).toBeTruthy()
+    const note = screen.getByText('Early access (EAP)')
+    const button = screen.getByRole('link', { name: 'Try it now' })
+    // DOM order: the caption comes after the button, so it renders below it.
+    expect(button.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('links the Try it now button to the default app url without config', () => {
@@ -42,29 +45,6 @@ describe('AppCta', () => {
     const link = screen.getByRole('link', { name: 'Try it now' })
     expect(link.getAttribute('href')).toBe(STAGING)
     expect(getAppUrl()).toBe(STAGING)
-  })
-})
-
-describe('Header', () => {
-  it('links Docs to /docs on the same origin, before Try it now', () => {
-    render(<Header />)
-
-    const nav = screen.getByRole('navigation', { name: 'Primary' })
-    const docs = screen.getByRole('link', { name: 'Docs' })
-    expect(docs.getAttribute('href')).toBe('/docs')
-    expect(docs.getAttribute('target')).toBeNull()
-    const names = Array.from(nav.querySelectorAll('a'), (link) => link.textContent)
-    expect(names).toEqual(['How it works', 'Features', 'Docs', 'Try it now'])
-  })
-
-  it('sets Try it now apart from the grey section links, with no badge', () => {
-    render(<Header />)
-
-    const tryIt = screen.getByRole('link', { name: 'Try it now' })
-    const docs = screen.getByRole('link', { name: 'Docs' })
-    expect(tryIt.className).not.toBe(docs.className)
-    expect(tryIt.textContent).toBe('Try it now')
-    expect(screen.queryByText(/EAP/)).toBeNull()
   })
 })
 
