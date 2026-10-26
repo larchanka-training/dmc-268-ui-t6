@@ -79,6 +79,8 @@ jobs:
   docker-build:
     name: Docker image build
     runs-on: ubuntu-latest
+    # Three images in a row (UI, landing, docs): a hung build must not hold a runner for six hours.
+    timeout-minutes: 45
     outputs:
       image: ${{ steps.meta.outputs.image }}
       immutable: ${{ steps.meta.outputs.immutable }}
