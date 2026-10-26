@@ -29,7 +29,7 @@ RUN pnpm --dir docs-site run build
 FROM nginxinc/nginx-unprivileged:1.30-alpine AS runtime
 
 USER root
-RUN apk update && apk upgrade --no-cache && apk add --no-cache --upgrade pcre2 tiff libexpat brotli-libs
+RUN apk update && apk upgrade --no-cache && apk add --no-cache --upgrade pcre2 tiff libexpat brotli-libs curl
 
 COPY docker/docs/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/docs-site/out /usr/share/nginx/html/docs
