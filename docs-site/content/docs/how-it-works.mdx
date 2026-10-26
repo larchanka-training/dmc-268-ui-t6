@@ -52,7 +52,7 @@ as neutral, skipped or cancelled and never fails, so do not make it a required c
 
 | Setting | Behaviour |
 | --- | --- |
-| Auto (default) | Waits for checks if the commit has any. With no checks, starts about 2 minutes after the label. |
+| Auto (default) | Waits for checks if the commit has any. With no checks, starts about 2 minutes after the label or the latest push, whichever is later. |
 | Always | Always waits for successful CI. With no CI, the review never starts. |
 | Never | Starts right away. |
 
@@ -95,7 +95,9 @@ comment limit go to the review body. Pure style nits are dropped unless serious.
 - Files that match `review-ignore` in your [rules file](/docs/rules-file).
 
 With more than 3,000 changed lines, Reviewer reviews only the file list: no line comments, and
-the dashboard shows no verdict.
+the dashboard shows no verdict. Such a run has the `summary-only` tag in **Runs**, and its
+`AI Review` check says so in the title. The review body lists the files it checked under
+**Checked files**.
 
 </Accordion>
 </Accordions>

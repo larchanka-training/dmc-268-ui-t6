@@ -9,9 +9,14 @@ icon: CircleQuestionMark
 ### Which access does Reviewer need?
 
 The GitHub App reads code and pull requests, posts reviews and checks, and creates the
-`ai-review` label. It works only in the repositories you pick when you install it. To add or
-remove repositories, change the installation on GitHub, then click **Refresh access** in the
-dashboard.
+`ai-review` label. GitHub shows these repository permissions when you install it: pull requests
+(write), checks (write), issues (write, needed to create the label), contents (read), metadata
+(read), actions (read) and commit statuses (read). It has no organization or account permissions
+and cannot push code.
+
+It works only in the repositories you pick when you install it. If you pick **All
+repositories**, that means every current and future repository of the account. To add or remove
+repositories, change the installation on GitHub, then click **Refresh access** in the dashboard.
 
 You sign in to the dashboard with GitHub too, and see the repositories of the installations your
 GitHub account can access.
@@ -35,9 +40,13 @@ of `.review/rules.md` is not sent yet, see [Rules file](/docs/rules-file).
 
 ### What does Reviewer store?
 
-- Runs: the diff, the findings and the step log you see in the dashboard.
+- Runs, kept until the workspace is deleted: the diff, the findings and the step log you see in
+  the dashboard, including the model's answer. The prompt sent to the model is not stored.
+- A snapshot of `.review/rules.md` and the root `AGENTS.md` as read for each run, kept with the
+  run.
 - The generated summary of your project's conventions, reused across reviews.
-- A short-lived cache of file contents, cleared after 7 days.
+- A cache of file contents, used for up to 7 days.
+- The GitHub webhook payloads Reviewer receives, deleted 30 days after they are processed.
 - If RAG is on, the code index: structure only (symbols, imports, paths, line numbers), no code
   text.
 
@@ -73,7 +82,7 @@ GitHub today; GitLab support is coming.
 Check these in order:
 
 1. **The label.** It must be exactly `ai-review`. If it was deleted from the repository, create
-   it again with that name.
+   it again with that name. On GitHub, only people with triage access or higher can add labels.
 2. **The repository.** It must be connected, with **Automatic review** on. If it is missing from
    **Repositories**, click **Refresh access**.
 3. **The pull request** is open and targets a branch that matches the branch filter.
@@ -96,7 +105,8 @@ Check these in order:
 
 | Code | What to do |
 | --- | --- |
-| `policy_...` | The rules file or `AGENTS.md` has a problem. The check and **Review rules** show the file, line and fix, see [Rules file](/docs/rules-file#errors-fail-the-run). |
+| `policy_...` | The rules file or `AGENTS.md` has a problem. The check shows the file, line and fix, see [Rules file](/docs/rules-file#errors-fail-the-run). |
+| `policy_access_denied`, `policy_revision_unavailable`, `policy_fetch_transient`, `policy_rate_limited` | Reviewer could not read the rules from GitHub; the file itself may be fine. Check the installation, then restart the run. |
 | `llm_context_overflow` | The change does not fit in the model context. Split the pull request. |
 | `budget_exceeded` | The run hit its spending limit. Split the pull request. |
 | `deadline_exceeded` | The run took too long. Restart it. |

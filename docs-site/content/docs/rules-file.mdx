@@ -34,11 +34,18 @@ dist/**
 <Accordions>
 <Accordion title="Mask rules">
 
-- A mask matches the whole path from the root and is case sensitive.
+- This is not `.gitignore`. A mask matches the whole path from the root and is case sensitive,
+  so `*.log` matches only log files at the root; use `**/*.log` for any depth.
 - `*` matches within one folder or file name. `**` stands alone between slashes and matches any
-  number of folders, including none. Use `generated/**` for a folder, not `generated/`.
+  number of folders, including none, so `foo**bar` is not allowed. Use `generated/**` for a
+  folder, not `generated/`.
+- No leading `/`, no `./`, no empty parts like `a//b`, and no `..`.
 - No `!`, `?`, `[ ]`, `{ }` or backslash. `#` is a normal character, not a comment.
-- One block, at the top level of the file, closed. Up to 256 lines; each mask up to 256 bytes.
+- The block opens with exactly `review-ignore` after the backticks: lower case, nothing after it.
+- One block, at the top level of the file (not inside a list or a quote), closed. A second
+  block is an error, not merged with the first.
+- Up to 256 lines, not counting empty ones; each mask up to 256 bytes and 32 parts between
+  slashes.
 - If every changed file is ignored, the run is skipped.
 
 </Accordion>
@@ -46,9 +53,13 @@ dist/**
 
 ## Errors fail the run
 
-Reviewer checks `.review/rules.md` and the root `AGENTS.md` on every run. If one is broken, the
-run fails with a `policy_` code and the `AI Review` check names the file, line and problem. The
-repository settings page shows the same under **Review rules**.
+Reviewer checks `.review/rules.md` and the root `AGENTS.md` on every run, as they are in the
+commit the pull request is based on. If one is broken, the run fails with a `policy_` code and
+the `AI Review` check names the file, line and problem.
+
+**Review rules** in the repository settings shows only `.review/rules.md`, as it is on the
+latest commit of the default branch. It does not show problems in `AGENTS.md`, or in the rules
+of a pull request into another branch; the check does.
 
 <Accordions>
 <Accordion title="Common errors">
@@ -60,6 +71,11 @@ repository settings page shows the same under **Review rules**.
 | `policy_document_type_unsupported` | A symlink, submodule or LFS pointer, not a regular file. |
 | `policy_ignore_pattern_invalid` | A mask uses syntax that is not allowed. |
 | `policy_ignore_block_unclosed` | The `review-ignore` block is not closed. |
+| `policy_ignore_block_duplicate` | A second `review-ignore` block. |
+| `policy_ignore_block_nested` | The block is inside a list or a quote. |
+| `policy_ignore_info_invalid` | Something follows `review-ignore` on the opening line. |
+| `policy_ignore_limit_exceeded` | Over 256 lines, or a mask over 256 bytes or 32 parts. |
+| `policy_document_control_character` | The file has a control character that is not allowed. |
 
 </Accordion>
 </Accordions>
