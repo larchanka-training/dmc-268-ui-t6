@@ -7,7 +7,12 @@ import { createRelativeLink } from 'fumadocs-ui/mdx'
 import { IntroHero } from '@/components/intro-hero'
 import heroStyles from '@/components/intro-hero.module.css'
 
-export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
+// Explicit props, so lint does not depend on the route types `next typegen` writes to .next.
+interface DocsPageProps {
+  params: Promise<{ slug?: string[] }>
+}
+
+export default async function Page(props: DocsPageProps) {
   const params = await props.params
   const page = source.getPage(params.slug)
   if (!page) notFound()
@@ -41,7 +46,7 @@ export function generateStaticParams() {
   return source.generateParams()
 }
 
-export async function generateMetadata(props: PageProps<'/docs/[[...slug]]'>): Promise<Metadata> {
+export async function generateMetadata(props: DocsPageProps): Promise<Metadata> {
   const params = await props.params
   const page = source.getPage(params.slug)
   if (!page) notFound()
