@@ -18,6 +18,10 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY docs-site/package.json ./docs-site/
 RUN pnpm install --frozen-lockfile --filter . --filter ./docs-site
 
+# Baked into the pages at build time; empty means the staging dashboard (docs-site/lib/shared.ts).
+ARG NEXT_PUBLIC_APP_URL=""
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+
 COPY src ./src
 COPY docs-site ./docs-site
 RUN pnpm --dir docs-site run build
