@@ -71,13 +71,15 @@ const FINDINGS: readonly { line: number; severity: Severity; title: string }[] =
   { line: 15, severity: 'medium', title: 'Unknown id returns 200 with an empty body' },
 ]
 
-// The steps a fast run writes to its log (api process_run.py, review_context_stage.py,
-// llm_call_trace.py, findings_post_processor.py, publish_run_review.py), in that order.
+// The steps a published fast run writes to its log, in that order (api process_run.py,
+// review_context_stage.py, llm_call_trace.py, run_repository.py for llm.review_output and
+// review.postprocess, publish_run_review.py).
 const ACTIONS: readonly (readonly [tool: string, time: string])[] = [
   ['policy.load', '<1 s'],
   ['vcs.fetch_diff', '1 s'],
   ['context.build', '<1 s'],
   ['llm.call', '19 s'],
+  ['llm.review_output', '<1 s'],
   ['review.postprocess', '<1 s'],
   ['github.publish_review', '2 s'],
 ]
@@ -240,7 +242,7 @@ export function RunDetailScreen() {
                 { label: 'Started', value: '2026-10-20 11:50:00' },
                 { label: 'Duration', value: '24 s' },
                 { label: 'Attempt', value: '1' },
-                { label: 'Actions', value: '6' },
+                { label: 'Actions', value: '7' },
                 { label: 'Error', value: '—' },
               ]}
             />
