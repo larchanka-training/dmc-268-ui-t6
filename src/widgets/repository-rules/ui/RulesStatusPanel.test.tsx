@@ -176,7 +176,7 @@ describe('RulesStatusPanel', () => {
     expect(view.getByText('.review/rules.md')).toBeTruthy()
     expect(view.getByText('release/2.1')).toBeTruthy()
     expect(view.getByText('1111111')).toBeTruthy()
-    expect(view.getByText('Проверено: 2026-10-14 09:30:15')).toBeTruthy()
+    expect(view.getByText('Проверено: 14.10.2026, 09:30:15')).toBeTruthy()
     expect(panel().textContent).not.toContain('UTC')
     expect(panel().querySelector('pre')?.textContent).toBe('# Rules\nBe kind.')
     expect(view.getByText('dist/**')).toBeTruthy()

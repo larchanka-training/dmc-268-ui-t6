@@ -3,12 +3,13 @@ import { Avatar, Dropdown, type MenuProps } from 'antd'
 import { useRef, useState, type FC } from 'react'
 
 import { useMe } from '../../../entities/user'
+import { useTranslation } from '../../../shared/i18n'
 import { RowButton } from '../../../shared/ui'
 import { useAuthStore } from '../model/store'
 import styles from './UserMenu.module.css'
 
 export interface UserMenuProps {
-  /** Items shown between the user block and "Выйти", for example the theme choice. */
+  /** Items shown between the user block and "Sign out", for example the theme choice. */
   extraItems?: MenuProps['items']
   /** Shows only the avatar, for a collapsed sidebar. */
   compact?: boolean
@@ -19,9 +20,10 @@ export const UserMenu: FC<UserMenuProps> = ({ extraItems, compact = false }) => 
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   const { data: user } = useMe(isAuthenticated)
   const logout = useAuthStore((state) => state.logout)
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement | HTMLAnchorElement>(null)
-  const login = user?.login ?? 'Пользователь'
+  const login = user?.login ?? t('layout.userMenu.fallbackLogin')
 
   const items: MenuProps['items'] = [
     ...(user
@@ -46,7 +48,7 @@ export const UserMenu: FC<UserMenuProps> = ({ extraItems, compact = false }) => 
       danger: true,
       icon: <LogoutOutlined />,
       key: 'logout',
-      label: 'Выйти',
+      label: t('layout.userMenu.logout'),
       onClick: () => {
         void logout()
       },
@@ -75,7 +77,7 @@ export const UserMenu: FC<UserMenuProps> = ({ extraItems, compact = false }) => 
       <RowButton
         aria-expanded={open}
         aria-haspopup="menu"
-        aria-label="Меню пользователя"
+        aria-label={t('layout.userMenu.label')}
         className={compact ? styles.compact : undefined}
         ref={triggerRef}
         size="large"

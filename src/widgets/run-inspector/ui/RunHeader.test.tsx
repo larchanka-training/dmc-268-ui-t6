@@ -55,8 +55,8 @@ describe('RunHeader metadata layout', () => {
     for (const [label, value] of [
       ['Движок', 'deep'],
       ['Модель', 'claude-sonnet-5'],
-      ['Создан', '2026-09-18 11:00:00'],
-      ['Начат', '2026-09-18 11:50:00'],
+      ['Создан', '18.09.2026, 11:00:00'],
+      ['Начат', '18.09.2026, 11:50:00'],
       ['Длительность', '5 мин 12 с'],
       ['Попытка', '3'],
       ['Ошибка', 'provider_timeout'],
@@ -132,7 +132,7 @@ describe('RunHeader run origin', () => {
     render(<RunHeader now={new Date('2026-09-18T12:00:00.000Z')} run={{ ...baseRun, trigger }} />)
     expect(screen.queryByText('Перезапущен вручную')).toBeNull()
     expect(screen.queryByText('Запуск')).toBeNull()
-    expect(rowValue('Создан')).toBe('2026-09-18 11:00:00')
+    expect(rowValue('Создан')).toBe('18.09.2026, 11:00:00')
   })
 
   it('shows the creation time and a dash for the start time of a queued run', () => {
@@ -142,14 +142,14 @@ describe('RunHeader run origin', () => {
         run={{ ...baseRun, status: 'queued' as const, startedAt: null, finishedAt: null }}
       />,
     )
-    expect(rowValue('Создан')).toBe('2026-09-18 11:00:00')
+    expect(rowValue('Создан')).toBe('18.09.2026, 11:00:00')
     expect(rowValue('Начат')).toBe('—')
     expect(rowValue('Длительность')).toBe('—')
   })
 
   it('labels the start time «Начат» for a started run', () => {
     render(<RunHeader now={new Date('2026-09-18T12:00:00.000Z')} run={baseRun} />)
-    expect(rowValue('Начат')).toBe('2026-09-18 11:50:00')
+    expect(rowValue('Начат')).toBe('18.09.2026, 11:50:00')
     expect(screen.queryByText('Запущен')).toBeNull()
   })
 })

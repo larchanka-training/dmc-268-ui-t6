@@ -1,4 +1,5 @@
 import type { RulesDiagnostic } from '../../../entities/repository'
+import { formatDateTime } from '../../../shared/i18n'
 
 /** The seven characters git itself shows; the full sha stays in a tooltip. */
 export function shortSha(sha: string): string {
@@ -6,11 +7,12 @@ export function shortSha(sha: string): string {
 }
 
 /**
- * `2026-10-14 09:30:15`: the same text as the run header. The time is UTC and carries no label,
- * like every other time in the app; showing local time app-wide is a separate issue.
+ * The same text as the run header, in the notation of the current language. The time is UTC and
+ * carries no label, like every other time in the app; showing local time app-wide is a separate
+ * issue.
  */
 export function formatCheckedAt(iso: string): string {
-  return new Date(iso).toISOString().replace('T', ' ').slice(0, 19)
+  return formatDateTime(iso)
 }
 
 /** `line:column`, `line`, or null when the server gave no line. */

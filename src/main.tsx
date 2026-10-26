@@ -18,7 +18,7 @@ async function bootstrap() {
 
   const rootElement = document.getElementById('root')
   if (!rootElement) {
-    throw new Error('Не найден корневой элемент #root')
+    throw new Error('Root element #root not found')
   }
 
   ReactDOM.createRoot(rootElement).render(

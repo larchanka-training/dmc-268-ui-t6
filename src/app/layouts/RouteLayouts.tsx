@@ -4,6 +4,7 @@ import { Navigate, Outlet, useLocation, useNavigate, useRouteError } from 'react
 
 import { useAuthStore, saveAuthReturnTo } from '../../features/auth'
 import { PageLoading } from '../../shared/ui'
+import { useTranslation } from '../../shared/i18n'
 import { AppLayout } from '../../widgets/app-layout'
 import styles from './RouteLayouts.module.css'
 
@@ -11,19 +12,20 @@ export const PageFallback: FC = () => <PageLoading />
 
 export const RouteErrorFallback: FC = () => {
   const error = useRouteError()
-  const msg = error instanceof Error ? error.message : 'Непредвиденная ошибка приложения'
+  const { t } = useTranslation()
+  const msg = error instanceof Error ? error.message : t('layout.routeError.fallbackMessage')
 
   return (
     <Flex align="center" className={styles.errorContainer} justify="center">
       <Result
         extra={
           <Button onClick={() => (window.location.href = '/repositories')} type="primary">
-            Вернуться в панель управления
+            {t('layout.routeError.backToDashboard')}
           </Button>
         }
         status="500"
         subTitle={msg}
-        title="Произошла непредвиденная ошибка"
+        title={t('layout.routeError.title')}
       />
     </Flex>
   )

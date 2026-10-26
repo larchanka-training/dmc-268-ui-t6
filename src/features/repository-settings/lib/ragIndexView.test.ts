@@ -27,7 +27,7 @@ function index(overrides: Partial<RagIndex>): RagIndex {
 const PUBLICATION: RagIndexView['publication'] = {
   sha: SHA,
   shortSha: '0123456',
-  indexedAt: '2026-10-14 09:30:15',
+  indexedAt: '14.10.2026, 09:30:15',
 }
 
 describe('ragIndexView', () => {
@@ -270,14 +270,14 @@ describe('shortSha', () => {
 
 describe('formatIndexedAt', () => {
   it('writes the UTC time as YYYY-MM-DD HH:mm:ss', () => {
-    expect(formatIndexedAt(INDEXED_AT)).toBe('2026-10-14 09:30:15')
+    expect(formatIndexedAt(INDEXED_AT)).toBe('14.10.2026, 09:30:15')
   })
 
   it('converts an offset time to UTC whatever the time zone of the runner is', () => {
-    expect(formatIndexedAt('2026-10-14T12:30:15+03:00')).toBe('2026-10-14 09:30:15')
+    expect(formatIndexedAt('2026-10-14T12:30:15+03:00')).toBe('14.10.2026, 09:30:15')
   })
 
   it('drops the fraction of a second', () => {
-    expect(formatIndexedAt('2026-10-14T09:30:15.987Z')).toBe('2026-10-14 09:30:15')
+    expect(formatIndexedAt('2026-10-14T09:30:15.987Z')).toBe('14.10.2026, 09:30:15')
   })
 })

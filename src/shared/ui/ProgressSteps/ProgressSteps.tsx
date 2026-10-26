@@ -1,6 +1,7 @@
 import { Steps } from 'antd'
 import type { JSX, ReactNode } from 'react'
 
+import { useTranslation } from '../../i18n'
 import { cx } from '../lib/cx'
 import styles from './ProgressSteps.module.css'
 
@@ -18,15 +19,6 @@ export interface ProgressStepsProps {
   steps: ProgressStep[]
   className?: string
 }
-
-/** What a screen reader says for the mark: the state, which the ring and the glyph only show. */
-const MARK_LABEL = {
-  wait: 'Ждёт',
-  process: 'Идёт',
-  finish: 'Готово',
-  error: 'Ошибка',
-  stopped: 'Остановлено',
-} as const
 
 /** Ant Design has no `stopped` status: a stopped step is a waiting one with its own mark. */
 const ANTD_STATUS = {
@@ -73,6 +65,7 @@ function Glyph(props: { state: ProgressStepState; index: number }): JSX.Element 
  */
 export function ProgressSteps(props: ProgressStepsProps): JSX.Element {
   const { steps, className } = props
+  const { t } = useTranslation()
   const active = steps.findIndex(
     (step) => step.state === 'process' || step.state === 'error' || step.state === 'stopped',
   )
@@ -92,7 +85,8 @@ export function ProgressSteps(props: ProgressStepsProps): JSX.Element {
         status: ANTD_STATUS[step.state],
         icon: (
           <span
-            aria-label={MARK_LABEL[step.state]}
+            // What a screen reader says for the mark: the state, which the ring and glyph only show.
+            aria-label={t(`common.progress.${step.state}`)}
             className={styles.mark}
             data-state={step.state}
             role="img"
