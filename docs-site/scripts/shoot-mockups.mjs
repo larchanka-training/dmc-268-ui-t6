@@ -1,10 +1,15 @@
 #!/usr/bin/env node
+/* global document -- the page.evaluate callbacks run in the browser */
 /*
  * Takes the pictures of the dashboard mockups that the docs pages show.
  *
  * Every /mockups/<name> page is opened in Chromium at 2x pixel density and saved as
  * public/screens/<name>.webp; the CSS size of each picture goes to
  * components/mockups/screens.json, so the docs can reserve the space before the picture loads.
+ *
+ * Requires Playwright (`playwright` or `playwright-core`), found through NODE_PATH, and a
+ * Chromium or Chrome binary. Neither is a dependency of this package, so `pnpm install` stays
+ * light; install Playwright anywhere and point NODE_PATH to its node_modules.
  *
  * Usage (from the repository root):
  *   pnpm --dir docs-site shots                        # builds the site, starts it, shoots, stops it
@@ -99,7 +104,7 @@ async function waitForServer(url, timeoutMs = 60_000) {
 async function startServer() {
   const port = process.env.PORT ?? '3917'
   if (process.env.SKIP_BUILD !== '1') await run('pnpm', ['exec', 'next', 'build'])
-  const child = spawn('pnpm', ['exec', 'next', 'start', '-p', port], {
+  const child = spawn('pnpm', ['exec', 'next', 'start', '-H', '127.0.0.1', '-p', port], {
     cwd: ROOT,
     stdio: 'inherit',
     detached: true,
@@ -129,7 +134,7 @@ async function main() {
   if (playwright === null) {
     throw new Error(
       'playwright is not installed here. Set NODE_PATH to a node_modules folder that has it, ' +
-        'for example NODE_PATH=/home/deploy/tools/pw/node_modules.',
+        'for example NODE_PATH=/path/to/node_modules.',
     )
   }
   const next = nextDir()
@@ -147,9 +152,10 @@ async function main() {
     baseUrl = server.baseUrl
   }
 
-  const browser = await playwright.chromium.launch({ executablePath })
   const manifest = {}
+  let browser = null
   try {
+    browser = await playwright.chromium.launch({ executablePath })
     await mkdir(OUT_DIR, { recursive: true })
     for (const shot of SHOTS) {
       const page = await browser.newPage({
@@ -159,8 +165,9 @@ async function main() {
         reducedMotion: 'reduce',
       })
       await page.goto(`${baseUrl}/mockups/${shot.name}`, { waitUntil: 'networkidle' })
-      // The mockups render after mount; wait for content and fonts, then for layout to settle.
-      await page.waitForFunction(() => document.body.childElementCount > 0)
+      // The mockups render on the client and then set data-mock-ready on <body> (mock-screen.tsx);
+      // wait for that and the fonts, then a moment for layout to settle.
+      await page.waitForFunction(() => document.body.dataset.mockReady === 'true')
       await page.evaluate(() => document.fonts.ready)
       await page.waitForTimeout(400)
 
@@ -203,7 +210,7 @@ async function main() {
       )
     }
   } finally {
-    await browser.close()
+    await browser?.close()
     server?.stop()
   }
 

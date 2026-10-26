@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, type ComponentType } from 'react'
+import { useEffect, useSyncExternalStore, type ComponentType } from 'react'
 import { RunsScreen } from './runs-screen'
 import { RunDetailScreen } from './run-detail-screen'
 import {
@@ -30,13 +30,22 @@ function isSnippet(name: MockName): name is SnippetName {
   return name in SNIPPET
 }
 
-/** Renders after mount only: Ant Design styles are injected on the client, so nothing flashes. */
+const noSubscribe = () => () => undefined
+
+/**
+ * Renders on the client only: Ant Design styles are injected there, so nothing flashes. Once it
+ * has rendered, `data-mock-ready` on <body> tells scripts/shoot-mockups.mjs the page is drawn.
+ */
 export function MockScreen({ screen }: { screen: MockName }) {
-  const [ready, setReady] = useState(false)
+  const client = useSyncExternalStore(
+    noSubscribe,
+    () => true,
+    () => false,
+  )
   useEffect(() => {
-    setReady(true)
-  }, [])
-  if (!ready) return null
+    if (client) document.body.dataset.mockReady = 'true'
+  }, [client])
+  if (!client) return null
   if (isSnippet(screen)) {
     const Snippet = SNIPPET[screen]
     return (
