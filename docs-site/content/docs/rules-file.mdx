@@ -41,7 +41,10 @@ dist/**
   folder, not `generated/`.
 - No leading `/`, no `./`, no empty parts like `a//b`, and no `..`.
 - No `!`, `?`, `[ ]`, `{ }` or backslash. `#` is a normal character, not a comment.
-- The block opens with exactly `review-ignore` after the backticks: lower case, nothing after it.
+- The block opens with exactly `review-ignore` after three or more backticks or tildes, in lower
+  case. A space and a parameter after it is an error. Any other label, for example `Review-ignore`
+  or `review-ignore-example`, is a normal code block: its masks do nothing and no error is
+  shown.
 - One block, at the top level of the file (not inside a list or a quote), closed. A second
   block is an error, not merged with the first.
 - Up to 256 lines, not counting empty ones; each mask up to 256 bytes and 32 parts between
@@ -73,7 +76,7 @@ of a pull request into another branch; the check does.
 | `policy_ignore_block_unclosed` | The `review-ignore` block is not closed. |
 | `policy_ignore_block_duplicate` | A second `review-ignore` block. |
 | `policy_ignore_block_nested` | The block is inside a list or a quote. |
-| `policy_ignore_info_invalid` | Something follows `review-ignore` on the opening line. |
+| `policy_ignore_info_invalid` | A space and a parameter follow `review-ignore` on the opening line. |
 | `policy_ignore_limit_exceeded` | Over 256 lines, or a mask over 256 bytes or 32 parts. |
 | `policy_document_control_character` | The file has a control character that is not allowed. |
 
