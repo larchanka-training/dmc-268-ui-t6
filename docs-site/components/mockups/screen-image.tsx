@@ -6,10 +6,12 @@ export type ShotName = keyof typeof screens
 interface ScreenImageProps {
   /** A picture in public/screens, taken from /mockups/<name> by `pnpm --dir docs-site shots`. */
   name: ShotName
-  /** Short description of what the picture shows; also the caption under it. */
+  /** What the picture shows, for screen readers; says something the caption does not. */
+  alt: string
+  /** The caption under the picture. */
   caption: string
-  /** The widest the card gets, in pixels; by default the picture's own width. */
-  maxWidth?: number
+  /** A second caption line, for example a note on the wording shown in the picture. */
+  note?: string
   /** Center the caption, as under the wide dashboard screens. */
   centerCaption?: boolean
 }
@@ -19,13 +21,13 @@ interface ScreenImageProps {
  * and the card has the dashboard background, so a picture still on its way shows as a dark card,
  * not a white box. Click or tap opens it zoomed in on the same page.
  */
-export function ScreenImage({ name, caption, maxWidth, centerCaption = false }: ScreenImageProps) {
+export function ScreenImage({ name, alt, caption, note, centerCaption = false }: ScreenImageProps) {
   const { src, width, height } = screens[name]
   return (
-    <figure className="not-prose my-6" style={{ maxWidth: maxWidth ?? width }}>
-      <ImageZoom src={src} alt={caption} zoomInProps={{ src, alt: caption }}>
+    <figure className="not-prose my-6" style={{ maxWidth: width }}>
+      <ImageZoom src={src} alt={alt} zoomInProps={{ src, alt }}>
         <img
-          alt={caption}
+          alt={alt}
           className="block h-auto w-full rounded-xl border border-fd-border bg-[#090d18] shadow-lg"
           decoding="async"
           height={height}
@@ -38,6 +40,7 @@ export function ScreenImage({ name, caption, maxWidth, centerCaption = false }: 
         className={`mt-2 text-sm text-fd-muted-foreground${centerCaption ? ' text-center' : ''}`}
       >
         {caption}
+        {note === undefined ? null : <span className="mt-1 block">{note}</span>}
       </figcaption>
     </figure>
   )
