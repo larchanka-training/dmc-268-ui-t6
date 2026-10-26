@@ -97,11 +97,6 @@
   background: #dbe2ea;
 }
 
-.button:focus-visible {
-  outline: 2px solid var(--blue);
-  outline-offset: 2px;
-}
-
 /* Hamburger for the docs sidebar, phones and small tablets only (the sidebar shows from 768px). */
 .menu {
   display: none;
@@ -135,4 +130,12 @@
   .search kbd {
     display: none;
   }
+}
+
+/* Keyboard focus on every header control. Last, after the plain .menu and .search rules. */
+.button:focus-visible,
+.search:focus-visible,
+.menu:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
 }
