@@ -2272,7 +2272,7 @@ issue прямо выносит подключение логирования з
 «Документация» в меню пользователя (`AppSidebar` передаёт его в `UserMenu` рядом с выбором темы,
 открывается в новой вкладке). Пусто — `DEFAULT_DOCS_URL` (`https://staging.dmc268-t6.axyi.ru/docs`,
 документация живёт на хосте лендинга под `/docs`, `docs/CICD.md` §4.2); не `http(s)://` URL — ошибка
-разбора env при старте. Задаётся при сборке (`build-args` образа UI), как `VITE_GITHUB_*`.
+разбора env при старте. Задаётся при сборке (`build-args` образа UI, `Dockerfile`), как `VITE_API_BASE_URL`; в `ci-cd.yml` для него build-arg пока нет, образ берёт `DEFAULT_DOCS_URL`.
 
 **Роутер.** Установлен **react-router 8** (^8.4.0, peer react ≥ 19.2.7 — выполняется), настроен в `src/app/routes.tsx`. Лэйауты (`AppLayoutRoute`, `ProtectedLayout`, `PageFallback`, `RouteErrorFallback`) и обёртки страниц (`RoutedRepositoriesPage` и др.) вынесены в `src/app/layouts/`, чтобы файл роутера оставался чистой конфигурацией маршрутов без отключения правил Fast Refresh (`react-refresh/only-export-components`).
 `PageFallback` ничего не рисует: это метка ожидания `PageLoading` из дизайн-системы. Та же метка отмечает проверку сессии в `ProtectedLayout` и первичную загрузку данных прогона в `RunDetailPage` (`runQuery.isLoading`). Кольцо одно на приложение, его показывает `PageLoaderHost` в `UiProvider`: по центру окна, не раньше чем через 300 мс непрерывного ожидания, с плавным появлением и исчезновением (`docs/DESIGN_SYSTEM.md` §7). Фоновый refetch с данными в кэше оставляет страницу видимой; ожидание диффа и журнала действий остаётся секционным. Интеграция маршрута, страницы и хоста проверяется в `src/app/runDetailLoading.page.test.tsx`.
