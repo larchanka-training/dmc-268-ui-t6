@@ -33,9 +33,12 @@ Workspace packages: `landing/` (Vite, the public landing) and `docs-site/`
   [api `docs/CONTRIBUTING.md` §8](https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/CONTRIBUTING.md#8-пользовательская-документация):
   a PR that changes user-visible behavior updates them in the same PR, or links a follow-up
   issue in the PR body (`Refs`). Core pages index.mdx, how-it-works.mdx and features.mdx
-  change only with an explicit review: the reviewer (tech lead) writes
-  "<page>.mdx read in full". Prefer adding to Roadmap or FAQ, or a status badge, over
-  rewriting a core page.
+  change only with an explicit review by the tech lead or a participant they appoint: for each
+  changed core page the reviewer writes in Submit review «`<page>.mdx` прочитана целиком».
+  Prefer adding to Roadmap or FAQ, or a status badge, over rewriting a core page. A PR that
+  changes a mockup in `docs-site/components/dashboard/` or an app component it uses takes the
+  docs pictures again (`pnpm --dir docs-site shots`) and commits `docs-site/public/screens/`
+  with `docs-site/components/mockups/screens.json`.
 
 ## Commands
 
