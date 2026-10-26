@@ -40,10 +40,12 @@ of `.review/rules.md` is not sent yet, see [Rules file](/docs/rules-file).
 
 ### What does Reviewer store?
 
-- Runs, kept until the workspace is deleted: the diff, the findings and the step log you see in
-  the dashboard, including the model's answer. The prompt sent to the model is not stored.
+- Runs, kept with no time limit; removing the app does not delete them. A run holds the diff, the
+  findings and the step log you see in the dashboard, including the model's answer. The prompt
+  sent to the model is not stored.
 - A snapshot of `.review/rules.md` and the root `AGENTS.md` as read for each run, kept with the
   run.
+- A copy of `.review/rules.md` from the default branch, shown in **Review rules**.
 - The generated summary of your project's conventions, reused across reviews.
 - A cache of file contents, used for up to 7 days.
 - The GitHub webhook payloads Reviewer receives, deleted 30 days after they are processed.
@@ -105,8 +107,8 @@ Check these in order:
 
 | Code | What to do |
 | --- | --- |
+| `policy_access_denied`, `policy_revision_unavailable`, `policy_fetch_transient`, `policy_rate_limited` | Reviewer could not read the rules from GitHub; the file itself may be fine. `policy_fetch_transient` and `policy_rate_limited` are retried automatically. Otherwise check the installation, then restart the run. |
 | `policy_...` | The rules file or `AGENTS.md` has a problem. The check shows the file, line and fix, see [Rules file](/docs/rules-file#errors-fail-the-run). |
-| `policy_access_denied`, `policy_revision_unavailable`, `policy_fetch_transient`, `policy_rate_limited` | Reviewer could not read the rules from GitHub; the file itself may be fine. Check the installation, then restart the run. |
 | `llm_context_overflow` | The change does not fit in the model context. Split the pull request. |
 | `budget_exceeded` | The run hit its spending limit. Split the pull request. |
 | `deadline_exceeded` | The run took too long. Restart it. |
