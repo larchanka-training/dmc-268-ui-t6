@@ -69,6 +69,12 @@ jobs:
       - name: Landing build
         run: pnpm --dir landing build
 
+      - name: Docs site check types
+        run: pnpm --dir docs-site check-types
+
+      - name: Docs site build
+        run: pnpm --dir docs-site build
+
   docker-build:
     name: Docker image build
     runs-on: ubuntu-latest
