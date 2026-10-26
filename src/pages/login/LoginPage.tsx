@@ -3,6 +3,7 @@ import type { FC } from 'react'
 
 import { useMe } from '../../entities/user'
 import { LoginButton, useAuthStore } from '../../features/auth'
+import { useTranslation } from '../../shared/i18n'
 import { buildTheme, Logo } from '../../shared/ui'
 import { HeroGlass } from './HeroGlass'
 import styles from './LoginPage.module.css'
@@ -25,6 +26,7 @@ export const LoginPage: FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const authError = useAuthStore((state) => state.error)
   const { data: user } = useMe(isAuthenticated)
   const { token } = theme.useToken()
+  const { t } = useTranslation()
 
   return (
     <ConfigProvider theme={buildTheme('dark', { reducedMotion: !token.motion })}>
@@ -34,8 +36,8 @@ export const LoginPage: FC<LoginPageProps> = ({ onLoginSuccess }) => {
           <span className={styles.logo}>
             <Logo size={40} />
           </span>
-          <h1 className={styles.title}>Вход в Reviewer</h1>
-          <p className={styles.subtitle}>AI-ревью кода для ваших pull request</p>
+          <h1 className={styles.title}>{t('auth.login.title')}</h1>
+          <p className={styles.subtitle}>{t('auth.login.subtitle')}</p>
 
           {authError ? (
             <Alert className={styles.alert} showIcon title={authError} type="error" />
@@ -43,7 +45,11 @@ export const LoginPage: FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
           {isAuthenticated ? (
             <div className={styles.actions}>
-              <p className={styles.note}>Вы уже авторизованы как {user?.login ?? 'пользователь'}</p>
+              <p className={styles.note}>
+                {t('auth.login.alreadySignedIn', {
+                  login: user?.login ?? t('auth.login.fallbackLogin'),
+                })}
+              </p>
               <Button
                 block
                 onClick={() => {
@@ -56,13 +62,13 @@ export const LoginPage: FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 size="large"
                 type="primary"
               >
-                Перейти в панель управления
+                {t('auth.login.goToDashboard')}
               </Button>
             </div>
           ) : (
             <div className={styles.actions}>
               <LoginButton block size="large" />
-              <p className={styles.note}>Вход выполняется через GitHub App бота-ревьюера</p>
+              <p className={styles.note}>{t('auth.login.note')}</p>
             </div>
           )}
         </div>
