@@ -12,23 +12,14 @@
 :root,
 .dark {
   --bg: #090d18;
-  --bg-raised: #0c1121;
   --surface: #0f1526;
   --surface-2: #141b2f;
-  --surface-3: #1a2238;
   --border: rgb(148 163 184 / 12%);
   --border-strong: rgb(148 163 184 / 20%);
   --text: #f8fafc;
   --text-2: #94a3b8;
-  --text-3: #64748b;
   --blue: #2563eb;
-  --blue-hover: #3b74f0;
   --glow: #60a5fa;
-  --orange: #fb923c;
-  --amber: #fbbf24;
-  --green: #4ade80;
-  --red: #f87171;
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
   --color-fd-background: var(--bg);
   --color-fd-foreground: #e2e8f0;
@@ -65,14 +56,15 @@
 :root {
   --site-header-h: 64px;
   --fd-banner-height: var(--site-header-h);
-}
-
-:root {
   --docs-width: min(100%, 1600px);
 }
 
+/* The site header is fixed, so the page content starts below it. */
 #nd-docs-layout {
   --fd-layout-width: var(--docs-width);
+
+  padding-top: var(--site-header-h);
+  background: var(--bg);
 }
 
 #nd-toc,
@@ -127,32 +119,19 @@ html {
 
 body {
   overflow-x: clip;
-}
-
-html > body[data-scroll-locked] {
-  margin-right: 0px !important;
-  --removed-body-scroll-bar-size: 0px !important;
-}
-
-body {
   font-feature-settings: 'cv11', 'ss01';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* A dialog (search, zoomed picture) locks the scroll; keep the page from shifting sideways. */
+html > body[data-scroll-locked] {
+  margin-right: 0px !important;
+  --removed-body-scroll-bar-size: 0px !important;
+}
+
 ::selection {
   background: rgb(96 165 250 / 30%);
-}
-
-/* Flat surface, like the dashboard cards (src/shared/ui/styles/tokens.css). */
-.surface {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
-}
-
-#nd-docs-layout {
-  background: var(--bg);
 }
 
 /* Flat callouts and cards: plain border, flat surface, small radius, no shadow. */
@@ -204,11 +183,6 @@ body {
 .prose :is(h2, h3) .status-badge {
   margin-inline-start: 10px;
   transform: translateY(-2px);
-}
-
-/* The site header is fixed, so the page content starts below it. */
-#nd-docs-layout {
-  padding-top: var(--site-header-h);
 }
 
 /* Sidebar collapsing is off; the floating panel Fumadocs keeps for it must not linger in the DOM. */
