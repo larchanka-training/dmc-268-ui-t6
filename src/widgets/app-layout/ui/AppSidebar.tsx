@@ -112,18 +112,13 @@ export const AppSidebar: FC<AppSidebarProps> = ({ currentPath = HOME_PATH, onNav
     {
       key: 'docs',
       icon: <ReadOutlined />,
-      // A real link, so a click, a middle click and "copy link" work as on any link; Ant Design
-      // stretches it over the whole row. The keyboard (Enter) reaches only the item's onClick.
+      // Only a real link: a click, Enter on the focused link, a middle click and "copy link" all
+      // work natively. No onClick handler, or Enter would open the docs twice (handler + link).
       label: (
-        <a href={DOCS_URL} rel="noreferrer" target="_blank">
+        <a href={DOCS_URL} rel="noopener noreferrer" target="_blank">
           Документация
         </a>
       ),
-      onClick: ({ domEvent }) => {
-        if (domEvent.type === 'keydown') {
-          window.open(DOCS_URL, '_blank', 'noopener,noreferrer')
-        }
-      },
     },
   ]
 
