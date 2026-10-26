@@ -10,6 +10,8 @@ client for the code-review product; consumes the FastAPI backend
 
 Vite 8, React 19, TypeScript 7 strict (typescript-eslint runs on TS 6.0
 side-by-side), Zod 4, Zustand 5, TanStack Query 5, antd 6, Vitest 5.
+Workspace packages: `landing/` (Vite, the public landing) and `docs-site/`
+(Next.js 16, Fumadocs, Tailwind CSS 4, the public user docs).
 
 ## Non-negotiables
 
@@ -19,16 +21,21 @@ side-by-side), Zod 4, Zustand 5, TanStack Query 5, antd 6, Vitest 5.
 - Never `--no-verify`.
 - Run the gates before claiming done: `pnpm lint`, `pnpm check-types`,
   `pnpm format:check`, `pnpm test`, `pnpm build`, `pnpm verify:prod-bundle`
-  (the last one checks the `pnpm build` output).
+  (the last one checks the `pnpm build` output); for a change in `landing/` or
+  `docs-site/` (or in `src/`, which `docs-site` imports) also
+  `pnpm --dir <package> check-types` and `pnpm --dir <package> build`
+  (`landing` also has `test`).
 - No new dependency without a line in the PR body.
 - Never edit files owned by another open PR without a comment there.
 - Unknown external input goes through Zod at the boundary — never trust an
   API response's shape without parsing it.
-- A PR that changes user-visible behavior updates the user docs in
-  `docs-site/content/docs/` in the same PR, or links a follow-up issue.
-- The core user docs pages, `index.mdx` (Introduction), `how-it-works.mdx` and
-  `features.mdx`, change only with an explicit review of that page. Prefer
-  adding to Roadmap or FAQ, or a status badge, over rewriting a core page.
+- User docs (`docs-site/content/docs/`) follow
+  [api `docs/CONTRIBUTING.md` §8](https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/CONTRIBUTING.md#8-пользовательская-документация):
+  a PR that changes user-visible behavior updates them in the same PR, or links a follow-up
+  issue in the PR body (`Refs`). Core pages index.mdx, how-it-works.mdx and features.mdx
+  change only with an explicit review: the reviewer (tech lead) writes
+  "<page>.mdx read in full". Prefer adding to Roadmap or FAQ, or a status badge, over
+  rewriting a core page.
 
 ## Commands
 
@@ -46,6 +53,8 @@ side-by-side), Zod 4, Zustand 5, TanStack Query 5, antd 6, Vitest 5.
 | Build        | `pnpm build`                                                | `package.json` |
 | Bundle check | `pnpm verify:prod-bundle` (after `pnpm build`)              | `package.json` |
 | Storybook    | `pnpm storybook` (static build: `pnpm build-storybook`)     | `package.json` |
+| Landing      | `pnpm --dir landing check-types`, `test`, `build`           | `landing/`     |
+| Docs site    | `pnpm --dir docs-site check-types`, `build` (`dev` to edit) | `docs-site/`   |
 
 ## Layout
 
@@ -97,4 +106,5 @@ only flow downward, `shared` never imports `entities`); details in
 - Do not restyle a base component on a screen or bring one from another library: take it from
   the design system (`src/shared/ui`, `docs/DESIGN_SYSTEM.md`), fix it there if it is missing.
 - Do not skip the gates (`pnpm lint`, `pnpm check-types`, `pnpm format:check`,
-  `pnpm test`, `pnpm build`, `pnpm verify:prod-bundle`) before claiming a task done.
+  `pnpm test`, `pnpm build`, `pnpm verify:prod-bundle`, and the `landing` and
+  `docs-site` package gates) before claiming a task done.

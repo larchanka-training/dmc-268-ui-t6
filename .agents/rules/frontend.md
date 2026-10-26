@@ -6,9 +6,19 @@
 - Never `--no-verify`.
 - Run the gates before claiming done: `pnpm lint`, `pnpm check-types`,
   `pnpm format:check`, `pnpm test`, `pnpm build`, `pnpm verify:prod-bundle`
-  (the last one checks the `pnpm build` output).
+  (the last one checks the `pnpm build` output); for a change in `landing/` or
+  `docs-site/` (or in `src/`, which `docs-site` imports) also
+  `pnpm --dir <package> check-types` and `pnpm --dir <package> build`
+  (`landing` also has `test`).
 - No new dependency without a line in the PR body.
 - Never edit files owned by another open PR without a comment there.
+- User docs (`docs-site/content/docs/`) follow
+  [api `docs/CONTRIBUTING.md` §8](https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/CONTRIBUTING.md#8-пользовательская-документация):
+  a PR that changes user-visible behavior updates them in the same PR, or links a follow-up
+  issue in the PR body (`Refs`). Core pages index.mdx, how-it-works.mdx and features.mdx
+  change only with an explicit review: the reviewer (tech lead) writes
+  "<page>.mdx read in full". Prefer adding to Roadmap or FAQ, or a status badge, over
+  rewriting a core page.
 
 ## 2. Commands
 
@@ -26,6 +36,8 @@
 | Build        | `pnpm build`                                                | `package.json` |
 | Bundle check | `pnpm verify:prod-bundle` (after `pnpm build`)              | `package.json` |
 | Storybook    | `pnpm storybook` (static build: `pnpm build-storybook`)     | `package.json` |
+| Landing      | `pnpm --dir landing check-types`, `test`, `build`           | `landing/`     |
+| Docs site    | `pnpm --dir docs-site check-types`, `build` (`dev` to edit) | `docs-site/`   |
 
 `pnpm-lock.yaml` is committed; `packageManager` is pinned in `package.json`; Node
 ≥ 22.22.0 is required (`engines` in `package.json`).
@@ -33,8 +45,9 @@
 What enforces the gates today:
 
 - CI (every PR and every push to `main`): all six gates, `pnpm verify:prod-bundle` last, after
-  the build — the `UI quality` job in `.github/workflows/ci-cd.yml`, a required status check on
-  `main` (`docs/CICD.md` §8).
+  the build, then the `landing` and `docs-site` package gates — the `UI quality` job in
+  `.github/workflows/ci-cd.yml`, a required status check on `main` (`docs/CICD.md` §8). Root
+  `pnpm lint` covers `landing/` and `docs-site/` too.
   The Docker image build in the same workflow runs `pnpm build` once more via
   `Dockerfile`.
 - pre-commit (`.husky/pre-commit`): `lint-staged` on staged files — `eslint --fix`,
@@ -62,6 +75,13 @@ Slice structure:
 
 No path aliases. Import another slice through its `index.ts` by relative path;
 never deep-import its internals.
+
+Exception: the dashboard mockups in `docs-site/components/dashboard/` import slice internals of
+`src/` (CSS Modules in `ui/`, `widgets/diff-viewer/lib/*`) by relative path, so the docs pictures
+use the app's own styles. They are outside FSD and only feed `pnpm --dir docs-site shots`. A
+rename in those files breaks `pnpm --dir docs-site check-types`/`build`, but a renamed CSS
+Module class does not: after changing such a file, take the docs pictures again
+(`docs-site/README.md`).
 
 ## 3a. Design system
 
