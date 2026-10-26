@@ -7,6 +7,7 @@ import {
   STATE_STORAGE_KEY,
   useAuthStore,
 } from '../../features/auth'
+import { i18n, useTranslation } from '../../shared/i18n'
 import { oauthCallbackErrorMessage } from './oauthErrors'
 import styles from './CallbackPage.module.css'
 
@@ -22,6 +23,7 @@ export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError, onBack
   const [status, setStatus] = useState<'loading' | 'error'>('loading')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const processedRef = useRef(false)
+  const { t } = useTranslation()
 
   useEffect(() => {
     if (processedRef.current) return
@@ -64,7 +66,7 @@ export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError, onBack
         }
         markInitialized()
         setStatus('error')
-        setErrorMessage('Отсутствует код авторизации (параметр code не найден)')
+        setErrorMessage(i18n.t('auth.callback.missingCode'))
         return
       }
 
@@ -78,7 +80,7 @@ export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError, onBack
         }
       } catch (err) {
         clearAccessRefreshIntent()
-        const msg = err instanceof Error ? err.message : 'Не удалось завершить авторизацию'
+        const msg = err instanceof Error ? err.message : i18n.t('auth.callback.failed')
         setStatus('error')
         setErrorMessage(msg)
       }
@@ -93,12 +95,12 @@ export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError, onBack
         {status === 'loading' ? (
           <>
             <Spin size="large" />
-            <h1 className={styles.title}>Авторизация через GitHub...</h1>
-            <p className={styles.text}>Обмениваем код подтверждения на сессионный токен</p>
+            <h1 className={styles.title}>{t('auth.callback.loadingTitle')}</h1>
+            <p className={styles.text}>{t('auth.callback.loadingText')}</p>
           </>
         ) : (
           <>
-            <h1 className={styles.title}>Не удалось войти</h1>
+            <h1 className={styles.title}>{t('auth.callback.failedTitle')}</h1>
             <p className={styles.text} role="alert">
               {errorMessage}
             </p>
@@ -114,7 +116,7 @@ export const CallbackPage: FC<CallbackPageProps> = ({ onSuccess, onError, onBack
                 }
               }}
             >
-              Вернуться к экрану входа
+              {t('auth.callback.backToLogin')}
             </Button>
           </>
         )}

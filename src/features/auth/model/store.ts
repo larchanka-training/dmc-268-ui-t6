@@ -11,6 +11,7 @@ import {
 import { formatAuthCallbackFailure } from '../lib/authCallbackErrors'
 import { endpoints } from '../../../shared/api/endpoints'
 import { GITHUB_CLIENT_ID, isMockMode } from '../../../shared/config/env'
+import { i18n } from '../../../shared/i18n'
 
 export const STATE_STORAGE_KEY = 'dmc_auth_oauth_state'
 export const MOCK_TOKEN = 'mock_jwt_token_skvertl_dmc'
@@ -101,7 +102,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       if (mockCode) {
         window.location.href = `${redirectUri}?code=${mockCode}`
       } else {
-        set({ error: 'Вход не настроен (VITE_GITHUB_CLIENT_ID)' })
+        set({ error: i18n.t('auth.button.notConfigured') })
       }
       return
     }
@@ -150,7 +151,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       if (!savedState || !state || state !== savedState) {
         setAccessToken(null)
-        const errorMsg = 'Недействительный параметр безопасности state (защита от CSRF)'
+        const errorMsg = i18n.t('auth.errors.invalidState')
         set({
           isAuthenticated: false,
           isInitialized: true,

@@ -4,6 +4,7 @@ import type { FC } from 'react'
 
 import { GITHUB_CLIENT_ID, isMockMode } from '../../../shared/config/env'
 import { VITE_MOCKS_BUILD, mocksEnabledAtRuntime } from '../../../shared/config/buildFlags'
+import { useTranslation } from '../../../shared/i18n'
 import { useAuthStore } from '../model/store'
 import { clearAccessRefreshIntent } from '../lib/returnTo'
 
@@ -24,12 +25,13 @@ export const LoginButton: FC<LoginButtonProps> = ({
   const loginWithGitHub = useAuthStore((state) => state.loginWithGitHub)
   const loginAsMockUser = useAuthStore((state) => state.loginAsMockUser)
   const isLoading = useAuthStore((state) => state.isLoading)
+  const { t } = useTranslation()
 
   const isConfigured = Boolean(GITHUB_CLIENT_ID || isMockMode())
 
   const githubBtn = (
     <Button
-      aria-label="Войти через GitHub"
+      aria-label={t('auth.button.github')}
       block={block}
       disabled={!isConfigured}
       icon={<GithubOutlined />}
@@ -41,7 +43,7 @@ export const LoginButton: FC<LoginButtonProps> = ({
       size={size}
       type="primary"
     >
-      Войти через GitHub
+      {t('auth.button.github')}
     </Button>
   )
 
@@ -54,7 +56,7 @@ export const LoginButton: FC<LoginButtonProps> = ({
       wrap={block ? undefined : 'wrap'}
     >
       {!isConfigured ? (
-        <Tooltip title="Вход не настроен (VITE_GITHUB_CLIENT_ID)">
+        <Tooltip title={t('auth.button.notConfigured')}>
           <span>{githubBtn}</span>
         </Tooltip>
       ) : (
@@ -63,13 +65,13 @@ export const LoginButton: FC<LoginButtonProps> = ({
 
       {VITE_MOCKS_BUILD && showDemoLogin && showMockButton ? (
         <Button
-          aria-label="Войти как демо-пользователь"
+          aria-label={t('auth.button.demoLabel')}
           block={block}
           icon={<UserOutlined />}
           onClick={loginAsMockUser}
           size={size}
         >
-          Демо-вход (Mock)
+          {t('auth.button.demo')}
         </Button>
       ) : null}
     </Flex>
