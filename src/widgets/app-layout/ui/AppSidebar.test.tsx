@@ -156,25 +156,30 @@ describe('AppSidebar review navigation', () => {
     expect(link.getAttribute('href')).toBe('https://staging.dmc268-t6.axyi.ru/docs')
     expect(link.getAttribute('target')).toBe('_blank')
     expect(link.getAttribute('rel')).toContain('noreferrer')
-    const labels = screen.getAllByRole('menuitem').map((item) => item.textContent)
-    expect(labels).toContain('Документация')
-    expect(labels.indexOf('Документация')).toBeLessThan(labels.indexOf('Выйти'))
+    expect(link.getAttribute('rel')).toContain('noopener')
+    // Between the theme choice (menuitemradio) and "Выйти", in DOM order.
+    const items = Array.from(
+      document.querySelectorAll('[role="menuitem"], [role="menuitemradio"]'),
+      (item) => item.textContent,
+    )
+    const docs = items.indexOf('Документация')
+    expect(items.indexOf('Тёмная')).toBeLessThan(docs)
+    expect(docs).toBeLessThan(items.indexOf('Выйти'))
   })
 
-  it('opens the docs in a new tab from the keyboard', async () => {
+  it('opens the docs only through the link, never through window.open', async () => {
     vi.mocked(isMockMode).mockReturnValue(false)
     const open = vi.spyOn(window, 'open').mockReturnValue(null)
     renderWithQuery(<AppSidebar currentPath="/runs" onNavigate={vi.fn()} />)
     fireEvent.click(screen.getByLabelText('Меню пользователя'))
     const link = await screen.findByRole('link', { name: 'Документация' })
+    // In a browser the focus sits on the link and Enter activates it natively (one tab).
+    fireEvent.keyDown(link, { key: 'Enter', code: 'Enter', keyCode: 13 })
     const item = link.closest('[role="menuitem"]')
     if (item === null) throw new Error('the docs link is not inside a menu item')
     fireEvent.keyDown(item, { key: 'Enter', code: 'Enter', keyCode: 13 })
-    expect(open).toHaveBeenCalledWith(
-      'https://staging.dmc268-t6.axyi.ru/docs',
-      '_blank',
-      'noopener,noreferrer',
-    )
+    fireEvent.click(link)
+    expect(open).not.toHaveBeenCalled()
     open.mockRestore()
   })
 })
