@@ -1,5 +1,6 @@
 import { RootProvider } from 'fumadocs-ui/provider/next'
 import type { Metadata } from 'next'
+import type { ReactNode } from 'react'
 import '@fontsource-variable/inter'
 import '@fontsource-variable/jetbrains-mono'
 import '../global.css'
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
   icons: { icon: '/favicon.svg' },
 }
 
-export default function Layout({ children }: LayoutProps<'/'>) {
+export default function Layout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className="dark" style={{ colorScheme: 'dark' }} suppressHydrationWarning>
       <body className="flex flex-col min-h-screen">
