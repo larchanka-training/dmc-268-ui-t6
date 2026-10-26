@@ -14,6 +14,7 @@ export default tseslint.config(
       'landing/dist',
       'storybook-static',
       'docs-site/.next',
+      'docs-site/out',
       'docs-site/.source',
       'docs-site/next-env.d.ts',
     ],
