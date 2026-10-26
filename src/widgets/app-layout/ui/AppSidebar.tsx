@@ -9,9 +9,11 @@ import { Button, Layout, type MenuProps } from 'antd'
 import { useEffect, useRef, useState, type FC, type MouseEvent, type ReactNode } from 'react'
 
 import { UserMenu } from '../../../features/auth'
+import { useLanguageStore } from '../../../features/language'
 import { useThemeStore, type ThemePreference } from '../../../features/theme'
 import { mocksEnabledAtRuntime } from '../../../shared/config/buildFlags'
 import { DOCS_URL, isMockMode } from '../../../shared/config/env'
+import { useTranslation, type Language } from '../../../shared/i18n'
 import {
   IconRepositories,
   IconReview,
@@ -29,6 +31,16 @@ const HOME_PATH = '/repositories'
 
 type MenuItem = NonNullable<MenuProps['items']>[number]
 
+/**
+ * The language choice is written the same way in every language, so a user who cannot read the
+ * current one still finds it. These labels are not translated on purpose.
+ */
+const LANGUAGE_GROUP_TITLE = 'Language'
+const LANGUAGE_OPTIONS: readonly { key: Language; label: string }[] = [
+  { key: 'en', label: 'EN' },
+  { key: 'ru', label: 'RU' },
+]
+
 export interface AppSidebarProps {
   currentPath?: string
   onNavigate?: (path: string) => void
@@ -38,6 +50,9 @@ export const AppSidebar: FC<AppSidebarProps> = ({ currentPath = HOME_PATH, onNav
   const [collapsed, setCollapsed] = useState(false)
   const preference = useThemeStore((state) => state.preference)
   const setPreference = useThemeStore((state) => state.setPreference)
+  const language = useLanguageStore((state) => state.language)
+  const setLanguage = useLanguageStore((state) => state.setLanguage)
+  const { t } = useTranslation()
   const foldRef = useRef<HTMLButtonElement | HTMLAnchorElement>(null)
   const unfoldRef = useRef<HTMLButtonElement | HTMLAnchorElement>(null)
   const moveFocus = useRef(false)
@@ -57,10 +72,10 @@ export const AppSidebar: FC<AppSidebarProps> = ({ currentPath = HOME_PATH, onNav
   }
 
   const navItems = [
-    { path: '/repositories', icon: <IconRepositories />, label: 'Репозитории' },
-    { path: '/runs', icon: <IconRuns />, label: 'Прогоны' },
+    { path: '/repositories', icon: <IconRepositories />, label: t('layout.nav.repositories') },
+    { path: '/runs', icon: <IconRuns />, label: t('layout.nav.runs') },
     ...(mocksEnabledAtRuntime(isMockMode)
-      ? [{ path: '/review', icon: <IconReview />, label: 'Ревью' }]
+      ? [{ path: '/review', icon: <IconReview />, label: t('layout.nav.review') }]
       : []),
   ]
 
@@ -76,37 +91,58 @@ export const AppSidebar: FC<AppSidebarProps> = ({ currentPath = HOME_PATH, onNav
     onNavigate(HOME_PATH)
   }
 
-  // The three themes are one radio group: assistive tech hears which one is chosen. The `role`
-  // and `aria-checked` reach the menu item element; the type of an Ant Design item omits them.
-  const themeItem = (key: ThemePreference, icon: ReactNode, label: string): MenuItem => {
+  // Each choice (the three themes, the two languages) is one radio group: assistive tech hears
+  // which item is chosen. The `role` and `aria-checked` reach the menu item element; the type of
+  // an Ant Design item omits them.
+  const radioItem = (
+    key: string,
+    checked: boolean,
+    icon: ReactNode,
+    label: ReactNode,
+    onSelect: () => void,
+  ): MenuItem => {
     const item = {
-      key: `theme-${key}`,
+      key,
       icon,
       role: 'menuitemradio',
-      'aria-checked': preference === key,
+      'aria-checked': checked,
       label: (
         <span className={styles.themeOption}>
           {label}
-          {preference === key ? <CheckOutlined aria-hidden /> : null}
+          {checked ? <CheckOutlined aria-hidden /> : null}
         </span>
       ),
-      onClick: () => {
-        setPreference(key)
-      },
+      onClick: onSelect,
     }
     return item
   }
+
+  const themeItem = (key: ThemePreference, icon: ReactNode, label: string): MenuItem =>
+    radioItem(`theme-${key}`, preference === key, icon, label, () => {
+      setPreference(key)
+    })
+
+  const languageItem = (option: (typeof LANGUAGE_OPTIONS)[number]): MenuItem =>
+    radioItem(`language-${option.key}`, language === option.key, null, option.label, () => {
+      setLanguage(option.key)
+    })
 
   const themeItems: MenuProps['items'] = [
     {
       type: 'group',
       key: 'theme',
-      label: 'Тема',
+      label: t('layout.theme.title'),
       children: [
-        themeItem('system', <DesktopOutlined />, 'Как в системе'),
-        themeItem('light', <SunOutlined />, 'Светлая'),
-        themeItem('dark', <MoonOutlined />, 'Тёмная'),
+        themeItem('system', <DesktopOutlined />, t('layout.theme.system')),
+        themeItem('light', <SunOutlined />, t('layout.theme.light')),
+        themeItem('dark', <MoonOutlined />, t('layout.theme.dark')),
       ],
+    },
+    {
+      type: 'group',
+      key: 'language',
+      label: LANGUAGE_GROUP_TITLE,
+      children: LANGUAGE_OPTIONS.map(languageItem),
     },
     { type: 'divider' },
     {
@@ -116,7 +152,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({ currentPath = HOME_PATH, onNav
       // work natively. No onClick handler, or Enter would open the docs twice (handler + link).
       label: (
         <a href={DOCS_URL} rel="noopener noreferrer" target="_blank">
-          Документация
+          {t('layout.docs')}
         </a>
       ),
     },
@@ -140,7 +176,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({ currentPath = HOME_PATH, onNav
           {collapsed ? (
             // Folded: the mark itself unfolds the sidebar, so the rows below never move.
             <Button
-              aria-label="Развернуть меню"
+              aria-label={t('layout.expandMenu')}
               className={styles.unfold}
               icon={
                 <span className={styles.unfoldMark}>
@@ -165,7 +201,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({ currentPath = HOME_PATH, onNav
                 {BRAND_NAME}
               </a>
               <Button
-                aria-label="Свернуть меню"
+                aria-label={t('layout.collapseMenu')}
                 icon={<IconSidebar />}
                 onClick={() => {
                   fold(true)
@@ -180,7 +216,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({ currentPath = HOME_PATH, onNav
 
         <NavMenu
           items={navItems}
-          label="Разделы"
+          label={t('layout.nav.label')}
           onNavigate={onNavigate}
           selectedPath={selectedPath}
         />

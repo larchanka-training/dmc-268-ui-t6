@@ -1,4 +1,5 @@
 import type { RagIndex } from '../../../entities/repository'
+import { formatDateTime } from '../../../shared/i18n'
 
 export const RAG_LABEL = 'RAG'
 export const RAG_HINT =
@@ -33,11 +34,12 @@ export function shortSha(sha: string): string {
 }
 
 /**
- * `2026-10-14 09:30:15`: the same text as the rules status. The time is UTC and carries no label,
- * like every other time in the app; showing local time app-wide is a separate issue (ui#129).
+ * The same text as the rules status, in the notation of the current language. The time is UTC and
+ * carries no label, like every other time in the app; showing local time app-wide is a separate
+ * issue (ui#129).
  */
 export function formatIndexedAt(iso: string): string {
-  return new Date(iso).toISOString().replace('T', ' ').slice(0, 19)
+  return formatDateTime(iso)
 }
 
 // The api catalog of `lastErrorCode` (`app/modules/code_index/domain/codes.py`, api#228/#242): the

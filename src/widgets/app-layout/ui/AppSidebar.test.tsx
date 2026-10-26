@@ -5,6 +5,7 @@ import type { ReactElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 
 import { useThemeStore } from '../../../features/theme'
+import { i18n, LANGUAGE_STORAGE_KEY } from '../../../shared/i18n'
 import { isMockMode } from '../../../shared/config/env'
 import { AppSidebar } from './AppSidebar'
 
@@ -118,6 +119,9 @@ describe('AppSidebar review navigation', () => {
       ['Как в системе', 'false'],
       ['Светлая', 'true'],
       ['Тёмная', 'false'],
+      // The language group follows the theme group; the suite runs in Russian.
+      ['EN', 'false'],
+      ['RU', 'true'],
     ])
   })
 
@@ -181,5 +185,41 @@ describe('AppSidebar review navigation', () => {
     fireEvent.click(link)
     expect(open).not.toHaveBeenCalled()
     open.mockRestore()
+  })
+})
+
+describe('AppSidebar language switch', () => {
+  it('names the language group and its options in English whatever the current language', async () => {
+    vi.mocked(isMockMode).mockReturnValue(false)
+    renderWithQuery(<AppSidebar currentPath="/runs" onNavigate={vi.fn()} />)
+    fireEvent.click(screen.getByLabelText('Меню пользователя'))
+    expect(await screen.findByText('Language')).toBeTruthy()
+    expect(screen.getByRole('menuitemradio', { name: 'EN' })).toBeTruthy()
+    expect(screen.getByRole('menuitemradio', { name: 'RU' })).toBeTruthy()
+  })
+
+  it('switches the interface to English at once and remembers the choice', async () => {
+    vi.mocked(isMockMode).mockReturnValue(false)
+    localStorage.clear()
+    renderWithQuery(<AppSidebar currentPath="/runs" onNavigate={vi.fn()} />)
+    expect(screen.getByText('Прогоны')).toBeTruthy()
+    fireEvent.click(screen.getByLabelText('Меню пользователя'))
+    fireEvent.click(await screen.findByRole('menuitemradio', { name: 'EN' }))
+    expect(i18n.language).toBe('en')
+    expect(localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe('en')
+    // No reload: the sidebar is already in English.
+    expect(await screen.findByText('Runs')).toBeTruthy()
+    expect(screen.getByText('Repositories')).toBeTruthy()
+    expect(screen.queryByText('Прогоны')).toBeNull()
+    fireEvent.click(screen.getByLabelText('User menu'))
+    expect(
+      (await screen.findByRole('menuitemradio', { name: 'EN' })).getAttribute('aria-checked'),
+    ).toBe('true')
+    expect(screen.getByRole('menuitemradio', { name: 'RU' }).getAttribute('aria-checked')).toBe(
+      'false',
+    )
+    expect(screen.getByText('Theme')).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Documentation' })).toBeTruthy()
+    localStorage.clear()
   })
 })

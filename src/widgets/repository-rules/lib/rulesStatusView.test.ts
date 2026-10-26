@@ -26,7 +26,7 @@ describe('shortSha', () => {
 
 describe('formatCheckedAt', () => {
   it('prints the UTC date and time to the second, with no zone label', () => {
-    expect(formatCheckedAt('2026-10-14T09:30:15.123Z')).toBe('2026-10-14 09:30:15')
+    expect(formatCheckedAt('2026-10-14T09:30:15.123Z')).toBe('14.10.2026, 09:30:15')
   })
 })
 
