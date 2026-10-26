@@ -9,6 +9,7 @@ export default {
     // Tailwind 4 at-rules (@theme, @source, @custom-variant) and Fumadocs overrides.
     'docs-site/app/global.css',
     'docs-site/.next/**',
+    'docs-site/out/**',
   ],
   overrides: [
     // CSS Modules (Ф-13): свои классы читаются как `styles.fileHeader`, поэтому camelCase;
