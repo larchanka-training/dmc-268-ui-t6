@@ -9,15 +9,15 @@ icon: Rocket
 
 ### Sign in
 
-Open the <AppLink /> and click **Sign in with GitHub**. Sign in before you install the app, so
-Reviewer can link the installation to your account.
+Open the <AppLink /> and click **Sign in with GitHub**. If you installed the app before signing
+in, your next sign-in links that installation to your account.
 
 </Step>
 <Step>
 
 ### Install the GitHub App
 
-On **Repositories**, click **Connect repository** and pick the repositories on GitHub. Each one
+On <AppLink path="/repositories">**Repositories**</AppLink>, click **Connect repository** and pick the repositories on GitHub. Each one
 is connected with reviews on, and gets an `ai-review` label.
 
 </Step>
@@ -33,7 +33,8 @@ appear.
 
 ### Add the label
 
-On a pull request in that repository, add the label `ai-review`.
+On a pull request in that repository, add the label `ai-review`. On GitHub, adding labels needs
+triage access or higher.
 
 </Step>
 <Step>
@@ -41,7 +42,8 @@ On a pull request in that repository, add the label `ai-review`.
 ### Get the review
 
 Once CI passes, the Reviewer bot posts its review. If the repository has no CI, it starts about
-two minutes after the label. Follow each step in **Runs** in the dashboard.
+two minutes after the label or the latest push, whichever is later. Follow each step in
+<AppLink path="/runs">**Runs**</AppLink> in the dashboard.
 
 </Step>
 </Steps>

@@ -8,7 +8,7 @@ import { StatusBadge } from '@/components/status-badge'
 
 ## Dashboard
 
-**Runs** lists every reviewed pull request with its [status](/docs/how-it-works#details). Click a
+<AppLink path="/runs">**Runs**</AppLink> lists every reviewed pull request with its [status](/docs/how-it-works#details). Click a
 run to see its steps, the diff with findings, and **Cancel** or **Restart**.
 
 <RunsListMock />
@@ -17,7 +17,7 @@ run to see its steps, the diff with findings, and **Cancel** or **Restart**.
 
 ## Repository settings
 
-In the dashboard, open **Repositories** and click the gear next to a repository. Review rules
+In the dashboard, open <AppLink path="/repositories">**Repositories**</AppLink> and click the gear next to a repository. Review rules
 live in `.review/rules.md` in the repository itself, see [Rules file](/docs/rules-file).
 
 **Automatic review** turns reviews on or off for the repository. Today a pull request still needs
@@ -68,8 +68,9 @@ Python, TypeScript, JavaScript and Go files. Secrets, vendored folders, generate
 `review-ignore` matches are skipped. The index updates after pushes to the default branch. A
 build stops at fixed limits, for example a 100 MiB archive or 15 minutes, and then shows
 **Error**; switch RAG off and on to try again. The index is deleted when you switch RAG off, when
-the repository leaves the installation, and after 30 days without reviews. The next review then
-rebuilds it.
+the repository leaves the installation, and after 30 days without reviews. After the 30 days,
+the next review rebuilds it. After you switch RAG off, switch it on again to rebuild it. A
+repository that comes back to the installation with RAG on rebuilds it by itself.
 
 </Accordion>
 </Accordions>
