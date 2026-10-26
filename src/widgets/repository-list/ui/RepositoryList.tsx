@@ -26,26 +26,19 @@ import type {
   WaitForCi,
 } from '../../../entities/repository'
 import { GITHUB_APP_SLUG, GITHUB_CLIENT_ID, isMockMode } from '../../../shared/config/env'
+import { useTranslation } from '../../../shared/i18n'
 import { safeHttpUrl } from '../../../shared/lib/safeHttpUrl'
 import { DataTable, IconSettings, PageHeader, Segmented, Tag } from '../../../shared/ui'
 import {
-  ACCESS_REFRESH_LOADING_TEXT,
-  ACCESS_REFRESH_TIMEOUT_ACTION_TEXT,
-  ACCESS_REFRESH_TIMEOUT_PROMPT,
+  accessRefreshLoadingText,
+  accessRefreshTimeoutActionText,
+  accessRefreshTimeoutPrompt,
   resolveAccessRefreshPresentation,
 } from '../lib/accessRefreshPresentation'
 import { useViewportAtLeast } from '../lib/useViewportAtLeast'
 import styles from './RepositoryList.module.css'
 
 const { Text, Link } = Typography
-
-const SYNC_ACCESS_TOOLTIP =
-  'Повторная авторизация через GitHub обновит список ваших установок GitHub App. Откроется GitHub, затем вы вернётесь на эту страницу'
-
-const REFRESH_TOOLTIP = 'После добавления репозиториев в установку нажмите «Обновить доступ»'
-
-const APP_INSTALL_TOOLTIP =
-  'После установки GitHub App на новый аккаунт нажмите «Обновить доступ»: откроется GitHub, затем вы вернётесь сюда. Репозиторий может появиться с задержкой до нескольких минут'
 
 /**
  * The window width from which the table shows every column (D16). The full set is 1027.2px wide
@@ -57,9 +50,6 @@ const APP_INSTALL_TOOLTIP =
  */
 const FULL_TABLE_MIN_WIDTH = 1366
 
-const EMPTY_REPOSITORIES_DESCRIPTION =
-  'Репозитории ещё не подключены. После установки GitHub App на новый аккаунт или добавления репозиториев в уже подключённую установку нажмите «Обновить доступ»: откроется GitHub, затем вы вернётесь сюда. Репозиторий может появиться с задержкой до нескольких минут.'
-
 export interface RepositoryListProps {
   repositories: Repository[]
   loading?: boolean
@@ -69,7 +59,7 @@ export interface RepositoryListProps {
   onToggleEnabled?: (id: string, enabled: boolean) => Promise<void> | void
   /**
    * Address of the settings page of a repository. Two links lead to it: the icon button
-   * «Настройки {fullName}» (tooltip «Настроить») and, in a row without GitHub App access, «Нет доступа».
+   * "Settings for {fullName}" (tooltip "Configure") and, in a row without GitHub App access, "No access".
    */
   settingsHref: (repository: Repository) => string
   /**
@@ -95,7 +85,7 @@ interface StatusCellProps {
  * The review of a row: the switch alone, its accessible name says what it is (D16). While the
  * GitHub App has no access to the repository the api serves `enabled: false` whatever was stored
  * (api PR #156, SD §6.9), so the row has no switch (D13): it shows a warning icon and the link
- * «Нет доступа» to the settings page, where the choice lives (D17); the stored preference is
+ * "No access" to the settings page, where the choice lives (D17); the stored preference is
  * write-only and never shown.
  */
 const StatusCell: FC<StatusCellProps> = ({
@@ -106,11 +96,12 @@ const StatusCell: FC<StatusCellProps> = ({
   onSettingsClick,
 }) => {
   const { id, fullName, enabled, installationAvailable } = repository
+  const { t } = useTranslation()
 
   if (installationAvailable) {
     return (
       <Switch
-        aria-label={`Ревью для ${fullName}`}
+        aria-label={t('repositories.reviewFor', { name: fullName })}
         checked={enabled}
         disabled={updating}
         loading={updating}
@@ -123,11 +114,11 @@ const StatusCell: FC<StatusCellProps> = ({
     <Flex align="center" gap={10}>
       <ExclamationCircleFilled aria-hidden="true" className={styles.noAccessIcon} />
       <Link
-        aria-label={`Нет доступа у GitHub App к ${fullName}: открыть настройки`}
+        aria-label={t('repositories.noAccessLabel', { name: fullName })}
         href={settingsHref}
         onClick={onSettingsClick}
       >
-        Нет доступа
+        {t('repositories.noAccess')}
       </Link>
     </Flex>
   )
@@ -149,6 +140,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
     accessRefreshStatus,
     refreshing,
   )
+  const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const [filterActive, setFilterActive] = useState<'all' | 'active'>('all')
   const fullTable = useViewportAtLeast(FULL_TABLE_MIN_WIDTH)
@@ -189,7 +181,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       target="_blank"
       type="primary"
     >
-      Подключить репозиторий
+      {t('repositories.connect')}
     </Button>
   )
 
@@ -202,23 +194,23 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       target="_blank"
       type="primary"
     >
-      Установить GitHub App
+      {t('repositories.installApp')}
     </Button>
   )
 
   const WAIT_FOR_CI_LABEL: Record<WaitForCi, string> = {
-    auto: 'Авто',
-    always: 'Всегда',
-    never: 'Никогда',
+    auto: t('repositories.waitForCi.auto'),
+    always: t('repositories.waitForCi.always'),
+    never: t('repositories.waitForCi.never'),
   }
   // deep (SandboxEngine) is phase 3; the api returns only fast until then.
-  const ENGINE_LABEL: Record<RepositoryEngine, string> = { fast: 'DiffEngine (быстрый)' }
+  const ENGINE_LABEL: Record<RepositoryEngine, string> = { fast: t('repositories.engine.fast') }
   const activeCount = repositories.filter((r) => r.enabled).length
 
   // On a narrow window these four are not columns: the line under the name shows them instead.
   const detailColumns: TableColumnsType<Repository> = [
     {
-      title: 'Ветка',
+      title: t('repositories.columns.branch'),
       dataIndex: 'defaultBranch',
       key: 'defaultBranch',
       render: (branch: string) => (
@@ -228,28 +220,28 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       ),
     },
     {
-      title: 'Движок',
+      title: t('repositories.columns.engine'),
       dataIndex: 'defaultEngine',
       key: 'defaultEngine',
       render: (engine: RepositoryEngine) => <Text type="secondary">{ENGINE_LABEL[engine]}</Text>,
     },
     {
-      title: 'Ожидание CI',
+      title: t('repositories.columns.waitForCi'),
       dataIndex: 'waitForCi',
       key: 'waitForCi',
       render: (wait: WaitForCi) => <Text type="secondary">{WAIT_FOR_CI_LABEL[wait]}</Text>,
     },
     {
-      title: 'Лимит',
+      title: t('repositories.columns.limit'),
       dataIndex: 'maxComments',
       key: 'maxComments',
-      render: (count: number) => <Text>{count} комм.</Text>,
+      render: (count: number) => <Text>{t('repositories.comments', { count })}</Text>,
     },
   ]
 
   const columns: TableColumnsType<Repository> = [
     {
-      title: 'Репозиторий',
+      title: t('repositories.columns.repository'),
       dataIndex: 'fullName',
       key: 'fullName',
       render: (fullName: string, record: Repository) => {
@@ -278,7 +270,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
                 <span aria-hidden="true">·</span>
                 <span>{`CI: ${WAIT_FOR_CI_LABEL[record.waitForCi].toLowerCase()}`}</span>
                 <span aria-hidden="true">·</span>
-                <span>{`лимит ${String(record.maxComments)}`}</span>
+                <span>{t('repositories.limitShort', { count: record.maxComments })}</span>
               </div>
             )}
           </div>
@@ -286,7 +278,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       },
     },
     {
-      title: 'Ревью',
+      title: t('repositories.columns.review'),
       dataIndex: 'enabled',
       key: 'enabled',
       render: (_: boolean, record: Repository) => {
@@ -310,25 +302,29 @@ export const RepositoryList: FC<RepositoryListProps> = ({
     },
     ...(fullTable ? detailColumns : []),
     {
-      title: 'Вердикт',
+      title: t('repositories.columns.verdict'),
       dataIndex: 'reviewEvent',
       key: 'reviewEvent',
       // Plain text: a repository setting is not an alarm, and solid tags are for what needs action.
       render: (event: ReviewEvent) => (
-        <Text>{event === 'REQUEST_CHANGES' ? 'Запрос изменений' : 'Комментарий'}</Text>
+        <Text>
+          {event === 'REQUEST_CHANGES'
+            ? t('repositories.verdict.requestChanges')
+            : t('repositories.verdict.comment')}
+        </Text>
       ),
     },
     {
       title: '',
       key: 'actions',
-      onHeaderCell: () => ({ 'aria-label': 'Настройки' }),
+      onHeaderCell: () => ({ 'aria-label': t('repositories.columns.settings') }),
       align: 'right',
-      // D14: the table scrolls under the column, so «Настроить» is visible at any width.
+      // D14: the table scrolls under the column, so "Configure" is visible at any width.
       fixed: 'right',
       render: (_: unknown, record: Repository) => (
-        <Tooltip title="Настроить" trigger={['hover', 'focus']}>
+        <Tooltip title={t('repositories.configure')} trigger={['hover', 'focus']}>
           <Button
-            aria-label={`Настройки ${record.fullName}`}
+            aria-label={t('repositories.settingsFor', { name: record.fullName })}
             href={settingsHref(record)}
             icon={<IconSettings height={14} width={14} />}
             onClick={(event) => {
@@ -346,39 +342,39 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       <PageHeader
         actions={
           <>
-            <Tooltip title={REFRESH_TOOLTIP}>
+            <Tooltip title={t('repositories.refreshTooltip')}>
               <Button icon={<ReloadOutlined />} loading={refreshing} onClick={onRefresh}>
-                Обновить
+                {t('repositories.refresh')}
               </Button>
             </Tooltip>
             <Tooltip
               title={
                 isSyncConfigured
-                  ? SYNC_ACCESS_TOOLTIP
-                  : 'Обновление доступа недоступно: не задан VITE_GITHUB_CLIENT_ID'
+                  ? t('repositories.refreshAccessTooltip')
+                  : t('repositories.refreshAccessUnavailable')
               }
             >
               <span>
                 <Button disabled={!isSyncConfigured} onClick={onSyncAccess}>
-                  Обновить доступ
+                  {t('repositories.refreshAccess')}
                 </Button>
               </span>
             </Tooltip>
             {!isAppConfigured ? (
-              <Tooltip title="Инсталляция недоступна: не задан VITE_GITHUB_APP_SLUG">
+              <Tooltip title={t('repositories.installUnavailable')}>
                 <span>{connectButton}</span>
               </Tooltip>
             ) : (
-              <Tooltip title={APP_INSTALL_TOOLTIP}>{connectButton}</Tooltip>
+              <Tooltip title={t('repositories.installTooltip')}>{connectButton}</Tooltip>
             )}
           </>
         }
         description={
           repositories.length > 0
-            ? `Подключено: ${String(repositories.length)}, ревью включено в ${String(activeCount)}`
-            : 'Пока ничего не подключено'
+            ? t('repositories.summary', { total: repositories.length, active: activeCount })
+            : t('repositories.summaryEmpty')
         }
-        title="Репозитории"
+        title={t('repositories.title')}
       />
 
       {accessRefreshStatus !== 'idle' ? (
@@ -386,13 +382,13 @@ export const RepositoryList: FC<RepositoryListProps> = ({
           {accessRefreshPresentation.kind === 'loading' ? (
             <span className={styles.accessRefreshLoading}>
               <Spin aria-hidden="true" size="small" />
-              <Text type="secondary">{ACCESS_REFRESH_LOADING_TEXT}</Text>
+              <Text type="secondary">{accessRefreshLoadingText()}</Text>
             </span>
           ) : accessRefreshPresentation.kind === 'timedOut' ? (
             <>
-              <Text type="secondary">{ACCESS_REFRESH_TIMEOUT_PROMPT}</Text>
+              <Text type="secondary">{accessRefreshTimeoutPrompt()}</Text>
               <Button loading={refreshing} onClick={onRefresh} size="small">
-                {ACCESS_REFRESH_TIMEOUT_ACTION_TEXT}
+                {accessRefreshTimeoutActionText()}
               </Button>
             </>
           ) : null}
@@ -402,15 +398,15 @@ export const RepositoryList: FC<RepositoryListProps> = ({
       {repositories.length === 0 && !loading ? (
         <div className={styles.empty}>
           <Empty
-            description={<span className={styles.emptyText}>{EMPTY_REPOSITORIES_DESCRIPTION}</span>}
+            description={<span className={styles.emptyText}>{t('repositories.empty')}</span>}
             image={Empty.PRESENTED_IMAGE_SIMPLE}
           >
             {!isAppConfigured ? (
-              <Tooltip title="Инсталляция недоступна: не задан VITE_GITHUB_APP_SLUG">
+              <Tooltip title={t('repositories.installUnavailable')}>
                 <span>{emptyConnectButton}</span>
               </Tooltip>
             ) : (
-              <Tooltip title={APP_INSTALL_TOOLTIP}>{emptyConnectButton}</Tooltip>
+              <Tooltip title={t('repositories.installTooltip')}>{emptyConnectButton}</Tooltip>
             )}
           </Empty>
         </div>
@@ -423,17 +419,20 @@ export const RepositoryList: FC<RepositoryListProps> = ({
               onChange={(e) => {
                 setSearch(e.target.value)
               }}
-              placeholder="Поиск по названию..."
+              placeholder={t('repositories.searchPlaceholder')}
               prefix={<SearchOutlined />}
               value={search}
             />
 
             <Segmented<'all' | 'active'>
-              aria-label="Фильтр репозиториев"
+              aria-label={t('repositories.filter.label')}
               onChange={setFilterActive}
               options={[
-                { value: 'all', label: `Все (${String(repositories.length)})` },
-                { value: 'active', label: `Активные (${String(activeCount)})` },
+                {
+                  value: 'all',
+                  label: t('repositories.filter.all', { count: repositories.length }),
+                },
+                { value: 'active', label: t('repositories.filter.active', { count: activeCount }) },
               ]}
               value={filterActive}
             />
@@ -443,7 +442,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
             columns={columns}
             dataSource={filteredRepositories}
             loading={loading}
-            locale={{ emptyText: 'Ничего не найдено' }}
+            locale={{ emptyText: t('repositories.nothingFound') }}
             pagination={{ pageSize: 10 }}
             rowKey="id"
             scroll={{ x: 900 }}

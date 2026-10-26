@@ -1,14 +1,16 @@
 import { ZodError } from 'zod'
 
+import { i18n } from '../i18n'
+
 const HTML_LIKE = /<[a-z][\s\S]*>/i
 
 function sanitizeUserFacingText(text: string): string {
   const trimmed = text.trim()
   if (trimmed.length === 0) {
-    return 'Ошибка API'
+    return i18n.t('common.errors.api')
   }
   if (HTML_LIKE.test(trimmed)) {
-    return 'Ошибка API'
+    return i18n.t('common.errors.api')
   }
   return trimmed
 }
@@ -27,7 +29,7 @@ function messageFromDetail(detail: unknown): string | null {
 
 export function formatApiErrorMessage(status: number, statusText: string, data: unknown): string {
   if (data instanceof ZodError) {
-    return 'Ответ сервера не прошёл проверку схемы'
+    return i18n.t('common.errors.schema')
   }
   if (typeof data === 'object' && data !== null && 'detail' in data) {
     const fromDetail = messageFromDetail(data.detail)
@@ -38,5 +40,7 @@ export function formatApiErrorMessage(status: number, statusText: string, data: 
   if (typeof data === 'string' && data.length > 0) {
     return sanitizeUserFacingText(data)
   }
-  return `Ошибка API (${String(status)}${statusText ? `: ${statusText}` : ''})`
+  return statusText
+    ? i18n.t('common.errors.apiWithStatusText', { status, statusText })
+    : i18n.t('common.errors.apiWithStatus', { status })
 }
