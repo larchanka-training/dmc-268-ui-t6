@@ -1,48 +1,49 @@
 import { ZodError } from 'zod'
 
 import { ApiError } from '../../../shared/api/client'
+import { i18n } from '../../../shared/i18n'
 
 export function formatErrorMessage(err: unknown, fallback: string): string {
   if (err instanceof ZodError) {
-    return 'Неожиданный формат данных от сервера. Пожалуйста, обновите страницу.'
+    return i18n.t('common.errors.http.unexpectedFormat')
   }
 
   if (err instanceof ApiError) {
     if (err.status >= 500) {
-      return `Внутренняя ошибка сервера (${String(err.status)}). Повторите попытку позже.`
+      return i18n.t('common.errors.http.server', { status: err.status })
     }
     if (err.status === 400) {
-      return 'Некорректный запрос (400).'
+      return i18n.t('common.errors.http.badRequest')
     }
     if (err.status === 401) {
-      return 'Сессия истекла. Пожалуйста, выполните вход повторно.'
+      return i18n.t('common.errors.http.sessionExpired')
     }
     if (err.status === 403) {
-      return 'Недостаточно прав для выполнения операции.'
+      return i18n.t('common.errors.http.forbidden')
     }
     if (err.status === 404) {
-      return 'Запрашиваемый ресурс не найден.'
+      return i18n.t('common.errors.http.notFound')
     }
     if (err.status === 409) {
-      return 'Конфликт данных (409).'
+      return i18n.t('common.errors.http.conflict')
     }
     if (err.status === 422) {
-      return 'Некорректные параметры запроса (422).'
+      return i18n.t('common.errors.http.unprocessable')
     }
     if (err.status === 429) {
-      return 'Слишком много запросов (429).'
+      return i18n.t('common.errors.http.tooManyRequests')
     }
     if (err.status >= 400 && err.status < 500) {
-      return `Ошибка запроса (${String(err.status)}).`
+      return i18n.t('common.errors.http.client', { status: err.status })
     }
-    return `Ошибка сервера (${String(err.status)}).`
+    return i18n.t('common.errors.http.other', { status: err.status })
   }
 
   if (
     err instanceof TypeError ||
     (err instanceof Error && err.message.toLowerCase().includes('fetch'))
   ) {
-    return 'Ошибка сети. Проверьте подключение к интернету.'
+    return i18n.t('common.errors.http.network')
   }
 
   return fallback

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  ACCESS_REFRESH_LOADING_TEXT,
-  ACCESS_REFRESH_TIMEOUT_ACTION_TEXT,
-  ACCESS_REFRESH_TIMEOUT_PROMPT,
+  accessRefreshLoadingText,
+  accessRefreshTimeoutActionText,
+  accessRefreshTimeoutPrompt,
   resolveAccessRefreshPresentation,
 } from './accessRefreshPresentation'
 
@@ -28,8 +28,8 @@ describe('access refresh presentation', () => {
   })
 
   it('keeps the existing visible Russian copy', () => {
-    expect(ACCESS_REFRESH_LOADING_TEXT).toBe('Загрузка репозиториев')
-    expect(ACCESS_REFRESH_TIMEOUT_PROMPT).toBe('Нужного репозитория нет?')
-    expect(ACCESS_REFRESH_TIMEOUT_ACTION_TEXT).toBe('Обновить список')
+    expect(accessRefreshLoadingText()).toBe('Загрузка репозиториев')
+    expect(accessRefreshTimeoutPrompt()).toBe('Нужного репозитория нет?')
+    expect(accessRefreshTimeoutActionText()).toBe('Обновить список')
   })
 })

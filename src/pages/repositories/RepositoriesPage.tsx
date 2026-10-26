@@ -10,6 +10,7 @@ import {
   type UpdateRepositoryVariables,
 } from '../../entities/repository'
 import { saveAccessRefreshIntent, saveAuthReturnTo, useAuthStore } from '../../features/auth'
+import { useTranslation } from '../../shared/i18n'
 import { RepositoryList, resolveAccessRefreshPresentation } from '../../widgets/repository-list'
 import styles from './RepositoriesPage.module.css'
 import { formatErrorMessage } from './lib/formatError'
@@ -18,6 +19,7 @@ import { useRepositoryAccessRefresh } from './lib/useRepositoryAccessRefresh'
 
 export const RepositoriesPage: FC = () => {
   const { message } = App.useApp()
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const loginWithGitHub = useAuthStore((state) => state.loginWithGitHub)
 
@@ -76,9 +78,11 @@ export const RepositoriesPage: FC = () => {
   const handleToggleEnabled = async (id: string, enabled: boolean) => {
     try {
       await updateMutation.mutateAsync({ id, patch: { enabled } })
-      void message.success(`Статус репозитория обновлен: ${enabled ? 'активен' : 'на паузе'}`)
+      void message.success(
+        enabled ? t('repositories.statusUpdatedActive') : t('repositories.statusUpdatedPaused'),
+      )
     } catch (err) {
-      void message.error(formatErrorMessage(err, 'Не удалось изменить статус репозитория'))
+      void message.error(formatErrorMessage(err, t('repositories.statusUpdateFailed')))
     }
   }
 
@@ -99,12 +103,12 @@ export const RepositoriesPage: FC = () => {
               size="small"
               type="primary"
             >
-              Повторить попытку
+              {t('common.errors.tryAgain')}
             </Button>
           }
-          description={formatErrorMessage(error, 'Не удалось загрузить список репозиториев')}
+          description={formatErrorMessage(error, t('repositories.loadFailed'))}
           showIcon
-          title="Ошибка загрузки данных"
+          title={t('common.errors.loadTitle')}
           type="error"
         />
       ) : null}

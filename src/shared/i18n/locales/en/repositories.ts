@@ -1,0 +1,66 @@
+/** The repositories page and its table. */
+export const repositories = {
+  title: 'Repositories',
+  summary: 'Connected: {{total}}, review on in {{active}}',
+  summaryEmpty: 'Nothing connected yet',
+  refresh: 'Refresh',
+  refreshTooltip: 'After you add repositories to the installation, click "Refresh access"',
+  refreshAccess: 'Refresh access',
+  refreshAccessTooltip:
+    'Signing in with GitHub again updates the list of your GitHub App installations. GitHub opens, then you come back to this page',
+  refreshAccessUnavailable: 'Refreshing access is unavailable: VITE_GITHUB_CLIENT_ID is not set',
+  connect: 'Connect repository',
+  installApp: 'Install GitHub App',
+  installTooltip:
+    'After you install the GitHub App on a new account, click "Refresh access": GitHub opens, then you come back here. A repository can take a few minutes to appear',
+  installUnavailable: 'Installation is unavailable: VITE_GITHUB_APP_SLUG is not set',
+  empty:
+    'No repositories are connected yet. After you install the GitHub App on a new account or add repositories to an existing installation, click "Refresh access": GitHub opens, then you come back here. A repository can take a few minutes to appear.',
+  searchPlaceholder: 'Search by name...',
+  filter: {
+    label: 'Repository filter',
+    all: 'All ({{count}})',
+    active: 'Active ({{count}})',
+  },
+  nothingFound: 'Nothing found',
+  columns: {
+    branch: 'Branch',
+    engine: 'Engine',
+    waitForCi: 'CI waiting',
+    limit: 'Limit',
+    repository: 'Repository',
+    review: 'Review',
+    verdict: 'Verdict',
+    settings: 'Settings',
+  },
+  waitForCi: {
+    auto: 'Auto',
+    always: 'Always',
+    never: 'Never',
+  },
+  engine: {
+    fast: 'DiffEngine (fast)',
+  },
+  comments_one: '{{count}} comment',
+  comments_other: '{{count}} comments',
+  limitShort: 'limit {{count}}',
+  verdict: {
+    requestChanges: 'Request changes',
+    comment: 'Comment',
+  },
+  reviewFor: 'Review for {{name}}',
+  noAccess: 'No access',
+  noAccessLabel: 'The GitHub App has no access to {{name}}: open settings',
+  configure: 'Configure',
+  settingsFor: 'Settings for {{name}}',
+  accessRefresh: {
+    loading: 'Loading repositories',
+    timeoutPrompt: 'Missing a repository?',
+    timeoutAction: 'Refresh the list',
+    timeoutAnnouncement: 'Missing a repository? Refresh the list.',
+  },
+  statusUpdatedActive: 'Repository status updated: active',
+  statusUpdatedPaused: 'Repository status updated: paused',
+  statusUpdateFailed: 'Could not change the repository status',
+  loadFailed: 'Could not load the repository list',
+}
