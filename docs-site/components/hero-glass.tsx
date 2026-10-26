@@ -1,6 +1,6 @@
 'use client'
 
-// Copy of landing/src/components/HeroGlass.tsx (WebGL glass strips), used behind one home variant.
+// Copy of landing/src/components/HeroGlass.tsx (WebGL glass strips), behind the Introduction hero.
 import { useEffect, useRef } from 'react'
 
 import { useReducedMotion } from './use-reduced-motion'
@@ -252,8 +252,8 @@ export function HeroGlass({ textSelector }: { textSelector: string }) {
       if (!raf) raf = requestAnimationFrame(frame)
     }
     // Пока Hero прокручен за пределы экрана, ничего не рисуется
-    const observer = new IntersectionObserver(([entry]) => {
-      visible = entry?.isIntersecting ?? true
+    const observer = new IntersectionObserver((entries) => {
+      visible = entries.at(-1)?.isIntersecting ?? true
       if (visible && !raf) raf = requestAnimationFrame(frame)
     })
 
