@@ -96,3 +96,4 @@ then `docker run --rm -p 8082:8080 dmc-268-docs:local` and open `http://localhos
 (nginx config: `docker/docs/nginx.conf`; staging deploy: `docs/CICD.md` §4.2).
 
 Vercel is used only for preview builds: Root Directory `docs-site`, framework preset Next.js.
+The preview opens only under `/docs` (the base path); the root of the preview URL answers 404.
