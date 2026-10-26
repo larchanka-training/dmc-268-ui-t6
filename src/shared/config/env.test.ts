@@ -39,10 +39,20 @@ describe('parseEnv', () => {
     )
   })
 
-  it.each(['not a url', 'javascript:alert(1)', 'ftp://example.com/docs'])(
-    'throws when VITE_DOCS_URL is not an http(s) url: %s',
+  it.each(['http://localhost:3000/docs', 'https://example.com/docs'])(
+    'accepts an http(s) VITE_DOCS_URL: %s',
     (value) => {
-      expect(() => parseEnv({ VITE_DOCS_URL: value })).toThrow()
+      expect(parseEnv({ VITE_DOCS_URL: value }).VITE_DOCS_URL).toBe(value)
     },
   )
+
+  it.each([
+    'not a url',
+    'javascript:alert(1)',
+    'ftp://example.com/docs',
+    'xhttp://example.com/docs',
+    'httpsx://example.com/docs',
+  ])('throws when VITE_DOCS_URL is not an http(s) url: %s', (value) => {
+    expect(() => parseEnv({ VITE_DOCS_URL: value })).toThrow()
+  })
 })
