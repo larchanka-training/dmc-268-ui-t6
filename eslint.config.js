@@ -7,7 +7,16 @@ import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
   {
-    ignores: ['dist', 'node_modules', 'coverage', 'landing/dist', 'storybook-static', 'docs-site'],
+    ignores: [
+      'dist',
+      'node_modules',
+      'coverage',
+      'landing/dist',
+      'storybook-static',
+      'docs-site/.next',
+      'docs-site/.source',
+      'docs-site/next-env.d.ts',
+    ],
   },
 
   // Исходники приложения: полный type-aware набор.
@@ -109,10 +118,18 @@ export default tseslint.config(
     rules: { 'react-refresh/only-export-components': 'off' },
   },
 
+  // docs-site (Next.js): app/ files export `metadata`, `generateStaticParams` and route handlers
+  // next to components, which Next.js requires and `only-export-components` forbids. Type-aware
+  // rules use docs-site/tsconfig.json, found by projectService as the nearest tsconfig.
+  {
+    files: ['docs-site/app/**/*.{ts,tsx}'],
+    rules: { 'react-refresh/only-export-components': 'off' },
+  },
+
   // Конфиги на JS не входят ни в один TS-проект, поэтому type-aware правила
   // для них выключаются — иначе парсер падает на отсутствии типовой информации.
   {
-    files: ['**/*.js'],
+    files: ['**/*.{js,mjs}'],
     extends: [js.configs.recommended, tseslint.configs.disableTypeChecked],
     languageOptions: { globals: globals.node },
   },

@@ -6,7 +6,9 @@ export default {
     'node_modules/**',
     'landing/dist/**',
     'storybook-static/**',
-    'docs-site/**',
+    // Tailwind 4 at-rules (@theme, @source, @custom-variant) and Fumadocs overrides.
+    'docs-site/app/global.css',
+    'docs-site/.next/**',
   ],
   overrides: [
     // CSS Modules (Ф-13): свои классы читаются как `styles.fileHeader`, поэтому camelCase;
