@@ -66,10 +66,10 @@ The full rule is in [api `docs/CONTRIBUTING.md` §8](https://github.com/larchank
 
 - A PR that changes user-visible behavior updates `content/docs/` in the same PR, or links a
   follow-up issue in the PR body (`Refs`).
-- Core pages index.mdx, how-it-works.mdx and features.mdx change only with an explicit review:
-  the reviewer (tech lead) writes
-  "<page>.mdx read in full". Prefer adding to Roadmap or
-  FAQ, or a status badge, over rewriting a core page.
+- Core pages index.mdx, how-it-works.mdx and features.mdx change only with an explicit review
+  by the tech lead or a participant they appoint: for each changed core page the reviewer
+  writes in Submit review «`<page>.mdx` прочитана целиком». Prefer adding to Roadmap or FAQ,
+  or a status badge, over rewriting a core page.
 
 ## Checks
 
