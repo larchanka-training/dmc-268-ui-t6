@@ -109,15 +109,19 @@ function stageStates(
   attempt: readonly RunAction[],
 ): RunProgressStageState[] {
   const conventionsIndex = attempt.findIndex((action) => action.tool === 'llm.repo_conventions')
-  // Modern logs can have an initial build before conventions and a prompt build afterwards.
-  // Historical context-build-only logs retain their immediate handoff to analysis.
+  const conventions = conventionsIndex === -1 ? undefined : attempt[conventionsIndex]
+  // Modern logs finish context at a non-failed conventions row, written on a cache hit and a miss;
+  // logs from before api#168 part 6 can still fail the prompt build after it, which keeps context
+  // open. Historical context-build-only logs retain their immediate handoff to analysis.
   const hasPolicy = attempt.some((action) => action.tool === 'policy.load')
-  const contextDone = attempt.some(
-    (action, index) =>
-      action.tool === 'context.build' &&
-      !isFailedStep(action) &&
-      (!hasPolicy || (conventionsIndex !== -1 && index > conventionsIndex)),
-  )
+  const contextDone = hasPolicy
+    ? conventions !== undefined &&
+      !isFailedStep(conventions) &&
+      !attempt.some(
+        (action, index) =>
+          action.tool === 'context.build' && isFailedStep(action) && index > conventionsIndex,
+      )
+    : attempt.some((action) => action.tool === 'context.build' && !isFailedStep(action))
   const reachedPublishing = attempt.some((action) => PUBLISHING_MARKERS.has(action.tool))
 
   switch (status) {

@@ -163,7 +163,7 @@ describe('initMockTransport', () => {
       expect(await apiClient<unknown>(endpoints.runs.actions(WALKING_RUN_ID))).toHaveLength(1)
       expect(await apiClient<unknown>(endpoints.runs.comments(WALKING_RUN_ID))).toEqual([])
       vi.advanceTimersByTime(15_000)
-      expect(await apiClient<unknown>(endpoints.runs.actions(WALKING_RUN_ID))).toHaveLength(11)
+      expect(await apiClient<unknown>(endpoints.runs.actions(WALKING_RUN_ID))).toHaveLength(10)
       expect(await apiClient<unknown>(endpoints.runs.comments(WALKING_RUN_ID))).toHaveLength(3)
     })
 

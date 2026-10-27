@@ -1939,15 +1939,17 @@ React, без `innerHTML`.
 Порядок инструментов и этапы согласованы в
 [api#165](https://github.com/larchanka-training/dmc-268-api-t6/issues/165#issuecomment-6239860269);
 [слитый api PR #194](https://github.com/larchanka-training/dmc-268-api-t6/pull/194)
-зафиксировал этот порядок. Текущая попытка выполняется так:
+зафиксировал этот порядок. Попытка выполняется так:
 
 `policy.load → [vcs.fetch_diff] → context.build → [llm.call за conventions…] →
-llm.repo_conventions → context.build → llm.call за review… → llm.review_output,
+llm.repo_conventions → [context.build] → llm.call за review… → llm.review_output,
 review.postprocess → github.publish_review | gitlab.publish_review`.
 
 Квадратные скобки обозначают условные шаги: fetch отсутствует при готовом снимке диффа, вызовы
-conventions — при попадании в кэш. Первый `context.build` временный: после его удаления в api#168,
-часть 6, тот же UI поддерживает канонический порядок с одним build после `llm.repo_conventions`.
+conventions — при попадании в кэш. Второй, prompt `context.build` после `llm.repo_conventions`
+API перестаёт писать в api#168, часть 6 (api#130 F3): остаётся запись стадии контекста до
+conventions. Старые журналы с двумя build и канонический порядок с одним build после
+`llm.repo_conventions` UI читает по тому же правилу (ui#197).
 
 Базовая классификация известных `tool` журнала `/actions` (`RunActionSchema.tool` остаётся
 `z.string()`), которую историческая эвристика использует для сравнения этапов:
@@ -1966,7 +1968,7 @@ conventions — при попадании в кэш. Первый `context.build
 `publishing`, поэтому они, как и оба provider publish tool, подтверждают достижение публикации.
 
 В современной попытке conventions-вызовы `llm.call` остаются сбором контекста; анализ начинается
-после успешного prompt `context.build` за `llm.repo_conventions`. `llm.call.request.kind` —
+после успешного `llm.repo_conventions`. `llm.call.request.kind` —
 `primary | retry | repair | fallback`, а не назначение вызова. Этот бар не требует нового поля
 назначения и не выводит фазу из `kind`.
 
@@ -1983,21 +1985,27 @@ conventions — при попадании в кэш. Первый `context.build
 | `skipped` (бара нет, `runProgress` → `null`) | —                    | —                    | —                    |
 
 Готовность контекста для `running`: в современной попытке с `policy.load` нужен успешный
-`context.build` **после** `llm.repo_conventions`. Первый временный build и conventions-вызовы LLM
-сами по себе не переводят бар на анализ. Успех — `response` не является объектом с ключом `error`
-(так API пишет упавший шаг, `run_trace`); `null` тоже не ошибка. У исторических журналов без policy
-сохраняется прежний переход на анализ после успешного build, включая старые build-only фикстуры.
+`llm.repo_conventions` (API пишет его и при попадании в кэш, и при промахе), и после него нет
+упавшего `context.build`. Build стадии до conventions и conventions-вызовы LLM сами по себе не
+переводят бар на анализ, упавший `llm.repo_conventions` тоже. Успех — `response` не является
+объектом с ключом `error` (так API пишет упавший шаг, `run_trace`); `null` тоже не ошибка. У
+исторических журналов без policy сохраняется прежний переход на анализ после успешного build,
+включая старые build-only фикстуры.
 
 Остановка (`failed`, `cancelled`): при свидетельстве публикации остановлен `publishing`;
 иначе при готовом контексте — `analysis`, без него — `context`. Упавший prompt `context.build`
-не делает контекст готовым, даже если временный первый build прошёл успешно. Ошибка первого
-временного build, если она не policy/fatal, записывается и допускает продолжение: последующий
-успешный prompt build переводит бар на анализ. `traced_step` сохраняет завершение и ошибку
-`context.build`; best-effort относится к `llm.call`, а не к этому build.
+старого журнала оставляет контекст неготовым, хотя `llm.repo_conventions` перед ним успешен.
+Упавший build стадии до conventions контекст не закрывает, но и не блокирует: если попытка
+продолжилась, успешный `llm.repo_conventions` переводит бар на анализ. `traced_step` сохраняет
+завершение и ошибку `context.build`; best-effort относится к `llm.call`, а не к этому build.
 
-Успешный prompt build перед первой review-строкой уже передаёт управление анализу, в том числе
-при последующем `failed`/`cancelled`: строка `llm.call` появляется после завершения вызова, поэтому
-при остановке во время вызова последним записанным действием может остаться prompt build.
+Успешный `llm.repo_conventions` перед первой review-строкой уже передаёт управление анализу, в том
+числе при последующем `failed`/`cancelled`: строка `llm.call` появляется после завершения вызова,
+поэтому при остановке во время вызова последним записанным действием может остаться conventions.
+Для старого журнала с двумя build это единственное отличие от прежнего правила: журнал, который
+кончается между `llm.repo_conventions` и prompt build, уже показывает анализ — `process` в
+`running`, `error` или `stopped` при остановке. Такой префикс неотличим от журнала после api#168,
+часть 6.
 Этапы до остановки — `finish`, после — `wait`, сам этап — `error` (`failed`) или `stopped`
 (`cancelled`); только он получает `run.errorCode`.
 
@@ -2084,7 +2092,8 @@ checkpoint или ошибка до входа в `traced_step` могут ос�
   подтверждающего текущего `llm.call` может быть неотличим от старого. Пока такого вызова нет,
   либо его best-effort trace потерян, модель консервативно остаётся на контексте и может позже
   показать анализ. В частности, call-free префикс с кэшированными conventions не устраняет этот
-  дефицит даже после prompt build. Универсального точного восстановления попытки эти поля не дают.
+  дефицит даже после успешного `llm.repo_conventions`. Универсального точного восстановления попытки
+  эти поля не дают.
 - Старый журнал без policy-маркеров использует эвристику и сохраняет её неоднозначности при ретрае;
   `run.attempt` не превращает такой журнал в надёжно размеченный. `RunSession.startedAt` хранит
   первый захват, а не последний. Сравнение времён и publish `request.try` не заменяют policy-границу.
@@ -2143,11 +2152,11 @@ checkpoint или ошибка до входа в `traced_step` могут ос�
 
 - **Идущий прогон** `11111111-1111-4111-8111-000000000011` (PR #41): чистая `walkingRunAt(elapsedMs, originMs?)`
   → `{ session, actions }`. Шкала: `queued` до 2 с; `running` с 2 с, по новому действию каждые 1,5 с —
-  `policy.load` (2 с), `vcs.fetch_diff` (3,5 с), первый `context.build` (5 с), conventions `llm.call`
-  (6,5 с), `llm.repo_conventions` (8 с), prompt `context.build` (9,5 с), review `llm.call` (11 и 12,5 с).
-  Бар остаётся на контексте через первый build и conventions, в 9,5 с переходит на анализ.
-  `publishing` с 14 с: одновременно появляются `llm.review_output` и `review.postprocess`;
-  `github.publish_review` в 15,5 с; `succeeded` с 17 с, всего 11 действий. LLM-запросы используют
+  `policy.load` (2 с), `vcs.fetch_diff` (3,5 с), `context.build` (5 с), conventions `llm.call`
+  (6,5 с), `llm.repo_conventions` (8 с), review `llm.call` (9,5 и 11 с) — журнал после api#168, часть 6.
+  Бар остаётся на контексте через build и conventions-вызов, в 8 с переходит на анализ.
+  `publishing` с 12,5 с: одновременно появляются `llm.review_output` и `review.postprocess`;
+  `github.publish_review` в 14 с; `succeeded` с 15,5 с, всего 10 действий. LLM-запросы используют
   `kind: 'primary'`, `attempt: 1`; отдельного дискриминатора назначения вызова нет.
   `finishedAt` задан только у терминального, `actionCount = actions.length`,
   `attempt: 1`, `trigger: 'webhook'`, `createdAt` — начало шкалы (раньше `startedAt` на 2 с очереди).
@@ -2160,9 +2169,9 @@ checkpoint или ошибка до входа в `traced_step` могут ос�
   `succeeded`, затем — 8 демо-находок и вердикт `blocking`. **Комментарии ревью** — `[]` до `succeeded`,
   затем 3 демо-комментария: до публикации инлайн-комментариев быть не должно.
 - **Упавший прогон** `11111111-1111-4111-8111-000000000012` (PR #42), статичный: `failed`,
-  `errorCode: 'llm_timeout'`, шесть действий: `policy.load`, `vcs.fetch_diff`, первый `context.build`,
-  кэшированный `llm.repo_conventions`, prompt `context.build`, review `llm.call` с `response.error`.
-  Действия начинаются каждые 15 с от 10:00:00 до 10:01:15; завершение в 10:01:30 остаётся позже
+  `errorCode: 'llm_timeout'`, пять действий: `policy.load`, `vcs.fetch_diff`, `context.build`,
+  кэшированный `llm.repo_conventions`, review `llm.call` с `response.error`.
+  Действия начинаются каждые 15 с от 10:00:00 до 10:01:00; завершение в 10:01:30 остаётся позже
   последнего действия с его длительностью. Бар — `finish` / `error` / `wait`, код только на анализе.
   `trigger: 'webhook'`, `createdAt` за минуту до `startedAt`, как у остальных мок-прогонов (#96).
   Комментариев нет.

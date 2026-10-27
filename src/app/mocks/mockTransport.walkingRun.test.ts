@@ -86,20 +86,19 @@ describe('the walking run in the mock transport', () => {
       'wait',
     ])
 
-    await vi.advanceTimersByTimeAsync(3000)
-    const promptReady = await detail(WALKING_ID)
-    const promptLog = await actions(WALKING_ID)
-    expect(promptReady.status).toBe('running')
-    expect(promptReady.actionCount).toBe(6)
-    expect(promptLog.map((action) => action.tool)).toEqual([
+    await vi.advanceTimersByTimeAsync(1500)
+    const contextReady = await detail(WALKING_ID)
+    const contextLog = await actions(WALKING_ID)
+    expect(contextReady.status).toBe('running')
+    expect(contextReady.actionCount).toBe(5)
+    expect(contextLog.map((action) => action.tool)).toEqual([
       'policy.load',
       'vcs.fetch_diff',
       'context.build',
       'llm.call',
       'llm.repo_conventions',
-      'context.build',
     ])
-    expect(runProgress(promptReady, promptLog)?.map((stage) => stage.state)).toEqual([
+    expect(runProgress(contextReady, contextLog)?.map((stage) => stage.state)).toEqual([
       'finish',
       'process',
       'wait',
@@ -188,10 +187,9 @@ describe('the failed run in the mock transport', () => {
       'vcs.fetch_diff',
       'context.build',
       'llm.repo_conventions',
-      'context.build',
       'llm.call',
     ])
-    expect(log[5]?.response).toHaveProperty('error')
+    expect(log[4]?.response).toHaveProperty('error')
 
     const diff = await apiClient<unknown[]>(endpoints.runs.diff(FAILED_ID))
     expect(diff.length).toBeGreaterThan(0)
@@ -201,7 +199,7 @@ describe('the failed run in the mock transport', () => {
   it('does not change over time', async () => {
     await vi.advanceTimersByTimeAsync(60_000)
     expect((await detail(FAILED_ID)).status).toBe('failed')
-    expect(await actions(FAILED_ID)).toHaveLength(6)
+    expect(await actions(FAILED_ID)).toHaveLength(5)
   })
 })
 
