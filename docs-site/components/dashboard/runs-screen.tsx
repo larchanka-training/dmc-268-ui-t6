@@ -3,6 +3,7 @@
 /* The runs list, after src/pages/runs/RunsPage.tsx. */
 import { Button, Flex, Typography } from 'antd'
 import { ReloadOutlined } from '@ant-design/icons'
+import { VCS_PROVIDER_LABEL, type VcsProvider } from '../../../src/shared/model/provider'
 import { DataTable, PageHeader, Tag, type TagProps } from '../../../src/shared/ui'
 import styles from '../../../src/pages/runs/RunsPage.module.css'
 import { AppShell } from './app-shell'
@@ -27,26 +28,76 @@ interface Row {
   id: number
   title: string
   repo: string
+  provider: VcsProvider
   status: Status
   summaryOnly?: boolean
 }
 
 const ROWS: Row[] = [
-  { id: 142, title: 'feat: add user lookup endpoint', repo: 'acme/api', status: 'running' },
-  { id: 141, title: 'fix: close the db session on cancel', repo: 'acme/api', status: 'succeeded' },
-  { id: 140, title: 'feat: add rate limiting', repo: 'acme/api', status: 'publishing' },
-  { id: 139, title: 'refactor: split the webhook handler', repo: 'acme/api', status: 'failed' },
-  { id: 58, title: 'feat: paginate the runs list', repo: 'acme/web', status: 'succeeded' },
-  { id: 57, title: 'chore: bump dependencies', repo: 'acme/web', status: 'cancelled' },
+  {
+    id: 142,
+    title: 'feat: add user lookup endpoint',
+    repo: 'acme/api',
+    provider: 'github',
+    status: 'running',
+  },
+  {
+    id: 141,
+    title: 'fix: close the db session on cancel',
+    repo: 'acme/api',
+    provider: 'github',
+    status: 'succeeded',
+  },
+  {
+    id: 140,
+    title: 'feat: add rate limiting',
+    repo: 'acme/platform',
+    provider: 'gitlab',
+    status: 'publishing',
+  },
+  {
+    id: 139,
+    title: 'refactor: split the webhook handler',
+    repo: 'acme/private',
+    provider: 'bitbucket',
+    status: 'failed',
+  },
+  {
+    id: 58,
+    title: 'feat: paginate the runs list',
+    repo: 'acme/web',
+    provider: 'github',
+    status: 'succeeded',
+  },
+  {
+    id: 57,
+    title: 'chore: bump dependencies',
+    repo: 'acme/web',
+    provider: 'github',
+    status: 'cancelled',
+  },
   {
     id: 56,
     title: 'feat: large cross-cutting refactor',
     repo: 'acme/web',
+    provider: 'github',
     status: 'succeeded',
     summaryOnly: true,
   },
-  { id: 55, title: 'docs: update the readme', repo: 'acme/web', status: 'skipped' },
-  { id: 138, title: 'feat: queue retries with backoff', repo: 'acme/api', status: 'queued' },
+  {
+    id: 55,
+    title: 'docs: update the readme',
+    repo: 'acme/web',
+    provider: 'github',
+    status: 'skipped',
+  },
+  {
+    id: 138,
+    title: 'feat: queue retries with backoff',
+    repo: 'acme/api',
+    provider: 'github',
+    status: 'queued',
+  },
 ]
 
 export function RunsScreen() {
@@ -70,6 +121,11 @@ export function RunsScreen() {
             ),
           },
           { title: 'Repository', dataIndex: 'repo', key: 'repo' },
+          {
+            title: 'Source',
+            key: 'provider',
+            render: (_, run) => VCS_PROVIDER_LABEL[run.provider],
+          },
           {
             title: 'Review status',
             key: 'status',

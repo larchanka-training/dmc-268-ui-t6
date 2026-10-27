@@ -10,15 +10,15 @@ import styles from './AutoReviewSwitch.module.css'
 const { Text } = Typography
 
 export interface AutoReviewSwitchProps {
-  provider?: VcsProvider
+  provider: VcsProvider
   /**
    * What the server says: `enabled AND installationAvailable` (api PR #156, SD §6.9). The switch
-   * only shows it: the page owns the data. While the GitHub App cannot reach the repository it
+   * only shows it: the page owns the data. While the provider cannot reach the repository it
    * reads `false` whatever the user chose, and the choice is write-only.
    */
   enabled: boolean
   /**
-   * `false`: the GitHub App cannot reach the repository. The switch is disabled then and reads
+   * `false`: the provider cannot reach the repository. The switch is disabled then and reads
    * off, whatever `enabled` says (the optimistic update of `useUpdateRepository` keeps it off
    * too, this is the second guard); the warning carries the two choices instead (D9): the stored
    * preference cannot be read, so it is never shown.
@@ -64,7 +64,7 @@ function trackChoiceButton(
  * of the warning, which both turn disabled while one of them saves.
  */
 export const AutoReviewSwitch: FC<AutoReviewSwitchProps> = ({
-  provider = 'github',
+  provider,
   enabled,
   installationAvailable,
   onChange,

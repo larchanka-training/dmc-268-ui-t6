@@ -21,13 +21,13 @@ import styles from './RagSection.module.css'
 const { Text } = Typography
 
 export interface RagSectionProps {
-  provider?: VcsProvider
+  provider: VcsProvider
   /** `ragEnabled` of the repository, as the cache holds it (the optimistic update flips it first). */
   ragEnabled: boolean
   /** The read-only state of the index (api#145). */
   ragIndex: RagIndex
   /**
-   * `false`: the GitHub App cannot reach the repository. The switch is disabled then and reads
+   * `false`: the provider cannot reach the repository. The switch is disabled then and reads
    * off, whatever `ragEnabled` says (the server masks it the same way, this is the second guard),
    * and the status reads "Off".
    */
@@ -63,7 +63,7 @@ const Reason: FC<{ reason: NonNullable<RagIndexView['reason']> }> = ({ reason })
  * had it at the click and the user has not moved on.
  */
 export const RagSection: FC<RagSectionProps> = ({
-  provider = 'github',
+  provider,
   ragEnabled,
   ragIndex,
   installationAvailable,

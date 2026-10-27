@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
+
+import type { VcsProvider } from '../../../shared/model/provider'
 
 import { AutoReviewSwitch, type AutoReviewSwitchProps } from './AutoReviewSwitch'
 
@@ -18,6 +20,7 @@ type OnChange = (enabled: boolean) => Promise<void>
 function element(onChange: OnChange, props: Partial<AutoReviewSwitchProps> = {}) {
   return (
     <AutoReviewSwitch
+      provider="github"
       describeError={(error) => `Ошибка: ${error instanceof Error ? error.message : 'неизвестно'}`}
       enabled={false}
       installationAvailable={false}
@@ -76,6 +79,19 @@ afterEach(() => {
 })
 
 describe('AutoReviewSwitch: GitHub App has no access', () => {
+  it('requires the repository provider', () => {
+    expectTypeOf<AutoReviewSwitchProps>().toExtend<{ provider: VcsProvider }>()
+  })
+
+  it.each([
+    ['gitlab', 'GitLab'],
+    ['bitbucket', 'Bitbucket Cloud'],
+  ] as const)('names %s when repository access is unavailable', (provider, access) => {
+    renderSwitch({ provider })
+    expect(screen.getByText(new RegExp(`У ${access} нет доступа к этому репозиторию`))).toBeTruthy()
+    expect(screen.queryByText(WARNING_TEXT)).toBeNull()
+  })
+
   it('disables the switch and shows the server value, off', () => {
     renderSwitch({ enabled: false, installationAvailable: false })
 

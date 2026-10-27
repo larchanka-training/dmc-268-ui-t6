@@ -591,9 +591,23 @@ describe('RepositoryList', () => {
     render(<RepositoryList settingsHref={settingsHref} onSyncAccess={vi.fn()} repositories={[]} />)
     expect(
       screen.getByText(
-        'Репозитории ещё не подключены. После установки GitHub App на новый аккаунт или добавления репозиториев в уже подключённую установку нажмите «Обновить доступ»: откроется GitHub, затем вы вернётесь сюда. Репозиторий может появиться с задержкой до нескольких минут.',
+        'Репозитории ещё не подключены. Для GitHub установите GitHub App или добавьте репозитории в существующую установку, затем нажмите «Обновить доступ». Для Bitbucket Cloud используйте блок «Bitbucket Cloud» ниже.',
       ),
     ).toBeDefined()
+  })
+
+  it('names the GitHub App action truthfully even when Bitbucket can also be connected', () => {
+    mockSlug = 'test-bot'
+    render(
+      <RepositoryList
+        settingsHref={settingsHref}
+        onSyncAccess={vi.fn()}
+        repositories={mockRepos}
+      />,
+    )
+    const link = screen.getByRole('link', { name: /подключить github-репозиторий/i })
+    expect(link.getAttribute('href')).toBe('https://github.com/apps/test-bot/installations/new')
+    expect(screen.queryByRole('link', { name: 'Подключить репозиторий' })).toBeNull()
   })
 
   it('displays tooltip on hover over "Обновить доступ"', async () => {
@@ -639,7 +653,7 @@ describe('RepositoryList', () => {
         repositories={mockRepos}
       />,
     )
-    const connectBtn = screen.getByRole('link', { name: /подключить репозиторий/i })
+    const connectBtn = screen.getByRole('link', { name: /подключить github-репозиторий/i })
     fireEvent.mouseEnter(connectBtn)
     expect(
       await screen.findByText(

@@ -65,9 +65,13 @@ export type BitbucketConnectionItem = z.infer<typeof BitbucketConnectionItemSche
 
 export const BitbucketConnectionListSchema = z.object({
   connections: z.array(BitbucketConnectionItemSchema),
-  nextCursor: z.string().nullable(),
+  nextCursor: z.null(),
 })
 export type BitbucketConnectionList = z.infer<typeof BitbucketConnectionListSchema>
+
+export const BitbucketCredentialRotateRequestSchema = z.object({
+  apiToken: z.string().min(1),
+})
 
 export const BitbucketCredentialRotateResponseSchema = z.object({
   id: UuidSchema,

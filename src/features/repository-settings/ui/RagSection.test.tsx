@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
+
+import type { VcsProvider } from '../../../shared/model/provider'
 
 import { disabledRagIndex, type RagIndex } from '../../../entities/repository'
 import { ragPollTimedOutText } from '../lib/ragIndexView'
@@ -27,6 +29,7 @@ type OnChange = (ragEnabled: boolean) => Promise<void>
 function element(onChange: OnChange, props: Partial<RagSectionProps> = {}) {
   return (
     <RagSection
+      provider="github"
       describeError={(error) => `Ошибка: ${error instanceof Error ? error.message : 'неизвестно'}`}
       installationAvailable={true}
       onChange={onChange}
@@ -257,6 +260,26 @@ describe('RagSection: the hint', () => {
 })
 
 describe('RagSection: GitHub App has no access', () => {
+  it('requires the repository provider', () => {
+    expectTypeOf<RagSectionProps>().toExtend<{ provider: VcsProvider }>()
+  })
+
+  it.each([
+    ['gitlab', 'GitLab'],
+    ['bitbucket', 'Bitbucket Cloud'],
+  ] as const)('names %s in no-access and rate-limit explanations', (provider, access) => {
+    const { rerenderWith } = renderSection({ provider, installationAvailable: false })
+    expect(screen.getByText(`Нет доступа ${access} — RAG недоступен`)).toBeTruthy()
+    rerenderWith({
+      provider,
+      installationAvailable: true,
+      ragEnabled: true,
+      ragIndex: { ...READY_INDEX, lastErrorCode: 'vcs_rate_limited' },
+    })
+    expect(statusLine().textContent).toContain(`${access} ограничил число запросов`)
+    expect(statusLine().textContent).not.toContain('GitHub ограничил число запросов')
+  })
+
   it('shows the switch off and disabled, says why, and reports the index as «Выключен»', () => {
     renderSection({ installationAvailable: false })
 

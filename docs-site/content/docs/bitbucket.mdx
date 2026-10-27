@@ -4,7 +4,7 @@ description: Connect a repository, configure its webhook, and read its reviews.
 icon: GitPullRequest
 ---
 
-Use a Bitbucket Cloud repository that you can access, including a private one. You also need membership in the portal workspace where you want it to appear. Repository webhooks are configured manually, so you need permission to manage that repository's webhooks in Bitbucket.
+Sign in to the Reviewer portal with GitHub. This identifies your portal account. The available portal workspaces come from GitHub App installations connected to the portal; you need membership in the one where the Bitbucket repository should appear. The Bitbucket repository itself does not need a GitHub App installation. You need access to that repository, including if it is private. Repository webhooks are configured manually, so you also need permission to manage that repository's webhooks in Bitbucket.
 
 <Steps>
 <Step>
@@ -18,23 +18,25 @@ Create a scoped [Atlassian API token](https://support.atlassian.com/bitbucket-cl
 
 ### Connect the repository
 
-Open <AppLink path="/repositories">**Repositories**</AppLink> and choose the **portal workspace** explicitly in the Bitbucket Cloud panel. Enter the Bitbucket workspace slug and API token, then choose **Find repositories** («Найти репозитории»). Select the repository, including a private one, and choose **Connect** («Подключить»). The repository appears in the common list for members of that portal workspace.
+Open <AppLink path="/repositories">**Repositories**</AppLink> («Репозитории»). In the **Bitbucket Cloud** panel, choose **Portal workspace** («Выберите workspace») from the workspaces available to your portal account. Enter the **Bitbucket workspace** slug and **API token**, then choose **Find repositories** («Найти репозитории»). Find the repository in the result, including one marked «приватный», and choose its `Подключить {slug}` button. It appears in the common repository list for members of the selected portal workspace. A second repository in the same Bitbucket workspace uses the same API token; use **Update API token** («Обновить API token») to replace the shared credential deliberately.
 
 </Step>
 <Step>
 
 ### Configure the repository webhook
 
-The portal shows a webhook URL, event list and secret **once**. In that repository's Bitbucket settings, add a webhook with the shown URL and secret. Subscribe to `repo:push`, `pullrequest:created` and `pullrequest:updated`. Keep the secret in Bitbucket's webhook settings or a protected secret store; it is not available from the portal later. The portal shows **Awaiting webhook** until it receives the first valid signed delivery for that repository, then **Webhook active**.
+The portal shows **Webhook URL**, **События** and **Webhook secret** in a setup card. Copy them before closing the card or switching portal workspaces: the secret is shown only once and cannot be retrieved later. In that repository's Bitbucket settings, add a webhook with the shown URL and secret. Subscribe to `repo:push`, `pullrequest:created` and `pullrequest:updated`. Keep the secret in Bitbucket's webhook settings or a protected secret store; keep it out of screenshots. The portal shows **Awaiting webhook** («Ожидает webhook») until the first valid signed delivery for that repository, then **Webhook active** («Webhook активен»).
+
+If you reconnect an already connected repository, the portal does not show its old secret again. Choose **New webhook secret** («Новый webhook secret») for that repository to issue a replacement, update the webhook in Bitbucket, and discard the old secret. Other repositories keep their own webhook secrets.
 
 </Step>
 <Step>
 
 ### Review and disconnect
 
-Open a pull request, then follow the review in <AppLink path="/runs">**Runs**</AppLink>. Findings appear as inline Bitbucket comments, with one summary and a commit status for the reviewed head. Suggested patches currently appear as **comment text for manual application**; the public REST comment contract has not established a native, one-click suggestion field. A real pull request capability check is still pending.
+Open a pull request, then follow the review in <AppLink path="/runs">**Runs**</AppLink> («Прогоны»). A Bitbucket repository starts review without waiting for CI: its **Ожидание CI** setting is **Никогда**. The read-only **Публикация вердикта** field shows **Комментарии и статус коммита**. The reviewer posts findings as inline Bitbucket comments, one summary, and a separate commit status for the reviewed head. It cannot request changes through a GitHub-style review event. Suggested patches appear as **comment text for manual application**; the portal does not offer one-click application in Bitbucket.
 
-To stop one repository, choose **Disconnect** («Отключить») on its connection and remove that repository's webhook in Bitbucket. Other repositories under the same connection remain active. Replacing the shared API token is an explicit **Update API token** action. If you rotate a repository's webhook secret, update that webhook in Bitbucket using the new one-time secret.
+To stop one repository, choose its `Отключить {workspace}/{repository}` button, confirm the named portal workspace and repository, and remove that repository's webhook in Bitbucket. Other repositories under the same connection remain active. Replacing the shared API token is an explicit **Update API token** («Обновить API token») action. If you rotate a repository's webhook secret, update its webhook in Bitbucket using the new one-time secret.
 
 </Step>
 </Steps>

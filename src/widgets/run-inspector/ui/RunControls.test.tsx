@@ -97,6 +97,26 @@ describe('RunControls', () => {
     })
   })
 
+  it.each([
+    ['gitlab', 'GitLab недоступен'],
+    ['bitbucket', 'Bitbucket Cloud недоступен'],
+  ] as const)('shows %s access cause from run provider for rerun 409', async (provider, cause) => {
+    mockRerunMutate.mockImplementation(
+      (_vars: undefined, options?: { onError?: (error: unknown) => void }) => {
+        options?.onError?.(new ApiError(409, 'Conflict', { detail: 'raw internal detail' }))
+      },
+    )
+
+    renderControlsFor({ ...terminalRun, provider })
+    fireEvent.click(screen.getByText('Перезапустить'))
+
+    await waitFor(() => {
+      expect(screen.getByText(new RegExp(cause))).toBeTruthy()
+    })
+    expect(screen.queryByText(/GitHub App недоступна/)).toBeNull()
+    expect(screen.queryByText(/raw internal detail/)).toBeNull()
+  })
+
   it('shows the generic fallback for an unexpected cancel 409 via antd message', async () => {
     mockCancelMutate.mockImplementation(
       (_vars: undefined, options?: { onError?: (error: unknown) => void }) => {

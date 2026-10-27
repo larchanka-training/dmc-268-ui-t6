@@ -1,5 +1,5 @@
 import { Alert, App, Button, Flex, Input, Select, Typography } from 'antd'
-import { useRef, useState, type FC } from 'react'
+import { useLayoutEffect, useRef, useState, type FC } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
 import type { Workspace } from '../../../entities/user'
@@ -14,7 +14,9 @@ import {
   rotateBitbucketWebhookSecret,
   useBitbucketConnections,
 } from '../api'
+import { bitbucketErrorMessage } from '../lib/bitbucketErrorMessage'
 import type { BitbucketDiscoveredRepository, BitbucketWebhookSetup } from '../model/schemas'
+import styles from './BitbucketConnectionsPanel.module.css'
 
 const { Text, Title } = Typography
 
@@ -22,28 +24,149 @@ export interface BitbucketConnectionsPanelProps {
   workspaces: Workspace[]
 }
 
-function errorText(error: unknown): string {
-  return error instanceof Error ? error.message : 'Не удалось выполнить операцию Bitbucket'
+interface WebhookSetupEntry {
+  id: number
+  repositoryId: string
+  repositoryName: string
+  setup: BitbucketWebhookSetup
+  superseded: boolean
+  disconnected: boolean
+}
+
+type FocusTarget =
+  | { kind: 'workspace' }
+  | { kind: 'setup'; id: number }
+  | { kind: 'connect' | 'credential' | 'hook' | 'disconnect'; repositoryId: string }
+  | { kind: 'credential-submit' }
+
+interface FocusRequest {
+  epoch: number
+  from: HTMLElement
+  target: FocusTarget
 }
 
 export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ workspaces }) => {
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
   const queryClient = useQueryClient()
   const [workspaceId, setWorkspaceId] = useState<string | null>(null)
   const [bitbucketWorkspace, setBitbucketWorkspace] = useState('')
   const [apiToken, setApiToken] = useState('')
   const [discovered, setDiscovered] = useState<BitbucketDiscoveredRepository[]>([])
   const [nextCursor, setNextCursor] = useState<string | null>(null)
-  const [setup, setSetup] = useState<BitbucketWebhookSetup | null>(null)
+  const [setups, setSetups] = useState<WebhookSetupEntry[]>([])
+  const [setupHelp, setSetupHelp] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [rotationInstallation, setRotationInstallation] = useState<string | null>(null)
   const [replacementToken, setReplacementToken] = useState('')
+  const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null)
   const workspaceEpoch = useRef(0)
+  const discoveryCriteria = useRef<{ bitbucketWorkspace: string; apiToken: string } | null>(null)
+  const setupSequence = useRef(0)
+  const workspaceInput = useRef<HTMLInputElement | null>(null)
+  const credentialSubmit = useRef<HTMLAnchorElement | HTMLButtonElement | null>(null)
+  const credentialOrigin = useRef<string | null>(null)
+  const setupActions = useRef(new Map<number, HTMLElement>())
+  const connectActions = useRef(new Map<string, HTMLElement>())
+  const credentialActions = useRef(new Map<string, HTMLElement>())
+  const hookActions = useRef(new Map<string, HTMLElement>())
+  const disconnectActions = useRef(new Map<string, HTMLElement>())
   const connections = useBitbucketConnections(workspaceId)
 
-  const refresh = async () => {
+  useLayoutEffect(() => {
+    if (!focusRequest || busy) return
+    if (focusRequest.epoch !== workspaceEpoch.current) {
+      setFocusRequest(null)
+      return
+    }
+    const { target } = focusRequest
+    const element =
+      target.kind === 'workspace'
+        ? workspaceInput.current
+        : target.kind === 'setup'
+          ? setupActions.current.get(target.id)
+          : target.kind === 'connect'
+            ? connectActions.current.get(target.repositoryId)
+            : target.kind === 'credential'
+              ? credentialActions.current.get(target.repositoryId)
+              : target.kind === 'hook'
+                ? hookActions.current.get(target.repositoryId)
+                : target.kind === 'disconnect'
+                  ? disconnectActions.current.get(target.repositoryId)
+                  : credentialSubmit.current
+    const active = document.activeElement
+    if (!element || (element instanceof HTMLButtonElement && element.disabled)) {
+      if (active === document.body || active === focusRequest.from) {
+        workspaceInput.current?.focus()
+      }
+      setFocusRequest(null)
+      return
+    }
+    if (active === document.body || active === focusRequest.from) {
+      element.focus()
+    }
+    setFocusRequest(null)
+  }, [busy, connections.data, discovered, focusRequest, rotationInstallation, setups])
+
+  const requestFocus = (epoch: number, from: HTMLElement, target: FocusTarget) => {
+    if (epoch === workspaceEpoch.current) setFocusRequest({ epoch, from, target })
+  }
+
+  const trackAction = (actions: Map<string, HTMLElement>, id: string, node: HTMLElement | null) => {
+    if (node) actions.set(id, node)
+    else actions.delete(id)
+  }
+
+  const showSetup = (
+    repositoryId: string,
+    repositoryName: string,
+    webhook: BitbucketWebhookSetup,
+  ) => {
+    const entry: WebhookSetupEntry = {
+      id: ++setupSequence.current,
+      repositoryId,
+      repositoryName,
+      setup: webhook,
+      superseded: false,
+      disconnected: false,
+    }
+    setSetups((current) => [
+      ...current.map((item) =>
+        item.repositoryId === repositoryId ? { ...item, superseded: true } : item,
+      ),
+      entry,
+    ])
+    setSetupHelp(null)
+    return entry.id
+  }
+
+  const copySetupValue = async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value)
+      void message.success('Скопировано')
+    } catch {
+      void message.error('Не удалось скопировать. Скопируйте значение вручную.')
+    }
+  }
+
+  const dismissSetup = (id: number, trigger: HTMLElement) => {
+    const hadFocus = document.activeElement === trigger
+    const remaining = setups.filter((entry) => entry.id !== id)
+    setSetups(remaining)
+    if (hadFocus) {
+      const next = remaining[remaining.length - 1]
+      requestFocus(
+        workspaceEpoch.current,
+        trigger,
+        next ? { kind: 'setup', id: next.id } : { kind: 'workspace' },
+      )
+    }
+  }
+
+  const refresh = async (affectedWorkspaceId: string) => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: BITBUCKET_CONNECTIONS_QUERY_KEY }),
+      queryClient.invalidateQueries({
+        queryKey: [...BITBUCKET_CONNECTIONS_QUERY_KEY, affectedWorkspaceId],
+      }),
       queryClient.invalidateQueries({ queryKey: REPOSITORIES_QUERY_KEY }),
     ])
   }
@@ -55,109 +178,207 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
     setBitbucketWorkspace('')
     setDiscovered([])
     setNextCursor(null)
-    setSetup(null)
+    setSetups([])
+    setSetupHelp(null)
     setApiToken('')
     setReplacementToken('')
     setRotationInstallation(null)
+    credentialOrigin.current = null
+    setFocusRequest(null)
+    discoveryCriteria.current = null
   }
 
   const discover = async (cursor?: string | null) => {
     if (!workspaceId) return
+    const criteria = cursor
+      ? discoveryCriteria.current
+      : { bitbucketWorkspace: bitbucketWorkspace.trim(), apiToken }
+    if (!criteria?.bitbucketWorkspace || !criteria.apiToken) return
+    if (!cursor) {
+      discoveryCriteria.current = criteria
+      setBitbucketWorkspace(criteria.bitbucketWorkspace)
+      setDiscovered([])
+      setNextCursor(null)
+    }
     const epoch = workspaceEpoch.current
     setBusy(true)
-    setSetup(null)
     try {
       const result = await discoverBitbucketRepositories(workspaceId, {
-        bitbucketWorkspace,
-        apiToken,
-        cursor,
+        ...criteria,
+        ...(cursor ? { cursor } : {}),
       })
       if (epoch !== workspaceEpoch.current) return
       setDiscovered(cursor ? (old) => [...old, ...result.repositories] : result.repositories)
       setNextCursor(result.nextCursor)
     } catch (error) {
-      if (epoch === workspaceEpoch.current) void message.error(errorText(error))
+      if (epoch === workspaceEpoch.current) void message.error(bitbucketErrorMessage(error))
     } finally {
       if (epoch === workspaceEpoch.current) setBusy(false)
     }
   }
 
-  const connect = async (repository: BitbucketDiscoveredRepository) => {
+  const connect = async (repository: BitbucketDiscoveredRepository, trigger: HTMLElement) => {
     if (!workspaceId) return
+    const affectedWorkspaceId = workspaceId
     const epoch = workspaceEpoch.current
+    const hadFocus = document.activeElement === trigger
     setBusy(true)
-    setSetup(null)
     try {
-      const result = await connectBitbucketRepository(workspaceId, {
+      const result = await connectBitbucketRepository(affectedWorkspaceId, {
         bitbucketWorkspace: repository.workspaceSlug,
         repositorySlug: repository.slug,
         repositoryUuid: repository.uuid,
         apiToken,
       })
-      if (epoch !== workspaceEpoch.current) return
-      setSetup(result.webhook)
-      setApiToken('')
-      setDiscovered([])
-      setNextCursor(null)
-      await refresh()
+      if (epoch === workspaceEpoch.current) {
+        if (result.webhook) {
+          const setupId = showSetup(
+            result.repositoryId,
+            `${result.workspaceSlug}/${result.repositorySlug}`,
+            result.webhook,
+          )
+          if (hadFocus) requestFocus(epoch, trigger, { kind: 'setup', id: setupId })
+        } else {
+          setSetupHelp(
+            'Секрет уже выдавался для этого репозитория. Обновите webhook secret, чтобы получить новый.',
+          )
+          if (hadFocus) requestFocus(epoch, trigger, { kind: 'workspace' })
+        }
+        setApiToken('')
+        discoveryCriteria.current = null
+        setDiscovered([])
+        setNextCursor(null)
+      }
+      await refresh(affectedWorkspaceId)
       if (epoch !== workspaceEpoch.current) return
       void message.success('Репозиторий подключён')
     } catch (error) {
-      if (epoch === workspaceEpoch.current) void message.error(errorText(error))
+      if (epoch === workspaceEpoch.current) {
+        void message.error(bitbucketErrorMessage(error))
+        if (hadFocus)
+          requestFocus(epoch, trigger, { kind: 'connect', repositoryId: repository.uuid })
+      }
     } finally {
       if (epoch === workspaceEpoch.current) setBusy(false)
     }
   }
 
-  const disconnect = async (installationId: string, repositoryId: string) => {
-    if (!workspaceId || !window.confirm('Отключить этот репозиторий Bitbucket?')) return
-    const epoch = workspaceEpoch.current
-    setBusy(true)
+  const disconnect = async (
+    affectedWorkspaceId: string,
+    epoch: number,
+    installationId: string,
+    repositoryId: string,
+  ): Promise<boolean> => {
+    if (epoch === workspaceEpoch.current) setBusy(true)
     try {
-      await disconnectBitbucketRepository(workspaceId, installationId, repositoryId)
-      if (epoch !== workspaceEpoch.current) return
-      setSetup(null)
-      await refresh()
-      if (epoch !== workspaceEpoch.current) return
+      await disconnectBitbucketRepository(affectedWorkspaceId, installationId, repositoryId)
+      await refresh(affectedWorkspaceId)
+      if (epoch !== workspaceEpoch.current) return true
+      setSetups((current) =>
+        current.map((entry) =>
+          entry.repositoryId === repositoryId ? { ...entry, disconnected: true } : entry,
+        ),
+      )
       void message.success('Репозиторий отключён')
+      return true
     } catch (error) {
-      if (epoch === workspaceEpoch.current) void message.error(errorText(error))
+      if (epoch === workspaceEpoch.current) void message.error(bitbucketErrorMessage(error))
+      return false
     } finally {
       if (epoch === workspaceEpoch.current) setBusy(false)
     }
   }
 
-  const rotateCredential = async () => {
-    if (!workspaceId || !rotationInstallation) return
+  const confirmDisconnect = (
+    installationId: string,
+    repositoryId: string,
+    repositoryName: string,
+    trigger: HTMLElement,
+  ) => {
+    if (!workspaceId) return
+    const affectedWorkspaceId = workspaceId
     const epoch = workspaceEpoch.current
+    const workspaceName = workspaces.find((workspace) => workspace.id === workspaceId)?.name
+    let focusAfterClose: FocusTarget | null = null
+    modal.confirm({
+      title: 'Отключить репозиторий Bitbucket?',
+      content: `Portal workspace: ${workspaceName ?? affectedWorkspaceId}. Репозиторий: ${repositoryName}.`,
+      okText: 'Отключить',
+      okButtonProps: { danger: true },
+      cancelText: 'Отмена',
+      onOk: async () => {
+        const confirmButton =
+          document.activeElement instanceof HTMLElement ? document.activeElement : trigger
+        const removed = await disconnect(affectedWorkspaceId, epoch, installationId, repositoryId)
+        focusAfterClose = removed ? { kind: 'workspace' } : { kind: 'disconnect', repositoryId }
+        // Ant Design closes the dialog after onOk resolves. Queue the handoff behind that update;
+        // afterClose repeats it if the dialog's own focus restoration runs later.
+        setTimeout(() => {
+          if (focusAfterClose) requestFocus(epoch, confirmButton, focusAfterClose)
+        }, 0)
+      },
+      afterClose: () => {
+        if (focusAfterClose) requestFocus(epoch, trigger, focusAfterClose)
+      },
+    })
+  }
+
+  const rotateCredential = async (trigger: HTMLElement) => {
+    if (!workspaceId || !rotationInstallation) return
+    const affectedWorkspaceId = workspaceId
+    const epoch = workspaceEpoch.current
+    const hadFocus = document.activeElement === trigger
+    const origin = credentialOrigin.current
     setBusy(true)
     try {
-      await rotateBitbucketCredential(workspaceId, rotationInstallation, replacementToken)
-      if (epoch !== workspaceEpoch.current) return
-      setReplacementToken('')
-      setRotationInstallation(null)
-      await refresh()
+      await rotateBitbucketCredential(affectedWorkspaceId, rotationInstallation, replacementToken)
+      if (epoch === workspaceEpoch.current) {
+        setReplacementToken('')
+        setRotationInstallation(null)
+        if (hadFocus && origin) {
+          requestFocus(epoch, trigger, { kind: 'credential', repositoryId: origin })
+        }
+      }
+      await refresh(affectedWorkspaceId)
       if (epoch !== workspaceEpoch.current) return
       void message.success('Общий API token обновлён')
     } catch (error) {
-      if (epoch === workspaceEpoch.current) void message.error(errorText(error))
+      if (epoch === workspaceEpoch.current) {
+        void message.error(bitbucketErrorMessage(error))
+        if (hadFocus) requestFocus(epoch, trigger, { kind: 'credential-submit' })
+      }
     } finally {
       if (epoch === workspaceEpoch.current) setBusy(false)
     }
   }
 
-  const rotateSecret = async (installationId: string, repositoryId: string) => {
+  const rotateSecret = async (
+    installationId: string,
+    repositoryId: string,
+    repositoryName: string,
+    trigger: HTMLElement,
+  ) => {
     if (!workspaceId) return
+    const affectedWorkspaceId = workspaceId
     const epoch = workspaceEpoch.current
+    const hadFocus = document.activeElement === trigger
     setBusy(true)
-    setSetup(null)
     try {
-      const result = await rotateBitbucketWebhookSecret(workspaceId, installationId, repositoryId)
-      if (epoch !== workspaceEpoch.current) return
-      setSetup(result)
-      await refresh()
+      const result = await rotateBitbucketWebhookSecret(
+        affectedWorkspaceId,
+        installationId,
+        repositoryId,
+      )
+      if (epoch === workspaceEpoch.current) {
+        const setupId = showSetup(repositoryId, repositoryName, result)
+        if (hadFocus) requestFocus(epoch, trigger, { kind: 'setup', id: setupId })
+      }
+      await refresh(affectedWorkspaceId)
     } catch (error) {
-      if (epoch === workspaceEpoch.current) void message.error(errorText(error))
+      if (epoch === workspaceEpoch.current) {
+        void message.error(bitbucketErrorMessage(error))
+        if (hadFocus) requestFocus(epoch, trigger, { kind: 'hook', repositoryId })
+      }
     } finally {
       if (epoch === workspaceEpoch.current) setBusy(false)
     }
@@ -167,92 +388,169 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
     <section aria-label="Подключения Bitbucket">
       <Title level={3}>Bitbucket Cloud</Title>
       <Text>Выберите portal workspace для подключения приватного или публичного репозитория.</Text>
-      <Select
-        aria-label="Portal workspace"
-        onChange={chooseWorkspace}
-        options={workspaces.map((workspace) => ({ label: workspace.name, value: workspace.id }))}
-        placeholder="Выберите workspace"
-        style={{ display: 'block', maxWidth: 360, marginBlock: 12 }}
-        value={workspaceId}
-      />
+      <div className={styles.workspaceSelect}>
+        <Select
+          aria-label="Portal workspace"
+          className={styles.workspaceSelectControl}
+          disabled={workspaces.length === 0}
+          onChange={chooseWorkspace}
+          options={workspaces.map((workspace) => ({ label: workspace.name, value: workspace.id }))}
+          placeholder="Выберите workspace"
+          value={workspaceId}
+        />
+      </div>
       {workspaceId === null ? (
-        <Text type="secondary">Выберите workspace перед просмотром подключений.</Text>
+        workspaces.length === 0 ? (
+          <Alert
+            description="Войдите через GitHub и получите доступ к portal workspace, затем обновите страницу."
+            title="Нет доступных portal workspace"
+            type="info"
+          />
+        ) : (
+          <Text type="secondary">Выберите workspace перед просмотром подключений.</Text>
+        )
       ) : (
         <Flex gap="middle" vertical>
           {connections.isError ? (
-            <Alert description={errorText(connections.error)} showIcon type="error" />
+            <Alert description={bitbucketErrorMessage(connections.error)} showIcon type="error" />
           ) : null}
-          {connections.data?.pages
-            .flatMap((page) => page.connections)
-            .map((connection) => (
-              <Flex align="center" gap="small" key={connection.repositoryId} wrap>
-                <Text>{`${connection.workspaceSlug}/${connection.repositorySlug}`}</Text>
-                <Text type="secondary">
-                  {connection.status === 'active' ? 'Webhook активен' : 'Ожидает webhook'}
-                </Text>
-                <Button
-                  disabled={busy}
-                  onClick={() => void rotateSecret(connection.id, connection.repositoryId)}
-                >
-                  Новый webhook secret
-                </Button>
-                <Button
-                  disabled={busy}
-                  onClick={() => {
-                    setRotationInstallation(connection.id)
-                    setReplacementToken('')
-                  }}
-                >
-                  Обновить API token
-                </Button>
-                <Button
-                  danger
-                  disabled={busy}
-                  onClick={() => void disconnect(connection.id, connection.repositoryId)}
-                >
-                  Отключить {connection.repositorySlug}
-                </Button>
-              </Flex>
-            ))}
-          {connections.hasNextPage ? (
-            <Button
-              disabled={busy || connections.isFetchingNextPage}
-              onClick={() => void connections.fetchNextPage()}
-            >
-              Ещё подключения
-            </Button>
-          ) : null}
+          {connections.data?.connections.map((connection) => (
+            <Flex align="center" gap="small" key={connection.repositoryId} wrap>
+              <Text>{`${connection.workspaceSlug}/${connection.repositorySlug}`}</Text>
+              <Text type="secondary">
+                {connection.status === 'active' ? 'Webhook активен' : 'Ожидает webhook'}
+              </Text>
+              <Button
+                aria-label={`Новый webhook secret для ${connection.workspaceSlug}/${connection.repositorySlug}`}
+                disabled={busy}
+                ref={(node) => {
+                  trackAction(hookActions.current, connection.repositoryId, node)
+                }}
+                onClick={(event) =>
+                  void rotateSecret(
+                    connection.id,
+                    connection.repositoryId,
+                    `${connection.workspaceSlug}/${connection.repositorySlug}`,
+                    event.currentTarget,
+                  )
+                }
+              >
+                Новый webhook secret
+              </Button>
+              <Button
+                aria-label={`Обновить API token для ${connection.workspaceSlug}/${connection.repositorySlug}`}
+                disabled={busy}
+                ref={(node) => {
+                  trackAction(credentialActions.current, connection.repositoryId, node)
+                }}
+                onClick={() => {
+                  credentialOrigin.current = connection.repositoryId
+                  setRotationInstallation(connection.id)
+                  setReplacementToken('')
+                }}
+              >
+                Обновить API token
+              </Button>
+              <Button
+                danger
+                disabled={busy}
+                ref={(node) => {
+                  trackAction(disconnectActions.current, connection.repositoryId, node)
+                }}
+                onClick={(event) => {
+                  confirmDisconnect(
+                    connection.id,
+                    connection.repositoryId,
+                    `${connection.workspaceSlug}/${connection.repositorySlug}`,
+                    event.currentTarget,
+                  )
+                }}
+              >
+                Отключить {connection.workspaceSlug}/{connection.repositorySlug}
+              </Button>
+            </Flex>
+          ))}
           {rotationInstallation ? (
             <Flex gap="small" wrap>
               <Input.Password
                 aria-label="Новый API token"
+                autoComplete="new-password"
                 onChange={(event) => {
                   setReplacementToken(event.target.value)
                 }}
                 value={replacementToken}
               />
-              <Button disabled={!replacementToken || busy} onClick={() => void rotateCredential()}>
+              <Button
+                disabled={!replacementToken || busy}
+                onClick={(event) => void rotateCredential(event.currentTarget)}
+                ref={credentialSubmit}
+              >
                 Подтвердить обновление token
               </Button>
             </Flex>
           ) : null}
-          {setup ? (
+          {setupHelp ? <Alert description={setupHelp} showIcon type="info" /> : null}
+          {setups.map((entry) => (
             <Alert
               description={
-                <Flex vertical>
+                <Flex gap="small" vertical>
                   <Text>Сохраните секрет сейчас: он показан только один раз.</Text>
-                  <Text>{setup.url}</Text>
-                  <Text>{setup.events.join(', ')}</Text>
-                  <Text>{setup.secret}</Text>
+                  {entry.superseded ? (
+                    <Text type="warning">Предыдущий секрет теперь недействителен.</Text>
+                  ) : null}
+                  {entry.disconnected ? (
+                    <Text type="warning">Репозиторий отключён. Webhook secret недействителен.</Text>
+                  ) : null}
+                  <Text strong>Webhook URL</Text>
+                  <Text>{entry.setup.url}</Text>
+                  <Button
+                    aria-label={`Скопировать URL для ${entry.repositoryName}`}
+                    onClick={() => void copySetupValue(entry.setup.url)}
+                    ref={(node) => {
+                      if (node) setupActions.current.set(entry.id, node)
+                      else setupActions.current.delete(entry.id)
+                    }}
+                  >
+                    Скопировать URL
+                  </Button>
+                  <Text strong>События</Text>
+                  <Text>{entry.setup.events.join(', ')}</Text>
+                  <Button
+                    aria-label={`Скопировать события для ${entry.repositoryName}`}
+                    onClick={() => void copySetupValue(entry.setup.events.join(', '))}
+                  >
+                    Скопировать события
+                  </Button>
+                  <Text strong>Webhook secret</Text>
+                  <Text>{entry.setup.secret}</Text>
+                  <Button
+                    aria-label={`Скопировать секрет для ${entry.repositoryName}`}
+                    disabled={entry.superseded || entry.disconnected}
+                    onClick={() => void copySetupValue(entry.setup.secret)}
+                  >
+                    Скопировать секрет
+                  </Button>
+                  <Button
+                    aria-label={`Закрыть настройку webhook для ${entry.repositoryName}`}
+                    onClick={(event) => {
+                      dismissSetup(entry.id, event.currentTarget)
+                    }}
+                  >
+                    Закрыть
+                  </Button>
                 </Flex>
               }
-              title="Настройте webhook в Bitbucket"
+              key={entry.id}
+              title={`Настройте webhook для ${entry.repositoryName}`}
               type="info"
             />
-          ) : null}
+          ))}
           <Flex gap="small" wrap>
             <Input
               aria-label="Bitbucket workspace"
+              ref={(node) => {
+                workspaceInput.current = node?.input ?? null
+              }}
               onChange={(event) => {
                 setBitbucketWorkspace(event.target.value)
               }}
@@ -261,6 +559,7 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
             />
             <Input.Password
               aria-label="API token"
+              autoComplete="new-password"
               onChange={(event) => {
                 setApiToken(event.target.value)
               }}
@@ -283,7 +582,13 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
               ) : (
                 <Text>{repository.slug}</Text>
               )}
-              <Button disabled={busy} onClick={() => void connect(repository)}>
+              <Button
+                disabled={busy}
+                onClick={(event) => void connect(repository, event.currentTarget)}
+                ref={(node) => {
+                  trackAction(connectActions.current, repository.uuid, node)
+                }}
+              >
                 Подключить {repository.slug}
               </Button>
             </Flex>

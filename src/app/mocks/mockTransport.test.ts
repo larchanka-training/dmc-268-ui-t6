@@ -41,6 +41,131 @@ import {
 } from './mockTransport'
 
 describe('initMockTransport', () => {
+  it.each([
+    ['waitForCi', 'auto', 'bitbucket_wait_for_ci_unsupported'],
+    ['waitForCi', 'always', 'bitbucket_wait_for_ci_unsupported'],
+    ['reviewEvent', 'REQUEST_CHANGES', 'bitbucket_review_event_unsupported'],
+  ])(
+    'rejects unsupported Bitbucket %s=%s without changing stored settings',
+    async (field, value, code) => {
+      const workspace = '123e4567-e89b-12d3-a456-426614174000'
+      initMockTransport()
+      const connection = await connectBitbucketRepository(workspace, {
+        bitbucketWorkspace: 'demo-bitbucket',
+        repositorySlug: 'private-repo',
+        repositoryUuid: '66666666-6666-4666-8666-666666666666',
+        apiToken: 'demo-token',
+      })
+      const before = readStoredMockRepository(connection.repositoryId)
+
+      await expect(
+        apiClient<Repository>(endpoints.repos.update(connection.repositoryId), {
+          body: { maxComments: 7, [field]: value },
+        }),
+      ).rejects.toMatchObject({
+        status: 422,
+        data: {
+          detail: [{ loc: ['body', field], msg: code, type: 'value_error' }],
+        },
+      })
+      expect(readStoredMockRepository(connection.repositoryId)).toEqual(before)
+    },
+  )
+
+  it('reuses a Bitbucket binding without showing a second secret and seeds supported settings', async () => {
+    const workspace = '123e4567-e89b-12d3-a456-426614174000'
+    initMockTransport()
+    const request = {
+      bitbucketWorkspace: 'demo-bitbucket',
+      repositorySlug: 'private-repo',
+      repositoryUuid: '66666666-6666-4666-8666-666666666666',
+      apiToken: 'demo-token',
+    }
+    const first = await connectBitbucketRepository(workspace, request)
+    const repeated = await connectBitbucketRepository(workspace, request)
+
+    expect(first.webhook?.secret).toBeTruthy()
+    expect(repeated).toMatchObject({
+      id: first.id,
+      repositoryId: first.repositoryId,
+      repositoryUuid: first.repositoryUuid,
+      webhook: null,
+    })
+    expect((await listBitbucketConnections(workspace)).connections).toHaveLength(1)
+    const repos = await apiClient<Repository[]>(endpoints.repos.list())
+    const added = repos.find((repo) => repo.id === first.repositoryId)
+    expect(added).toMatchObject({
+      provider: 'bitbucket',
+      waitForCi: 'never',
+      reviewEvent: 'COMMENT',
+    })
+  })
+
+  it('makes an absent Bitbucket disconnect idempotent and keeps a sibling binding', async () => {
+    const workspace = '123e4567-e89b-12d3-a456-426614174000'
+    initMockTransport()
+    const first = await connectBitbucketRepository(workspace, {
+      bitbucketWorkspace: 'demo-bitbucket',
+      repositorySlug: 'private-repo',
+      repositoryUuid: '66666666-6666-4666-8666-666666666666',
+      apiToken: 'demo-token',
+    })
+    const second = await connectBitbucketRepository(workspace, {
+      bitbucketWorkspace: 'demo-bitbucket',
+      repositorySlug: 'second-repo',
+      repositoryUuid: '88888888-8888-4888-8888-888888888888',
+      apiToken: 'demo-token',
+    })
+
+    await disconnectBitbucketRepository(workspace, first.id, first.repositoryId)
+    await expect(
+      disconnectBitbucketRepository(workspace, first.id, first.repositoryId),
+    ).resolves.toBeUndefined()
+    await expect(
+      disconnectBitbucketRepository(
+        workspace,
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        second.repositoryId,
+      ),
+    ).resolves.toBeUndefined()
+    expect(
+      (await listBitbucketConnections(workspace)).connections.map((item) => item.repositoryId),
+    ).toEqual([second.repositoryId])
+  })
+
+  it('uses backend detail codes for scoped Bitbucket errors', async () => {
+    const workspace = '123e4567-e89b-12d3-a456-426614174000'
+    initMockTransport()
+    await expect(
+      listBitbucketConnections('99999999-9999-4999-8999-999999999999'),
+    ).rejects.toMatchObject({ status: 404, data: { detail: 'workspace_not_found' } })
+    const first = await connectBitbucketRepository(workspace, {
+      bitbucketWorkspace: 'demo-bitbucket',
+      repositorySlug: 'private-repo',
+      repositoryUuid: '66666666-6666-4666-8666-666666666666',
+      apiToken: 'demo-token',
+    })
+    await expect(
+      connectBitbucketRepository(workspace, {
+        bitbucketWorkspace: 'demo-bitbucket',
+        repositorySlug: 'second-repo',
+        repositoryUuid: '88888888-8888-4888-8888-888888888888',
+        apiToken: 'different-token',
+      }),
+    ).rejects.toMatchObject({ status: 409, data: { detail: 'credential_rotation_required' } })
+    await expect(
+      connectBitbucketRepository(workspace, {
+        bitbucketWorkspace: 'demo-bitbucket',
+        repositorySlug: 'private-repo',
+        repositoryUuid: '88888888-8888-4888-8888-888888888888',
+        apiToken: 'demo-token',
+      }),
+    ).rejects.toMatchObject({ status: 409, data: { detail: 'repository_uuid_mismatch' } })
+    await expect(
+      rotateBitbucketWebhookSecret(workspace, first.id, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
+    ).rejects.toMatchObject({ status: 404, data: { detail: 'repository_not_found' } })
+  })
+
   it('simulates scoped Bitbucket discovery, two bindings, rotation and independent disconnect', async () => {
     const workspace = '123e4567-e89b-12d3-a456-426614174000'
     initMockTransport()

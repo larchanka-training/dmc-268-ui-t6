@@ -9,7 +9,7 @@ import styles from './RulesStatusPanel.module.css'
 
 export interface RulesStatusPanelProps {
   repoId: string
-  provider?: VcsProvider
+  provider: VcsProvider
 }
 
 /**

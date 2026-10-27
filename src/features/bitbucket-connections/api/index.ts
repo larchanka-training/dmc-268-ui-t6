@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 
 import { apiClient } from '../../../shared/api/client'
@@ -7,6 +7,7 @@ import {
   BitbucketConnectRequestSchema,
   BitbucketConnectResponseSchema,
   BitbucketConnectionListSchema,
+  BitbucketCredentialRotateRequestSchema,
   BitbucketCredentialRotateResponseSchema,
   BitbucketDiscoveryRequestSchema,
   BitbucketDiscoveryResponseSchema,
@@ -30,8 +31,8 @@ export async function discoverBitbucketRepositories(
   return BitbucketDiscoveryResponseSchema.parse(data)
 }
 
-export async function listBitbucketConnections(workspaceId: string, cursor?: string | null) {
-  const data = await apiClient<unknown>(endpoints.bitbucket.connections(id(workspaceId), cursor))
+export async function listBitbucketConnections(workspaceId: string) {
+  const data = await apiClient<unknown>(endpoints.bitbucket.connections(id(workspaceId)))
   return BitbucketConnectionListSchema.parse(data)
 }
 
@@ -59,7 +60,7 @@ export async function rotateBitbucketCredential(
   installationId: string,
   apiToken: string,
 ) {
-  const body = z.object({ apiToken: z.string().min(1) }).parse({ apiToken })
+  const body = BitbucketCredentialRotateRequestSchema.parse({ apiToken })
   const data = await apiClient<unknown>(
     endpoints.bitbucket.rotateCredential(id(workspaceId), id(installationId)),
     { body },
@@ -79,11 +80,9 @@ export async function rotateBitbucketWebhookSecret(
 }
 
 export function useBitbucketConnections(workspaceId: string | null) {
-  return useInfiniteQuery({
+  return useQuery({
     queryKey: [...BITBUCKET_CONNECTIONS_QUERY_KEY, workspaceId],
-    queryFn: ({ pageParam }) => listBitbucketConnections(id(workspaceId ?? ''), pageParam),
-    initialPageParam: null as string | null,
-    getNextPageParam: (page) => page.nextCursor,
+    queryFn: () => listBitbucketConnections(id(workspaceId ?? '')),
     enabled: workspaceId !== null,
   })
 }

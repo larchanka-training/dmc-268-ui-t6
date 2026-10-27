@@ -98,7 +98,7 @@ const ERROR_REASON_KEYS: Record<string, ParseKeys> = {
  */
 function errorReason(code: string, provider: VcsProvider): string | null {
   if (provider !== 'github') {
-    const name = VCS_PROVIDER_LABEL[provider]
+    const name = VCS_ACCESS_NAME[provider]
     const accessName = VCS_ACCESS_NAME[provider]
     switch (code) {
       case 'vcs_unavailable':
@@ -144,7 +144,7 @@ function publicationOf(index: RagIndex): RagIndexView['publication'] {
 export function ragIndexView(
   index: RagIndex,
   ragEnabled: boolean,
-  provider: VcsProvider = 'github',
+  provider: VcsProvider,
 ): RagIndexView {
   const base: RagIndexView = {
     label: i18n.t('settings.rag.status.off'),

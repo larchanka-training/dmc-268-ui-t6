@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { setMockTransport } from '../../../shared/api/client'
+import { BitbucketCredentialRotateRequestSchema } from '../model/schemas'
 import {
   connectBitbucketRepository,
   discoverBitbucketRepositories,
@@ -18,6 +19,24 @@ const WEBHOOK = {
   url: `https://api.example.test/webhooks/bitbucket/${INSTALLATION}/${REPOSITORY}`,
   events: ['repo:push', 'pullrequest:created', 'pullrequest:updated'],
   secret: 'one-time-secret',
+}
+const CONNECTION = {
+  id: INSTALLATION,
+  repositoryId: REPOSITORY,
+  repositoryUuid: REMOTE,
+  workspaceSlug: 'private-space',
+  repositorySlug: 'private-repo',
+  status: 'awaiting_webhook',
+  credentialGeneration: 1,
+  webhookUrl: WEBHOOK.url,
+}
+const DISCOVERED = {
+  uuid: REMOTE,
+  workspaceSlug: 'private-space',
+  slug: 'private-repo',
+  name: 'Private repo',
+  isPrivate: true,
+  htmlUrl: 'https://bitbucket.org/private-space/private-repo',
 }
 
 afterEach(() => {
@@ -85,14 +104,17 @@ describe('Bitbucket workspace connection API', () => {
     ])
   })
 
-  it('rejects malformed provider responses and unknown status instead of treating them as a connection', async () => {
+  it('rejects an unknown connection status even when every other field is valid', async () => {
     setMockTransport(() => ({
-      connections: [{ id: INSTALLATION, status: 'unknown' }],
+      connections: [{ ...CONNECTION, status: 'unknown' }],
       nextCursor: null,
     }))
-    await expect(listBitbucketConnections(WORKSPACE)).rejects.toThrow()
+    await expect(listBitbucketConnections(WORKSPACE)).rejects.toThrow(/status/i)
+  })
+
+  it('rejects malformed isPrivate even when every other discovery field is valid', async () => {
     setMockTransport(() => ({
-      repositories: [{ uuid: REMOTE, isPrivate: 'yes' }],
+      repositories: [{ ...DISCOVERED, isPrivate: 'yes' }],
       nextCursor: null,
     }))
     await expect(
@@ -100,7 +122,64 @@ describe('Bitbucket workspace connection API', () => {
         bitbucketWorkspace: 'private-space',
         apiToken: 't',
       }),
-    ).rejects.toThrow()
+    ).rejects.toThrow(/isPrivate/i)
+  })
+
+  it('parses a complete connect response and rejects only malformed status', async () => {
+    const valid = {
+      id: INSTALLATION,
+      repositoryId: REPOSITORY,
+      repositoryUuid: REMOTE,
+      workspaceSlug: 'private-space',
+      repositorySlug: 'private-repo',
+      status: 'awaiting_webhook',
+      credentialGeneration: 1,
+      webhook: WEBHOOK,
+    }
+    setMockTransport(() => valid)
+    const input = {
+      bitbucketWorkspace: 'private-space',
+      repositorySlug: 'private-repo',
+      repositoryUuid: REMOTE,
+      apiToken: 'temporary-token',
+    }
+    await expect(connectBitbucketRepository(WORKSPACE, input)).resolves.toMatchObject(valid)
+    setMockTransport(() => ({ ...valid, status: 'unrecognized' }))
+    await expect(connectBitbucketRepository(WORKSPACE, input)).rejects.toThrow(/status/i)
+  })
+
+  it('uses an unpaged connection endpoint and rejects a fabricated next cursor', async () => {
+    const paths: string[] = []
+    setMockTransport((endpoint) => {
+      paths.push(endpoint.path)
+      return { connections: [CONNECTION], nextCursor: null }
+    })
+    await expect(listBitbucketConnections(WORKSPACE)).resolves.toEqual({
+      connections: [CONNECTION],
+      nextCursor: null,
+    })
+    expect(paths).toEqual([`/workspaces/${WORKSPACE}/bitbucket/connections`])
+
+    setMockTransport(() => ({ connections: [CONNECTION], nextCursor: 'unsupported-cursor' }))
+    await expect(listBitbucketConnections(WORKSPACE)).rejects.toThrow(/nextCursor/i)
+  })
+
+  it('rejects an empty credential before sending the rotation request', async () => {
+    expect(BitbucketCredentialRotateRequestSchema.safeParse({ apiToken: '' }).success).toBe(false)
+    expect(BitbucketCredentialRotateRequestSchema.parse({ apiToken: 'replacement-token' })).toEqual(
+      {
+        apiToken: 'replacement-token',
+      },
+    )
+    const calls: string[] = []
+    setMockTransport((endpoint) => {
+      calls.push(endpoint.path)
+      return { id: INSTALLATION, credentialGeneration: 2 }
+    })
+    await expect(rotateBitbucketCredential(WORKSPACE, INSTALLATION, '')).rejects.toThrow(
+      /apiToken/i,
+    )
+    expect(calls).toEqual([])
   })
 
   it('disconnects one binding, rotates shared credential explicitly and rotates only its hook secret', async () => {

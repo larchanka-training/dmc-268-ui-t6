@@ -30,7 +30,7 @@ export function RunControls(props: RunControlsProps): JSX.Element {
   const canRerun = TERMINAL_RUN_STATUSES.some((status) => status === run.status)
 
   const showError = (error: unknown, action: 'rerun' | 'cancel'): void => {
-    void messageApi.error(runMutationErrorMessage(error, action))
+    void messageApi.error(runMutationErrorMessage(error, action, run.provider))
   }
 
   const cancelButtonProps: ButtonProps = {
