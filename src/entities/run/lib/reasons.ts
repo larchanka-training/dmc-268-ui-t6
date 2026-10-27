@@ -1,8 +1,9 @@
 import { i18n } from '../../../shared/i18n'
 
 /**
- * The `errorCode` values the dictionaries have a text for (`reasons.*`): every code of the api
- * check-run catalog (check_runs.py) and `repo_disabled`, which has no check-run.
+ * The `errorCode` values the dictionaries have a text for (`reasons.*`): every code the api writes
+ * to a run (the check-run catalog in check_runs.py, the publication, installation and GitLab
+ * codes, `repo_disabled`) and the codes PIPELINE_SPEC §6 reserves for publication.
  */
 export const REASON_CODES = [
   'llm_timeout',
@@ -33,6 +34,17 @@ export const REASON_CODES = [
   'verification_unavailable',
   'verification_budget_exceeded',
   'verification_deadline_exceeded',
+  'gitlab_forbidden',
+  'gitlab_publish_failed',
+  'publication_payload_too_large',
+  'publication_outcome_unknown',
+  'legacy_publication_unresolved',
+  'snapshot_integrity_error',
+  'installation_unavailable',
+  'installation_replaced',
+  'installation_revoked',
+  'credential_rotated',
+  'run_inactive',
   'policy_document_too_large',
   'policy_document_decode_error',
   'policy_document_control_character',
