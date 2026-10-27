@@ -10,9 +10,11 @@ cd "$(dirname "$0")/.."
 
 assets=dist/assets
 
-# Demo-login text and token, then the fixture id prefixes: demo run (11111111, demoRun.ts), repositories
-# (22222222, app-state.ts), findings (33333333, mockRunReview.ts, duoActions.fixture.ts).
+# Demo-login text (Russian and English) and token, then the fixture id prefixes: demo run
+# (11111111, demoRun.ts), repositories (22222222, app-state.ts), findings (33333333,
+# mockRunReview.ts, duoActions.fixture.ts).
 patterns='Демо-вход
+Demo sign-in
 mock_jwt
 11111111-1111-4111-8111
 22222222-2222-4222-8222

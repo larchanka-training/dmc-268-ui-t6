@@ -13,8 +13,6 @@ export const auth: Translation<typeof en> = {
   button: {
     github: 'Войти через GitHub',
     notConfigured: 'Вход не настроен (VITE_GITHUB_CLIENT_ID)',
-    demoLabel: 'Войти как демо-пользователь',
-    demo: 'Демо-вход (Mock)',
   },
   callback: {
     loadingTitle: 'Авторизация через GitHub...',

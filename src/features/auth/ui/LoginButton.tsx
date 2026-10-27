@@ -4,7 +4,8 @@ import type { FC } from 'react'
 
 import { GITHUB_CLIENT_ID, isMockMode } from '../../../shared/config/env'
 import { VITE_MOCKS_BUILD, mocksEnabledAtRuntime } from '../../../shared/config/buildFlags'
-import { useTranslation } from '../../../shared/i18n'
+import { toLanguage, useTranslation } from '../../../shared/i18n'
+import { DEMO_LOGIN_TEXTS } from '../mocks/demoLoginTexts'
 import { useAuthStore } from '../model/store'
 import { clearAccessRefreshIntent } from '../lib/returnTo'
 
@@ -25,7 +26,7 @@ export const LoginButton: FC<LoginButtonProps> = ({
   const loginWithGitHub = useAuthStore((state) => state.loginWithGitHub)
   const loginAsMockUser = useAuthStore((state) => state.loginAsMockUser)
   const isLoading = useAuthStore((state) => state.isLoading)
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
 
   const isConfigured = Boolean(GITHUB_CLIENT_ID || isMockMode())
 
@@ -65,13 +66,13 @@ export const LoginButton: FC<LoginButtonProps> = ({
 
       {VITE_MOCKS_BUILD && showDemoLogin && showMockButton ? (
         <Button
-          aria-label={t('auth.button.demoLabel')}
+          aria-label={DEMO_LOGIN_TEXTS[toLanguage(i18n.language)].label}
           block={block}
           icon={<UserOutlined />}
           onClick={loginAsMockUser}
           size={size}
         >
-          {t('auth.button.demo')}
+          {DEMO_LOGIN_TEXTS[toLanguage(i18n.language)].button}
         </Button>
       ) : null}
     </Flex>
