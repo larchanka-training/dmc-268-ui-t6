@@ -251,7 +251,7 @@ describe('RunDetailPage progress bar', () => {
     expect(screen.queryByTestId('run-progress')).toBeNull()
   })
 
-  it('shows the errorCode on the failed stage of a failed run', async () => {
+  it('shows the reason of the errorCode on the failed stage of a failed run', async () => {
     currentStatus = 'failed'
     currentErrorCode = 'llm_timeout'
     renderRunDetail()
@@ -259,7 +259,11 @@ describe('RunDetailPage progress bar', () => {
 
     expect(stageStates()).toEqual(['error', 'wait', 'wait'])
     // The header «Ошибка» row shows the code too; the bar shows it on the stage itself.
-    expect(within(screen.getByTestId('run-progress')).getByText('llm_timeout')).toBeTruthy()
+    expect(
+      within(screen.getByTestId('run-progress')).getByText(
+        'Модель не ответила вовремя. Прогон можно перезапустить из UI.',
+      ),
+    ).toBeTruthy()
   })
 
   it('shows a cancelled run as stopped, not as an error', async () => {
