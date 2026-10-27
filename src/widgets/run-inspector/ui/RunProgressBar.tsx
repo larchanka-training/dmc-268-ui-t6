@@ -2,6 +2,7 @@ import type { JSX } from 'react'
 
 import type { RunAction, RunProgressStage, RunSession } from '../../../entities/run'
 import { runProgress, runProgressReadsLog } from '../../../entities/run'
+import { i18n, useTranslation } from '../../../shared/i18n'
 import { ProgressSteps, type ProgressStep } from '../../../shared/ui'
 
 interface RunProgressBarProps {
@@ -18,7 +19,9 @@ function noteOf(stage: RunProgressStage): string | undefined {
       return stage.errorCode ?? undefined
     case 'stopped':
       // Not an error: the run was cancelled, nothing broke.
-      return stage.errorCode === null ? 'Остановлено' : `Остановлено: ${stage.errorCode}`
+      return stage.errorCode === null
+        ? i18n.t('runs.progress.stopped')
+        : i18n.t('runs.progress.stoppedWithCode', { code: stage.errorCode })
     case 'wait':
     case 'process':
     case 'finish':
@@ -42,12 +45,13 @@ function toStep(stage: RunProgressStage): ProgressStep {
 
 export function RunProgressBar(props: RunProgressBarProps): JSX.Element | null {
   const { run, actions, actionsUnavailable = false } = props
+  const { t } = useTranslation()
   const progress = runProgress(run, actions)
   if (progress === null || (actionsUnavailable && runProgressReadsLog(run.status))) {
     return null
   }
   return (
-    <div aria-label="Этапы прогона" data-testid="run-progress" role="group">
+    <div aria-label={t('runs.detail.stages')} data-testid="run-progress" role="group">
       <ProgressSteps steps={progress.map(toStep)} />
     </div>
   )

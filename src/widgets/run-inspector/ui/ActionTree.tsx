@@ -4,6 +4,7 @@ import type { TreeDataNode } from 'antd'
 
 import type { ActionTreeNode, RunAction } from '../../../entities/run'
 import { groupActions, useRunActionResponse } from '../../../entities/run'
+import { useTranslation } from '../../../shared/i18n'
 import { CodeBlock, TraceTree } from '../../../shared/ui'
 import { formatDuration } from '../lib/format'
 import { useRunInspectorStore } from '../model/store'
@@ -55,6 +56,8 @@ function parseActionIndex(key: string): number | null {
 
 export function ActionTree(props: ActionTreeProps): JSX.Element {
   const { actions, runId } = props
+  // Also re-renders the tree when the language changes: its titles hold formatted durations.
+  const { t } = useTranslation()
   const treeData = groupActions(actions).map(toDataNode)
   const expandedKeys = useRunInspectorStore((s) => s.expandedKeys)
   const setExpandedKeys = useRunInspectorStore((s) => s.setExpandedKeys)
@@ -84,7 +87,7 @@ export function ActionTree(props: ActionTreeProps): JSX.Element {
       return <Spin size="small" />
     }
     if (responseQuery.isError) {
-      return <Typography.Text type="danger">Не удалось загрузить ответ</Typography.Text>
+      return <Typography.Text type="danger">{t('runs.detail.responseLoadFailed')}</Typography.Text>
     }
     if (responseQuery.data === null || responseQuery.data === undefined) {
       return noResponse

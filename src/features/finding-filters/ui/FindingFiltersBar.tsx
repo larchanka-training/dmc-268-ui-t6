@@ -7,6 +7,7 @@ import {
   SEVERITY_BADGE_LABEL,
   type SeverityBadgeGroup,
 } from '../../../entities/review'
+import { useTranslation } from '../../../shared/i18n'
 import {
   effectiveFileFilter,
   hasActiveFindingFilters,
@@ -55,12 +56,10 @@ const SEVERITY_OPTIONS = SEVERITY_BADGE_GROUPS.map((group) => ({
 // A longer name is cut with «...» so that its chip and the «+N» chip share one row.
 const FILE_TAG_MAX_LENGTH = 11
 
-// rc-select names a clear button «Clear», and antd's ru_RU does not translate it. An `allowClear`
-// object gives it a Russian name but replaces the icon, so Ant Design's own icon is passed again.
-const FILES_CLEAR = { clearIcon: <CloseCircleFilled />, label: 'Очистить выбор файлов' }
-const SEVERITY_CLEAR = { clearIcon: <CloseCircleFilled />, label: 'Очистить выбор критичности' }
-// The search's clear button is named by its icon («close-circle»), so the icon carries the name.
-const SEARCH_CLEAR = { clearIcon: <CloseCircleFilled aria-label="Очистить поиск" /> }
+// rc-select names a clear button "Clear", and antd's ru_RU does not translate it. An `allowClear`
+// object gives it a name of the current language but replaces the icon, so Ant Design's own icon
+// is passed again. The search's clear button is named by its icon ("close-circle"), so the icon
+// carries the name. Built in the component, where the texts of the current language are at hand.
 
 /** The chip for the selected values that do not fit: short, so that the first chip keeps its room. */
 function restChip(omitted: readonly unknown[]): string {
@@ -93,6 +92,15 @@ export function FindingFiltersBar(props: FindingFiltersBarProps): JSX.Element {
     navigationKey,
     subscribeToNavigation,
   )
+  const { t } = useTranslation()
+  const filesClear = { clearIcon: <CloseCircleFilled />, label: t('runs.filters.clearFiles') }
+  const severityClear = {
+    clearIcon: <CloseCircleFilled />,
+    label: t('runs.filters.clearSeverity'),
+  }
+  const searchClear = {
+    clearIcon: <CloseCircleFilled aria-label={t('runs.filters.clearSearch')} />,
+  }
   const id = useId()
   const filesRef = useRef<RefSelectProps>(null)
   const filesId = `${id}-files`
@@ -126,10 +134,10 @@ export function FindingFiltersBar(props: FindingFiltersBarProps): JSX.Element {
   return (
     <>
       <Form className={styles.bar} data-testid="finding-filters-bar" layout="inline">
-        <Form.Item className={styles.files} htmlFor={filesId} label="Файлы">
+        <Form.Item className={styles.files} htmlFor={filesId} label={t('runs.filters.files')}>
           <Select
-            allowClear={FILES_CLEAR}
-            aria-label="Файлы"
+            allowClear={filesClear}
+            aria-label={t('runs.filters.files')}
             id={filesId}
             labelRender={({ value }) => fileName(String(value))}
             maxTagCount="responsive"
@@ -146,15 +154,19 @@ export function FindingFiltersBar(props: FindingFiltersBarProps): JSX.Element {
               })
             }}
             options={fileSelectOptions}
-            placeholder="Все файлы"
+            placeholder={t('runs.filters.allFiles')}
             ref={filesRef}
             value={effectiveFiles}
           />
         </Form.Item>
-        <Form.Item className={styles.severity} htmlFor={severityId} label="Критичность">
+        <Form.Item
+          className={styles.severity}
+          htmlFor={severityId}
+          label={t('runs.filters.severity')}
+        >
           <Select
-            allowClear={SEVERITY_CLEAR}
-            aria-label="Критичность"
+            allowClear={severityClear}
+            aria-label={t('runs.filters.severity')}
             id={severityId}
             maxTagCount="responsive"
             maxTagPlaceholder={restChip}
@@ -166,21 +178,21 @@ export function FindingFiltersBar(props: FindingFiltersBarProps): JSX.Element {
               })
             }}
             options={SEVERITY_OPTIONS}
-            placeholder="Все уровни"
+            placeholder={t('runs.filters.allLevels')}
             value={filters.severities}
           />
         </Form.Item>
-        {/* The visible label is short; the name keeps «Поиск по замечаниям» and contains it. */}
-        <Form.Item className={styles.search} htmlFor={searchId} label="Поиск">
+        {/* The visible label is short; the accessible name is longer and contains it. */}
+        <Form.Item className={styles.search} htmlFor={searchId} label={t('runs.filters.search')}>
           <Input
-            allowClear={SEARCH_CLEAR}
-            aria-label="Поиск по замечаниям"
+            allowClear={searchClear}
+            aria-label={t('runs.filters.searchLabel')}
             id={searchId}
             maxLength={QUERY_MAX_LENGTH}
             onChange={(event) => {
               type(event.target.value)
             }}
-            placeholder="Текст, правило"
+            placeholder={t('runs.filters.searchPlaceholder')}
             prefix={<SearchOutlined />}
             value={text}
           />
@@ -189,21 +201,18 @@ export function FindingFiltersBar(props: FindingFiltersBarProps): JSX.Element {
         <Flex align="center" className={styles.summary} gap="small">
           <Typography.Text role="status" type="secondary">
             {findingsPending
-              ? 'Замечания появятся после завершения прогона'
-              : `Показано ${String(shown)} из ${String(total)} замечаний`}
+              ? t('runs.filters.pending')
+              : t('runs.filters.shown', { shown, count: total })}
           </Typography.Text>
           <Button disabled={!canReset} onClick={reset}>
-            Сбросить фильтры
+            {t('runs.filters.reset')}
           </Button>
         </Flex>
       </Form>
       {empty ? (
         <div data-testid="findings-filter-empty">
-          <Empty
-            description="Нет замечаний, подходящих под фильтры"
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-          >
-            <Button onClick={reset}>Сбросить фильтры</Button>
+          <Empty description={t('runs.filters.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE}>
+            <Button onClick={reset}>{t('runs.filters.reset')}</Button>
           </Empty>
         </div>
       ) : null}

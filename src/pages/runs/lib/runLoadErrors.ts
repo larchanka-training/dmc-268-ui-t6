@@ -1,29 +1,30 @@
 import { ZodError } from 'zod'
 
 import { ApiError } from '../../../shared/api/client'
+import { i18n } from '../../../shared/i18n'
 
 export function runDetailLoadMessage(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 404) {
-      return 'Прогон не найден'
+      return i18n.t('runs.errors.runNotFound')
     }
-    return 'Не удалось загрузить прогон'
+    return i18n.t('runs.errors.runLoadFailed')
   }
   if (error instanceof ZodError) {
-    return 'Ответ сервера не прошёл проверку схемы'
+    return i18n.t('common.errors.schema')
   }
-  return 'Ошибка загрузки прогона'
+  return i18n.t('runs.errors.runLoad')
 }
 
 export function runDiffLoadMessage(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 404) {
-      return 'Дифф для этого прогона не найден'
+      return i18n.t('runs.errors.diffNotFound')
     }
-    return 'Не удалось загрузить дифф'
+    return i18n.t('runs.errors.diffLoadFailed')
   }
   if (error instanceof ZodError) {
-    return 'Дифф: некорректный ответ сервера'
+    return i18n.t('runs.errors.diffInvalid')
   }
-  return 'Ошибка загрузки диффа'
+  return i18n.t('runs.errors.diffLoad')
 }

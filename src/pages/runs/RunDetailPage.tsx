@@ -9,6 +9,7 @@ import type { FileDiff } from '../../entities/diff'
 import { isActive, useRunActions, useRunDetail } from '../../entities/run'
 import { useRunComments } from '../../entities/review'
 import { useFindingFiltersParams } from '../../features/finding-filters'
+import { useTranslation } from '../../shared/i18n'
 import { PageHeader, PageLoading } from '../../shared/ui'
 import { contextChunkLimit, RunDiff, type ContextGap } from '../../widgets/diff-viewer'
 import { RunControls, RunInspector } from '../../widgets/run-inspector'
@@ -22,6 +23,7 @@ function mergeFileLists(base: FileDiff[], overrides: Map<string, FileDiff>): Fil
 }
 
 const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
+  const { t } = useTranslation()
   const now = new Date()
   const runQuery = useRunDetail(runId)
   const diffQuery = useRunDiff(runId)
@@ -55,7 +57,7 @@ const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
           })
         })
         .catch(() => {
-          setLoadError('Не удалось дочитать контекст файла')
+          setLoadError(t('runs.detail.contextLoadFailed'))
         })
         .finally(() => {
           if (inflightGapKeyRef.current === gapKey) {
@@ -63,7 +65,7 @@ const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
           }
         })
     },
-    [runId],
+    [runId, t],
   )
 
   const displayFiles = useMemo(() => {
@@ -85,7 +87,7 @@ const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
   }
 
   if (!runQuery.data) {
-    return <Empty description="Прогон не найден" data-testid="run-detail-run-error" />
+    return <Empty description={t('runs.detail.notFound')} data-testid="run-detail-run-error" />
   }
 
   const run = runQuery.data
@@ -98,8 +100,8 @@ const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
     <div className={styles.page} data-testid="run-detail-page">
       <Breadcrumb
         items={[
-          { title: <Link to="/runs">Прогоны</Link> },
-          { title: `PR #${String(run.pullRequest.number)}` },
+          { title: <Link to="/runs">{t('runs.title')}</Link> },
+          { title: t('runs.detail.breadcrumb', { number: run.pullRequest.number }) },
         ]}
         separator={<RightOutlined />}
       />
@@ -107,7 +109,7 @@ const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
       <PageHeader
         actions={<RunControls run={run} />}
         description={run.pullRequest.title}
-        title={`Прогон PR #${String(run.pullRequest.number)}`}
+        title={t('runs.detail.title', { number: run.pullRequest.number })}
       />
 
       <RunInspector
@@ -120,8 +122,8 @@ const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
         severityCounts={run.severityCounts}
         verdict={run.verdict}
       >
-        <section aria-label="Дифф и замечания" className={styles.diff}>
-          <h2 className={styles.label}>Дифф и замечания</h2>
+        <section aria-label={t('runs.detail.diffAndFindings')} className={styles.diff}>
+          <h2 className={styles.label}>{t('runs.detail.diffAndFindings')}</h2>
           {loadError ? <Text type="danger">{loadError}</Text> : null}
 
           {showDiffLoadError ? (
@@ -161,8 +163,9 @@ const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
 
 export const RunDetailPage: FC = () => {
   const { runId } = useParams<{ runId: string }>()
+  const { t } = useTranslation()
   if (!runId) {
-    return <Empty description="Не указан id прогона" />
+    return <Empty description={t('runs.detail.noId')} />
   }
   return <RunDetailPageContent key={runId} runId={runId} />
 }
