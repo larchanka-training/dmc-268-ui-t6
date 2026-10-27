@@ -40,7 +40,17 @@ on the run in the dashboard.
 | --- | --- |
 | `blocking` | At least one `critical` or `high` finding. |
 | `attention` | Only `medium` or `low` findings. |
-| `clean` | Nothing above `info`. |
+| `clean` | The review covered all reviewable changes and found nothing above `info`. |
+
+A partial review that found nothing above `info` has no verdict. Confirmed findings still
+produce `blocking` for `critical` or `high`, and `attention` for `medium` or `low`. The review
+summary and `AI Review` check explain what could not be reviewed.
+
+An independently verified empty new ordinary file can count as fully covered alongside
+reviewed code. A rename without content changes, a mode-only change, a deleted image without
+independent binary evidence, or a blob above the 1 MiB read limit can still leave the review
+partial. A filename extension alone does not prove a file is binary. For GitLab, an empty new
+file without independent evidence that it is an ordinary file leaves the review partial.
 
 Findings go inline on changed lines; the rest are in the review body. The `AI Review` check ends
 as neutral, skipped or cancelled and never fails, so do not make it a required check.
