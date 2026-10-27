@@ -1,6 +1,7 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, expectTypeOf, it, vi } from 'vitest'
 
 import { ApiError } from '../../../shared/api/client'
+import type { VcsProvider } from '../../../shared/model/provider'
 import { fetchRunActions, rerunRun, runMutationErrorMessage } from './index'
 
 vi.mock('../../../shared/api/client', () => ({
@@ -19,6 +20,12 @@ vi.mock('../../../shared/api/client', () => ({
 import { apiClient } from '../../../shared/api/client'
 
 describe('run api actions', () => {
+  it('requires a provider when mapping a mutation error', () => {
+    expectTypeOf<Parameters<typeof runMutationErrorMessage>>().toEqualTypeOf<
+      [unknown, 'rerun' | 'cancel', VcsProvider]
+    >()
+  })
+
   it('fetchRunActions parses a wire list', async () => {
     vi.mocked(apiClient).mockResolvedValueOnce([
       {
@@ -42,10 +49,30 @@ describe('run api actions', () => {
     'the pull request has an active run or is closed, or repository reviews are paused or unavailable',
     'Active run already exists',
   ])('maps rerun 409 to all possible causes without exposing detail: %s', (detail) => {
-    const message = runMutationErrorMessage(new ApiError(409, 'Conflict', { detail }), 'rerun')
+    const message = runMutationErrorMessage(
+      new ApiError(409, 'Conflict', { detail }),
+      'rerun',
+      'github',
+    )
     expect(message).toBe(
       'Нельзя перезапустить ревью: у PR уже есть активный прогон, PR закрыт, ревью репозитория приостановлено или GitHub App недоступна',
     )
+  })
+
+  it.each([
+    ['gitlab', 'GitLab недоступен'],
+    ['bitbucket', 'Bitbucket Cloud недоступен'],
+  ] as const)('uses %s access wording for rerun 409', (provider, access) => {
+    const message = runMutationErrorMessage(
+      new ApiError(409, 'Conflict', { detail: 'raw internal detail' }),
+      'rerun',
+      provider,
+    )
+    expect(message).toBe(
+      `Нельзя перезапустить ревью: у PR уже есть активный прогон, PR закрыт, ревью репозитория приостановлено или ${access}`,
+    )
+    expect(message).not.toContain('raw internal detail')
+    expect(message).not.toContain('GitHub App')
   })
 
   it.each([
@@ -69,6 +96,7 @@ describe('run api actions', () => {
     const message = runMutationErrorMessage(
       new ApiError(row.status, 'Error', { detail }),
       row.action,
+      'github',
     )
     expect(message).toBe(row.text)
   })
@@ -76,7 +104,7 @@ describe('run api actions', () => {
   it.each(['rerun', 'cancel'] as const)(
     'falls back to the generic text for a non-ApiError on %s',
     (action) => {
-      expect(runMutationErrorMessage(new Error('boom'), action)).toBe(
+      expect(runMutationErrorMessage(new Error('boom'), action, 'github')).toBe(
         'Не удалось выполнить операцию',
       )
     },

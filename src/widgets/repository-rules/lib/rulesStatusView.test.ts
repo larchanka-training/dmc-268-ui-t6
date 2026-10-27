@@ -77,12 +77,37 @@ describe('describeDiagnosticLimit', () => {
 })
 
 describe('unavailableReason', () => {
+  it('requires an explicit provider at the helper boundary', () => {
+    expectTypeOf<Parameters<typeof unavailableReason>>().toEqualTypeOf<[string, VcsProvider]>()
+  })
+
   it('names Bitbucket for provider access and transient failures', () => {
     expect(unavailableReason('policy_access_denied', 'bitbucket')).toBe(
       'У Bitbucket Cloud нет доступа к репозиторию',
     )
     expect(unavailableReason('policy_rate_limited', 'bitbucket')).toBe(
       'Bitbucket Cloud ограничил число запросов',
+    )
+    expect(unavailableReason('policy_fetch_transient', 'bitbucket')).toBe(
+      'Bitbucket Cloud временно не отвечает',
+    )
+    expect(unavailableReason('policy_revision_unavailable', 'bitbucket')).toBe(
+      'Ревизия default branch недоступна: Bitbucket Cloud не подтвердил, есть ли файл правил.',
+    )
+  })
+
+  it('keeps GitLab wording for the same unavailable reasons', () => {
+    expect(unavailableReason('policy_access_denied', 'gitlab')).toBe(
+      'У GitLab нет доступа к репозиторию',
+    )
+    expect(unavailableReason('policy_rate_limited', 'gitlab')).toBe(
+      'GitLab ограничил число запросов',
+    )
+    expect(unavailableReason('policy_fetch_transient', 'gitlab')).toBe(
+      'GitLab временно не отвечает',
+    )
+    expect(unavailableReason('policy_revision_unavailable', 'gitlab')).toBe(
+      'Ревизия default branch недоступна: GitLab не подтвердил, есть ли файл правил.',
     )
   })
   it.each([
@@ -94,11 +119,13 @@ describe('unavailableReason', () => {
     ['policy_fetch_transient', 'GitHub временно не отвечает'],
     ['policy_rate_limited', 'GitHub ограничил число запросов'],
   ])('explains %s in Russian', (code, reason) => {
-    expect(unavailableReason(code)).toBe(reason)
+    expect(unavailableReason(code, 'github')).toBe(reason)
   })
 
   it('falls back to a general reason for a code it does not know', () => {
-    expect(unavailableReason('something_new')).toBe('Сервер не смог прочитать файл правил')
+    expect(unavailableReason('something_new', 'github')).toBe(
+      'Сервер не смог прочитать файл правил',
+    )
   })
 
   it('shows the server message for a code it does not know', () => {
@@ -113,7 +140,7 @@ describe('unavailableReason', () => {
 
   it('falls back for a code that is a property of every object, not a reason text', () => {
     for (const code of ['constructor', 'toString', '__proto__']) {
-      expect(unavailableReason(code), code).toBe('Сервер не смог прочитать файл правил')
+      expect(unavailableReason(code, 'github'), code).toBe('Сервер не смог прочитать файл правил')
     }
   })
 })

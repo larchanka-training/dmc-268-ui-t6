@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { ApiError, apiClient } from '../../../shared/api/client'
 import { endpoints, type Endpoint } from '../../../shared/api/endpoints'
 import { i18n } from '../../../shared/i18n'
+import { VCS_ACCESS_NAME, type VcsProvider } from '../../../shared/model/provider'
 import {
   RunActionSchema,
   RunDetailSchema,
@@ -51,7 +52,11 @@ export const runApi = {
 
 // Fixed text by status code, never the api `detail`: it is English (or a FastAPI validation
 // array on a malformed id) and must not reach the UI.
-export function runMutationErrorMessage(error: unknown, action: 'rerun' | 'cancel'): string {
+export function runMutationErrorMessage(
+  error: unknown,
+  action: 'rerun' | 'cancel',
+  provider: VcsProvider,
+): string {
   if (error instanceof ApiError) {
     switch (error.status) {
       case 404:

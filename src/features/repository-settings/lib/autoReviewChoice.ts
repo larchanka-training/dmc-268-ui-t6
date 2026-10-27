@@ -16,8 +16,8 @@ export function keepAutoReviewOffLabel(): string {
   return i18n.t('settings.autoReview.keepOff')
 }
 
-/** The message for a choice the server saved while the GitHub App cannot reach the repository. */
-export function autoReviewChoiceSaved(enabled: boolean, provider: VcsProvider = 'github'): string {
+/** The message for a choice the server saved while the provider cannot reach the repository. */
+export function autoReviewChoiceSaved(enabled: boolean, provider: VcsProvider): string {
   const accessName = VCS_ACCESS_NAME[provider]
   return enabled
     ? i18n.t('settings.autoReview.savedOn', { accessName })

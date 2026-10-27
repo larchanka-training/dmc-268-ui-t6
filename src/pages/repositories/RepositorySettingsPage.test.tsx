@@ -423,6 +423,30 @@ describe('RepositorySettingsPage', () => {
     expect(screen.queryByText(/GitHub App/)).toBeNull()
   })
 
+  it('sends only supported settings from a Bitbucket repository page', async () => {
+    const repository: Repository = {
+      ...UI_REPO,
+      provider: 'bitbucket',
+      fullName: 'private-space/private-repo',
+      url: 'https://bitbucket.org/private-space/private-repo',
+      waitForCi: 'never',
+    }
+    const backend = stubBackend([repository])
+    renderPage(settingsPath(repository.id))
+
+    expect(await screen.findByText(NEVER_OPTION)).toBeTruthy()
+    expect(screen.queryByLabelText(CI_LABEL)).toBeNull()
+    expect(screen.queryByLabelText(VERDICT_LABEL)).toBeNull()
+    expect(screen.getByText(/запрос изменений недоступен/)).toBeTruthy()
+
+    fireEvent.change(screen.getByLabelText(LIMIT_LABEL), { target: { value: '5' } })
+    fireEvent.click(saveButton())
+
+    await waitFor(() => {
+      expect(backend.patches).toEqual([{ id: repository.id, body: { maxComments: 5 } }])
+    })
+  })
+
   it('opens the settings of the repository from the URL', async () => {
     const backend = stubBackend([UI_REPO, API_REPO])
 

@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, expectTypeOf, it } from 'vitest'
 
 import { disabledRagIndex, type RagIndex } from '../../../entities/repository'
+import type { VcsProvider } from '../../../shared/model/provider'
 import {
   ragStaleDetail,
   formatIndexedAt,
@@ -31,8 +32,16 @@ const PUBLICATION: RagIndexView['publication'] = {
 }
 
 describe('ragIndexView', () => {
+  it('requires the repository provider', () => {
+    expectTypeOf<Parameters<typeof ragIndexView>>().toEqualTypeOf<
+      [RagIndex, boolean, VcsProvider]
+    >()
+  })
+
   it('says «Выключен» when RAG is off, whatever the index says', () => {
-    expect(ragIndexView(index({ status: 'ready', ...PUBLISHED }), false)).toEqual<RagIndexView>({
+    expect(
+      ragIndexView(index({ status: 'ready', ...PUBLISHED }), false, 'github'),
+    ).toEqual<RagIndexView>({
       label: 'Выключен',
       tone: 'neutral',
       pulse: false,
@@ -45,12 +54,12 @@ describe('ragIndexView', () => {
   it.each(['disabled', 'empty', 'building', 'ready', 'stale', 'failed'] as const)(
     'says «Выключен» for the %s index while RAG is off',
     (status) => {
-      expect(ragIndexView(index({ status }), false).label).toBe('Выключен')
+      expect(ragIndexView(index({ status }), false, 'github').label).toBe('Выключен')
     },
   )
 
   it('treats `disabled` with RAG on as «Не построен»: the optimistic window before the response', () => {
-    expect(ragIndexView(disabledRagIndex, true)).toEqual<RagIndexView>({
+    expect(ragIndexView(disabledRagIndex, true, 'github')).toEqual<RagIndexView>({
       label: 'Не построен',
       tone: 'neutral',
       pulse: false,
@@ -61,7 +70,7 @@ describe('ragIndexView', () => {
   })
 
   it('says «Не построен» for an `empty` index', () => {
-    expect(ragIndexView(index({ status: 'empty' }), true)).toEqual<RagIndexView>({
+    expect(ragIndexView(index({ status: 'empty' }), true, 'github')).toEqual<RagIndexView>({
       label: 'Не построен',
       tone: 'neutral',
       pulse: false,
@@ -72,7 +81,7 @@ describe('ragIndexView', () => {
   })
 
   it('says «Строится…» with a pulse for a `building` index', () => {
-    expect(ragIndexView(index({ status: 'building' }), true)).toEqual<RagIndexView>({
+    expect(ragIndexView(index({ status: 'building' }), true, 'github')).toEqual<RagIndexView>({
       label: 'Строится…',
       tone: 'info',
       pulse: true,
@@ -83,7 +92,9 @@ describe('ragIndexView', () => {
   })
 
   it('says «Готов» with the publication for a `ready` index that has files', () => {
-    expect(ragIndexView(index({ status: 'ready', ...PUBLISHED }), true)).toEqual<RagIndexView>({
+    expect(
+      ragIndexView(index({ status: 'ready', ...PUBLISHED }), true, 'github'),
+    ).toEqual<RagIndexView>({
       label: 'Готов',
       tone: 'success',
       pulse: false,
@@ -96,7 +107,7 @@ describe('ragIndexView', () => {
   it('says «Готов — репозиторий пустой» for a `ready` index with no files', () => {
     const empty = index({ status: 'ready', ...PUBLISHED, fileCount: 0, symbolCount: 0 })
 
-    expect(ragIndexView(empty, true)).toEqual<RagIndexView>({
+    expect(ragIndexView(empty, true, 'github')).toEqual<RagIndexView>({
       label: 'Готов — репозиторий пустой',
       tone: 'success',
       pulse: false,
@@ -107,7 +118,9 @@ describe('ragIndexView', () => {
   })
 
   it('says «Устарел» with the publication and the explanation for a `stale` index', () => {
-    expect(ragIndexView(index({ status: 'stale', ...PUBLISHED }), true)).toEqual<RagIndexView>({
+    expect(
+      ragIndexView(index({ status: 'stale', ...PUBLISHED }), true, 'github'),
+    ).toEqual<RagIndexView>({
       label: 'Устарел',
       tone: 'warning',
       pulse: false,
@@ -120,7 +133,11 @@ describe('ragIndexView', () => {
 
   it('says «Ошибка» with the reason and the raw error code for a `failed` index, and no publication', () => {
     expect(
-      ragIndexView(index({ status: 'failed', lastErrorCode: 'limit_exceeded:symbols' }), true),
+      ragIndexView(
+        index({ status: 'failed', lastErrorCode: 'limit_exceeded:symbols' }),
+        true,
+        'github',
+      ),
     ).toEqual<RagIndexView>({
       label: 'Ошибка',
       tone: 'danger',
@@ -133,7 +150,7 @@ describe('ragIndexView', () => {
 
   it('says «Ошибка» without a code when a `failed` index carries none', () => {
     expect(
-      ragIndexView(index({ status: 'failed', lastErrorCode: null }), true),
+      ragIndexView(index({ status: 'failed', lastErrorCode: null }), true, 'github'),
     ).toEqual<RagIndexView>({
       label: 'Ошибка',
       tone: 'danger',
@@ -152,7 +169,7 @@ describe('ragIndexView', () => {
   ] as const)(
     'shows no publication, and does not throw, for a `%s` index missing %j',
     (status, gap) => {
-      const view = ragIndexView(index({ status, ...PUBLISHED, ...gap }), true)
+      const view = ragIndexView(index({ status, ...PUBLISHED, ...gap }), true, 'github')
 
       expect(view.publication).toBeNull()
       expect(view.label).toBe(status === 'ready' ? 'Готов' : 'Устарел')
@@ -190,7 +207,9 @@ describe('ragIndexView: the reason of the last build', () => {
     ['policy_document_too_large', 'файл .review/rules.md больше лимита'],
     ['policy_document_type_unsupported', 'неподдерживаемый тип файла .review/rules.md'],
   ])('explains %s and keeps the code', (code, text) => {
-    expect(ragIndexView(index({ status: 'failed', lastErrorCode: code }), true).reason).toEqual({
+    expect(
+      ragIndexView(index({ status: 'failed', lastErrorCode: code }), true, 'github').reason,
+    ).toEqual({
       code,
       text,
     })
@@ -217,6 +236,20 @@ describe('ragIndexView: the reason of the last build', () => {
   })
 
   it.each([
+    ['gitlab', 'GitLab'],
+    ['bitbucket', 'Bitbucket Cloud'],
+  ] as const)('names %s for provider outage and VCS rate limit', (provider, name) => {
+    expect(
+      ragIndexView(index({ status: 'failed', lastErrorCode: 'vcs_unavailable' }), true, provider)
+        .reason?.text,
+    ).toBe(`${name} временно недоступен`)
+    expect(
+      ragIndexView(index({ status: 'failed', lastErrorCode: 'vcs_rate_limited' }), true, provider)
+        .reason?.text,
+    ).toBe(`${name} ограничил число запросов`)
+  })
+
+  it.each([
     'limit_exceeded:files',
     'limit_exceeded:bytes',
     'limit_exceeded:',
@@ -224,7 +257,9 @@ describe('ragIndexView: the reason of the last build', () => {
     'unknown_code',
     'constructor',
   ])('keeps the unknown code %s with no text', (code) => {
-    expect(ragIndexView(index({ status: 'failed', lastErrorCode: code }), true).reason).toEqual({
+    expect(
+      ragIndexView(index({ status: 'failed', lastErrorCode: code }), true, 'github').reason,
+    ).toEqual({
       code,
       text: null,
     })
@@ -235,6 +270,7 @@ describe('ragIndexView: the reason of the last build', () => {
       ragIndexView(
         index({ status: 'empty', lastErrorCode: 'limit_exceeded:archive_entries' }),
         true,
+        'github',
       ),
     ).toEqual<RagIndexView>({
       label: 'Не построен',
@@ -251,7 +287,11 @@ describe('ragIndexView: the reason of the last build', () => {
 
   it('gives the reason of the last build next to the publication of a `ready` index', () => {
     expect(
-      ragIndexView(index({ status: 'ready', ...PUBLISHED, lastErrorCode: 'internal_error' }), true),
+      ragIndexView(
+        index({ status: 'ready', ...PUBLISHED, lastErrorCode: 'internal_error' }),
+        true,
+        'github',
+      ),
     ).toEqual<RagIndexView>({
       label: 'Готов',
       tone: 'success',
@@ -264,7 +304,8 @@ describe('ragIndexView: the reason of the last build', () => {
 
   it.each(['building', 'stale'] as const)('gives the reason for a `%s` index too', (status) => {
     expect(
-      ragIndexView(index({ status, ...PUBLISHED, lastErrorCode: 'internal_error' }), true).reason,
+      ragIndexView(index({ status, ...PUBLISHED, lastErrorCode: 'internal_error' }), true, 'github')
+        .reason,
     ).toEqual({ code: 'internal_error', text: 'внутренняя ошибка сборки' })
   })
 
@@ -272,7 +313,8 @@ describe('ragIndexView: the reason of the last build', () => {
     'gives no reason for the %s index while RAG is off',
     (status) => {
       expect(
-        ragIndexView(index({ status, lastErrorCode: 'limit_exceeded:symbols' }), false).reason,
+        ragIndexView(index({ status, lastErrorCode: 'limit_exceeded:symbols' }), false, 'github')
+          .reason,
       ).toBeNull()
     },
   )

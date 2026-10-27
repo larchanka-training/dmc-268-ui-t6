@@ -257,7 +257,9 @@ export const RepositoryList: FC<RepositoryListProps> = ({
             ) : (
               <Text strong>{fullName}</Text>
             )}
-            <Tag variant="outline">{VCS_PROVIDER_LABEL[record.provider]}</Tag>
+            <Tag className={styles.providerTag} variant="outline">
+              {VCS_PROVIDER_LABEL[record.provider]}
+            </Tag>
             {fullTable ? (
               <Text className={styles.repoMeta} type="secondary">
                 {shortName}

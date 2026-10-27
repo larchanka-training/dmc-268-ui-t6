@@ -23,9 +23,9 @@ export const endpoints = {
       method: 'POST',
       path: `/workspaces/${workspaceId}/bitbucket/discovery`,
     }),
-    connections: (workspaceId: string, cursor?: string | null): Endpoint => ({
+    connections: (workspaceId: string): Endpoint => ({
       method: 'GET',
-      path: `/workspaces/${workspaceId}/bitbucket/connections${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`,
+      path: `/workspaces/${workspaceId}/bitbucket/connections`,
     }),
     connect: (workspaceId: string): Endpoint => ({
       method: 'POST',

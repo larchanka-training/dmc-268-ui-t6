@@ -342,7 +342,7 @@ function handleMockTransport(
   if (bitbucketMatch) {
     const [, workspaceId, suffix] = bitbucketMatch
     if (workspaceId !== MOCK_BITBUCKET_WORKSPACE_ID) {
-      throw new ApiError(404, 'Not Found', { message: 'Workspace not found' })
+      throw new ApiError(404, 'Not Found', { detail: 'workspace_not_found' })
     }
     if (suffix === 'discovery' && endpoint.method === 'POST') {
       const body = z
@@ -377,16 +377,28 @@ function handleMockTransport(
         .parse(options.body)
       const repo = MOCK_BITBUCKET_REPOSITORIES.find(
         (item) =>
-          item.workspaceSlug === body.bitbucketWorkspace &&
-          item.slug === body.repositorySlug &&
-          item.uuid === body.repositoryUuid,
+          item.workspaceSlug === body.bitbucketWorkspace && item.slug === body.repositorySlug,
       )
-      if (!repo) throw new ApiError(404, 'Not Found', { message: 'Repository not found' })
-      if (bitbucketToken !== null && bitbucketToken !== body.apiToken) {
-        throw new ApiError(409, 'Conflict', { message: 'Rotate the shared credential first' })
+      if (!repo)
+        throw new ApiError(422, 'Unprocessable Entity', { detail: 'repository_inaccessible' })
+      if (repo.uuid !== body.repositoryUuid) {
+        throw new ApiError(409, 'Conflict', { detail: 'repository_uuid_mismatch' })
       }
-      if (bitbucketConnections.some((item) => item.repositoryUuid === repo.uuid)) {
-        throw new ApiError(409, 'Conflict', { message: 'Already connected' })
+      if (bitbucketToken !== null && bitbucketToken !== body.apiToken) {
+        throw new ApiError(409, 'Conflict', { detail: 'credential_rotation_required' })
+      }
+      const existing = bitbucketConnections.find((item) => item.repositoryUuid === repo.uuid)
+      if (existing) {
+        return {
+          id: existing.id,
+          repositoryId: existing.repositoryId,
+          repositoryUuid: existing.repositoryUuid,
+          workspaceSlug: existing.workspaceSlug,
+          repositorySlug: existing.repositorySlug,
+          status: existing.status,
+          credentialGeneration: existing.credentialGeneration,
+          webhook: null,
+        }
       }
       bitbucketToken = body.apiToken
       const webhookUrl = `https://api.example.test/webhooks/bitbucket/${MOCK_BITBUCKET_INSTALLATION_ID}/${repo.repositoryId}`
@@ -411,6 +423,8 @@ function handleMockTransport(
         url: repo.htmlUrl,
         defaultBranch: 'main',
         enabled: true,
+        waitForCi: 'never',
+        reviewEvent: 'COMMENT',
         installationAvailable: true,
         ragEnabled: false,
         ragIndex: { ...disabledRagIndex },
@@ -434,7 +448,7 @@ function handleMockTransport(
     const rotateCredential = /^connections\/([^/]+)\/credential$/.exec(suffix ?? '')
     if (rotateCredential && endpoint.method === 'PUT') {
       if (rotateCredential[1] !== MOCK_BITBUCKET_INSTALLATION_ID || !bitbucketConnections.length) {
-        throw new ApiError(404, 'Not Found', { message: 'Connection not found' })
+        throw new ApiError(404, 'Not Found', { detail: 'connection_not_found' })
       }
       bitbucketToken = z.object({ apiToken: z.string().min(1) }).parse(options.body).apiToken
       bitbucketCredentialGeneration += 1
@@ -454,7 +468,8 @@ function handleMockTransport(
       const [, installationId, repositoryId, action] = binding
       const item = bitbucketConnections.find((entry) => entry.repositoryId === repositoryId)
       if (installationId !== MOCK_BITBUCKET_INSTALLATION_ID || !item) {
-        throw new ApiError(404, 'Not Found', { message: 'Connection not found' })
+        if (!action && endpoint.method === 'DELETE') return null
+        throw new ApiError(404, 'Not Found', { detail: 'repository_not_found' })
       }
       if (action === '/webhook-secret' && endpoint.method === 'POST') {
         bitbucketHookSequence += 1
@@ -473,7 +488,7 @@ function handleMockTransport(
         return null
       }
     }
-    throw new ApiError(404, 'Not Found', { message: 'Bitbucket endpoint not found' })
+    throw new ApiError(404, 'Not Found', { detail: 'connection_not_found' })
   }
   if (pathname === '/runs' && endpoint.method === 'GET') {
     return listMockRuns(queryStart === -1 ? '' : endpoint.path.slice(queryStart + 1))
@@ -504,6 +519,26 @@ function handleMockTransport(
     }
     if (options.body && typeof options.body === 'object') {
       const patch = validatePatchBody(options.body)
+      if (stored.provider === 'bitbucket') {
+        const unsupportedField =
+          patch.waitForCi !== undefined && patch.waitForCi !== 'never'
+            ? 'waitForCi'
+            : patch.reviewEvent === 'REQUEST_CHANGES'
+              ? 'reviewEvent'
+              : null
+        if (unsupportedField) {
+          throw unprocessable([
+            {
+              loc: ['body', unsupportedField],
+              msg:
+                unsupportedField === 'waitForCi'
+                  ? 'bitbucket_wait_for_ci_unsupported'
+                  : 'bitbucket_review_event_unsupported',
+              type: 'value_error',
+            },
+          ])
+        }
+      }
       const wasRagEnabled = stored.ragEnabled
       // The patch is stored as sent: `enabled` and `ragEnabled` are the preferences, served through
       // `serveRepository`.

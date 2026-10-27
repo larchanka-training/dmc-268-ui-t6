@@ -112,7 +112,7 @@ const Meta: FC<{ status: Exclude<RulesStatus, { status: 'pending' }>; tag?: Reac
 
 export interface RulesStatusDetailsProps {
   status: RulesStatus
-  provider?: VcsProvider
+  provider: VcsProvider
   /** Asks the server again; offered only where the server said a retry can help. */
   onRetry: () => void
   /** For the owner of the focus: the retry button reports here when it comes and goes. */
@@ -123,7 +123,7 @@ export interface RulesStatusDetailsProps {
 /** One of the five answers the server gives for `.review/rules.md`. */
 export const RulesStatusDetails: FC<RulesStatusDetailsProps> = ({
   status,
-  provider = 'github',
+  provider,
   onRetry,
   retryRef,
   retrying,
