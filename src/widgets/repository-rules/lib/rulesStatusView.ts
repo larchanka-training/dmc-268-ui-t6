@@ -1,5 +1,7 @@
+import type { ParseKeys } from 'i18next'
+
 import type { RulesDiagnostic } from '../../../entities/repository'
-import { formatDateTime } from '../../../shared/i18n'
+import { formatDateTime, i18n } from '../../../shared/i18n'
 
 /** The seven characters git itself shows; the full sha stays in a tooltip. */
 export function shortSha(sha: string): string {
@@ -27,30 +29,28 @@ export function describeDiagnosticLocation(diagnostic: RulesDiagnostic): string 
 
 /**
  * The limit and the actual value of a "too large" diagnostic, when the server knows both. A lower
- * bound reads "более N": RULES_FORMAT_SPEC §9 forbids showing it as an exact value.
+ * bound reads "more than N": RULES_FORMAT_SPEC §9 forbids showing it as an exact value.
  */
 export function describeDiagnosticLimit(diagnostic: RulesDiagnostic): string | null {
   if (diagnostic.limit === undefined || diagnostic.actual === undefined) {
     return null
   }
-  const actual =
-    diagnostic.actualIsLowerBound === true
-      ? `более ${String(diagnostic.actual)}`
-      : String(diagnostic.actual)
-  return `допустимо ${String(diagnostic.limit)}, фактически ${actual}`
+  return i18n.t(diagnostic.actualIsLowerBound === true ? 'rules.limitLowerBound' : 'rules.limit', {
+    limit: diagnostic.limit,
+    actual: diagnostic.actual,
+  })
 }
 
 // RULES_FORMAT_SPEC §9: the codes under which the file could not be read at all.
-const UNAVAILABLE_REASONS: Record<string, string> = {
-  policy_access_denied: 'У GitHub App нет доступа к репозиторию',
-  policy_revision_unavailable:
-    'Ревизия default branch недоступна: GitHub не подтвердил, есть ли файл правил.',
-  policy_fetch_transient: 'GitHub временно не отвечает',
-  policy_rate_limited: 'GitHub ограничил число запросов',
-}
+const UNAVAILABLE_REASONS = {
+  policy_access_denied: 'rules.reasons.policy_access_denied',
+  policy_revision_unavailable: 'rules.reasons.policy_revision_unavailable',
+  policy_fetch_transient: 'rules.reasons.policy_fetch_transient',
+  policy_rate_limited: 'rules.reasons.policy_rate_limited',
+} as const satisfies Record<string, ParseKeys>
 
 /** Whether `unavailableReason` has a text of its own for the code; the generic fallback does not count. */
-export function isKnownUnavailableCode(code: string): boolean {
+export function isKnownUnavailableCode(code: string): code is keyof typeof UNAVAILABLE_REASONS {
   return Object.keys(UNAVAILABLE_REASONS).includes(code)
 }
 
@@ -59,6 +59,7 @@ export function isKnownUnavailableCode(code: string): boolean {
  * is looked up only where `isKnownUnavailableCode` says it is a key, so `constructor` is not.
  */
 export function unavailableReason(code: string): string {
-  const reason = isKnownUnavailableCode(code) ? UNAVAILABLE_REASONS[code] : undefined
-  return reason ?? 'Сервер не смог прочитать файл правил'
+  return isKnownUnavailableCode(code)
+    ? i18n.t(UNAVAILABLE_REASONS[code])
+    : i18n.t('rules.reasons.fallback')
 }
