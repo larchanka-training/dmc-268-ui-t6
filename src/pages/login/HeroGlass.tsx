@@ -16,23 +16,23 @@ const VERT = `attribute vec2 p; void main(){ gl_Position = vec4(p, 0., 1.); }`
  */
 const FRAG = `
 precision highp float;
-uniform vec2 uRes;      // размер канваса, device px
-uniform float uScale;   // device px на один CSS px
+uniform vec2 uRes;      // canvas size, device px
+uniform float uScale;   // device px per CSS px
 uniform float uTime;
-uniform vec2 uMouse;    // сглаженный курсор, -1..1
-uniform float uIntro;   // 0..1, фон проявляется из темноты
-uniform float uMobile;  // 1 на узких экранах
-uniform vec3 uDim;      // приглушение под текстом: множитель света, потолок, радиус затухания
-uniform vec4 uText;     // блок заголовка: центр x, центр y (от верха), радиус x, радиус y; CSS px
+uniform vec2 uMouse;    // smoothed cursor, -1..1
+uniform float uIntro;   // 0..1, the background fades in from the dark
+uniform float uMobile;  // 1 on narrow screens
+uniform vec3 uDim;      // dimming under the text: light factor, ceiling, falloff radius
+uniform vec4 uText;     // heading block: center x, center y (from the top), radius x, radius y; CSS px
 
-const float CA = 0.035;    // насколько разведены синие копии каймы
-const float GRAIN = 0.3;   // насколько сильно мягкие края рассыпаются на точки
-const float ANGLE = 0.73;  // наклон полос, ~42°, как у прежних CSS-лучей
+const float CA = 0.035;    // how far apart the blue copies of the rim are
+const float GRAIN = 0.3;   // how strongly soft edges break up into dots
+const float ANGLE = 0.73;  // slope of the stripes, ~42°, as the former CSS rays
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 mat2 rot(float a) { float c = cos(a), s = sin(a); return mat2(c, -s, s, c); }
 
-// Поле из трёх волн, как у Raycast, в виде скаляра
+// A field of three waves, as at Raycast, as a scalar
 float plasma(vec2 p, float t) {
   float h = cos(3.0 * p.x + t);
   float d = cos(p.x * cos(t) + 5.0 * p.y * sin(t) + t);
@@ -41,8 +41,8 @@ float plasma(vec2 p, float t) {
   return smoothstep(0.15, 0.85, ((h + d + r) / 3.0 + 1.0) * 0.5);
 }
 
-// Свет за стеклом: три мягких пятна на медленных орбитах. Сближаясь, они сливаются в одно,
-// расходясь — открывают между собой тёмные островки. Курсор слегка тянет их за собой.
+// Light behind the glass: three soft spots on slow orbits. Coming close they merge into one,
+// moving apart they open dark islands between them. The cursor pulls them slightly along.
 float patches(vec2 p, float t) {
   vec2 m = uMouse * 0.22;
   float spread = mix(1.0, 0.45, uMobile);
@@ -53,7 +53,7 @@ float patches(vec2 p, float t) {
   return smoothstep(0.30, 0.85, f);
 }
 
-// Профиль линзы поперёк одной полосы, f в -1..1: к краю преломление сильнее
+// Lens profile across one stripe, f in -1..1: refraction grows towards the edge
 float lens(float f) { return f * (0.55 + 0.9 * f * f); }
 
 float field(vec2 p, float t) {
@@ -62,15 +62,15 @@ float field(vec2 p, float t) {
   float f = fract(s) * 2.0 - 1.0;
   vec2 sp = rot(-ANGLE) * vec2((floor(s) + 0.5 + lens(f) * 1.5) * w, q.y);
   float v = (0.35 + 0.65 * plasma((sp - uMouse * 0.12) * 1.2, t * 0.07)) * patches(sp, t);
-  // затенение стекла: темнее к обоим краям, тонкий блик с одной стороны, лёгкий разброс по полосам
+  // glass shading: darker towards both edges, a thin highlight on one side, a slight spread per stripe
   v = v * (1.0 - 0.8 * pow(abs(f), 5.0)) + smoothstep(0.93, 1.0, -f) * 0.06;
   v *= 0.8 + 0.4 * hash(vec2(floor(s), 1.0));
-  // появление: полосы загораются по очереди от середины к краям и вытягиваются вдоль диагонали
+  // intro: stripes light up one by one from the middle out and stretch along the diagonal
   float k = smoothstep(0.0, 1.0, (uIntro - abs(floor(s) + 0.5) * 0.07) / 0.55);
   return v * k * smoothstep(k * 3.4, k * 3.4 - 0.9, abs(q.y));
 }
 
-// Палитра лендинга: --bg -> #1e3a8a -> --blue -> --glow -> #dbeafe
+// Landing palette: --bg -> #1e3a8a -> --blue -> --glow -> #dbeafe
 vec3 ramp(float v) {
   v = clamp(v, 0.0, 1.0);
   vec3 c0 = vec3(0.035, 0.051, 0.094), c1 = vec3(0.118, 0.227, 0.541), c2 = vec3(0.145, 0.388, 0.922),
@@ -83,28 +83,28 @@ vec3 ramp(float v) {
 
 void main() {
   vec2 size = uRes / uScale;
-  vec2 px = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y) / uScale;   // CSS px от левого верхнего угла
+  vec2 px = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y) / uScale;   // CSS px from the top left corner
 
-  // Тот же эллипс, что был в маске лучей: radial-gradient(ellipse 58% 62% at 50% 42%, #000 30%, transparent 78%)
-  // (на телефоне 90% 36% at 50% 25%). Он заканчивается внутри канваса, а в нуле шейдер отдаёт ровно --bg,
-  // поэтому картинка растворяется в фоне страницы без видимой границы.
+  // The same ellipse as in the ray mask: radial-gradient(ellipse 58% 62% at 50% 42%, #000 30%, transparent 78%)
+  // (on a phone 90% 36% at 50% 25%). It ends inside the canvas, and at zero the shader returns exactly --bg,
+  // so the picture dissolves into the page background with no visible border.
   vec2 c = size * vec2(0.5, mix(0.42, 0.25, uMobile));
   vec2 e = size * mix(vec2(0.58, 0.62), vec2(0.9, 0.36), uMobile);
   float vig = 1.0 - smoothstep(0.30, 0.78, length((px - c) / e));
 
   vec2 uv = vec2(px.x - c.x, c.y - px.y) / mix(450.0, 300.0, uMobile);
 
-  // Аберрация в синей гамме: две сдвинутые копии формы дают тёмно-синюю кайму с одной стороны
-  // и голубую с другой. Сначала кайма собрана и расходится по мере появления фона.
+  // Aberration in the blue range: two shifted copies of the shape give a dark blue rim on one side
+  // and a light blue one on the other. The rim starts closed and opens as the background appears.
   vec2 dir = vec2(1.0, -0.45) * CA * (0.6 + 0.6 * length(uv)) * mix(0.15, 1.0, smoothstep(0.3, 1.0, uIntro));
   vec3 v = clamp(vec3(field(uv - dir * 1.6, uTime), field(uv, uTime), field(uv + dir, uTime)), 0.0, 1.0);
   v *= vig * smoothstep(0.0, 0.5, uIntro) * mix(0.9, 0.7, uMobile);
 
-  // Под заголовком свет приглушён и ограничен средним синим: текст не оказывается на почти белом
+  // Under the heading the light is dimmed and capped at a medium blue: text never sits on near white
   float tm = smoothstep(uDim.z, 0.45, length((px - uText.xy) / uText.zw));
   v = min(v * mix(1.0, uDim.x, tm), vec3(mix(0.9, uDim.y, tm)));
 
-  // Зерно сильнее в полутонах: плотные середины остаются сплошными, мягкие края рассыпаются на точки
+  // Grain is stronger in half tones: dense centers stay solid, soft edges break up into dots
   float n = hash(floor(gl_FragCoord.xy / max(uScale, 1.0)) + 3.7) - 0.5;
   v += n * GRAIN * (0.06 * vig + 4.0 * v * (1.0 - v));
 
