@@ -14,6 +14,7 @@ import { advance, settle } from '../../../test/advanceTimers'
 import { useRagIndexPolling } from './useRagIndexPolling'
 
 const REPO: Repository = {
+  provider: 'github',
   id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
   fullName: 'org/repo',
   url: 'https://github.com/org/repo',

@@ -1,0 +1,137 @@
+import { afterEach, describe, expect, it } from 'vitest'
+
+import { setMockTransport } from '../../../shared/api/client'
+import {
+  connectBitbucketRepository,
+  discoverBitbucketRepositories,
+  disconnectBitbucketRepository,
+  listBitbucketConnections,
+  rotateBitbucketCredential,
+  rotateBitbucketWebhookSecret,
+} from './index'
+
+const WORKSPACE = '11111111-1111-4111-8111-111111111111'
+const INSTALLATION = '22222222-2222-4222-8222-222222222222'
+const REPOSITORY = '33333333-3333-4333-8333-333333333333'
+const REMOTE = '44444444-4444-4444-8444-444444444444'
+const WEBHOOK = {
+  url: `https://api.example.test/webhooks/bitbucket/${INSTALLATION}/${REPOSITORY}`,
+  events: ['repo:push', 'pullrequest:created', 'pullrequest:updated'],
+  secret: 'one-time-secret',
+}
+
+afterEach(() => {
+  setMockTransport(null)
+})
+
+describe('Bitbucket workspace connection API', () => {
+  it('sends discovery and connect only to the selected portal workspace and validates private repositories', async () => {
+    const calls: { path: string; body: unknown }[] = []
+    setMockTransport((endpoint, options) => {
+      calls.push({ path: endpoint.path, body: options.body })
+      if (endpoint.path.endsWith('/discovery')) {
+        return {
+          repositories: [
+            {
+              uuid: REMOTE,
+              workspaceSlug: 'private-space',
+              slug: 'private-repo',
+              name: 'Private repo',
+              isPrivate: true,
+              htmlUrl: 'https://bitbucket.org/private-space/private-repo',
+            },
+          ],
+          nextCursor: null,
+        }
+      }
+      return {
+        id: INSTALLATION,
+        repositoryId: REPOSITORY,
+        repositoryUuid: REMOTE,
+        workspaceSlug: 'private-space',
+        repositorySlug: 'private-repo',
+        status: 'awaiting_webhook',
+        credentialGeneration: 1,
+        webhook: WEBHOOK,
+      }
+    })
+
+    const discovery = await discoverBitbucketRepositories(WORKSPACE, {
+      bitbucketWorkspace: 'private-space',
+      apiToken: 'temporary-token',
+    })
+    expect(discovery.repositories[0]?.isPrivate).toBe(true)
+    const connected = await connectBitbucketRepository(WORKSPACE, {
+      bitbucketWorkspace: 'private-space',
+      repositorySlug: 'private-repo',
+      repositoryUuid: REMOTE,
+      apiToken: 'temporary-token',
+    })
+    expect(connected.webhook?.secret).toBe('one-time-secret')
+    expect(calls).toEqual([
+      {
+        path: `/workspaces/${WORKSPACE}/bitbucket/discovery`,
+        body: { bitbucketWorkspace: 'private-space', apiToken: 'temporary-token' },
+      },
+      {
+        path: `/workspaces/${WORKSPACE}/bitbucket/connections`,
+        body: {
+          bitbucketWorkspace: 'private-space',
+          repositorySlug: 'private-repo',
+          repositoryUuid: REMOTE,
+          apiToken: 'temporary-token',
+        },
+      },
+    ])
+  })
+
+  it('rejects malformed provider responses and unknown status instead of treating them as a connection', async () => {
+    setMockTransport(() => ({
+      connections: [{ id: INSTALLATION, status: 'unknown' }],
+      nextCursor: null,
+    }))
+    await expect(listBitbucketConnections(WORKSPACE)).rejects.toThrow()
+    setMockTransport(() => ({
+      repositories: [{ uuid: REMOTE, isPrivate: 'yes' }],
+      nextCursor: null,
+    }))
+    await expect(
+      discoverBitbucketRepositories(WORKSPACE, {
+        bitbucketWorkspace: 'private-space',
+        apiToken: 't',
+      }),
+    ).rejects.toThrow()
+  })
+
+  it('disconnects one binding, rotates shared credential explicitly and rotates only its hook secret', async () => {
+    const calls: { method: string; path: string; body: unknown }[] = []
+    setMockTransport((endpoint, options) => {
+      calls.push({ ...endpoint, body: options.body })
+      if (endpoint.method === 'DELETE') return null
+      if (endpoint.path.endsWith('/credential')) {
+        return { id: INSTALLATION, credentialGeneration: 2 }
+      }
+      return WEBHOOK
+    })
+    await rotateBitbucketCredential(WORKSPACE, INSTALLATION, 'replacement-token')
+    await rotateBitbucketWebhookSecret(WORKSPACE, INSTALLATION, REPOSITORY)
+    await disconnectBitbucketRepository(WORKSPACE, INSTALLATION, REPOSITORY)
+    expect(calls).toEqual([
+      {
+        method: 'PUT',
+        path: `/workspaces/${WORKSPACE}/bitbucket/connections/${INSTALLATION}/credential`,
+        body: { apiToken: 'replacement-token' },
+      },
+      {
+        method: 'POST',
+        path: `/workspaces/${WORKSPACE}/bitbucket/connections/${INSTALLATION}/repositories/${REPOSITORY}/webhook-secret`,
+        body: undefined,
+      },
+      {
+        method: 'DELETE',
+        path: `/workspaces/${WORKSPACE}/bitbucket/connections/${INSTALLATION}/repositories/${REPOSITORY}`,
+        body: undefined,
+      },
+    ])
+  })
+})

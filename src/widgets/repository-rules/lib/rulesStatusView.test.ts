@@ -77,6 +77,14 @@ describe('describeDiagnosticLimit', () => {
 })
 
 describe('unavailableReason', () => {
+  it('names Bitbucket for provider access and transient failures', () => {
+    expect(unavailableReason('policy_access_denied', 'bitbucket')).toBe(
+      'У Bitbucket Cloud нет доступа к репозиторию',
+    )
+    expect(unavailableReason('policy_rate_limited', 'bitbucket')).toBe(
+      'Bitbucket Cloud ограничил число запросов',
+    )
+  })
   it.each([
     ['policy_access_denied', 'У GitHub App нет доступа к репозиторию'],
     [

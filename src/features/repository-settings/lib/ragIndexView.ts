@@ -1,5 +1,10 @@
 import type { RagIndex } from '../../../entities/repository'
 import type { ParseKeys } from 'i18next'
+import {
+  VCS_ACCESS_NAME,
+  VCS_PROVIDER_LABEL,
+  type VcsProvider,
+} from '../../../shared/model/provider'
 
 import { formatDateTime, i18n } from '../../../shared/i18n'
 
@@ -9,8 +14,8 @@ export const RAG_LABEL = 'RAG'
 export function ragHint(): string {
   return i18n.t('settings.rag.hint')
 }
-export function ragNoAccessText(): string {
-  return i18n.t('settings.rag.noAccess')
+export function ragNoAccessText(provider: VcsProvider = 'github'): string {
+  return i18n.t('settings.rag.noAccess', { accessName: VCS_ACCESS_NAME[provider] })
 }
 export function ragErrorTitle(): string {
   return i18n.t('settings.rag.changeFailed')
@@ -91,7 +96,26 @@ const ERROR_REASON_KEYS: Record<string, ParseKeys> = {
  * guessed from its shape. A code is looked up only where it is a key of the map, so `constructor`
  * is not.
  */
-function errorReason(code: string): string | null {
+function errorReason(code: string, provider: VcsProvider): string | null {
+  if (provider !== 'github') {
+    const name = VCS_PROVIDER_LABEL[provider]
+    const accessName = VCS_ACCESS_NAME[provider]
+    switch (code) {
+      case 'vcs_unavailable':
+        return i18n.t('settings.rag.providerReasons.vcs_unavailable', { name })
+      case 'vcs_rate_limited':
+        return i18n.t('settings.rag.providerReasons.vcs_rate_limited', { name })
+      case 'vcs_access_denied':
+      case 'policy_access_denied':
+        return i18n.t('settings.rag.providerReasons.access_denied', { accessName })
+      case 'policy_revision_unavailable':
+        return i18n.t('settings.rag.providerReasons.policy_revision_unavailable', { name })
+      case 'policy_fetch_transient':
+        return i18n.t('settings.rag.providerReasons.policy_fetch_transient', { name })
+      case 'policy_rate_limited':
+        return i18n.t('settings.rag.providerReasons.policy_rate_limited', { accessName })
+    }
+  }
   if (Object.keys(ERROR_REASON_KEYS).includes(code)) {
     const key = ERROR_REASON_KEYS[code]
     return key === undefined ? null : i18n.t(key)
@@ -117,7 +141,11 @@ function publicationOf(index: RagIndex): RagIndexView['publication'] {
  * before the response of the PATCH (the optimistic update flips `ragEnabled` while `ragIndex` lags
  * one answer), so it reads as an index that is not built yet.
  */
-export function ragIndexView(index: RagIndex, ragEnabled: boolean): RagIndexView {
+export function ragIndexView(
+  index: RagIndex,
+  ragEnabled: boolean,
+  provider: VcsProvider = 'github',
+): RagIndexView {
   const base: RagIndexView = {
     label: i18n.t('settings.rag.status.off'),
     tone: 'neutral',
@@ -132,7 +160,7 @@ export function ragIndexView(index: RagIndex, ragEnabled: boolean): RagIndexView
   const code = index.lastErrorCode
   const on: RagIndexView = {
     ...base,
-    reason: code === null ? null : { code, text: errorReason(code) },
+    reason: code === null ? null : { code, text: errorReason(code, provider) },
   }
   switch (index.status) {
     case 'disabled':

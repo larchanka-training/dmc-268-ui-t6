@@ -18,6 +18,7 @@ const FIRST_SHA = '1111111111111111111111111111111111111111'
 const SECOND_SHA = '2222222222222222222222222222222222222222'
 
 const REPO = {
+  provider: 'github',
   id: FIRST_ID,
   fullName: 'org/first',
   url: 'https://github.com/org/first',

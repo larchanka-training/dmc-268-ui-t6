@@ -1,6 +1,7 @@
 import { Alert, Flex, Switch, Tooltip, Typography } from 'antd'
 import { useId, useRef, useState, type FC } from 'react'
 import { flushSync } from 'react-dom'
+import { VCS_ACCESS_NAME, type VcsProvider } from '../../../shared/model/provider'
 
 import type { RagIndex } from '../../../entities/repository'
 import { useTranslation } from '../../../shared/i18n'
@@ -20,6 +21,7 @@ import styles from './RagSection.module.css'
 const { Text } = Typography
 
 export interface RagSectionProps {
+  provider?: VcsProvider
   /** `ragEnabled` of the repository, as the cache holds it (the optimistic update flips it first). */
   ragEnabled: boolean
   /** The read-only state of the index (api#145). */
@@ -61,6 +63,7 @@ const Reason: FC<{ reason: NonNullable<RagIndexView['reason']> }> = ({ reason })
  * had it at the click and the user has not moved on.
  */
 export const RagSection: FC<RagSectionProps> = ({
+  provider = 'github',
   ragEnabled,
   ragIndex,
   installationAvailable,
@@ -76,7 +79,7 @@ export const RagSection: FC<RagSectionProps> = ({
 
   // Without access the server serves RAG off; the status never shows an index nobody uses.
   const effective = ragEnabled && installationAvailable
-  const view = ragIndexView(ragIndex, effective)
+  const view = ragIndexView(ragIndex, effective, provider)
 
   const handleChange = async (next: boolean): Promise<void> => {
     const hadFocus = document.activeElement === switchRef.current
@@ -114,7 +117,11 @@ export const RagSection: FC<RagSectionProps> = ({
         </Text>
       </Flex>
       <Text type="secondary">{ragHint()}</Text>
-      {!installationAvailable ? <Text type="secondary">{ragNoAccessText()}</Text> : null}
+      {!installationAvailable ? (
+        <Text type="secondary">
+          {ragNoAccessText(provider)}
+        </Text>
+      ) : null}
 
       <Flex align="center" aria-live="polite" className={styles.status} gap={8} role="status" wrap>
         <Text type="secondary">{t('settings.rag.indexStatus')}</Text>

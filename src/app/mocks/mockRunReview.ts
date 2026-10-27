@@ -33,9 +33,11 @@ const verdictDemoBase = {
 
 export const mockVerdictVariantRuns: RunSession[] = [
   {
+    provider: 'github',
     ...verdictDemoBase,
     id: REVIEW_ATTENTION_RUN_ID,
     pullRequest: {
+      provider: 'github',
       repo: REPO,
       number: 39,
       title: 'feat: attention verdict demo',
@@ -44,9 +46,11 @@ export const mockVerdictVariantRuns: RunSession[] = [
     },
   },
   {
+    provider: 'github',
     ...verdictDemoBase,
     id: REVIEW_CLEAN_RUN_ID,
     pullRequest: {
+      provider: 'github',
       repo: REPO,
       number: 40,
       title: 'feat: clean verdict demo',

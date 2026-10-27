@@ -11,6 +11,14 @@ vi.mock('../../shared/config/env', () => ({
 
 import { RulesStatusSchema, type Repository } from '../../entities/repository'
 import {
+  connectBitbucketRepository,
+  discoverBitbucketRepositories,
+  disconnectBitbucketRepository,
+  listBitbucketConnections,
+  rotateBitbucketCredential,
+  rotateBitbucketWebhookSecret,
+} from '../../features/bitbucket-connections/api'
+import {
   RunDetailSchema,
   RunListPageSchema,
   RunSessionSchema,
@@ -33,6 +41,49 @@ import {
 } from './mockTransport'
 
 describe('initMockTransport', () => {
+  it('simulates scoped Bitbucket discovery, two bindings, rotation and independent disconnect', async () => {
+    const workspace = '123e4567-e89b-12d3-a456-426614174000'
+    initMockTransport()
+    const found = await discoverBitbucketRepositories(workspace, {
+      bitbucketWorkspace: 'demo-bitbucket',
+      apiToken: 'demo-token',
+    })
+    expect(found.repositories).toHaveLength(2)
+    expect(found.repositories[0]?.isPrivate).toBe(true)
+    const first = found.repositories[0]
+    const second = found.repositories[1]
+    if (!first || !second) throw new Error('missing Bitbucket demo repositories')
+    const connected = await Promise.all(
+      [first, second].map((repo) =>
+        connectBitbucketRepository(workspace, {
+          bitbucketWorkspace: repo.workspaceSlug,
+          repositorySlug: repo.slug,
+          repositoryUuid: repo.uuid,
+          apiToken: 'demo-token',
+        }),
+      ),
+    )
+    const [firstConnection, secondConnection] = connected
+    if (!firstConnection || !secondConnection) throw new Error('missing Bitbucket demo connection')
+    expect(firstConnection.id).toBe(secondConnection.id)
+    expect((await listBitbucketConnections(workspace)).connections).toHaveLength(2)
+    const rotated = await rotateBitbucketCredential(workspace, firstConnection.id, 'new-token')
+    expect(rotated.credentialGeneration).toBe(2)
+    const hook = await rotateBitbucketWebhookSecret(
+      workspace,
+      firstConnection.id,
+      firstConnection.repositoryId,
+    )
+    expect(hook.secret).toBeTruthy()
+    await disconnectBitbucketRepository(workspace, firstConnection.id, firstConnection.repositoryId)
+    expect(
+      (await listBitbucketConnections(workspace)).connections.map((item) => item.repositoryUuid),
+    ).toEqual([second.uuid])
+    await expect(
+      listBitbucketConnections('99999999-9999-4999-8999-999999999999'),
+    ).rejects.toBeInstanceOf(ApiError)
+  })
+
   it('serves GET /runs from the mock handler', async () => {
     initMockTransport()
     const page = await apiClient<{ items: unknown[] }>(endpoints.runs.list())

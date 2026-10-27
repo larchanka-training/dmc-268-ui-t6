@@ -11,6 +11,7 @@ import { useRunInspectorStore } from '../model/store'
 import { RunInspector } from './RunInspector'
 
 const RUN: RunSession = {
+  provider: 'github',
   id: '22222222-2222-4222-8222-000000000001',
   engine: 'deep',
   model: 'claude-sonnet-5',
@@ -23,6 +24,7 @@ const RUN: RunSession = {
   createdAt: '2026-09-18T11:00:00.000Z',
   summaryOnly: false,
   pullRequest: {
+    provider: 'github',
     repo: 'larchanka-training/dmc-268-ui-t6',
     number: 34,
     title: 'feat: inspector',

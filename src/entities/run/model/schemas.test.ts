@@ -129,6 +129,7 @@ describe('RunStepEventSchema', () => {
 })
 
 const pullRequest = {
+  provider: 'github',
   repo: 'org/repo',
   number: 42,
   title: 'Add feature',
@@ -141,6 +142,7 @@ const pullRequest = {
 
 const runSession = {
   id: UUID,
+  provider: 'github',
   engine: 'fast',
   model: 'gpt-5',
   status: 'running',
@@ -175,6 +177,16 @@ describe('RunStatusSchema', () => {
 })
 
 describe('RunSessionSchema', () => {
+  it('rejects unknown or contradictory provider identity at the API boundary', () => {
+    expect(RunSessionSchema.safeParse({ ...runSession, provider: 'unknown' }).success).toBe(false)
+    expect(
+      RunSessionSchema.safeParse({
+        ...runSession,
+        provider: 'bitbucket',
+        pullRequest: { ...pullRequest, provider: 'github' },
+      }).success,
+    ).toBe(false)
+  })
   it('accepts a valid RunSession with status running and finishedAt null', () => {
     expect(RunSessionSchema.safeParse(runSession).success).toBe(true)
   })
@@ -217,6 +229,7 @@ describe('RunSessionSchema', () => {
     const result = RunSessionSchema.safeParse({
       ...runSession,
       pullRequest: {
+        provider: 'github',
         repo: 'org/repo',
         number: 42,
         title: 'Add feature',

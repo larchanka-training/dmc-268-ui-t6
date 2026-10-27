@@ -64,6 +64,7 @@ function clickIsTakenOver(element: Element, init?: MouseEventInit): boolean {
 
 const mockRepos: Repository[] = [
   {
+    provider: 'github',
     id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
     fullName: 'larchanka-training/dmc-268-ui-t6',
     url: 'https://github.com/larchanka-training/dmc-268-ui-t6',
@@ -80,6 +81,7 @@ const mockRepos: Repository[] = [
     ragIndex: disabledRagIndex,
   },
   {
+    provider: 'github',
     id: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
     fullName: 'larchanka-training/dmc-268-api-t6',
     url: 'https://github.com/larchanka-training/dmc-268-api-t6',
@@ -98,6 +100,28 @@ const mockRepos: Repository[] = [
 ]
 
 describe('RepositoryList', () => {
+  it('shows the Bitbucket provider and follows the server repository URL', () => {
+    const first = mockRepos[0]
+    if (!first) throw new Error('missing repository fixture')
+    const bitbucket: Repository = {
+      ...first,
+      id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      provider: 'bitbucket',
+      fullName: 'private-space/private-repo',
+      url: 'https://bitbucket.org/private-space/private-repo',
+    }
+    render(
+      <RepositoryList
+        settingsHref={settingsHref}
+        onSyncAccess={vi.fn()}
+        repositories={[bitbucket]}
+      />,
+    )
+    expect(screen.getByText('Bitbucket')).toBeTruthy()
+    expect(
+      screen.getByRole('link', { name: 'private-space/private-repo' }).getAttribute('href'),
+    ).toBe('https://bitbucket.org/private-space/private-repo')
+  })
   it('names the settings column for table navigation', () => {
     render(
       <RepositoryList
@@ -267,6 +291,7 @@ describe('RepositoryList', () => {
 
   it('renders the name as plain text without href when the url is not http(s)', () => {
     const unsafeRepo: Repository = {
+      provider: 'github',
       id: 'c3d4e5f6-a7b8-9012-cdef-123456789012',
       fullName: 'evil/repo',
       url: 'javascript:alert(1)',
@@ -629,6 +654,7 @@ describe('RepositoryList', () => {
 const UNREACHABLE_NAME = 'larchanka-training/dmc-268-infra-t6'
 const UNREACHABLE_ID = 'c3d4e5f6-a7b8-9012-cdef-123456789012'
 const UNREACHABLE_REPO: Repository = {
+  provider: 'github',
   id: UNREACHABLE_ID,
   fullName: UNREACHABLE_NAME,
   url: 'https://github.com/larchanka-training/dmc-268-infra-t6',

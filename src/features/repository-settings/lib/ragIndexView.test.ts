@@ -196,6 +196,26 @@ describe('ragIndexView: the reason of the last build', () => {
     })
   })
 
+  it('names Bitbucket in repository access and rate-limit failures', () => {
+    expect(
+      ragIndexView(
+        index({ status: 'failed', lastErrorCode: 'vcs_access_denied' }),
+        true,
+        'bitbucket',
+      ).reason,
+    ).toEqual({
+      code: 'vcs_access_denied',
+      text: 'у Bitbucket Cloud нет доступа к репозиторию',
+    })
+    expect(
+      ragIndexView(
+        index({ status: 'failed', lastErrorCode: 'policy_rate_limited' }),
+        true,
+        'bitbucket',
+      ).reason?.text,
+    ).toBe('Bitbucket Cloud ограничил число запросов при чтении .review/rules.md')
+  })
+
   it.each([
     'limit_exceeded:files',
     'limit_exceeded:bytes',

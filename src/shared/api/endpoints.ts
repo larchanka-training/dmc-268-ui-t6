@@ -1,4 +1,4 @@
-export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE'
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
 export interface Endpoint {
   method: HttpMethod
@@ -17,6 +17,36 @@ export const endpoints = {
     detail: (id: string): Endpoint => ({ method: 'GET', path: `/repos/${id}` }),
     update: (id: string): Endpoint => ({ method: 'PATCH', path: `/repos/${id}` }),
     rulesStatus: (id: string): Endpoint => ({ method: 'GET', path: `/repos/${id}/rules-status` }),
+  },
+  bitbucket: {
+    discover: (workspaceId: string): Endpoint => ({
+      method: 'POST',
+      path: `/workspaces/${workspaceId}/bitbucket/discovery`,
+    }),
+    connections: (workspaceId: string, cursor?: string | null): Endpoint => ({
+      method: 'GET',
+      path: `/workspaces/${workspaceId}/bitbucket/connections${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`,
+    }),
+    connect: (workspaceId: string): Endpoint => ({
+      method: 'POST',
+      path: `/workspaces/${workspaceId}/bitbucket/connections`,
+    }),
+    rotateCredential: (workspaceId: string, installationId: string): Endpoint => ({
+      method: 'PUT',
+      path: `/workspaces/${workspaceId}/bitbucket/connections/${installationId}/credential`,
+    }),
+    disconnect: (workspaceId: string, installationId: string, repositoryId: string): Endpoint => ({
+      method: 'DELETE',
+      path: `/workspaces/${workspaceId}/bitbucket/connections/${installationId}/repositories/${repositoryId}`,
+    }),
+    rotateWebhookSecret: (
+      workspaceId: string,
+      installationId: string,
+      repositoryId: string,
+    ): Endpoint => ({
+      method: 'POST',
+      path: `/workspaces/${workspaceId}/bitbucket/connections/${installationId}/repositories/${repositoryId}/webhook-secret`,
+    }),
   },
   runs: {
     list: (): Endpoint => ({ method: 'GET', path: '/runs' }),

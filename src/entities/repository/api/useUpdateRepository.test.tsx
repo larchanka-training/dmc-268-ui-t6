@@ -8,6 +8,7 @@ import { disabledRagIndex, type Repository, type UpdateRepositoryInput } from '.
 import { REPOSITORIES_QUERY_KEY, useUpdateRepository } from './index'
 
 const REACHABLE: Repository = {
+  provider: 'github',
   id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
   fullName: 'org/reachable',
   url: 'https://github.com/org/reachable',
