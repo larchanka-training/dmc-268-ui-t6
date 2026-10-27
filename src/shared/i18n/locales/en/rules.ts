@@ -19,6 +19,12 @@ export const rules = {
   unavailable: 'Could not read the rules file',
   limit: 'allowed {{limit}}, actual {{actual}}',
   limitLowerBound: 'allowed {{limit}}, actual more than {{actual}}',
+  mask: 'mask',
+  // A diagnostic text that differs from the run text of its code (reasons.*): no run here.
+  statusTexts: {
+    policy_document_too_large:
+      'The rules document is over 64 KiB. A review will not run with it; make the document smaller.',
+  },
   reasons: {
     policy_access_denied: 'The GitHub App has no access to the repository',
     policy_revision_unavailable:

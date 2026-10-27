@@ -129,8 +129,8 @@ describe('RulesStatusSchema', () => {
 })
 
 describe('RulesDiagnosticSchema', () => {
-  it('takes the optional limit, actual and patternIndex', () => {
-    const full = { ...diagnostic, limit: 65536, actual: 85000, patternIndex: 2 }
+  it('takes the optional limit, actual, patternIndex and excerpt', () => {
+    const full = { ...diagnostic, limit: 65536, actual: 85000, patternIndex: 2, excerpt: 'a/[b' }
 
     expect(RulesDiagnosticSchema.parse(full)).toEqual(full)
   })

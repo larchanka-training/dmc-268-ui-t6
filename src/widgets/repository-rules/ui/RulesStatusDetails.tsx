@@ -8,7 +8,9 @@ import { CodeBlock, Spinner, Tag } from '../../../shared/ui'
 import {
   describeDiagnosticLimit,
   describeDiagnosticLocation,
+  diagnosticText,
   formatCheckedAt,
+  isKnownDiagnosticCode,
   isKnownUnavailableCode,
   shortSha,
   unavailableReason,
@@ -48,8 +50,8 @@ const FileText: FC<{ text: string | null }> = ({ text }) => {
 }
 
 const DiagnosticList: FC<{ diagnostics: RulesDiagnostic[] }> = ({ diagnostics }) => {
-  // Subscribes to the language: the limit text below comes from the dictionary.
-  useTranslation()
+  // Subscribes to the language: the text and the limit below come from the dictionary.
+  const { t } = useTranslation()
   return (
     <ul className={styles.list}>
       {diagnostics.map((diagnostic, index) => {
@@ -64,8 +66,15 @@ const DiagnosticList: FC<{ diagnostics: RulesDiagnostic[] }> = ({ diagnostics })
                 <span className={styles.position}>{location}</span>
               </>
             ) : null}{' '}
-            <span>{diagnostic.message}</span>
+            <span>{diagnosticText(diagnostic)}</span>
             {limit !== null ? <span> ({limit})</span> : null}
+            {/* The server message of an unknown code already quotes the mask. */}
+            {diagnostic.excerpt !== undefined && isKnownDiagnosticCode(diagnostic.code) ? (
+              <span>
+                {' '}
+                ({t('rules.mask')} <code>{diagnostic.excerpt}</code>)
+              </span>
+            ) : null}
           </li>
         )
       })}
@@ -198,7 +207,7 @@ export const RulesStatusDetails: FC<RulesStatusDetailsProps> = ({
               <ul className={styles.list}>
                 {status.diagnostics.map((diagnostic, index) => (
                   <li key={`${diagnostic.code}-${String(index)}`}>
-                    <span>{unavailableReason(diagnostic.code)}</span>
+                    <span>{unavailableReason(diagnostic.code, diagnostic.message)}</span>
                     {isKnownUnavailableCode(diagnostic.code) ? null : (
                       <>
                         {' '}

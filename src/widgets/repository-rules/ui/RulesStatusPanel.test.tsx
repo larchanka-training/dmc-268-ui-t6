@@ -18,7 +18,7 @@ const PENDING_TEXT = 'Проверяем .review/rules.md в ветке trunk…
 
 const diagnostic: RulesDiagnostic = {
   code: 'policy_ignore_pattern_invalid',
-  message: 'Маска не принята: не закрыта скобка',
+  message: 'Mask not accepted: the bracket is not closed',
   line: 14,
   column: 5,
   retryable: false,
@@ -206,12 +206,12 @@ describe('RulesStatusPanel', () => {
     expect(within(panel()).queryByText('Диагностика')).toBeNull()
   })
 
-  it('lists the diagnostics of a present file as code, position and message', async () => {
+  it('lists the diagnostics of a present file as code, position and server message', async () => {
     stubBackend({
       [REPO_A]: [
         json(
           present({
-            diagnostics: [{ ...diagnostic, code: 'policy_note', message: 'Совет по файлу' }],
+            diagnostics: [{ ...diagnostic, code: 'policy_note', message: 'A hint about the file' }],
           }),
         ),
       ],
@@ -222,20 +222,20 @@ describe('RulesStatusPanel', () => {
     expect(await within(panel()).findByText('Диагностика')).toBeTruthy()
     expect(within(panel()).getByText('policy_note')).toBeTruthy()
     expect(within(panel()).getByText('14:5')).toBeTruthy()
-    expect(within(panel()).getByText('Совет по файлу')).toBeTruthy()
+    expect(within(panel()).getByText('A hint about the file')).toBeTruthy()
   })
 
   it('separates the code, the position and the message of a diagnostic in its text', async () => {
     stubBackend({
       [REPO_A]: [
-        json(present({ diagnostics: [{ ...diagnostic, code: 'policy_note', message: 'Совет' }] })),
+        json(present({ diagnostics: [{ ...diagnostic, code: 'policy_note', message: 'Hint' }] })),
       ],
     })
 
     renderPanel()
 
     const item = (await within(panel()).findByText('policy_note')).closest('li')
-    expect(item?.textContent).toBe('policy_note 14:5 Совет')
+    expect(item?.textContent).toBe('policy_note 14:5 Hint')
   })
 
   it('says an empty file is empty instead of drawing an empty box', async () => {
@@ -337,9 +337,27 @@ describe('RulesStatusPanel', () => {
     const view = within(panel())
     expect(view.getByText('policy_ignore_pattern_invalid')).toBeTruthy()
     expect(view.getByText('14:5')).toBeTruthy()
-    expect(view.getByText('Маска не принята: не закрыта скобка')).toBeTruthy()
+    // A known code reads its text from the dictionary, not the English server message.
+    expect(view.getByText('В блоке review-ignore недопустимая маска.')).toBeTruthy()
+    expect(view.queryByText(diagnostic.message)).toBeNull()
     expect(panel().querySelector('pre')?.textContent).toBe('src/[generated/**')
     expect(panel().querySelector('.ant-alert-error')).not.toBeNull()
+  })
+
+  it('quotes the offending mask next to the text of a known code', async () => {
+    const withMask: RulesStatus = {
+      ...invalid('src/[generated/**'),
+      diagnostics: [{ ...diagnostic, excerpt: 'src/[generated/**' }],
+    } as RulesStatus
+    stubBackend({ [REPO_A]: [json(withMask)] })
+
+    renderPanel()
+
+    const item = (await within(panel()).findByText('policy_ignore_pattern_invalid')).closest('li')
+    expect(item?.textContent).toBe(
+      'policy_ignore_pattern_invalid 14:5 В блоке review-ignore недопустимая маска. (маска src/[generated/**)',
+    )
+    expect(item?.querySelectorAll('code')[1]?.textContent).toBe('src/[generated/**')
   })
 
   it('says the text is unavailable when an invalid file came without it', async () => {
@@ -370,6 +388,12 @@ describe('RulesStatusPanel', () => {
     renderPanel()
 
     expect(await within(panel()).findByText(/допустимо 65\s536, фактически 85\s000/)).toBeTruthy()
+    // The settings page shows no run, so the text says a review will not run with the file.
+    expect(
+      within(panel()).getByText(
+        'Документ правил превышает 64 КиБ. Ревью с ним не выполнится; уменьшите документ.',
+      ),
+    ).toBeTruthy()
   })
 
   it('explains an unavailable file by its code and offers no retry when it is not retryable', async () => {
@@ -399,9 +423,9 @@ describe('RulesStatusPanel', () => {
       false,
     ],
     [
-      'an unknown code shows the generic reason and the code',
+      'an unknown code shows the server message and the code',
       'policy_something_new',
-      'Сервер не смог прочитать файл правил',
+      'Mask not accepted: the bracket is not closed',
       true,
     ],
   ])('an unavailable file with %s', async (_name, code, reason, codeShown) => {

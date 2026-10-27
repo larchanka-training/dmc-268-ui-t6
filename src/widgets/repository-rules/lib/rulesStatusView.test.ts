@@ -1,11 +1,13 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import type { RulesDiagnostic } from '../../../entities/repository'
 import { i18n } from '../../../shared/i18n'
 import {
   describeDiagnosticLimit,
   describeDiagnosticLocation,
+  diagnosticText,
   formatCheckedAt,
+  isKnownDiagnosticCode,
   isKnownUnavailableCode,
   shortSha,
   unavailableReason,
@@ -91,6 +93,16 @@ describe('unavailableReason', () => {
     expect(unavailableReason('something_new')).toBe('Сервер не смог прочитать файл правил')
   })
 
+  it('shows the server message for a code it does not know', () => {
+    expect(unavailableReason('something_new', 'GitHub is down.')).toBe('GitHub is down.')
+  })
+
+  it('reads a known code from the dictionary, not from the server message', () => {
+    expect(unavailableReason('policy_fetch_transient', 'Could not read.')).toBe(
+      'GitHub временно не отвечает',
+    )
+  })
+
   it('falls back for a code that is a property of every object, not a reason text', () => {
     for (const code of ['constructor', 'toString', '__proto__']) {
       expect(unavailableReason(code), code).toBe('Сервер не смог прочитать файл правил')
@@ -110,5 +122,47 @@ describe('isKnownUnavailableCode', () => {
 
   it('does not know a new code', () => {
     expect(isKnownUnavailableCode('something_new')).toBe(false)
+  })
+})
+
+describe('diagnosticText', () => {
+  const testLanguage = i18n.language
+
+  afterEach(async () => {
+    await i18n.changeLanguage(testLanguage)
+  })
+
+  it('reads a known code from the dictionary in Russian', () => {
+    expect(diagnosticText({ ...base, message: 'The review-ignore block...' })).toBe(
+      'В блоке review-ignore недопустимая маска.',
+    )
+  })
+
+  it('reads a known code from the dictionary in English', async () => {
+    await i18n.changeLanguage('en')
+    expect(diagnosticText(base)).toBe('The review-ignore block has a mask that is not allowed.')
+  })
+
+  it('says a review will not run with a too large file, as the api settings page does', async () => {
+    const tooLarge = { ...base, code: 'policy_document_too_large' }
+    expect(diagnosticText(tooLarge)).toBe(
+      'Документ правил превышает 64 КиБ. Ревью с ним не выполнится; уменьшите документ.',
+    )
+    await i18n.changeLanguage('en')
+    expect(diagnosticText(tooLarge)).toBe(
+      'The rules document is over 64 KiB. A review will not run with it; make the document smaller.',
+    )
+  })
+
+  it('shows the server message for a code it does not know', () => {
+    const unknown = { ...base, code: 'policy_new_rule', message: 'A new rule failed.' }
+    expect(diagnosticText(unknown)).toBe('A new rule failed.')
+    expect(isKnownDiagnosticCode('policy_new_rule')).toBe(false)
+  })
+
+  it('does not take an object member for a code', () => {
+    for (const code of ['constructor', 'toString', '__proto__']) {
+      expect(diagnosticText({ ...base, code, message: 'server' }), code).toBe('server')
+    }
   })
 })

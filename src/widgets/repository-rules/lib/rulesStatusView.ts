@@ -1,6 +1,7 @@
 import type { ParseKeys } from 'i18next'
 
 import type { RulesDiagnostic } from '../../../entities/repository'
+import { isKnownReasonCode } from '../../../entities/run'
 import { formatDateTime, formatNumber, i18n } from '../../../shared/i18n'
 
 /** The seven characters git itself shows; the full sha stays in a tooltip. */
@@ -55,11 +56,40 @@ export function isKnownUnavailableCode(code: string): code is keyof typeof UNAVA
 }
 
 /**
- * The reason an `unavailable` status gives, by code: the server's `message` is not shown. A code
- * is looked up only where `isKnownUnavailableCode` says it is a key, so `constructor` is not.
+ * The reason an `unavailable` status gives, by code. The server `message` (English) is shown only
+ * for a code this build does not know yet, and the general reason when there is none. A code is
+ * looked up only where `isKnownUnavailableCode` says it is a key, so `constructor` is not.
  */
-export function unavailableReason(code: string): string {
-  return isKnownUnavailableCode(code)
-    ? i18n.t(UNAVAILABLE_REASONS[code])
-    : i18n.t('rules.reasons.fallback')
+export function unavailableReason(code: string, message = ''): string {
+  if (isKnownUnavailableCode(code)) {
+    return i18n.t(UNAVAILABLE_REASONS[code])
+  }
+  return message !== '' ? message : i18n.t('rules.reasons.fallback')
+}
+
+// The settings page shows no run: these codes have a text of their own here.
+const STATUS_TEXTS = {
+  policy_document_too_large: 'rules.statusTexts.policy_document_too_large',
+} as const satisfies Record<string, ParseKeys>
+
+function hasStatusText(code: string): code is keyof typeof STATUS_TEXTS {
+  return Object.keys(STATUS_TEXTS).includes(code)
+}
+
+/**
+ * What a diagnostic says, in the interface language. The text comes from the dictionaries by
+ * `code`; the server `message` (English) is shown only for a code this build does not know yet.
+ * The position, the limit and the mask are shown next to it from their own fields.
+ */
+export function diagnosticText(diagnostic: RulesDiagnostic): string {
+  const { code } = diagnostic
+  if (hasStatusText(code)) {
+    return i18n.t(STATUS_TEXTS[code])
+  }
+  return isKnownReasonCode(code) ? i18n.t(`reasons.${code}`) : diagnostic.message
+}
+
+/** Whether `diagnosticText` comes from the dictionaries, so the mask is shown apart. */
+export function isKnownDiagnosticCode(code: string): boolean {
+  return hasStatusText(code) || isKnownReasonCode(code)
 }
