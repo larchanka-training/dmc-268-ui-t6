@@ -36,9 +36,12 @@ function states(
   return progress === null ? null : progress.map((stage) => stage.state)
 }
 
+// Each `running`/`stopped` entry is the phase once the step at that position is saved. A non-failed
+// `llm.repo_conventions` finishes context (ui#197), so in a two-build log from before api#168 part 6
+// the bar leaves context at conventions, one row before the prompt build, in every status.
 const ORDERS = [
   {
-    name: 'current cache hit',
+    name: 'two-build cache hit',
     diff: 'vcs.fetch_diff',
     steps: [
       'context.build',
@@ -49,10 +52,10 @@ const ORDERS = [
       'review.postprocess',
       'github.publish_review',
     ],
-    running: ['context', 'context', 'analysis', 'analysis', 'analysis', 'analysis', 'analysis'],
+    running: ['context', 'analysis', 'analysis', 'analysis', 'analysis', 'analysis', 'analysis'],
     stopped: [
       'context',
-      'context',
+      'analysis',
       'analysis',
       'analysis',
       'publishing',
@@ -61,7 +64,7 @@ const ORDERS = [
     ],
   },
   {
-    name: 'current cache miss',
+    name: 'two-build cache miss',
     diff: 'vcs.fetch_diff',
     steps: [
       'context.build',
@@ -78,7 +81,7 @@ const ORDERS = [
       'context',
       'context',
       'context',
-      'context',
+      'analysis',
       'analysis',
       'analysis',
       'analysis',
@@ -89,7 +92,7 @@ const ORDERS = [
       'context',
       'context',
       'context',
-      'context',
+      'analysis',
       'analysis',
       'analysis',
       'publishing',
@@ -108,8 +111,8 @@ const ORDERS = [
       'review.postprocess',
       'github.publish_review',
     ],
-    running: ['context', 'analysis', 'analysis', 'analysis', 'analysis', 'analysis'],
-    stopped: ['context', 'analysis', 'analysis', 'publishing', 'publishing', 'publishing'],
+    running: ['analysis', 'analysis', 'analysis', 'analysis', 'analysis', 'analysis'],
+    stopped: ['analysis', 'analysis', 'analysis', 'publishing', 'publishing', 'publishing'],
   },
   {
     name: 'canonical cache miss',
@@ -123,10 +126,10 @@ const ORDERS = [
       'review.postprocess',
       'gitlab.publish_review',
     ],
-    running: ['context', 'context', 'analysis', 'analysis', 'analysis', 'analysis', 'analysis'],
+    running: ['context', 'analysis', 'analysis', 'analysis', 'analysis', 'analysis', 'analysis'],
     stopped: [
       'context',
-      'context',
+      'analysis',
       'analysis',
       'analysis',
       'publishing',
@@ -135,7 +138,7 @@ const ORDERS = [
     ],
   },
   {
-    name: 'current summary-only cache miss',
+    name: 'two-build summary-only cache miss',
     diff: ['vcs.fetch_diff', { summary_only: true }],
     steps: [
       'context.build',
@@ -150,6 +153,55 @@ const ORDERS = [
     running: [
       'context',
       'context',
+      'analysis',
+      'analysis',
+      'analysis',
+      'analysis',
+      'analysis',
+      'analysis',
+    ],
+    stopped: [
+      'context',
+      'context',
+      'analysis',
+      'analysis',
+      'analysis',
+      'publishing',
+      'publishing',
+      'publishing',
+    ],
+  },
+  // After api#168 part 6 only the context stage's build stays, before conventions.
+  {
+    name: 'build-first cache hit',
+    diff: 'vcs.fetch_diff',
+    steps: [
+      'context.build',
+      'llm.repo_conventions',
+      'llm.call',
+      'llm.review_output',
+      'review.postprocess',
+      'github.publish_review',
+    ],
+    running: ['context', 'analysis', 'analysis', 'analysis', 'analysis', 'analysis'],
+    stopped: ['context', 'analysis', 'analysis', 'publishing', 'publishing', 'publishing'],
+  },
+  {
+    name: 'build-first cache miss',
+    diff: 'vcs.fetch_diff',
+    steps: [
+      'context.build',
+      'llm.call',
+      'llm.call',
+      'llm.repo_conventions',
+      'llm.call',
+      'llm.review_output',
+      'review.postprocess',
+      'gitlab.publish_review',
+    ],
+    running: [
+      'context',
+      'context',
       'context',
       'analysis',
       'analysis',
@@ -159,6 +211,29 @@ const ORDERS = [
     ],
     stopped: [
       'context',
+      'context',
+      'context',
+      'analysis',
+      'analysis',
+      'publishing',
+      'publishing',
+      'publishing',
+    ],
+  },
+  {
+    name: 'build-first summary-only cache miss',
+    diff: ['vcs.fetch_diff', { summary_only: true }],
+    steps: [
+      'context.build',
+      'llm.call',
+      'llm.repo_conventions',
+      'llm.call',
+      'llm.review_output',
+      'review.postprocess',
+      'github.publish_review',
+    ],
+    running: ['context', 'context', 'analysis', 'analysis', 'analysis', 'analysis', 'analysis'],
+    stopped: [
       'context',
       'context',
       'analysis',
@@ -333,7 +408,11 @@ describe('runProgress with modern single-attempt orders', () => {
       const step = steps[index]
       const tool = typeof step === 'string' ? step : step?.[0]
       if (tool === undefined) throw new Error('Missing step')
-      const phase = tool === 'context.build' ? 'context' : failedPhases[index]
+      // A failed build or conventions row never finishes context, whatever its position.
+      const phase =
+        tool === 'context.build' || tool === 'llm.repo_conventions'
+          ? 'context'
+          : failedPhases[index]
       if (phase === undefined) throw new Error('Missing literal phase')
       const progress = runProgress(
         { attempt: 1, status: 'failed', errorCode: 'step_failed' },
@@ -374,6 +453,175 @@ describe('runProgress with modern single-attempt orders', () => {
     expect(states('running', actions.slice(0, 3))).toEqual(['process', 'wait', 'wait'])
     expect(states('running', actions.slice(0, 6))).toEqual(['finish', 'process', 'wait'])
     expect(states('failed', actions, 'llm_timeout')).toEqual(['finish', 'error', 'wait'])
+  })
+})
+
+// api#168 part 6 (#130 F3) stops writing the prompt read's `context.build` after
+// `llm.repo_conventions`; the context stage's build before conventions stays (ui#197).
+describe('runProgress with one context.build per attempt', () => {
+  const ONE_BUILD = build(
+    'policy.load',
+    'vcs.fetch_diff',
+    'context.build',
+    'llm.call',
+    'llm.repo_conventions',
+    'llm.call',
+  )
+  const TWO_BUILDS = build(
+    'policy.load',
+    'vcs.fetch_diff',
+    'context.build',
+    'llm.call',
+    'llm.repo_conventions',
+    'context.build',
+    'llm.call',
+  )
+
+  it('finishes context at llm.repo_conventions while running', () => {
+    expect(states('running', ONE_BUILD.slice(0, 4))).toEqual(['process', 'wait', 'wait'])
+    expect(states('running', ONE_BUILD.slice(0, 5))).toEqual(['finish', 'process', 'wait'])
+    expect(states('running', ONE_BUILD)).toEqual(['finish', 'process', 'wait'])
+  })
+
+  it.each([
+    ['after the review call', ONE_BUILD],
+    [
+      'with a failed review call',
+      build('policy.load', 'vcs.fetch_diff', 'context.build', 'llm.call', 'llm.repo_conventions', [
+        'llm.call',
+        FAILURE,
+      ]),
+    ],
+    // The `llm.call` row lands when the call returns, so conventions can be the last saved row.
+    ['during the review call', ONE_BUILD.slice(0, 5)],
+  ])('puts a failure %s and its errorCode on analysis', (_, actions) => {
+    const progress = runProgress(
+      { attempt: 1, status: 'failed', errorCode: 'llm_timeout' },
+      actions,
+    )
+    expect(progress?.map((stage) => stage.state)).toEqual(['finish', 'error', 'wait'])
+    expect(progress?.map((stage) => stage.errorCode)).toEqual([null, 'llm_timeout', null])
+  })
+
+  it('stops a cancellation after conventions on analysis', () => {
+    expect(states('cancelled', ONE_BUILD.slice(0, 5), 'cancelled_by_user')).toEqual([
+      'finish',
+      'stopped',
+      'wait',
+    ])
+    expect(states('cancelled', ONE_BUILD, 'cancelled_by_user')).toEqual([
+      'finish',
+      'stopped',
+      'wait',
+    ])
+  })
+
+  it.each([
+    ['a failed context.build', build('policy.load', 'vcs.fetch_diff', ['context.build', FAILURE])],
+    [
+      'no llm.repo_conventions',
+      build('policy.load', 'vcs.fetch_diff', 'context.build', 'llm.call'),
+    ],
+    [
+      'a failed llm.repo_conventions',
+      build('policy.load', 'vcs.fetch_diff', 'context.build', 'llm.call', [
+        'llm.repo_conventions',
+        FAILURE,
+      ]),
+    ],
+  ])('keeps a run with %s on context', (_, actions) => {
+    expect(states('running', actions)).toEqual(['process', 'wait', 'wait'])
+    const progress = runProgress(
+      { attempt: 1, status: 'failed', errorCode: 'context_failed' },
+      actions,
+    )
+    expect(progress?.map((stage) => stage.state)).toEqual(['error', 'wait', 'wait'])
+    expect(progress?.map((stage) => stage.errorCode)).toEqual(['context_failed', null, null])
+    expect(states('cancelled', actions)).toEqual(['stopped', 'wait', 'wait'])
+  })
+
+  // A failed stage build is recorded as `{error}` and the review goes on (PIPELINE_SPEC §2); with
+  // no prompt build after it, conventions alone must move the bar on.
+  it('moves past a failed stage build once llm.repo_conventions succeeds', () => {
+    const softFailure = build(
+      'policy.load',
+      'vcs.fetch_diff',
+      ['context.build', FAILURE],
+      'llm.call',
+      'llm.repo_conventions',
+      'llm.call',
+    )
+    expect(states('running', softFailure.slice(0, 4))).toEqual(['process', 'wait', 'wait'])
+    expect(states('running', softFailure.slice(0, 5))).toEqual(['finish', 'process', 'wait'])
+    expect(states('running', softFailure)).toEqual(['finish', 'process', 'wait'])
+    const progress = runProgress(
+      { attempt: 1, status: 'failed', errorCode: 'llm_timeout' },
+      build(
+        'policy.load',
+        'vcs.fetch_diff',
+        ['context.build', FAILURE],
+        'llm.call',
+        'llm.repo_conventions',
+        ['llm.call', FAILURE],
+      ),
+    )
+    expect(progress?.map((stage) => stage.state)).toEqual(['finish', 'error', 'wait'])
+    expect(progress?.map((stage) => stage.errorCode)).toEqual([null, 'llm_timeout', null])
+  })
+
+  it('does not finish context from the conventions of an earlier attempt', () => {
+    const actions = build(
+      'policy.load',
+      'vcs.fetch_diff',
+      'context.build',
+      'llm.repo_conventions',
+      ['llm.call', FAILURE],
+      'policy.load',
+      'context.build',
+    )
+    expect(states('running', actions, null, 2)).toEqual(['process', 'wait', 'wait'])
+    expect(states('failed', actions, 'llm_timeout', 2)).toEqual(['error', 'wait', 'wait'])
+    expect(states('cancelled', actions, 'cancelled_by_user', 2)).toEqual([
+      'stopped',
+      'wait',
+      'wait',
+    ])
+  })
+
+  it.each<[RunStatus, string[] | null]>([
+    ['queued', ['wait', 'wait', 'wait']],
+    ['running', ['finish', 'process', 'wait']],
+    ['publishing', ['finish', 'finish', 'process']],
+    ['succeeded', ['finish', 'finish', 'finish']],
+    ['failed', ['finish', 'error', 'wait']],
+    ['cancelled', ['finish', 'stopped', 'wait']],
+    ['skipped', null],
+  ])('keeps a two-build log from before the change as it was for %s', (status, expected) => {
+    expect(states(status, TWO_BUILDS)).toEqual(expected)
+  })
+
+  it('keeps a failed prompt build of a two-build log on context', () => {
+    const actions = build(
+      'policy.load',
+      'vcs.fetch_diff',
+      'context.build',
+      'llm.repo_conventions',
+      ['context.build', FAILURE],
+    )
+    expect(states('running', actions)).toEqual(['process', 'wait', 'wait'])
+    expect(states('failed', actions, 'context_failed')).toEqual(['error', 'wait', 'wait'])
+    expect(states('cancelled', actions)).toEqual(['stopped', 'wait', 'wait'])
+  })
+
+  it('keeps the build handoff of a log without policy.load', () => {
+    const conventionsOnly = build('vcs.fetch_diff', 'llm.call', 'llm.repo_conventions')
+    expect(states('running', conventionsOnly)).toEqual(['process', 'wait', 'wait'])
+    expect(states('failed', conventionsOnly, 'x')).toEqual(['error', 'wait', 'wait'])
+    expect(states('cancelled', conventionsOnly)).toEqual(['stopped', 'wait', 'wait'])
+    const buildOnly = build('vcs.fetch_diff', 'context.build')
+    expect(states('running', buildOnly)).toEqual(['finish', 'process', 'wait'])
+    expect(states('failed', buildOnly, 'x')).toEqual(['finish', 'error', 'wait'])
+    expect(states('cancelled', buildOnly)).toEqual(['finish', 'stopped', 'wait'])
   })
 })
 

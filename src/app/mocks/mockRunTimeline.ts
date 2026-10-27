@@ -39,7 +39,6 @@ const RUNNING_STEPS: readonly PipelineStep[] = [
     response: { tokensIn: 820, tokensOut: 140 },
   },
   { tool: 'llm.repo_conventions', request: { repo: REPO }, response: { cached: false } },
-  { tool: 'context.build', request: { files: 2 }, response: { files: 2, tokens: 4200 } },
   {
     tool: 'llm.call',
     request: { kind: 'primary', attempt: 1 },
@@ -183,7 +182,7 @@ export const mockFailedRun: RunSession = {
     url: pullRequestUrl(FAILED_PR),
     headSha: 'dddd4242dddd4242dddd4242dddd4242dddd4242',
   },
-  actionCount: 6,
+  actionCount: 5,
   errorCode: 'llm_timeout',
 }
 
@@ -194,7 +193,6 @@ export function makeFailedRunActions(): RunAction[] {
     { tool: 'vcs.fetch_diff', request: { repo: REPO, number: FAILED_PR }, response: { files: 2 } },
     { tool: 'context.build', request: { files: 2 }, response: { files: 2, tokens: 800 } },
     { tool: 'llm.repo_conventions', request: { repo: REPO }, response: { cached: true } },
-    { tool: 'context.build', request: { files: 2 }, response: { files: 2, tokens: 3900 } },
     {
       tool: 'llm.call',
       request: { kind: 'primary', attempt: 1 },

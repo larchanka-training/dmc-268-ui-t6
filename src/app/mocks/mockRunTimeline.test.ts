@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
-import { RunActionSchema, RunDetailSchema, RunSessionSchema, runProgress } from '../../entities/run'
+import {
+  RunActionSchema,
+  RunDetailSchema,
+  RunSessionSchema,
+  runProgress,
+  type RunAction,
+} from '../../entities/run'
 import {
   buildWalkingRunDetail,
   currentWalkingRun,
@@ -15,8 +21,8 @@ import {
 } from './mockRunTimeline'
 
 // Timeline of the walking run, written out here and not read from the module under test:
-// queued until 2 s, then one action every 1.5 s, publishing at 14 s, the publish row at 15.5 s
-// and succeeded at 17 s. The default origin is 2026-09-18T12:00:00.000Z.
+// queued until 2 s, then one action every 1.5 s, publishing at 12.5 s, the publish row at 14 s
+// and succeeded at 15.5 s. The default origin is 2026-09-18T12:00:00.000Z.
 function tools(elapsedMs: number): string[] {
   return walkingRunAt(elapsedMs).actions.map((action) => action.tool)
 }
@@ -38,11 +44,11 @@ describe('walkingRunAt status', () => {
     [1999, 'queued'],
     [2000, 'running'],
     [3500, 'running'],
-    [13_999, 'running'],
+    [12_499, 'running'],
+    [12_500, 'publishing'],
     [14_000, 'publishing'],
-    [15_500, 'publishing'],
-    [16_999, 'publishing'],
-    [17_000, 'succeeded'],
+    [15_499, 'publishing'],
+    [15_500, 'succeeded'],
     [60_000, 'succeeded'],
   ])('at %i ms the run is %s', (elapsedMs, status) => {
     expect(walkingRunAt(elapsedMs).session.status).toBe(status)
@@ -55,14 +61,13 @@ describe('walkingRunAt status', () => {
 })
 
 describe('walkingRunAt actions', () => {
-  it('matches the production policy, transitional context and conventions order', () => {
-    expect(tools(17_000)).toEqual([
+  it('matches the production order with one context.build before conventions (api#168 part 6)', () => {
+    expect(tools(15_500)).toEqual([
       'policy.load',
       'vcs.fetch_diff',
       'context.build',
       'llm.call',
       'llm.repo_conventions',
-      'context.build',
       'llm.call',
       'llm.call',
       'llm.review_output',
@@ -83,7 +88,6 @@ describe('walkingRunAt actions', () => {
     'context.build',
     'llm.call',
     'llm.repo_conventions',
-    'context.build',
     'llm.call',
     'llm.call',
     'llm.review_output',
@@ -104,12 +108,11 @@ describe('walkingRunAt actions', () => {
     [9499, 5],
     [9500, 6],
     [11_000, 7],
-    [12_500, 8],
-    [13_999, 8],
+    [12_499, 7],
+    [12_500, 9],
+    [13_999, 9],
     [14_000, 10],
-    [15_499, 10],
-    [15_500, 11],
-    [17_000, 11],
+    [15_500, 10],
   ])(
     'at %i ms the log holds exactly %i actions from the literal production sequence',
     (elapsedMs, count) => {
@@ -118,14 +121,14 @@ describe('walkingRunAt actions', () => {
   )
 
   it('indexes the actions from 0 and gives each a unique id', () => {
-    const { actions } = walkingRunAt(17_000)
-    expect(actions.map((action) => action.index)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-    expect(new Set(actions.map((action) => action.id)).size).toBe(11)
+    const { actions } = walkingRunAt(15_500)
+    expect(actions.map((action) => action.index)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+    expect(new Set(actions.map((action) => action.id)).size).toBe(10)
     expect(actions.every((action) => action.runId === WALKING_RUN_ID)).toBe(true)
   })
 
   it('starts each action at its moment on the timeline', () => {
-    const { actions } = walkingRunAt(17_000)
+    const { actions } = walkingRunAt(15_500)
     expect(actions.map((action) => action.startedAt)).toEqual([
       '2026-09-18T12:00:02.000Z',
       '2026-09-18T12:00:03.500Z',
@@ -135,14 +138,13 @@ describe('walkingRunAt actions', () => {
       '2026-09-18T12:00:09.500Z',
       '2026-09-18T12:00:11.000Z',
       '2026-09-18T12:00:12.500Z',
+      '2026-09-18T12:00:12.500Z',
       '2026-09-18T12:00:14.000Z',
-      '2026-09-18T12:00:14.000Z',
-      '2026-09-18T12:00:15.500Z',
     ])
   })
 
   it('uses real LLM request metadata without using it to distinguish the call purpose', () => {
-    const { actions } = walkingRunAt(17_000)
+    const { actions } = walkingRunAt(15_500)
     expect(
       actions.filter((action) => action.tool === 'llm.call').map((action) => action.request),
     ).toEqual([
@@ -153,7 +155,7 @@ describe('walkingRunAt actions', () => {
   })
 
   it('records no failed step on the happy path', () => {
-    const { actions } = walkingRunAt(17_000)
+    const { actions } = walkingRunAt(15_500)
     expect(
       actions.some(
         (action) =>
@@ -176,9 +178,9 @@ describe('walkingRunAt session', () => {
   it('starts at 2 s and finishes only when succeeded', () => {
     expect(walkingRunAt(2000).session.startedAt).toBe('2026-09-18T12:00:02.000Z')
     expect(walkingRunAt(2000).session.finishedAt).toBeNull()
-    expect(walkingRunAt(16_999).session.finishedAt).toBeNull()
-    expect(walkingRunAt(17_000).session.finishedAt).toBe('2026-09-18T12:00:17.000Z')
-    expect(walkingRunAt(17_000).session.startedAt).toBe('2026-09-18T12:00:02.000Z')
+    expect(walkingRunAt(15_499).session.finishedAt).toBeNull()
+    expect(walkingRunAt(15_500).session.finishedAt).toBe('2026-09-18T12:00:15.500Z')
+    expect(walkingRunAt(15_500).session.startedAt).toBe('2026-09-18T12:00:02.000Z')
   })
 
   it('counts its actions, runs on the first attempt and carries no error', () => {
@@ -194,9 +196,9 @@ describe('walkingRunAt session', () => {
 
   it('shifts the whole timeline to the given origin', () => {
     const origin = Date.parse('2026-10-01T00:00:00.000Z')
-    const { session, actions } = walkingRunAt(17_000, origin)
+    const { session, actions } = walkingRunAt(15_500, origin)
     expect(session.startedAt).toBe('2026-10-01T00:00:02.000Z')
-    expect(session.finishedAt).toBe('2026-10-01T00:00:17.000Z')
+    expect(session.finishedAt).toBe('2026-10-01T00:00:15.500Z')
     expect(session.createdAt).toBe('2026-10-01T00:00:00.000Z')
     expect(actions[0]?.startedAt).toBe('2026-10-01T00:00:02.000Z')
   })
@@ -232,14 +234,14 @@ describe('walkingRunAt on the progress bar', () => {
     [3500, ['process', 'wait', 'wait']],
     [5000, ['process', 'wait', 'wait']],
     [6500, ['process', 'wait', 'wait']],
-    [8000, ['process', 'wait', 'wait']],
-    [9499, ['process', 'wait', 'wait']],
+    [7999, ['process', 'wait', 'wait']],
+    [8000, ['finish', 'process', 'wait']],
     [9500, ['finish', 'process', 'wait']],
     [11_000, ['finish', 'process', 'wait']],
-    [12_500, ['finish', 'process', 'wait']],
+    [12_499, ['finish', 'process', 'wait']],
+    [12_500, ['finish', 'finish', 'process']],
     [14_000, ['finish', 'finish', 'process']],
-    [15_500, ['finish', 'finish', 'process']],
-    [17_000, ['finish', 'finish', 'finish']],
+    [15_500, ['finish', 'finish', 'finish']],
   ])('at %i ms the bar is %j', (elapsedMs, expected) => {
     const { session, actions } = walkingRunAt(elapsedMs)
     expect(runProgress(session, actions)?.map((stage) => stage.state)).toEqual(expected)
@@ -248,7 +250,7 @@ describe('walkingRunAt on the progress bar', () => {
 
 describe('buildWalkingRunDetail', () => {
   it('has no findings until the run has succeeded', () => {
-    for (const elapsedMs of [0, 2000, 14_000, 15_500]) {
+    for (const elapsedMs of [0, 2000, 12_500, 14_000]) {
       const detail = buildWalkingRunDetail(walkingRunAt(elapsedMs).session)
       expect(RunDetailSchema.safeParse(detail).success).toBe(true)
       expect(detail.id).toBe(WALKING_RUN_ID)
@@ -258,7 +260,7 @@ describe('buildWalkingRunDetail', () => {
   })
 
   it('carries the demo findings once succeeded', () => {
-    const detail = buildWalkingRunDetail(walkingRunAt(17_000).session)
+    const detail = buildWalkingRunDetail(walkingRunAt(15_500).session)
     expect(RunDetailSchema.safeParse(detail).success).toBe(true)
     expect(detail.id).toBe(WALKING_RUN_ID)
     expect(detail.status).toBe('succeeded')
@@ -306,7 +308,7 @@ describe('the static failed run', () => {
     expect(mockFailedRun.errorCode).toBe('llm_timeout')
     expect(mockFailedRun.finishedAt).not.toBeNull()
     expect(mockFailedRun.attempt).toBe(1)
-    expect(mockFailedRun.actionCount).toBe(6)
+    expect(mockFailedRun.actionCount).toBe(5)
   })
 
   it('is created by a webhook a minute before it started, like the other mock runs', () => {
@@ -325,27 +327,24 @@ describe('the static failed run', () => {
       'vcs.fetch_diff',
       'context.build',
       'llm.repo_conventions',
-      'context.build',
       'llm.call',
     ])
-    expect(actions.map((action) => action.index)).toEqual([0, 1, 2, 3, 4, 5])
+    expect(actions.map((action) => action.index)).toEqual([0, 1, 2, 3, 4])
     expect(actions.map((action) => action.startedAt)).toEqual([
       '2026-09-18T10:00:00.000Z',
       '2026-09-18T10:00:15.000Z',
       '2026-09-18T10:00:30.000Z',
       '2026-09-18T10:00:45.000Z',
       '2026-09-18T10:01:00.000Z',
-      '2026-09-18T10:01:15.000Z',
     ])
-    expect(new Set(actions.map((action) => action.id)).size).toBe(6)
+    expect(new Set(actions.map((action) => action.id)).size).toBe(5)
     expect(actions.every((action) => action.runId === FAILED_RUN_ID)).toBe(true)
     expect(actions[3]?.response).toEqual({ cached: true })
-    expect(actions[5]?.response).toEqual({
+    expect(actions[4]?.response).toEqual({
       error: { type: 'LLMTimeout', message: 'the model call timed out' },
     })
-    expect(actions[5]?.request).toEqual({ kind: 'primary', attempt: 1 })
+    expect(actions[4]?.request).toEqual({ kind: 'primary', attempt: 1 })
     expect(actions[2]?.response).not.toHaveProperty('error')
-    expect(actions[4]?.response).not.toHaveProperty('error')
     for (const action of actions) {
       expect(Date.parse(action.startedAt) + action.durationMs).toBeLessThanOrEqual(
         Date.parse(mockFailedRun.finishedAt ?? ''),
@@ -355,6 +354,32 @@ describe('the static failed run', () => {
 
   it('shows the bar failed on analysis', () => {
     const progress = runProgress(mockFailedRun, makeFailedRunActions())
+    expect(progress?.map((stage) => stage.state)).toEqual(['finish', 'error', 'wait'])
+    expect(progress?.map((stage) => stage.errorCode)).toEqual([null, 'llm_timeout', null])
+  })
+
+  it('shows the same bar for its log as written before api#168 part 6, with a prompt build', () => {
+    const [policy, fetch, stageBuild, conventions, call] = makeFailedRunActions()
+    if (!policy || !fetch || !stageBuild || !conventions || !call) {
+      throw new Error('the failed run log lost a step')
+    }
+    const promptBuild: RunAction = {
+      ...stageBuild,
+      id: '44444444-4444-4444-8444-000000001299',
+      response: { files: 2, tokens: 3900 },
+    }
+    const twoBuilds = [policy, fetch, stageBuild, conventions, promptBuild, call].map(
+      (action, index) => ({ ...action, index }),
+    )
+    expect(twoBuilds.map((action) => action.tool)).toEqual([
+      'policy.load',
+      'vcs.fetch_diff',
+      'context.build',
+      'llm.repo_conventions',
+      'context.build',
+      'llm.call',
+    ])
+    const progress = runProgress(mockFailedRun, twoBuilds)
     expect(progress?.map((stage) => stage.state)).toEqual(['finish', 'error', 'wait'])
     expect(progress?.map((stage) => stage.errorCode)).toEqual([null, 'llm_timeout', null])
   })
