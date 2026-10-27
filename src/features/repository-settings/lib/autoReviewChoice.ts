@@ -2,15 +2,19 @@
 // then serves `enabled: false` whatever was stored (api PR #156, SD §6.9), so the UI never shows
 // the stored preference; it offers the two values to write and tells which one was saved.
 
+import { i18n } from '../../../shared/i18n'
+
 /** Writes `enabled: true`: auto-review starts once GitHub App access is back. */
-export const ENABLE_AUTO_REVIEW_LABEL = 'Включить авто-ревью'
+export function enableAutoReviewLabel(): string {
+  return i18n.t('settings.autoReview.enable')
+}
 
 /** Writes `enabled: false`: auto-review stays off once GitHub App access is back. */
-export const KEEP_AUTO_REVIEW_OFF_LABEL = 'Оставить выключенным'
+export function keepAutoReviewOffLabel(): string {
+  return i18n.t('settings.autoReview.keepOff')
+}
 
 /** The message for a choice the server saved while the GitHub App cannot reach the repository. */
 export function autoReviewChoiceSaved(enabled: boolean): string {
-  return enabled
-    ? 'Выбор сохранён. Авто-ревью включится, когда доступ к GitHub App восстановится.'
-    : 'Выбор сохранён. Авто-ревью останется выключенным, когда доступ к GitHub App восстановится.'
+  return enabled ? i18n.t('settings.autoReview.savedOn') : i18n.t('settings.autoReview.savedOff')
 }

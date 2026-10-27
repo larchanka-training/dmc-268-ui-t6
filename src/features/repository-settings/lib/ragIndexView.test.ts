@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { disabledRagIndex, type RagIndex } from '../../../entities/repository'
 import {
-  RAG_STALE_DETAIL,
+  ragStaleDetail,
   formatIndexedAt,
   ragIndexView,
   shortSha,
@@ -112,10 +112,10 @@ describe('ragIndexView', () => {
       tone: 'warning',
       pulse: false,
       publication: PUBLICATION,
-      detail: RAG_STALE_DETAIL,
+      detail: ragStaleDetail(),
       reason: null,
     })
-    expect(RAG_STALE_DETAIL).toBe('индекс отстаёт от default branch, используется')
+    expect(ragStaleDetail()).toBe('индекс отстаёт от default branch, используется')
   })
 
   it('says «Ошибка» with the reason and the raw error code for a `failed` index, and no publication', () => {

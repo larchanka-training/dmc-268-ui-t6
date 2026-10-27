@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { disabledRagIndex, type RagIndex } from '../../../entities/repository'
-import { RAG_POLL_TIMED_OUT_TEXT } from '../lib/ragIndexView'
+import { ragPollTimedOutText } from '../lib/ragIndexView'
 import { RagSection, type RagSectionProps } from './RagSection'
 
 const SHA = '0123456789abcdef0123456789abcdef01234567'
@@ -459,7 +459,7 @@ describe('RagSection: polling', () => {
     (polling) => {
       renderSection({ ragEnabled: true, polling })
 
-      expect(screen.queryByText(RAG_POLL_TIMED_OUT_TEXT)).toBeNull()
+      expect(screen.queryByText(ragPollTimedOutText())).toBeNull()
     },
   )
 
@@ -470,8 +470,8 @@ describe('RagSection: polling', () => {
       ragIndex: { ...disabledRagIndex, status: 'building' },
     })
 
-    expect(within(statusLine()).getByText(RAG_POLL_TIMED_OUT_TEXT)).toBeTruthy()
-    expect(RAG_POLL_TIMED_OUT_TEXT).toBe('Автообновление остановлено — обновите страницу')
+    expect(within(statusLine()).getByText(ragPollTimedOutText())).toBeTruthy()
+    expect(ragPollTimedOutText()).toBe('Автообновление остановлено — обновите страницу')
     expect(within(statusLine()).getByText('Строится…')).toBeTruthy()
   })
 })

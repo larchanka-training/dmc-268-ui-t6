@@ -6,6 +6,7 @@ import type {
   RepositoryEngine,
   UpdateRepositoryInput,
 } from '../../../entities/repository'
+import { useTranslation } from '../../../shared/i18n'
 import {
   splitServerError,
   type ServerFieldErrors,
@@ -26,11 +27,6 @@ const { Text } = Typography
 
 // The first editable field: where focus goes when a button the user used turns disabled.
 const FIRST_FIELD: SettingsFieldName = 'waitForCi'
-
-// deep (SandboxEngine) is phase 3; the api returns only fast until then.
-const ENGINE_LABEL: Record<RepositoryEngine, string> = {
-  fast: 'DiffEngine (быстрый синтаксический анализ)',
-}
 
 /** Props that put the server's complaint under a field, or none when it had no complaint. */
 function serverErrorProps(
@@ -53,7 +49,7 @@ export interface RepositorySettingsFormHandle {
   focusFirstField: () => void
   /**
    * `true` while a field holds anything other than what the form opened with, or last saved,
-   * as typed: an emptied limit counts though «Сохранить» stays disabled for it.
+   * as typed: an emptied limit counts though "Save" stays disabled for it.
    */
   hasUnsavedChanges: () => boolean
   /**
@@ -76,7 +72,7 @@ export interface RepositorySettingsFormProps {
   /** Text of an error the form shows above itself. */
   describeError: (error: unknown) => string
   /**
-   * When given, «Отменить изменения» calls it instead of restoring the baseline: the page has
+   * When given, "Cancel changes" calls it instead of restoring the baseline: the page has
    * other values to load (`resetTo`) and closes what told the user about them.
    */
   onCancel?: () => void
@@ -98,6 +94,9 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
   onCancel,
   ref,
 }) => {
+  const { t } = useTranslation()
+  // deep (SandboxEngine) is phase 3; the api returns only fast until then.
+  const engineLabel: Record<RepositoryEngine, string> = { fast: t('settings.form.engineFast') }
   const [form] = Form.useForm<SettingsFormValues>()
   const [initialValues] = useState(() => toFormValues(repository))
   const [baseline, setBaseline] = useState(initialValues)
@@ -157,7 +156,7 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
       // setFieldsValue does not fire onValuesChange.
       setValues(next)
       setBaseline(toFormValues(saved))
-      // «Сохранить» is disabled again now: keep the keyboard user in the form.
+      // "Save" is disabled again now: keep the keyboard user in the form.
       form.focusField(FIRST_FIELD)
     } catch (error) {
       // The entered values stay in the fields; only messages appear: under the fields the
@@ -208,39 +207,36 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
           className={styles.alert}
           description={describeError(saveError.error)}
           showIcon
-          title="Не удалось сохранить настройки"
+          title={t('settings.saveFailed')}
           type="error"
         />
       ) : null}
 
-      <Form.Item
-        extra="SandboxEngine (глубокий анализ в песочнице) появится в фазе 3"
-        label="Движок анализа"
-      >
-        <Text>{ENGINE_LABEL[repository.defaultEngine]}</Text>
+      <Form.Item extra={t('settings.form.engineExtra')} label={t('settings.form.engine')}>
+        <Text>{engineLabel[repository.defaultEngine]}</Text>
       </Form.Item>
 
       <Form.Item
-        label="Ожидание CI"
+        label={t('settings.form.waitForCi')}
         name="waitForCi"
         rules={[{ required: true }]}
         {...serverErrorProps(serverErrors, 'waitForCi')}
       >
         <Select
           options={[
-            { value: 'auto', label: 'Авто (ожидать CI при наличии проверок)' },
-            { value: 'always', label: 'Всегда (всегда ждать успешного CI)' },
-            { value: 'never', label: 'Никогда (запускать ревью без ожидания CI)' },
+            { value: 'auto', label: t('settings.form.waitForCiAuto') },
+            { value: 'always', label: t('settings.form.waitForCiAlways') },
+            { value: 'never', label: t('settings.form.waitForCiNever') },
           ]}
         />
       </Form.Item>
 
       <Form.Item
-        label="Лимит замечаний (1..10)"
+        label={t('settings.form.maxComments')}
         name="maxComments"
         rules={[
-          { required: true, message: 'Укажите лимит' },
-          { type: 'number', min: 1, max: 10, message: 'Число от 1 до 10' },
+          { required: true, message: t('settings.form.maxCommentsRequired') },
+          { type: 'number', min: 1, max: 10, message: t('settings.form.maxCommentsRange') },
         ]}
         {...serverErrorProps(serverErrors, 'maxComments')}
       >
@@ -248,22 +244,22 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
       </Form.Item>
 
       <Form.Item
-        label="Публикация вердикта"
+        label={t('settings.form.reviewEvent')}
         name="reviewEvent"
         rules={[{ required: true }]}
         {...serverErrorProps(serverErrors, 'reviewEvent')}
       >
         <Select
           options={[
-            { value: 'COMMENT', label: 'Комментарий (при любых замечаниях)' },
-            { value: 'REQUEST_CHANGES', label: 'Запрос изменений (при блокирующих)' },
+            { value: 'COMMENT', label: t('settings.form.reviewEventComment') },
+            { value: 'REQUEST_CHANGES', label: t('settings.form.reviewEventRequestChanges') },
           ]}
         />
       </Form.Item>
 
       <Form.Item
-        extra="Маски целевой ветки pull request, по одной в строке (например, main или release/*). Пусто — все ветки."
-        label="Фильтр веток"
+        extra={t('settings.form.branchFilterExtra')}
+        label={t('settings.form.branchFilter')}
         name="branchFilter"
         rules={[
           {
@@ -279,12 +275,12 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
       </Form.Item>
 
       <Form.Item
-        extra="Публиковать замечания не ниже выбранного уровня."
-        label="Порог важности замечаний"
+        extra={t('settings.form.severityThresholdExtra')}
+        label={t('settings.form.severityThreshold')}
         name="severityThreshold"
         {...serverErrorProps(serverErrors, 'severityThreshold')}
       >
-        <Radio.Group aria-label="Порог важности замечаний" orientation="vertical">
+        <Radio.Group aria-label={t('settings.form.severityThreshold')} orientation="vertical">
           {SEVERITY_THRESHOLD_OPTIONS.map((option) => (
             <Radio key={option.value} value={option.value}>
               {option.label} <Text type="secondary">{`— ${option.levels.join(', ')}`}</Text>
@@ -295,10 +291,10 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
 
       <Flex className={styles.actions} gap={8}>
         <Button disabled={!changed} htmlType="submit" loading={saving} type="primary">
-          Сохранить
+          {t('settings.form.save')}
         </Button>
         <Button disabled={!hasDraftChanges(baseline, values) || saving} onClick={handleCancel}>
-          Отменить изменения
+          {t('settings.form.cancelChanges')}
         </Button>
       </Flex>
     </Form>

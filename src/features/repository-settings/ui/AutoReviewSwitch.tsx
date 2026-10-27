@@ -2,7 +2,8 @@ import { Alert, Button, Flex, Switch, Typography } from 'antd'
 import { useCallback, useEffect, useId, useRef, useState, type FC } from 'react'
 import { flushSync } from 'react-dom'
 
-import { ENABLE_AUTO_REVIEW_LABEL, KEEP_AUTO_REVIEW_OFF_LABEL } from '../lib/autoReviewChoice'
+import { useTranslation } from '../../../shared/i18n'
+import { enableAutoReviewLabel, keepAutoReviewOffLabel } from '../lib/autoReviewChoice'
 import styles from './AutoReviewSwitch.module.css'
 
 const { Text } = Typography
@@ -66,6 +67,7 @@ export const AutoReviewSwitch: FC<AutoReviewSwitchProps> = ({
   onChange,
   describeError,
 }) => {
+  const { t } = useTranslation()
   const labelId = useId()
   const switchRef = useRef<HTMLButtonElement>(null)
   const enableRef = useRef<HTMLButtonElement | null>(null)
@@ -125,12 +127,10 @@ export const AutoReviewSwitch: FC<AutoReviewSwitchProps> = ({
           ref={switchRef}
         />
         <Text id={labelId} strong>
-          Автоматическое ревью
+          {t('settings.autoReview.title')}
         </Text>
       </Flex>
-      <Text type="secondary">
-        Когда включено, ревью запускается автоматически для pull request этого репозитория.
-      </Text>
+      <Text type="secondary">{t('settings.autoReview.hint')}</Text>
 
       {!installationAvailable ? (
         <Alert
@@ -139,11 +139,7 @@ export const AutoReviewSwitch: FC<AutoReviewSwitchProps> = ({
           // letter per line). Under the text they wrap and take the width they need.
           description={
             <Flex gap={8} vertical>
-              <span>
-                У GitHub App нет доступа к этому репозиторию, поэтому автоматическое ревью не
-                запустится. Выберите, что сделать, когда доступ к GitHub App будет восстановлен:
-                сохранённый выбор здесь не показывается, пока доступа нет.
-              </span>
+              <span>{t('settings.autoReview.unavailableText')}</span>
               <Flex gap={8} wrap>
                 <Button
                   disabled={pending !== null}
@@ -152,7 +148,7 @@ export const AutoReviewSwitch: FC<AutoReviewSwitchProps> = ({
                   ref={trackEnable}
                   size="small"
                 >
-                  {ENABLE_AUTO_REVIEW_LABEL}
+                  {enableAutoReviewLabel()}
                 </Button>
                 <Button
                   disabled={pending !== null}
@@ -161,13 +157,13 @@ export const AutoReviewSwitch: FC<AutoReviewSwitchProps> = ({
                   ref={trackKeepOff}
                   size="small"
                 >
-                  {KEEP_AUTO_REVIEW_OFF_LABEL}
+                  {keepAutoReviewOffLabel()}
                 </Button>
               </Flex>
             </Flex>
           }
           showIcon
-          title="Автоматическое ревью недоступно"
+          title={t('settings.autoReview.unavailableTitle')}
           type="warning"
         />
       ) : null}
@@ -176,7 +172,7 @@ export const AutoReviewSwitch: FC<AutoReviewSwitchProps> = ({
         <Alert
           description={describeError(error.error)}
           showIcon
-          title="Не удалось изменить автоматическое ревью"
+          title={t('settings.autoReview.changeFailed')}
           type="error"
         />
       ) : null}

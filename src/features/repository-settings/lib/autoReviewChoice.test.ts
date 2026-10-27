@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest'
 
 import {
   autoReviewChoiceSaved,
-  ENABLE_AUTO_REVIEW_LABEL,
-  KEEP_AUTO_REVIEW_OFF_LABEL,
+  enableAutoReviewLabel,
+  keepAutoReviewOffLabel,
 } from './autoReviewChoice'
 
 describe('autoReviewChoice', () => {
   it('labels the two choices', () => {
-    expect(ENABLE_AUTO_REVIEW_LABEL).toBe('Включить авто-ревью')
-    expect(KEEP_AUTO_REVIEW_OFF_LABEL).toBe('Оставить выключенным')
+    expect(enableAutoReviewLabel()).toBe('Включить авто-ревью')
+    expect(keepAutoReviewOffLabel()).toBe('Оставить выключенным')
   })
 
   it('says that turning auto-review on waits for GitHub App access', () => {
