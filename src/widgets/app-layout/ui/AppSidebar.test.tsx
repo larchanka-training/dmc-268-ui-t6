@@ -223,3 +223,39 @@ describe('AppSidebar language switch', () => {
     localStorage.clear()
   })
 })
+
+describe('AppSidebar tooltips', () => {
+  /** Hovers an element and gives an Ant Design tooltip time to open. */
+  async function hover(element: Element): Promise<void> {
+    fireEvent.mouseEnter(element)
+    fireEvent.mouseOver(element)
+    await new Promise((resolve) => setTimeout(resolve, 300))
+  }
+
+  it('shows no tooltip over a profile menu item, whose label is always visible', async () => {
+    vi.mocked(isMockMode).mockReturnValue(false)
+    renderWithQuery(<AppSidebar currentPath="/runs" onNavigate={vi.fn()} />)
+    // Folded: Ant Design then treats every menu inside the sidebar as folded, the profile menu too.
+    fireEvent.click(screen.getByRole('button', { name: 'Свернуть меню' }))
+    fireEvent.click(screen.getByLabelText('Меню пользователя'))
+    const docs = await screen.findByRole('link', { name: 'Документация' })
+    const item = docs.closest('[role="menuitem"]')
+    if (item === null) throw new Error('the docs link is not inside a menu item')
+    await hover(item)
+    const theme = screen.getByText('Тёмная').closest('[role="menuitemradio"]')
+    if (theme === null) throw new Error('the theme option is not a menu item')
+    await hover(theme)
+    expect(document.querySelector('.ant-tooltip')).toBeNull()
+  })
+
+  it('keeps the tooltip of a folded navigation item, whose label is hidden', async () => {
+    vi.mocked(isMockMode).mockReturnValue(false)
+    renderWithQuery(<AppSidebar currentPath="/runs" onNavigate={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Свернуть меню' }))
+    const runs = screen.getByRole('menuitem', { name: 'Прогоны' })
+    await hover(runs)
+    await waitFor(() => {
+      expect(document.querySelector('.ant-tooltip')?.textContent).toBe('Прогоны')
+    })
+  })
+})
