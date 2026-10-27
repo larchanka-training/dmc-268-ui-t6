@@ -59,12 +59,24 @@ describe('RunHeader metadata layout', () => {
       ['Начат', '18.09.2026, 11:50:00'],
       ['Длительность', '5 мин 12 с'],
       ['Попытка', '3'],
-      ['Ошибка', 'provider_timeout'],
+      ['Причина', 'Неизвестная причина: provider_timeout'],
     ] as const) {
       expect(screen.getByText(label, { selector: 'dt' }).nextElementSibling?.textContent).toBe(
         value,
       )
     }
+  })
+
+  it('shows the reason of a known code with the code next to it', () => {
+    render(
+      <RunHeader
+        now={new Date('2026-09-18T12:00:00.000Z')}
+        run={{ ...baseRun, status: 'cancelled', errorCode: 'pr_closed' }}
+      />,
+    )
+    const value = screen.getByText('Причина', { selector: 'dt' }).nextElementSibling
+    expect(value?.textContent).toBe('PR закрыт. pr_closed')
+    expect(value?.querySelector('code')?.textContent).toBe('pr_closed')
   })
 
   it('retains complete long repository, PR and branch text', () => {

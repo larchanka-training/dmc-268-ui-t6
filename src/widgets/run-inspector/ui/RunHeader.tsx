@@ -2,7 +2,13 @@ import type { JSX, ReactNode } from 'react'
 import { Flex, Typography } from 'antd'
 
 import type { RunSession, SeverityCounts, Verdict } from '../../../entities/run'
-import { isActive, isStaleRunning, statusTone } from '../../../entities/run'
+import {
+  isActive,
+  isKnownReasonCode,
+  isStaleRunning,
+  reasonText,
+  statusTone,
+} from '../../../entities/run'
 import { useTranslation } from '../../../shared/i18n'
 import { safeHttpUrl } from '../../../shared/lib/safeHttpUrl'
 import { cx, Tag } from '../../../shared/ui'
@@ -28,6 +34,18 @@ interface RunHeaderProps {
    * header shows the larger of the two.
    */
   loggedActions?: number
+}
+
+/** The text of a failure or stop code, then the code itself for the docs and support. */
+function Reason({ code }: { code: string }): JSX.Element {
+  // The fallback text already names an unknown code.
+  return isKnownReasonCode(code) ? (
+    <>
+      {reasonText(code)} <code>{code}</code>
+    </>
+  ) : (
+    <>{reasonText(code)}</>
+  )
 }
 
 const VERDICT_LABEL: Record<Verdict, string> = {
@@ -162,7 +180,12 @@ export function RunHeader(props: RunHeaderProps): JSX.Element {
       label: t('runs.header.actions'),
       children: String(Math.max(run.actionCount, loggedActions)),
     },
-    { key: 'errorCode', label: t('runs.header.error'), children: run.errorCode ?? '—' },
+    {
+      key: 'errorCode',
+      label: t('runs.header.reason'),
+      children: run.errorCode === null ? '—' : <Reason code={run.errorCode} />,
+      wide: run.errorCode !== null,
+    },
   ]
 
   return (

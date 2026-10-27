@@ -38,7 +38,7 @@ export const runs: Translation<typeof en> = {
     analysis: 'Анализ LLM',
     publishing: 'Публикация',
     stopped: 'Остановлено',
-    stoppedWithCode: 'Остановлено: {{code}}',
+    stoppedWithReason: 'Остановлено. {{reason}}',
   },
   controls: {
     cancel: 'Отменить',
@@ -77,7 +77,7 @@ export const runs: Translation<typeof en> = {
     duration: 'Длительность',
     attempt: 'Попытка',
     actions: 'Действий',
-    error: 'Ошибка',
+    reason: 'Причина',
     stale: 'нет ответа > 10 мин',
     // The same wording for every count, as before the dictionaries.
     dropped_one: 'Не показано находок: {{count}} — не прошли проверку формата',
