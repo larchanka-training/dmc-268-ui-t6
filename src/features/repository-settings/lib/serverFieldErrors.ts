@@ -1,5 +1,6 @@
 import { ApiError } from '../../../shared/api/client'
 import { validationErrorLocations } from '../../../shared/api/validationError'
+import { i18n } from '../../../shared/i18n'
 
 const FIELD_NAMES = [
   'waitForCi',
@@ -26,9 +27,9 @@ function isFieldName(value: unknown): value is SettingsFieldName {
 // The server's own `msg` is English text and is never shown (see `runMutationErrorMessage`).
 function fieldMessage(field: SettingsFieldName): string {
   if (field === 'severityThreshold') {
-    return 'Сервер не принял порог'
+    return i18n.t('settings.form.serverRejectedThreshold')
   }
-  return 'Сервер не принял значение'
+  return i18n.t('settings.form.serverRejectedValue')
 }
 
 /**

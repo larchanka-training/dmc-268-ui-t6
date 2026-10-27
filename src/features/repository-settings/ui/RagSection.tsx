@@ -3,14 +3,15 @@ import { useId, useRef, useState, type FC } from 'react'
 import { flushSync } from 'react-dom'
 
 import type { RagIndex } from '../../../entities/repository'
+import { useTranslation } from '../../../shared/i18n'
 import { Tag } from '../../../shared/ui'
 import {
-  RAG_ERROR_TITLE,
-  RAG_HINT,
+  ragErrorTitle,
+  ragHint,
   RAG_LABEL,
-  RAG_LAST_BUILD_FAILED,
-  RAG_NO_ACCESS_TEXT,
-  RAG_POLL_TIMED_OUT_TEXT,
+  ragLastBuildFailed,
+  ragNoAccessText,
+  ragPollTimedOutText,
   ragIndexView,
   type RagIndexView,
 } from '../lib/ragIndexView'
@@ -26,7 +27,7 @@ export interface RagSectionProps {
   /**
    * `false`: the GitHub App cannot reach the repository. The switch is disabled then and reads
    * off, whatever `ragEnabled` says (the server masks it the same way, this is the second guard),
-   * and the status reads «Выключен».
+   * and the status reads "Off".
    */
   installationAvailable: boolean
   /**
@@ -67,6 +68,7 @@ export const RagSection: FC<RagSectionProps> = ({
   onChange,
   describeError,
 }) => {
+  const { t } = useTranslation()
   const labelId = useId()
   const switchRef = useRef<HTMLButtonElement>(null)
   const [pending, setPending] = useState(false)
@@ -111,11 +113,11 @@ export const RagSection: FC<RagSectionProps> = ({
           {RAG_LABEL}
         </Text>
       </Flex>
-      <Text type="secondary">{RAG_HINT}</Text>
-      {!installationAvailable ? <Text type="secondary">{RAG_NO_ACCESS_TEXT}</Text> : null}
+      <Text type="secondary">{ragHint()}</Text>
+      {!installationAvailable ? <Text type="secondary">{ragNoAccessText()}</Text> : null}
 
       <Flex align="center" aria-live="polite" className={styles.status} gap={8} role="status" wrap>
-        <Text type="secondary">Статус индекса:</Text>
+        <Text type="secondary">{t('settings.rag.indexStatus')}</Text>
         <Tag pulse={view.pulse} tone={view.tone}>
           {view.label}
         </Tag>
@@ -126,7 +128,9 @@ export const RagSection: FC<RagSectionProps> = ({
                 {view.publication.shortSha}
               </code>
             </Tooltip>
-            <Text type="secondary">обновлён {view.publication.indexedAt}</Text>
+            <Text type="secondary">
+              {t('settings.rag.updated', { date: view.publication.indexedAt })}
+            </Text>
           </>
         ) : null}
         {view.detail !== null ? <Text type="secondary">{view.detail}</Text> : null}
@@ -137,12 +141,12 @@ export const RagSection: FC<RagSectionProps> = ({
         ) : null}
         {view.reason !== null && ragIndex.status !== 'failed' ? (
           <Text className={styles.wide} type="secondary">
-            {RAG_LAST_BUILD_FAILED}: <Reason reason={view.reason} />
+            {ragLastBuildFailed()}: <Reason reason={view.reason} />
           </Text>
         ) : null}
         {polling === 'timedOut' ? (
           <Text className={styles.wide} type="secondary">
-            {RAG_POLL_TIMED_OUT_TEXT}
+            {ragPollTimedOutText()}
           </Text>
         ) : null}
       </Flex>
@@ -151,7 +155,7 @@ export const RagSection: FC<RagSectionProps> = ({
         <Alert
           description={describeError(error.error)}
           showIcon
-          title={RAG_ERROR_TITLE}
+          title={ragErrorTitle()}
           type="error"
         />
       ) : null}

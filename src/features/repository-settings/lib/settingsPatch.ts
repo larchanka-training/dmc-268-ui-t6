@@ -6,6 +6,7 @@ import {
   type UpdateRepositoryInput,
   type WaitForCi,
 } from '../../../entities/repository'
+import { i18n } from '../../../shared/i18n'
 import { branchMaskError } from './branchMask'
 
 /**
@@ -61,14 +62,17 @@ export function validateBranchFilterText(text: string): string | null {
     const issue = parsed.error.issues[0]
     const index = issue?.path[0]
     if (typeof index === 'number') {
-      return `Маска в строке ${String(visibleLineNumber(text, index))} длиннее 255 символов`
+      return i18n.t('settings.branchMask.tooLong', { line: visibleLineNumber(text, index) })
     }
-    return 'Не больше 20 масок'
+    return i18n.t('settings.branchMask.tooMany')
   }
   for (const [index, mask] of masks.entries()) {
     const reason = branchMaskError(mask)
     if (reason !== null) {
-      return `Маска в строке ${String(visibleLineNumber(text, index))}: ${reason}`
+      return i18n.t('settings.branchMask.invalid', {
+        line: visibleLineNumber(text, index),
+        reason,
+      })
     }
   }
   return null

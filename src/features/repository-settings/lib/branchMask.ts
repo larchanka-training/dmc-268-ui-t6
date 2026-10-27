@@ -1,3 +1,5 @@
+import { i18n } from '../../../shared/i18n'
+
 // A character the API forbids in a mask besides whitespace: `? [ ] { } ! \ ~ ^ :`.
 const FORBIDDEN_CHARACTERS = /[?[\]{}!\\~^:]/
 
@@ -18,28 +20,28 @@ export function branchMaskError(mask: string): string | null {
   // Not JS `\s`, which also takes U+FEFF (Cf). Paired surrogates are one code point under `u`, so
   // an emoji passes; a lone one does not.
   if (/[\p{Zs}\p{Zl}\p{Zp}\p{Cc}\p{Cs}]/u.test(mask)) {
-    return 'пробелы и управляющие символы недопустимы'
+    return i18n.t('settings.branchMask.whitespace')
   }
   if (mask.includes('***')) {
-    return 'не больше двух «*» подряд'
+    return i18n.t('settings.branchMask.stars')
   }
   if (FORBIDDEN_CHARACTERS.test(mask)) {
-    return 'символы ? [ ] { } ! \\ ~ ^ : недопустимы'
+    return i18n.t('settings.branchMask.characters')
   }
   if (mask.includes('..') || mask.includes('//')) {
-    return '«..» и «//» недопустимы'
+    return i18n.t('settings.branchMask.dots')
   }
   if (mask.split('/').some((segment) => segment.startsWith('.'))) {
-    return 'часть между «/» не может начинаться с «.»'
+    return i18n.t('settings.branchMask.segmentDot')
   }
   if (mask.startsWith('/') || mask.startsWith('-')) {
-    return 'не может начинаться с «/» или «-»'
+    return i18n.t('settings.branchMask.start')
   }
   if (mask.endsWith('/') || mask.endsWith('.') || mask.endsWith('.lock')) {
-    return 'не может заканчиваться на «/», «.» или «.lock»'
+    return i18n.t('settings.branchMask.end')
   }
   if (mask === '@') {
-    return '«@» не может быть маской'
+    return i18n.t('settings.branchMask.at')
   }
   return null
 }

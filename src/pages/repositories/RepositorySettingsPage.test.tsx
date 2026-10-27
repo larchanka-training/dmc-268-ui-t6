@@ -11,7 +11,7 @@ import {
   type RagIndex,
   type Repository,
 } from '../../entities/repository'
-import { RAG_POLL_TIMED_OUT_TEXT } from '../../features/repository-settings'
+import { ragPollTimedOutText } from '../../features/repository-settings'
 import { advance } from '../../test/advanceTimers'
 import { RepositorySettingsPage } from './RepositorySettingsPage'
 
@@ -1717,15 +1717,15 @@ describe('RepositorySettingsPage: RAG', () => {
       renderPage(settingsPath(UI_REPO.id))
       await advance(0)
       expect(within(ragSection()).getByText('Строится…')).toBeTruthy()
-      expect(within(ragSection()).queryByText(RAG_POLL_TIMED_OUT_TEXT)).toBeNull()
+      expect(within(ragSection()).queryByText(ragPollTimedOutText())).toBeNull()
       const opened = backend.gets
 
       await advance(119_999)
-      expect(within(ragSection()).queryByText(RAG_POLL_TIMED_OUT_TEXT)).toBeNull()
+      expect(within(ragSection()).queryByText(ragPollTimedOutText())).toBeNull()
       // A poll every 5 s inside the window: 23 of them, none at its end.
       expect(backend.gets).toBe(opened + 23)
       await advance(1)
-      expect(within(ragSection()).getByText(RAG_POLL_TIMED_OUT_TEXT)).toBeTruthy()
+      expect(within(ragSection()).getByText(ragPollTimedOutText())).toBeTruthy()
       expect(backend.gets).toBe(opened + 23)
 
       await advance(60_000)

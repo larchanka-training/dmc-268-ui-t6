@@ -23,11 +23,12 @@ import { runListHref } from '../../features/run-list-filter'
 import {
   AutoReviewSwitch,
   autoReviewChoiceSaved,
-  RAG_ERROR_TITLE,
+  ragErrorTitle,
   RagSection,
   RepositorySettingsForm,
   type RepositorySettingsFormHandle,
 } from '../../features/repository-settings'
+import { useTranslation } from '../../shared/i18n'
 import { PageHeader } from '../../shared/ui'
 import { RulesStatusPanel } from '../../widgets/repository-rules'
 import { formatErrorMessage } from './lib/formatError'
@@ -44,10 +45,6 @@ const LinkButton: FC<{ to: string; children: ReactNode }> = ({ to, children }) =
   )
 }
 
-const STALE_NOTICE = 'Не удалось обновить настройки. Показаны значения, загруженные ранее.'
-const DIFFERS_NOTICE =
-  'На сервере сохранены другие значения. В форме — ваши правки поверх загруженных ранее.'
-
 /**
  * What stands above the auto-review switch about the values of the form: `stale` — the request
  * that opened the page failed and the form shows what the cache held; `differs` — fresh values
@@ -55,14 +52,18 @@ const DIFFERS_NOTICE =
  */
 type FormNotice = 'stale' | 'differs' | null
 
-const NotAvailable: FC<{ description: string }> = ({ description }) => (
-  <Empty description={description}>
-    <LinkButton to="/repositories">К списку репозиториев</LinkButton>
-  </Empty>
-)
+const NotAvailable: FC<{ description: string }> = ({ description }) => {
+  const { t } = useTranslation()
+  return (
+    <Empty description={description}>
+      <LinkButton to="/repositories">{t('settings.backToList')}</LinkButton>
+    </Empty>
+  )
+}
 
 const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
   const { message, modal } = App.useApp()
+  const { t } = useTranslation()
   const { data: repository, isPending, isError, isFetching, error, refetch } = useRepository(repoId)
   const updateMutation = useUpdateRepository()
 
@@ -129,14 +130,14 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
       return
     }
     const dialog = modal.confirm({
-      title: 'Уйти без сохранения?',
-      content: 'Изменения настроек не сохранены и пропадут.',
-      okText: 'Уйти',
+      title: t('settings.leave.title'),
+      content: t('settings.leave.content'),
+      okText: t('settings.leave.ok'),
       // The danger button of the design system is the outlined one (DESIGN_SYSTEM §8, `antd.css`),
-      // and «Сохранить» stays the only primary: the confirm's default OK would be a second one.
+      // and "Save" stays the only primary: the confirm's default OK would be a second one.
       okType: 'default',
       okButtonProps: { danger: true },
-      cancelText: 'Остаться',
+      cancelText: t('settings.leave.cancel'),
       // The safe answer takes the focus, so an Enter pressed at once keeps the draft. Through
       // `focusable`: the top-level `autoFocusButton` is deprecated in antd 6 (it logs a warning).
       focusable: { autoFocusButton: 'cancel' },
@@ -150,7 +151,7 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
     return () => {
       dialog.destroy()
     }
-  }, [blocker, modal])
+  }, [blocker, modal, t])
 
   // A reload or a tab close loses the draft too: the browser asks, with its own words.
   useEffect(() => {
@@ -211,14 +212,14 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
       const saved = await updateMutation.mutateAsync({ id: repository.id, patch })
       // The answer is the server's own: whatever the form showed over old values is settled now.
       setNotice(null)
-      void message.success('Настройки репозитория успешно сохранены')
+      void message.success(t('settings.saved'))
       return saved
     }
 
     // The latest values of the server, as the page holds them now. The button that used it leaves
     // the page with the notice, so the first field takes the focus. The button is disabled while
     // a save runs (the cache holds the optimistic copy of its patch then, and a failing save would
-    // leave the form showing values the server does not hold). «Отменить изменения» is not held
+    // leave the form showing values the server does not hold). "Cancel changes" is not held
     // back here: the form disables it during its own save, and the optimistic copy of an
     // auto-review toggle touches no field.
     const loadServerValues = (): void => {
@@ -230,15 +231,13 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
     const handleToggleAutoReview = async (enabled: boolean): Promise<void> => {
       const saved = await updateMutation.mutateAsync({ id: repository.id, patch: { enabled } })
       // The server serves `enabled AND installationAvailable`: without GitHub App access the
-      // choice is kept but reads off, whichever way it went, and saying «включено» or «выключено»
+      // choice is kept but reads off, whichever way it went, and saying "on" or "off"
       // would be wrong.
       if (!saved.installationAvailable) {
         void message.info(autoReviewChoiceSaved(enabled))
         return
       }
-      void message.success(
-        enabled ? 'Автоматическое ревью включено' : 'Автоматическое ревью выключено',
-      )
+      void message.success(enabled ? t('settings.autoReview.on') : t('settings.autoReview.off'))
     }
 
     // Saved at once, apart from the form, like auto-review. Without GitHub App access the switch is
@@ -248,23 +247,26 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
       if (ragEnabled) {
         setRagEnabledAt(Date.now())
       }
-      void message.success(ragEnabled ? 'RAG включён' : 'RAG выключен')
+      void message.success(ragEnabled ? t('settings.rag.on') : t('settings.rag.off'))
     }
 
     return (
       <Flex gap="middle" vertical>
         <Breadcrumb
-          items={[{ title: <Link to="/repositories">Репозитории</Link> }, { title: 'Настройки' }]}
+          items={[
+            { title: <Link to="/repositories">{t('repositories.title')}</Link> },
+            { title: t('settings.breadcrumb') },
+          ]}
           separator={<RightOutlined />}
         />
         <PageHeader
           actions={
             <LinkButton to={runListHref({ repo: repository.fullName })}>
-              История проверок
+              {t('settings.history')}
             </LinkButton>
           }
           description={repository.fullName}
-          title="Настройки репозитория"
+          title={t('settings.title')}
         />
         {notice === 'stale' ? (
           <Alert
@@ -277,12 +279,12 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
                 ref={trackNoticeRetry}
                 size="small"
               >
-                Повторить попытку
+                {t('common.errors.tryAgain')}
               </Button>
             }
             key="stale"
             showIcon
-            title={STALE_NOTICE}
+            title={t('settings.staleNotice')}
             type="warning"
           />
         ) : null}
@@ -292,25 +294,23 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
             // text and squeezes it on a narrow screen (see `AutoReviewSwitch`).
             description={
               <Button disabled={saving} onClick={loadServerValues} ref={loadServerRef} size="small">
-                Загрузить значения с сервера
+                {t('settings.loadServerValues')}
               </Button>
             }
             key="differs"
             showIcon
-            title={DIFFERS_NOTICE}
+            title={t('settings.differsNotice')}
             type="info"
           />
         ) : null}
         <AutoReviewSwitch
-          describeError={(err) =>
-            formatErrorMessage(err, 'Не удалось изменить автоматическое ревью')
-          }
+          describeError={(err) => formatErrorMessage(err, t('settings.autoReview.changeFailed'))}
           enabled={repository.enabled}
           installationAvailable={repository.installationAvailable}
           onChange={handleToggleAutoReview}
         />
         <RagSection
-          describeError={(err) => formatErrorMessage(err, RAG_ERROR_TITLE)}
+          describeError={(err) => formatErrorMessage(err, ragErrorTitle())}
           installationAvailable={repository.installationAvailable}
           onChange={handleToggleRag}
           polling={ragPolling}
@@ -318,7 +318,7 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
           ragIndex={repository.ragIndex}
         />
         <RepositorySettingsForm
-          describeError={(err) => formatErrorMessage(err, 'Не удалось сохранить настройки')}
+          describeError={(err) => formatErrorMessage(err, t('settings.saveFailed'))}
           onCancel={notice === 'differs' ? loadServerValues : undefined}
           onSave={handleSave}
           ref={formRef}
@@ -341,33 +341,34 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
         // and squeezes it on a narrow screen (see `AutoReviewSwitch`).
         description={
           <Flex align="flex-start" gap={8} vertical>
-            <span>{formatErrorMessage(error, 'Не удалось загрузить репозиторий')}</span>
+            <span>{formatErrorMessage(error, t('settings.loadFailed'))}</span>
             <Button
               loading={isFetching}
               onClick={() => void refetch({ cancelRefetch: false })}
               size="small"
               type="primary"
             >
-              Повторить попытку
+              {t('common.errors.tryAgain')}
             </Button>
           </Flex>
         }
         showIcon
-        title="Ошибка загрузки данных"
+        title={t('common.errors.loadTitle')}
         type="error"
       />
     )
   }
 
-  return <NotAvailable description="Репозиторий не найден или недоступен" />
+  return <NotAvailable description={t('settings.notFound')} />
 }
 
 export const RepositorySettingsPage: FC = () => {
   const { repoId } = useParams<{ repoId: string }>()
+  const { t } = useTranslation()
   // The address is external input. A bad one stops here, before any request is made.
   const parsed = RepositoryIdSchema.safeParse(repoId)
   if (!parsed.success) {
-    return <NotAvailable description="Некорректная ссылка на репозиторий" />
+    return <NotAvailable description={t('settings.badLink')} />
   }
   // The key gives every repository its own form and its own state.
   return <RepositorySettingsContent key={parsed.data} repoId={parsed.data} />

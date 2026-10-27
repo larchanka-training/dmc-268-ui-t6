@@ -1,14 +1,29 @@
 import type { RagIndex } from '../../../entities/repository'
-import { formatDateTime } from '../../../shared/i18n'
+import type { ParseKeys } from 'i18next'
 
+import { formatDateTime, i18n } from '../../../shared/i18n'
+
+/** The name of the feature: the same in every language. */
 export const RAG_LABEL = 'RAG'
-export const RAG_HINT =
-  'Учитывает связи между файлами репозитория, делая ревью точнее. Может увеличить стоимость. Хранится только структура кода, не его текст.'
-export const RAG_NO_ACCESS_TEXT = 'Нет доступа GitHub App — RAG недоступен'
-export const RAG_ERROR_TITLE = 'Не удалось изменить настройку RAG'
-export const RAG_POLL_TIMED_OUT_TEXT = 'Автообновление остановлено — обновите страницу'
-export const RAG_STALE_DETAIL = 'индекс отстаёт от default branch, используется'
-export const RAG_LAST_BUILD_FAILED = 'Последняя сборка не удалась'
+
+export function ragHint(): string {
+  return i18n.t('settings.rag.hint')
+}
+export function ragNoAccessText(): string {
+  return i18n.t('settings.rag.noAccess')
+}
+export function ragErrorTitle(): string {
+  return i18n.t('settings.rag.changeFailed')
+}
+export function ragPollTimedOutText(): string {
+  return i18n.t('settings.rag.pollTimedOut')
+}
+export function ragStaleDetail(): string {
+  return i18n.t('settings.rag.staleDetail')
+}
+export function ragLastBuildFailed(): string {
+  return i18n.t('settings.rag.lastBuildFailed')
+}
 
 export interface RagIndexView {
   /** The status text. */
@@ -45,31 +60,30 @@ export function formatIndexedAt(iso: string): string {
 // The api catalog of `lastErrorCode` (`app/modules/code_index/domain/codes.py`, api#228/#242): the
 // codes of a `failed` index first, then the soft ones, left by a job that ended without a
 // publication, then the `policy_*` codes of reading `.review/rules.md` (healable
-// `policy_fetch_transient` and `policy_rate_limited`; the rest terminal). The first two `policy_*`
-// texts are the rules block's own (`widgets/repository-rules/lib/rulesStatusView.ts`), copied
-// verbatim: a feature does not import a widget's `lib`.
-const ERROR_REASONS: Record<string, string> = {
-  archive_unsafe: 'архив репозитория отклонён проверкой безопасности',
-  'limit_exceeded:download_bytes': 'превышен лимит размера архива',
-  'limit_exceeded:unpacked_bytes': 'превышен лимит распакованного размера',
-  'limit_exceeded:archive_entries': 'превышен лимит числа файлов в архиве',
-  'limit_exceeded:parsed_files': 'превышен лимит разобранных файлов',
-  'limit_exceeded:symbols': 'превышен лимит символов',
-  'limit_exceeded:edges': 'превышен лимит рёбер',
-  'limit_exceeded:deadline': 'превышено время сборки',
-  'limit_exceeded:repository_storage': 'превышен лимит хранения для репозитория',
-  'limit_exceeded:workspace_storage': 'превышен лимит хранения для Workspace',
-  internal_error: 'внутренняя ошибка сборки',
-  vcs_unavailable: 'GitHub временно недоступен',
-  vcs_rate_limited: 'GitHub ограничил число запросов',
-  vcs_access_denied: 'у GitHub App нет доступа к репозиторию',
-  policy_access_denied: 'у GitHub App нет доступа к репозиторию',
-  policy_revision_unavailable:
-    'ревизия default branch недоступна: GitHub не подтвердил, есть ли файл правил',
-  policy_fetch_transient: 'GitHub временно не отвечает при чтении .review/rules.md',
-  policy_rate_limited: 'GitHub ограничил число запросов при чтении .review/rules.md',
-  policy_document_too_large: 'файл .review/rules.md больше лимита',
-  policy_document_type_unsupported: 'неподдерживаемый тип файла .review/rules.md',
+// `policy_fetch_transient` and `policy_rate_limited`; the rest terminal). The texts live in the
+// dictionaries (`settings.rag.reasons`); the first two `policy_*` ones repeat the rules block's
+// own (`rules.reasons`) in lower case.
+const ERROR_REASON_KEYS: Record<string, ParseKeys> = {
+  archive_unsafe: 'settings.rag.reasons.archive_unsafe',
+  'limit_exceeded:download_bytes': 'settings.rag.reasons.limit_exceeded.download_bytes',
+  'limit_exceeded:unpacked_bytes': 'settings.rag.reasons.limit_exceeded.unpacked_bytes',
+  'limit_exceeded:archive_entries': 'settings.rag.reasons.limit_exceeded.archive_entries',
+  'limit_exceeded:parsed_files': 'settings.rag.reasons.limit_exceeded.parsed_files',
+  'limit_exceeded:symbols': 'settings.rag.reasons.limit_exceeded.symbols',
+  'limit_exceeded:edges': 'settings.rag.reasons.limit_exceeded.edges',
+  'limit_exceeded:deadline': 'settings.rag.reasons.limit_exceeded.deadline',
+  'limit_exceeded:repository_storage': 'settings.rag.reasons.limit_exceeded.repository_storage',
+  'limit_exceeded:workspace_storage': 'settings.rag.reasons.limit_exceeded.workspace_storage',
+  internal_error: 'settings.rag.reasons.internal_error',
+  vcs_unavailable: 'settings.rag.reasons.vcs_unavailable',
+  vcs_rate_limited: 'settings.rag.reasons.vcs_rate_limited',
+  vcs_access_denied: 'settings.rag.reasons.vcs_access_denied',
+  policy_access_denied: 'settings.rag.reasons.policy_access_denied',
+  policy_revision_unavailable: 'settings.rag.reasons.policy_revision_unavailable',
+  policy_fetch_transient: 'settings.rag.reasons.policy_fetch_transient',
+  policy_rate_limited: 'settings.rag.reasons.policy_rate_limited',
+  policy_document_too_large: 'settings.rag.reasons.policy_document_too_large',
+  policy_document_type_unsupported: 'settings.rag.reasons.policy_document_type_unsupported',
 }
 
 /**
@@ -78,8 +92,9 @@ const ERROR_REASONS: Record<string, string> = {
  * is not.
  */
 function errorReason(code: string): string | null {
-  if (Object.keys(ERROR_REASONS).includes(code)) {
-    return ERROR_REASONS[code] ?? null
+  if (Object.keys(ERROR_REASON_KEYS).includes(code)) {
+    const key = ERROR_REASON_KEYS[code]
+    return key === undefined ? null : i18n.t(key)
   }
   return null
 }
@@ -104,7 +119,7 @@ function publicationOf(index: RagIndex): RagIndexView['publication'] {
  */
 export function ragIndexView(index: RagIndex, ragEnabled: boolean): RagIndexView {
   const base: RagIndexView = {
-    label: 'Выключен',
+    label: i18n.t('settings.rag.status.off'),
     tone: 'neutral',
     pulse: false,
     publication: null,
@@ -122,25 +137,28 @@ export function ragIndexView(index: RagIndex, ragEnabled: boolean): RagIndexView
   switch (index.status) {
     case 'disabled':
     case 'empty':
-      return { ...on, label: 'Не построен' }
+      return { ...on, label: i18n.t('settings.rag.status.notBuilt') }
     case 'building':
-      return { ...on, label: 'Строится…', tone: 'info', pulse: true }
+      return { ...on, label: i18n.t('settings.rag.status.building'), tone: 'info', pulse: true }
     case 'ready':
       return {
         ...on,
-        label: index.fileCount === 0 ? 'Готов — репозиторий пустой' : 'Готов',
+        label:
+          index.fileCount === 0
+            ? i18n.t('settings.rag.status.readyEmpty')
+            : i18n.t('settings.rag.status.ready'),
         tone: 'success',
         publication: publicationOf(index),
       }
     case 'stale':
       return {
         ...on,
-        label: 'Устарел',
+        label: i18n.t('settings.rag.status.stale'),
         tone: 'warning',
         publication: publicationOf(index),
-        detail: RAG_STALE_DETAIL,
+        detail: ragStaleDetail(),
       }
     case 'failed':
-      return { ...on, label: 'Ошибка', tone: 'danger' }
+      return { ...on, label: i18n.t('settings.rag.status.failed'), tone: 'danger' }
   }
 }
