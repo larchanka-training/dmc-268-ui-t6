@@ -1,6 +1,7 @@
 import { auth } from './auth'
 import { common } from './common'
 import { layout } from './layout'
+import { reasons } from './reasons'
 import { repositories } from './repositories'
 import { rules } from './rules'
 import { runs } from './runs'
@@ -15,4 +16,5 @@ export const en = {
   settings,
   rules,
   runs,
+  reasons,
 }

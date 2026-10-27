@@ -1,0 +1,58 @@
+import type { reasons as en } from '../en/reasons'
+import type { Translation } from '../types'
+
+// The texts of the api check-run (check_runs.py), word for word.
+export const reasons: Translation<typeof en> = {
+  llm_timeout: 'Модель не ответила вовремя. Прогон можно перезапустить из UI.',
+  llm_rate_limited: 'Провайдер модели ограничил частоту запросов. Перезапустите прогон позже.',
+  llm_payment_required: 'AI-ревью временно недоступно.',
+  llm_unavailable: 'Провайдер модели недоступен.',
+  llm_invalid_output: 'Модель вернула ответ не по контракту.',
+  llm_context_overflow: 'PR не помещается в контекст модели.',
+  budget_exceeded: 'Превышен лимит стоимости прогона.',
+  deadline_exceeded: 'Прогон не уложился в лимит времени.',
+  diff_fetch_failed: 'Не удалось получить дифф из GitHub.',
+  commit_messages_fetch_failed: 'Не удалось получить сообщения коммитов PR из GitHub.',
+  github_forbidden: 'У GitHub App нет доступа к репозиторию или PR.',
+  github_publish_failed: 'GitHub не принял ревью.',
+  pr_base_changed: 'Целевая ветка PR изменилась после запуска ревью. Перезапустите ревью из UI.',
+  lease_expired: 'Обработка прервалась 3 раза подряд.',
+  internal_error: 'Внутренняя ошибка сервиса.',
+  superseded: 'В PR новый коммит: ревью будет для него.',
+  cancelled_by_user: 'Прогон отменён из UI.',
+  pr_closed: 'PR закрыт.',
+  // The api has no text of its own for this code: it posts no check-run for it.
+  repo_disabled: 'Автоматическое ревью выключили до начала прогона.',
+  rule_not_matched: 'Целевая ветка PR не подходит под фильтр веток репозитория.',
+  all_changes_ignored: 'Все изменения исключены из AI-ревью.',
+  no_changes: 'В PR нет изменённых файлов. Ревью не выполнялось.',
+  budget_paused: 'Дневной бюджет исчерпан, ревью на паузе.',
+  verification_context_overflow: 'Обязательные данные проверки не помещаются в контекст.',
+  verification_invalid_output: 'Проверяющий вернул ответ не по контракту.',
+  verification_unavailable: 'Проверяющий временно недоступен.',
+  verification_budget_exceeded: 'Бюджета недостаточно для обязательной проверки.',
+  verification_deadline_exceeded: 'Недостаточно времени для обязательной проверки.',
+  policy_document_too_large:
+    'Документ правил превышает 64 КиБ. Ревью не выполнено; уменьшите документ.',
+  policy_document_decode_error:
+    'Документ правил должен быть корректным UTF-8. Исправьте кодировку.',
+  policy_document_control_character: 'В документе правил есть недопустимый управляющий символ.',
+  policy_document_type_unsupported: 'Документ правил должен быть обычным файлом в Git.',
+  policy_ignore_block_duplicate: 'В .review/rules.md допустим один блок review-ignore.',
+  policy_ignore_block_nested: 'Блок review-ignore должен быть на верхнем уровне .review/rules.md.',
+  policy_ignore_block_unclosed: 'Блок review-ignore в .review/rules.md не закрыт.',
+  policy_ignore_info_invalid: 'review-ignore не принимает дополнительные параметры.',
+  policy_ignore_pattern_invalid: 'В блоке review-ignore недопустимая маска.',
+  policy_ignore_limit_exceeded: 'В блоке review-ignore слишком много масок или маска длинна.',
+  policy_path_invalid: 'В изменениях есть недопустимый путь файла.',
+  policy_match_budget_exceeded:
+    'Маски review-ignore слишком дороги в проверке. Упростите политику.',
+  policy_prompt_budget_exceeded: 'Документы правил не помещаются целиком в контекст модели.',
+  policy_access_denied: 'Нет доступа к документам правил репозитория.',
+  policy_revision_unavailable: 'Закреплённая ревизия правил недоступна.',
+  policy_fetch_transient: 'Не удалось прочитать документы правил из GitHub.',
+  policy_rate_limited: 'GitHub ограничил частоту запросов при чтении правил.',
+  policy_snapshot_integrity_error: 'Снимок правил прогона повреждён или противоречив.',
+  policy_context_violation: 'В контекст модели попал запрещённый источник.',
+  unknown: 'Неизвестная причина: {{code}}',
+}
