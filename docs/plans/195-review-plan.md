@@ -1,6 +1,6 @@
-# PR #195 review round 1: response plan
+# PR #195 review rounds 1–2: response plan
 
-Source: [UI PR #195](https://github.com/larchanka-training/dmc-268-ui-t6/pull/195), review on `34f81ce9` (one P1, six P2 threads, fifteen P3 items). The branch is currently Draft. [API PR #340](https://github.com/larchanka-training/dmc-268-api-t6/pull/340) at `e4cda2a` is open and supplies the `provider` field and Bitbucket endpoints. This plan covers every review point; implementation and PR replies follow after test-first changes.
+Sources: [UI PR #195](https://github.com/larchanka-training/dmc-268-ui-t6/pull/195), round 1 on `34f81ce9` (one P1, six P2 threads, fifteen P3 items), and [round 2 on `39ad676`](https://github.com/larchanka-training/dmc-268-ui-t6/pull/195#pullrequestreview-5674064482) (ten additional P3 items). As checked on 2026-10-27, #195 is Draft and still has the one open P1 merge-order thread; all six P2 threads are closed. [API PR #340](https://github.com/larchanka-training/dmc-268-api-t6/pull/340) is open at `f7135aa` and supplies the `provider` field and Bitbucket endpoints. The earlier `e4cda2a` and `34f81ce9` references below describe round-1 evidence, not final contract pins. Implementation and PR replies follow test-first changes.
 
 ## Release boundary
 
@@ -60,3 +60,36 @@ Checkpoints: after packages 2–3 run focused tests; after 4–6 rerun affected 
 | CSS and focus defects escape jsdom                                        | Inspect built UI in browser, both themes and widths, keyboard actions, attach sanitized screenshots. |
 
 No other open UI PR owns either new `docs/plans/195-review-*` file. Files already in #195 remain on that PR branch. No new dependency is expected.
+
+## Round 2: work order and acceptance
+
+Round-2 review found no new P1/P2 code defect. Finish the ten P3 points, then resolve the branch conflict, pin the exact final UI contract in API #340, and gather API-first staging proof before changing #195 from Draft. Do not mark the PR body's rebase, approval, or staging checklist items complete until they are true on the final head.
+
+1. **Behavioral panel fixes, test first:** while focused on “Показать ещё”, load the final discovery page and assert focus moves to the first appended result or “Найти репозитории”; assert it never falls to `body`. Add a same-tick dismiss/add test for one-time webhook cards, then make `dismissSetup` use the current state. Replace the global `React.useRef` spy with an assertion on the next-page request body, including frozen slug/token criteria. Keep the one-time secret lifecycle and workspace-switch behavior from round 1.
+2. **Request validation and real errors:** reproduce an overlong workspace slug and assert a safe input-specific message before/at request validation, distinct from malformed server responses. Add mapper cases for 401, 403, a non-special 409, and ≥500; ensure no raw backend detail leaks. Align the invalid-token UI test to the API's actual `repository_inaccessible` 422 path, while retaining a safe mapping for declared `invalid_credential` if it arrives. Any change to the API's emitted error contract belongs in #340 and needs its own test.
+3. **Visible status and access copy:** assert both “Webhook активен” and “Ожидает webhook” on appropriate rows. Add an inaccessible non-GitHub repository test for its aria-label. Use “Bitbucket Cloud” in the unavailable-access label, coordinated with UI PR #194 before editing its overlapping `RepositoryList.tsx`.
+4. **Mock rules status:** add a connected Bitbucket repository case so the mock settings page receives a rules status and renders the normal state rather than a 404. Verify the repository ID and provider match the mock connection. UI PR #196 owns `src/app/mocks/mockRulesStatus.ts`; prefer adding the response in #195-owned `mockTransport.ts` if the transport design allows it. Otherwise wait for #196 to merge or comment there before editing its file.
+5. **Focus code readability:** extract the focus handoff into a small `useFocusHandoff` hook with behavior-preserving tests for connect, disconnect, rotation, dismissal, and a missing target. Make target IDs explicit: remote Bitbucket UUID for connect, portal repository ID for existing bindings. Remove the hook-order-dependent test. Keep this after the behavioral red/green cases so the refactor has a regression net.
+6. **Architecture docs:** after resolving the `docs/FRONTEND_ARCHITECTURE.md` conflict, document Bitbucket connections, one-time webhook setup, read-only settings, `modal.confirm`, focus handoff, and provider-specific status. Retain the newer main-branch “более N” changes in `rulesStatusView.ts` and its test when reconciling the rebase.
+7. **Branch and release boundary:** #195 is `DIRTY`/`CONFLICTING` against `main` `2dda09a` at planning time. Rebase the implementation branch only after its uncommitted work is safely recorded; resolve the architecture-doc conflict, inspect the automatic rules-status merges, and rerun all gates on the rebased head. Then regenerate API #340's Zod fixture from a clean committed checkout of that exact final UI schema SHA and update `UI_CONTRACT_COMMIT`. API #340 must merge and deploy before #195. Probe authenticated staging `/api/repos`, `/api/runs`, `/api/runs/{id}` and SSE `run.update` for `provider`, record API/UI SHAs, then update the PR body and request final review. A rebase or code push invalidates an earlier approval.
+
+### Round-2 P3 traceability
+
+| Review P3                              | Planned work                                       | Evidence to retain                                                                 |
+| -------------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| 1. PR body and Draft claim             | Release boundary                                   | Truthful Draft/rebase/Task 9 status, later API-first probe and final-head approval |
+| 2. Last discovery page focus           | Behavioral panel fixes                             | Keyboard-focused next-page test and browser focus check                            |
+| 3. Request `ZodError`                  | Request validation                                 | Overlong slug test distinct from malformed response                                |
+| 4. `dismissSetup` stale closure        | Behavioral panel fixes                             | Same-tick card insertion/dismissal test                                            |
+| 5. Missing mutation assertions         | Visible status/access copy; request validation     | Both webhook labels, inaccessible Bitbucket aria-label, 401/403/409/5xx rows       |
+| 6. Imaginary `invalid_credential` path | Request validation                                 | Real 422 `repository_inaccessible` UI test; optional API contract decision         |
+| 7. Mock Bitbucket rules 404            | Mock rules status                                  | Settings page/transport test returns rules status                                  |
+| 8. Focus maps, IDs, access name        | Focus code readability; visible status/access copy | Typed IDs, unchanged keyboard flow, Bitbucket Cloud label                          |
+| 9. Architecture omissions              | Architecture docs                                  | Conflict-resolved provider/connection lifecycle section                            |
+| 10. Global `useRef` spy                | Behavioral panel fixes                             | Next-page request assertion without React hook interception                        |
+
+### File ownership and gates
+
+UI PR #194 also edits `src/widgets/repository-list/ui/RepositoryList.tsx`; #196 edits `src/app/mocks/mockRulesStatus.ts`, `src/widgets/repository-rules/lib/rulesStatusView.ts`, and its test. Do not edit those overlapping files while their PRs remain open without a comment in the owning PR. The planning files are in #195 only. The implementation checkout contains unrelated uncommitted changes; keep those intact and use a clean rebase only when the owner has consolidated them.
+
+Focused tests should fail for each behavioral bug before its fix. Final UI gates on the rebased head: `pnpm lint`, `pnpm check-types`, `pnpm format:check`, `pnpm test`, `pnpm build`, `pnpm verify:prod-bundle`, `pnpm --dir docs-site check-types`, and `pnpm --dir docs-site build`; rerun landing/docs screenshots only when affected UI/mockups change. Browser QA should repeat the 1280/390 light/dark tag/Select measurements and keyboard focus flows after the focus refactor. API #340's contract test and full gates must pass after the final fixture pin. Keep #195 Draft until staging proof exists, all review threads are resolved, and a new approval applies to the final head.

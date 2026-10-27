@@ -34,6 +34,7 @@ import {
   mockRepositories,
   mockReviewComments,
   mockSummaryOnlyDiff,
+  MOCK_NOW,
 } from './app-state'
 import { mockRulesStatuses } from './mockRulesStatus'
 import { mockRunsListPage } from './mockRunsList.fixture'
@@ -308,8 +309,22 @@ async function answerRulesStatus(
   await Promise.resolve()
   signal?.throwIfAborted()
 
-  const status = id === undefined ? undefined : mockRulesStatuses[id]
-  if (id === undefined || !status || !repositories.some((r) => r.id === id)) {
+  const repository = repositories.find((item) => item.id === id)
+  const status: RulesStatus | undefined =
+    id === undefined
+      ? undefined
+      : (mockRulesStatuses[id] ??
+        (repository?.provider === 'bitbucket'
+          ? {
+              status: 'missing',
+              branch: repository.defaultBranch,
+              path: '.review/rules.md',
+              checkedAt: MOCK_NOW,
+              sha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+              defaultsVersion: 'v1',
+            }
+          : undefined))
+  if (id === undefined || !status || !repository) {
     throw new ApiError(404, 'Not Found', { message: 'Repository not found' })
   }
   // A newly connected repository (the fixture says there is no file): the worker has not read it
@@ -484,6 +499,7 @@ function handleMockTransport(
           (entry) => entry.repositoryId !== repositoryId,
         )
         repositories = repositories.filter((entry) => entry.id !== repositoryId)
+        if (repositoryId) rulesStatusAsked.delete(repositoryId)
         if (!bitbucketConnections.length) bitbucketToken = null
         return null
       }

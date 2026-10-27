@@ -8,19 +8,6 @@ import type { Workspace } from '../../../entities/user'
 import { ApiError, setMockTransport } from '../../../shared/api/client'
 import { BitbucketConnectionsPanel } from './BitbucketConnectionsPanel'
 
-const observedRefs = vi.hoisted(() => ({ refs: [] as { current: unknown }[] }))
-vi.mock('react', async (importOriginal) => {
-  const original = await importOriginal<typeof import('react')>()
-  return {
-    ...original,
-    useRef: (initial: unknown) => {
-      const ref = original.useRef(initial)
-      observedRefs.refs.push(ref)
-      return ref
-    },
-  }
-})
-
 const FIRST = '11111111-1111-4111-8111-111111111111'
 const SECOND = '22222222-2222-4222-8222-222222222222'
 const INSTALLATION = '33333333-3333-4333-8333-333333333333'
@@ -45,7 +32,6 @@ const originalClipboard = navigator.clipboard
 afterEach(() => {
   cleanup()
   setMockTransport(null)
-  observedRefs.refs.length = 0
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: originalClipboard })
   vi.restoreAllMocks()
 })
@@ -63,6 +49,31 @@ function renderPanel(availableWorkspaces: Workspace[] = workspaces) {
 }
 
 describe('Bitbucket connections panel', () => {
+  it('labels active and awaiting webhook bindings separately', async () => {
+    setMockTransport(() => ({
+      connections: [
+        firstConnection,
+        {
+          ...firstConnection,
+          repositoryId: REMOTE,
+          repositoryUuid: REPOSITORY,
+          repositorySlug: 'second-repo',
+          status: 'awaiting_webhook',
+        },
+      ],
+      nextCursor: null,
+    }))
+    renderPanel()
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: /portal workspace/i }))
+    fireEvent.click(screen.getByText('First team'))
+
+    const active = await screen.findByText('private-space/first-repo')
+    const pending = screen.getByText('private-space/second-repo')
+    if (!active.parentElement || !pending.parentElement) throw new Error('Connection row missing')
+    expect(within(active.parentElement).getByText('Webhook активен')).toBeTruthy()
+    expect(within(pending.parentElement).getByText('Ожидает webhook')).toBeTruthy()
+  })
+
   it('invalidates the original caches after a connect that completes in another selected workspace', async () => {
     let finishConnect: ((value: unknown) => void) | undefined
     setMockTransport((endpoint) => {
@@ -479,9 +490,18 @@ describe('Bitbucket connections panel', () => {
       target: { value: 'other-space' },
     })
     fireEvent.change(screen.getByLabelText(/api token/i), { target: { value: 'other-token' } })
-    fireEvent.click(screen.getByRole('button', { name: /показать ещё/i }))
+    const pager = screen.getByRole('button', { name: /показать ещё/i })
+    pager.focus()
+    fireEvent.click(pager)
     expect(await screen.findByText(/second-repo.*приватный/i)).toBeTruthy()
     expect(screen.getByText(/first-repo.*приватный/i)).toBeTruthy()
+    await waitFor(() => {
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: 'Подключить second-repo' }),
+      )
+    })
+    expect(screen.queryByRole('button', { name: /показать ещё/i })).toBeNull()
+    expect(document.activeElement).not.toBe(document.body)
     expect(requests).toEqual([
       {
         path: `/workspaces/${FIRST}/bitbucket/discovery`,
@@ -498,6 +518,49 @@ describe('Bitbucket connections panel', () => {
     ])
   })
 
+  it('returns focus to discovery when the final page has no repositories', async () => {
+    let page = 0
+    setMockTransport((endpoint) => {
+      if (endpoint.path.endsWith('/discovery')) {
+        page += 1
+        return {
+          repositories:
+            page === 1
+              ? [
+                  {
+                    uuid: REMOTE,
+                    workspaceSlug: 'private-space',
+                    slug: 'first-repo',
+                    name: 'First repo',
+                    isPrivate: true,
+                    htmlUrl: 'https://bitbucket.org/private-space/first-repo',
+                  },
+                ]
+              : [],
+          nextCursor: page === 1 ? 'next-page' : null,
+        }
+      }
+      return { connections: [], nextCursor: null }
+    })
+    renderPanel()
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: /portal workspace/i }))
+    fireEvent.click(screen.getByText('First team'))
+    fireEvent.change(screen.getByRole('textbox', { name: /bitbucket workspace/i }), {
+      target: { value: 'private-space' },
+    })
+    fireEvent.change(screen.getByLabelText('API token'), { target: { value: 'temporary-token' } })
+    fireEvent.click(screen.getByRole('button', { name: /найти репозитории/i }))
+    const pager = await screen.findByRole('button', { name: /показать ещё/i })
+    pager.focus()
+    fireEvent.click(pager)
+    await waitFor(() => {
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: /найти репозитории/i }),
+      )
+    })
+    expect(screen.queryByRole('button', { name: /показать ещё/i })).toBeNull()
+  })
+
   it('shows a safe message for a connection-list failure', async () => {
     setMockTransport(() => {
       throw new ApiError(422, 'Unprocessable Entity', { detail: 'private-backend-stack' })
@@ -512,10 +575,133 @@ describe('Bitbucket connections panel', () => {
     expect(screen.queryByText('private-backend-stack')).toBeNull()
   })
 
-  it('shows a localized invalid-token toast from discovery', async () => {
+  it('shows an input-specific message for an overlong Bitbucket workspace before sending discovery', async () => {
+    const discovery = vi.fn()
+    setMockTransport((endpoint) => {
+      if (endpoint.path.endsWith('/discovery')) discovery()
+      return { connections: [], nextCursor: null }
+    })
+    renderPanel()
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: /portal workspace/i }))
+    fireEvent.click(screen.getByText('First team'))
+    fireEvent.change(screen.getByRole('textbox', { name: /bitbucket workspace/i }), {
+      target: { value: 'a'.repeat(129) },
+    })
+    fireEvent.change(screen.getByLabelText(/api token/i), { target: { value: 'temporary-token' } })
+    fireEvent.click(screen.getByRole('button', { name: /найти репозитории/i }))
+
+    expect(
+      await screen.findByText('Bitbucket workspace не может быть длиннее 128 символов.'),
+    ).toBeTruthy()
+    expect(discovery).not.toHaveBeenCalled()
+    expect(screen.queryByText(/неожиданный формат ответа сервера/i)).toBeNull()
+  })
+
+  it('keeps a distinct response-format message for malformed discovery JSON', async () => {
+    setMockTransport((endpoint) => {
+      if (endpoint.path.endsWith('/discovery'))
+        return { repositories: 'malformed', nextCursor: null }
+      return { connections: [], nextCursor: null }
+    })
+    renderPanel()
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: /portal workspace/i }))
+    fireEvent.click(screen.getByText('First team'))
+    fireEvent.change(screen.getByRole('textbox', { name: /bitbucket workspace/i }), {
+      target: { value: 'private-space' },
+    })
+    fireEvent.change(screen.getByLabelText(/api token/i), { target: { value: 'temporary-token' } })
+    fireEvent.click(screen.getByRole('button', { name: /найти репозитории/i }))
+
+    expect(
+      await screen.findByText(
+        'Неожиданный формат ответа сервера. Обновите страницу и повторите попытку.',
+      ),
+    ).toBeTruthy()
+    expect(screen.queryByText(/длиннее 128 символов/i)).toBeNull()
+  })
+
+  it('asks for a token if it was cleared after discovery before connecting', async () => {
+    const connectCalls = vi.fn()
     setMockTransport((endpoint) => {
       if (endpoint.path.endsWith('/discovery')) {
-        throw new ApiError(400, 'Bad Request', { detail: 'invalid_credential' })
+        return {
+          repositories: [
+            {
+              uuid: REMOTE,
+              workspaceSlug: 'private-space',
+              slug: 'private-repo',
+              name: 'Private repo',
+              isPrivate: true,
+              htmlUrl: 'https://bitbucket.org/private-space/private-repo',
+            },
+          ],
+          nextCursor: null,
+        }
+      }
+      if (endpoint.method === 'POST' && endpoint.path.endsWith('/connections')) connectCalls()
+      return { connections: [], nextCursor: null }
+    })
+    renderPanel()
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: /portal workspace/i }))
+    fireEvent.click(screen.getByText('First team'))
+    fireEvent.change(screen.getByRole('textbox', { name: /bitbucket workspace/i }), {
+      target: { value: 'private-space' },
+    })
+    fireEvent.change(screen.getByLabelText('API token'), { target: { value: 'temporary-token' } })
+    fireEvent.click(screen.getByRole('button', { name: /найти репозитории/i }))
+    const connect = await screen.findByRole('button', { name: 'Подключить private-repo' })
+    fireEvent.change(screen.getByLabelText('API token'), { target: { value: '' } })
+    fireEvent.click(connect)
+
+    expect(await screen.findByText('Введите API token Bitbucket для подключения.')).toBeTruthy()
+    expect(connectCalls).not.toHaveBeenCalled()
+    expect(screen.queryByText(/неожиданный формат ответа сервера/i)).toBeNull()
+  })
+
+  it('keeps the response-format message when connect returns malformed JSON', async () => {
+    setMockTransport((endpoint) => {
+      if (endpoint.path.endsWith('/discovery')) {
+        return {
+          repositories: [
+            {
+              uuid: REMOTE,
+              workspaceSlug: 'private-space',
+              slug: 'private-repo',
+              name: 'Private repo',
+              isPrivate: true,
+              htmlUrl: 'https://bitbucket.org/private-space/private-repo',
+            },
+          ],
+          nextCursor: null,
+        }
+      }
+      if (endpoint.method === 'POST' && endpoint.path.endsWith('/connections')) {
+        return { id: 'malformed-provider-id' }
+      }
+      return { connections: [], nextCursor: null }
+    })
+    renderPanel()
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: /portal workspace/i }))
+    fireEvent.click(screen.getByText('First team'))
+    fireEvent.change(screen.getByRole('textbox', { name: /bitbucket workspace/i }), {
+      target: { value: 'private-space' },
+    })
+    fireEvent.change(screen.getByLabelText('API token'), { target: { value: 'temporary-token' } })
+    fireEvent.click(screen.getByRole('button', { name: /найти репозитории/i }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Подключить private-repo' }))
+
+    expect(
+      await screen.findByText(
+        'Неожиданный формат ответа сервера. Обновите страницу и повторите попытку.',
+      ),
+    ).toBeTruthy()
+    expect(screen.queryByText(/введите api token bitbucket/i)).toBeNull()
+  })
+
+  it('shows the API repository-inaccessible message for a bad Bitbucket token', async () => {
+    setMockTransport((endpoint) => {
+      if (endpoint.path.endsWith('/discovery')) {
+        throw new ApiError(422, 'Unprocessable Entity', { detail: 'repository_inaccessible' })
       }
       return { connections: [], nextCursor: null }
     })
@@ -529,9 +715,11 @@ describe('Bitbucket connections panel', () => {
     fireEvent.click(screen.getByRole('button', { name: /найти репозитории/i }))
 
     expect(
-      await screen.findByText('API token Bitbucket недействителен. Проверьте token и его права.'),
+      await screen.findByText(
+        'Репозиторий Bitbucket недоступен этому API token. Проверьте права доступа.',
+      ),
     ).toBeTruthy()
-    expect(screen.queryByText('invalid_credential')).toBeNull()
+    expect(screen.queryByText('repository_inaccessible')).toBeNull()
   })
 
   it('ignores a discovery response from the previously selected portal workspace', async () => {
@@ -735,17 +923,8 @@ describe('Bitbucket connections panel', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: /найти репозитории/i }))
     expect(await screen.findByText(/private-repo.*приватный/i)).toBeTruthy()
-    const discoveryRef = observedRefs.refs.find(
-      (ref) =>
-        typeof ref.current === 'object' &&
-        ref.current !== null &&
-        'bitbucketWorkspace' in ref.current &&
-        'apiToken' in ref.current,
-    )
-    expect(discoveryRef).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: /подключить private-repo/i }))
     expect(await screen.findByText('once-only-hook')).toBeTruthy()
-    expect(discoveryRef?.current).toBeNull()
     expect(screen.getByLabelText<HTMLInputElement>('API token').value).toBe('')
     expect(screen.queryByRole('button', { name: /показать ещё/i })).toBeNull()
     fireEvent.change(screen.getByLabelText(/api token/i), { target: { value: 'new-token' } })
@@ -1121,6 +1300,49 @@ describe('Bitbucket connections panel', () => {
     })
     expect(screen.getByText('private-space/first-repo')).toBeTruthy()
     expect(document.activeElement).not.toBe(document.body)
+  })
+
+  it('keeps a new webhook card when an older card is dismissed in the same batch', async () => {
+    let rotation = 0
+    setMockTransport((endpoint) => {
+      if (endpoint.path.endsWith('/webhook-secret')) {
+        rotation += 1
+        return {
+          url: firstConnection.webhookUrl,
+          events: ['repo:push'],
+          secret: `secret-${String(rotation)}`,
+        }
+      }
+      return { connections: [firstConnection], nextCursor: null }
+    })
+    const { client } = renderPanel()
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: /portal workspace/i }))
+    fireEvent.click(screen.getByText('First team'))
+    const rotate = await screen.findByRole('button', {
+      name: 'Новый webhook secret для private-space/first-repo',
+    })
+    fireEvent.click(rotate)
+    expect(await screen.findByText('secret-1')).toBeTruthy()
+
+    const invalidate = client.invalidateQueries.bind(client)
+    let dismissed = false
+    vi.spyOn(client, 'invalidateQueries').mockImplementation((filters) => {
+      if (rotation === 2 && !dismissed) {
+        dismissed = true
+        screen
+          .getByRole('button', {
+            name: 'Закрыть настройку webhook для private-space/first-repo',
+          })
+          .dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      }
+      return invalidate(filters)
+    })
+    fireEvent.click(rotate)
+    await waitFor(() => {
+      expect(dismissed).toBe(true)
+    })
+    expect(screen.queryByText('secret-1')).toBeNull()
+    expect(await screen.findByText('secret-2')).toBeTruthy()
   })
 
   it('moves focus to a remaining webhook card, then the discovery input, as cards close', async () => {
