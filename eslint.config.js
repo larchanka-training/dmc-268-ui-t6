@@ -112,6 +112,35 @@ export default tseslint.config(
     },
   },
 
+  // i18n: user-facing text lives in the dictionaries of src/shared/i18n. A Cyrillic string in the
+  // app code means a text that bypasses them; only the Russian dictionary, tests, stories, mocks
+  // and fixtures may hold one.
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: [
+      '**/*.test.{ts,tsx}',
+      '**/*.stories.{ts,tsx}',
+      '**/*.fixture.{ts,tsx}',
+      '**/fixtures/**',
+      '**/mocks/**',
+      'src/test/**',
+      'src/shared/i18n/locales/ru/**',
+    ],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...[
+          'Literal[value=/[\\u0400-\\u04FF]/]',
+          'TemplateElement[value.raw=/[\\u0400-\\u04FF]/]',
+          'JSXText[value=/[\\u0400-\\u04FF]/]',
+        ].map((selector) => ({
+          selector,
+          message: 'Cyrillic text in code: move it to the i18n dictionaries (src/shared/i18n).',
+        })),
+      ],
+    },
+  },
+
   // Stories export a meta object and story objects next to components, which is what Storybook
   // expects and what `only-export-components` forbids; they are never part of the app bundle.
   {
