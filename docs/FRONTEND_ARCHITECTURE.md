@@ -1212,7 +1212,7 @@ RepositoryUpdate = { enabled?, defaultEngine?, waitForCi?, maxComments?, reviewE
   branchFilter?, severityThreshold?, ragEnabled? }  // хотя бы одно поле; installationAvailable и ragIndex нет
 RulesStatus = present | missing | invalid | unavailable | pending   // discriminatedUnion('status')
 RulesDiagnostic = { code, message, line: int|null, column: int|null, retryable,
-  limit?, actual?, patternIndex? }
+  limit?, actual?, actualIsLowerBound?, patternIndex? }
 ```
 
 Инварианты (проверены тестами схем):
@@ -1455,7 +1455,9 @@ off; }` для SSE, либо в документе фиксируется cross-
 | `pending`     | `sha: null`, `checkedAt: null`, больше ничего                                                                                        | загрузка: кольцо и «Проверяем .review/rules.md в ветке {branch}…», без sha, времени и кнопок                                                                          |
 
 `Diagnostic = { code, message, line: int|null, column: int|null, retryable, limit?, actual?,
-patternIndex? }` — RULES_FORMAT_SPEC §9 в camelCase. Для `policy_revision_unavailable` UI берёт
+actualIsLowerBound?, patternIndex? }` — RULES_FORMAT_SPEC §9 в camelCase. Флаг
+`actualIsLowerBound: true` значит, что сервер прочёл файл не до конца и `actual` — нижняя граница:
+UI пишет «фактически более {actual}», а не точный размер. Для `policy_revision_unavailable` UI берёт
 формулировку страницы api: «Ревизия default branch недоступна: GitHub не подтвердил, есть ли файл
 правил.»
 
