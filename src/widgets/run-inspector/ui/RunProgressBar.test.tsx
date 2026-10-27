@@ -107,8 +107,10 @@ describe('RunProgressBar', () => {
       2,
     )
     expect(stages().map((stage) => stage.state)).toEqual(['stopped', 'wait', 'wait'])
-    expect(within(stageItem('context')).getByText('Остановлено: cancelled_by_user')).toBeTruthy()
-    expect(screen.getAllByText('Остановлено: cancelled_by_user')).toHaveLength(1)
+    expect(
+      within(stageItem('context')).getByText('Остановлено. Прогон отменён из UI.'),
+    ).toBeTruthy()
+    expect(screen.getAllByText('Остановлено. Прогон отменён из UI.')).toHaveLength(1)
   })
 
   it('puts a real failed policy.load after previous publishing on context', () => {
@@ -128,9 +130,10 @@ describe('RunProgressBar', () => {
       2,
     )
     expect(stages().map((stage) => stage.state)).toEqual(['error', 'wait', 'wait'])
-    expect(within(stageItem('context')).getByText('policy_rate_limited')).toBeTruthy()
-    expect(screen.getAllByText('policy_rate_limited')).toHaveLength(1)
-    expect(within(stageItem('publishing')).queryByText('policy_rate_limited')).toBeNull()
+    const reason = 'GitHub ограничил частоту запросов при чтении правил.'
+    expect(within(stageItem('context')).getByText(reason)).toBeTruthy()
+    expect(screen.getAllByText(reason)).toHaveLength(1)
+    expect(within(stageItem('publishing')).queryByText(reason)).toBeNull()
   })
 
   it('shows exactly the three stage labels, in order', () => {
@@ -258,14 +261,17 @@ describe('RunProgressBar', () => {
       expect(screen.getByTestId('run-progress-context').style.color).toBe('')
       expect(screen.getByTestId('run-progress-analysis').style.color).toBe('')
       expect(screen.getByTestId('run-progress-publishing').style.color).toBe('')
-      expect(screen.getByText('llm_timeout').style.color).toBe('')
+      expect(
+        screen.getByText('Модель не ответила вовремя. Прогон можно перезапустить из UI.').style
+          .color,
+      ).toBe('')
       expect(container.querySelector('[style*="color"]')).toBeNull()
     })
 
     it('writes no colour inline on the title, the note or the mark of a stopped stage', () => {
       const { container } = renderBar('cancelled', [], 'cancelled_by_user')
       expect(screen.getByTestId('run-progress-context').style.color).toBe('')
-      expect(screen.getByText('Остановлено: cancelled_by_user').style.color).toBe('')
+      expect(screen.getByText('Остановлено. Прогон отменён из UI.').style.color).toBe('')
       expect(mark('context').style.color).toBe('')
       expect(container.querySelector('[style*="color"]')).toBeNull()
     })
@@ -308,20 +314,34 @@ describe('RunProgressBar', () => {
       renderBar('failed', actions, 'llm_timeout')
       expect(stages().map((stage) => stage.state)).toEqual(['finish', 'error', 'wait'])
       expect(stageItem('analysis').className).toContain('ant-steps-item-error')
-      expect(within(stageItem('analysis')).getByText('llm_timeout')).toBeTruthy()
+      expect(
+        within(stageItem('analysis')).getByText(
+          'Модель не ответила вовремя. Прогон можно перезапустить из UI.',
+        ),
+      ).toBeTruthy()
     })
 
     it('shows the errorCode once, on the failed stage only', () => {
       renderBar('failed', actions, 'llm_timeout')
-      expect(screen.getAllByText('llm_timeout')).toHaveLength(1)
-      expect(within(stageItem('context')).queryByText('llm_timeout')).toBeNull()
-      expect(within(stageItem('publishing')).queryByText('llm_timeout')).toBeNull()
+      expect(
+        screen.getAllByText('Модель не ответила вовремя. Прогон можно перезапустить из UI.'),
+      ).toHaveLength(1)
+      expect(
+        within(stageItem('context')).queryByText(
+          'Модель не ответила вовремя. Прогон можно перезапустить из UI.',
+        ),
+      ).toBeNull()
+      expect(
+        within(stageItem('publishing')).queryByText(
+          'Модель не ответила вовремя. Прогон можно перезапустить из UI.',
+        ),
+      ).toBeNull()
     })
 
     it('stops on context when nothing was recorded', () => {
       renderBar('failed', [], 'queue_lost')
       expect(stages().map((stage) => stage.state)).toEqual(['error', 'wait', 'wait'])
-      expect(within(stageItem('context')).getByText('queue_lost')).toBeTruthy()
+      expect(within(stageItem('context')).getByText('Неизвестная причина: queue_lost')).toBeTruthy()
     })
 
     it('stops on publishing when the publish step failed', () => {
@@ -331,7 +351,9 @@ describe('RunProgressBar', () => {
         'github_forbidden',
       )
       expect(stages().map((stage) => stage.state)).toEqual(['finish', 'finish', 'error'])
-      expect(within(stageItem('publishing')).getByText('github_forbidden')).toBeTruthy()
+      expect(
+        within(stageItem('publishing')).getByText('У GitHub App нет доступа к репозиторию или PR.'),
+      ).toBeTruthy()
     })
 
     it('renders without a description when the errorCode is null', () => {
@@ -361,7 +383,7 @@ describe('RunProgressBar', () => {
     it('says «Остановлено» with the errorCode on the stopped stage', () => {
       renderBar('cancelled', publishing, 'cancelled_by_user')
       expect(
-        within(stageItem('publishing')).getByText('Остановлено: cancelled_by_user'),
+        within(stageItem('publishing')).getByText('Остановлено. Прогон отменён из UI.'),
       ).toBeTruthy()
     })
 

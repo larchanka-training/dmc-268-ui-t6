@@ -35,7 +35,7 @@ export const runs = {
     analysis: 'Model analysis',
     publishing: 'Publishing',
     stopped: 'Stopped',
-    stoppedWithCode: 'Stopped: {{code}}',
+    stoppedWithReason: 'Stopped. {{reason}}',
   },
   controls: {
     cancel: 'Cancel',
@@ -74,7 +74,7 @@ export const runs = {
     duration: 'Duration',
     attempt: 'Attempt',
     actions: 'Actions',
-    error: 'Error',
+    reason: 'Reason',
     stale: 'no response > 10 min',
     dropped_one: '{{count}} finding not shown: it failed the format check',
     dropped_other: '{{count}} findings not shown: they failed the format check',

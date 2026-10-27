@@ -1,7 +1,7 @@
 import type { JSX } from 'react'
 
 import type { RunAction, RunProgressStage, RunSession } from '../../../entities/run'
-import { runProgress, runProgressReadsLog } from '../../../entities/run'
+import { reasonText, runProgress, runProgressReadsLog } from '../../../entities/run'
 import { i18n, useTranslation } from '../../../shared/i18n'
 import { ProgressSteps, type ProgressStep } from '../../../shared/ui'
 
@@ -12,16 +12,16 @@ interface RunProgressBarProps {
   actionsUnavailable?: boolean
 }
 
-/** The line under the title: the error code of a failed stage, the stop of a cancelled one. */
+/** The line under the title: why a failed stage failed, why a cancelled one stopped. */
 function noteOf(stage: RunProgressStage): string | undefined {
   switch (stage.state) {
     case 'error':
-      return stage.errorCode ?? undefined
+      return stage.errorCode === null ? undefined : reasonText(stage.errorCode)
     case 'stopped':
       // Not an error: the run was cancelled, nothing broke.
       return stage.errorCode === null
         ? i18n.t('runs.progress.stopped')
-        : i18n.t('runs.progress.stoppedWithCode', { code: stage.errorCode })
+        : i18n.t('runs.progress.stoppedWithReason', { reason: reasonText(stage.errorCode) })
     case 'wait':
     case 'process':
     case 'finish':
