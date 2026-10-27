@@ -3,6 +3,7 @@ import { Alert, Button, Flex, Tooltip, Typography } from 'antd'
 import type { FC, ReactNode, Ref } from 'react'
 
 import type { RulesDiagnostic, RulesStatus } from '../../../entities/repository'
+import { useTranslation } from '../../../shared/i18n'
 import { CodeBlock, Spinner, Tag } from '../../../shared/ui'
 import {
   describeDiagnosticLimit,
@@ -15,8 +16,6 @@ import {
 import styles from './RulesStatusPanel.module.css'
 
 const { Text } = Typography
-
-const MISSING_WARNING = 'Используются дефолтные правила, создайте .review/rules.md'
 
 // What the server puts in `defaultsVersion` when the repository has no active rule version.
 const UNKNOWN_DEFAULTS_VERSION = 'unknown'
@@ -34,62 +33,72 @@ const Section: FC<{ title: string; children: ReactNode }> = ({ title, children }
  * so the keyboard can scroll it.
  */
 const FileText: FC<{ text: string | null }> = ({ text }) => {
+  const { t } = useTranslation()
   if (text === null) {
-    return <Text type="secondary">Текст файла недоступен</Text>
+    return <Text type="secondary">{t('rules.fileTextUnavailable')}</Text>
   }
   if (text === '') {
-    return <Text type="secondary">Файл пуст</Text>
+    return <Text type="secondary">{t('rules.fileEmpty')}</Text>
   }
   return (
-    <div aria-label="Текст файла правил" className={styles.scroll} role="region" tabIndex={0}>
+    <div aria-label={t('rules.fileTextLabel')} className={styles.scroll} role="region" tabIndex={0}>
       <CodeBlock>{text}</CodeBlock>
     </div>
   )
 }
 
-const DiagnosticList: FC<{ diagnostics: RulesDiagnostic[] }> = ({ diagnostics }) => (
-  <ul className={styles.list}>
-    {diagnostics.map((diagnostic, index) => {
-      const location = describeDiagnosticLocation(diagnostic)
-      const limit = describeDiagnosticLimit(diagnostic)
-      return (
-        <li key={`${diagnostic.code}-${String(index)}`}>
-          <code>{diagnostic.code}</code>
-          {location !== null ? (
-            <>
-              <span className={styles.positionGap}> </span>
-              <span className={styles.position}>{location}</span>
-            </>
-          ) : null}{' '}
-          <span>{diagnostic.message}</span>
-          {limit !== null ? <span> ({limit})</span> : null}
-        </li>
-      )
-    })}
-  </ul>
-)
+const DiagnosticList: FC<{ diagnostics: RulesDiagnostic[] }> = ({ diagnostics }) => {
+  // Subscribes to the language: the limit text below comes from the dictionary.
+  useTranslation()
+  return (
+    <ul className={styles.list}>
+      {diagnostics.map((diagnostic, index) => {
+        const location = describeDiagnosticLocation(diagnostic)
+        const limit = describeDiagnosticLimit(diagnostic)
+        return (
+          <li key={`${diagnostic.code}-${String(index)}`}>
+            <code>{diagnostic.code}</code>
+            {location !== null ? (
+              <>
+                <span className={styles.positionGap}> </span>
+                <span className={styles.position}>{location}</span>
+              </>
+            ) : null}{' '}
+            <span>{diagnostic.message}</span>
+            {limit !== null ? <span> ({limit})</span> : null}
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
 
 /** What a status that has been read carries: where the file was read from and when. */
 const Meta: FC<{ status: Exclude<RulesStatus, { status: 'pending' }>; tag?: ReactNode }> = ({
   status,
   tag,
-}) => (
-  <Flex align="center" className={styles.meta} gap={8} wrap>
-    {tag}
-    <code>{status.path}</code>
-    <Tag icon={<BranchesOutlined />} variant="outline">
-      {status.branch}
-    </Tag>
-    {status.sha !== null ? (
-      <Tooltip title={status.sha} trigger={['hover', 'focus']}>
-        <code className={styles.sha} tabIndex={0}>
-          {shortSha(status.sha)}
-        </code>
-      </Tooltip>
-    ) : null}
-    <Text type="secondary">Проверено: {formatCheckedAt(status.checkedAt)}</Text>
-  </Flex>
-)
+}) => {
+  const { t } = useTranslation()
+  return (
+    <Flex align="center" className={styles.meta} gap={8} wrap>
+      {tag}
+      <code>{status.path}</code>
+      <Tag icon={<BranchesOutlined />} variant="outline">
+        {status.branch}
+      </Tag>
+      {status.sha !== null ? (
+        <Tooltip title={status.sha} trigger={['hover', 'focus']}>
+          <code className={styles.sha} tabIndex={0}>
+            {shortSha(status.sha)}
+          </code>
+        </Tooltip>
+      ) : null}
+      <Text type="secondary">
+        {t('rules.checked', { date: formatCheckedAt(status.checkedAt) })}
+      </Text>
+    </Flex>
+  )
+}
 
 export interface RulesStatusDetailsProps {
   status: RulesStatus
@@ -107,15 +116,16 @@ export const RulesStatusDetails: FC<RulesStatusDetailsProps> = ({
   retryRef,
   retrying,
 }) => {
+  const { t } = useTranslation()
   switch (status.status) {
     case 'present':
       return (
         <Flex gap={12} vertical>
-          <Meta status={status} tag={<Tag tone="success">Файл найден</Tag>} />
-          <Section title="Текст файла">
+          <Meta status={status} tag={<Tag tone="success">{t('rules.fileFound')}</Tag>} />
+          <Section title={t('rules.fileText')}>
             <FileText text={status.text} />
           </Section>
-          <Section title="Игнорируемые пути">
+          <Section title={t('rules.ignoredPaths')}>
             {status.ignoreMasks.length > 0 ? (
               <ul className={styles.list}>
                 {status.ignoreMasks.map((mask, index) => (
@@ -125,11 +135,11 @@ export const RulesStatusDetails: FC<RulesStatusDetailsProps> = ({
                 ))}
               </ul>
             ) : (
-              <Text type="secondary">Масок нет</Text>
+              <Text type="secondary">{t('rules.noMasks')}</Text>
             )}
           </Section>
           {status.diagnostics.length > 0 ? (
-            <Section title="Диагностика">
+            <Section title={t('rules.diagnostics')}>
               <DiagnosticList diagnostics={status.diagnostics} />
             </Section>
           ) : null}
@@ -139,7 +149,7 @@ export const RulesStatusDetails: FC<RulesStatusDetailsProps> = ({
       return (
         <Flex align="center" gap={8} role="status">
           <Spinner label={null} size="sm" />
-          <Text type="secondary">{`Проверяем .review/rules.md в ветке ${status.branch}…`}</Text>
+          <Text type="secondary">{t('rules.checking', { branch: status.branch })}</Text>
         </Flex>
       )
     case 'missing':
@@ -149,10 +159,10 @@ export const RulesStatusDetails: FC<RulesStatusDetailsProps> = ({
             description={
               status.defaultsVersion === UNKNOWN_DEFAULTS_VERSION
                 ? undefined
-                : `Версия дефолтных правил: ${status.defaultsVersion}`
+                : t('rules.defaultsVersion', { version: status.defaultsVersion })
             }
             showIcon
-            title={MISSING_WARNING}
+            title={t('rules.missing')}
             type="warning"
           />
           <Meta status={status} />
@@ -164,11 +174,11 @@ export const RulesStatusDetails: FC<RulesStatusDetailsProps> = ({
           <Alert
             description={<DiagnosticList diagnostics={status.diagnostics} />}
             showIcon
-            title="Файл правил содержит ошибки"
+            title={t('rules.invalid')}
             type="error"
           />
           <Meta status={status} />
-          <Section title="Текст файла">
+          <Section title={t('rules.fileText')}>
             <FileText text={status.text} />
           </Section>
         </Flex>
@@ -180,7 +190,7 @@ export const RulesStatusDetails: FC<RulesStatusDetailsProps> = ({
             action={
               status.diagnostics.some((diagnostic) => diagnostic.retryable) ? (
                 <Button loading={retrying} onClick={onRetry} ref={retryRef} size="small">
-                  Повторить
+                  {t('rules.retry')}
                 </Button>
               ) : undefined
             }
@@ -200,7 +210,7 @@ export const RulesStatusDetails: FC<RulesStatusDetailsProps> = ({
               </ul>
             }
             showIcon
-            title="Не удалось прочитать файл правил"
+            title={t('rules.unavailable')}
             type="error"
           />
           <Meta status={status} />

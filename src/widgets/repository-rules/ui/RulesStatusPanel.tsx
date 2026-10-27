@@ -2,6 +2,7 @@ import { Alert, Button, Skeleton } from 'antd'
 import { useCallback, useEffect, useRef, type FC } from 'react'
 
 import { useRepositoryRulesStatus } from '../../../entities/repository'
+import { useTranslation } from '../../../shared/i18n'
 import { RulesStatusDetails } from './RulesStatusDetails'
 import styles from './RulesStatusPanel.module.css'
 
@@ -15,13 +16,14 @@ export interface RulesStatusPanelProps {
  * load error, so a broken request is never read as "defaults apply". There is no refresh button:
  * the server re-reads the file by itself (on connect, on a push to the default branch, on a GET
  * once its copy is old), reopening the page asks again, and a `pending` status is polled by the
- * hook. «Повторить» is offered only for a load error and for an `unavailable` status the server
+ * hook. "Retry" is offered only for a load error and for an `unavailable` status the server
  * called retryable. When that button goes away while it has the focus (the retry succeeded, or a
- * poll brought the result under it), the focus goes to the block's other «Повторить» if the block
+ * poll brought the result under it), the focus goes to the block's other "Retry" if the block
  * has one now (the retry of an `unavailable` status failed with an HTTP error), else to the
  * heading of the block, not to `<body>`.
  */
 export const RulesStatusPanel: FC<RulesStatusPanelProps> = ({ repoId }) => {
+  const { t } = useTranslation()
   const query = useRepositoryRulesStatus(repoId)
 
   const retry = (): void => {
@@ -70,11 +72,11 @@ export const RulesStatusPanel: FC<RulesStatusPanelProps> = ({ repoId }) => {
         <Alert
           action={
             <Button loading={query.isFetching} onClick={retry} ref={trackRetry} size="small">
-              Повторить
+              {t('rules.retry')}
             </Button>
           }
           showIcon
-          title="Не удалось загрузить статус правил"
+          title={t('rules.loadFailed')}
           type="error"
         />
       )
@@ -93,9 +95,9 @@ export const RulesStatusPanel: FC<RulesStatusPanelProps> = ({ repoId }) => {
   })()
 
   return (
-    <section aria-label="Правила ревью" className={styles.root}>
+    <section aria-label={t('rules.title')} className={styles.root}>
       <h2 className={styles.label} ref={headingRef} tabIndex={-1}>
-        Правила ревью
+        {t('rules.title')}
       </h2>
       {body}
     </section>
