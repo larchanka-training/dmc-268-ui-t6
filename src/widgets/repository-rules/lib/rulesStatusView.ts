@@ -23,12 +23,19 @@ export function describeDiagnosticLocation(diagnostic: RulesDiagnostic): string 
     : `${String(diagnostic.line)}:${String(diagnostic.column)}`
 }
 
-/** The limit and the actual value of a "too large" diagnostic, when the server knows both. */
+/**
+ * The limit and the actual value of a "too large" diagnostic, when the server knows both. A lower
+ * bound reads "более N": RULES_FORMAT_SPEC §9 forbids showing it as an exact value.
+ */
 export function describeDiagnosticLimit(diagnostic: RulesDiagnostic): string | null {
   if (diagnostic.limit === undefined || diagnostic.actual === undefined) {
     return null
   }
-  return `допустимо ${String(diagnostic.limit)}, фактически ${String(diagnostic.actual)}`
+  const actual =
+    diagnostic.actualIsLowerBound === true
+      ? `более ${String(diagnostic.actual)}`
+      : String(diagnostic.actual)
+  return `допустимо ${String(diagnostic.limit)}, фактически ${actual}`
 }
 
 // RULES_FORMAT_SPEC §9: the codes under which the file could not be read at all.

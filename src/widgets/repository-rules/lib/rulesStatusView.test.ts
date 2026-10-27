@@ -46,6 +46,15 @@ describe('describeDiagnosticLimit', () => {
     )
   })
 
+  it('says the actual value is more than given when it is a lower bound', () => {
+    expect(
+      describeDiagnosticLimit({ ...base, limit: 65536, actual: 69632, actualIsLowerBound: true }),
+    ).toBe('допустимо 65536, фактически более 69632')
+    expect(
+      describeDiagnosticLimit({ ...base, limit: 65536, actual: 85000, actualIsLowerBound: false }),
+    ).toBe('допустимо 65536, фактически 85000')
+  })
+
   it('says nothing when either is missing', () => {
     expect(describeDiagnosticLimit({ ...base, limit: 65536 })).toBeNull()
     expect(describeDiagnosticLimit({ ...base, actual: 85000 })).toBeNull()

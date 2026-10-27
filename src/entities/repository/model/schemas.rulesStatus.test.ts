@@ -135,6 +135,16 @@ describe('RulesDiagnosticSchema', () => {
     expect(RulesDiagnosticSchema.parse(full)).toEqual(full)
   })
 
+  it('takes the optional actualIsLowerBound flag and leaves it out when the server does', () => {
+    const lowerBound = { ...diagnostic, limit: 65536, actual: 69632, actualIsLowerBound: true }
+
+    expect(RulesDiagnosticSchema.parse(lowerBound)).toEqual(lowerBound)
+    expect('actualIsLowerBound' in RulesDiagnosticSchema.parse(diagnostic)).toBe(false)
+    expect(
+      RulesDiagnosticSchema.safeParse({ ...diagnostic, actualIsLowerBound: 'yes' }).success,
+    ).toBe(false)
+  })
+
   it('takes null line and column but not a missing retryable', () => {
     expect(
       RulesDiagnosticSchema.safeParse({ ...diagnostic, line: null, column: null }).success,
