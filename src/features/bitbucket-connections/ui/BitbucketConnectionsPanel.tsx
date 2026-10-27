@@ -1,5 +1,5 @@
 import { Alert, App, Button, Flex, Input, Select, Typography } from 'antd'
-import { useLayoutEffect, useRef, useState, type FC } from 'react'
+import { useRef, useState, type FC } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
 import type { Workspace } from '../../../entities/user'
@@ -15,6 +15,7 @@ import {
   useBitbucketConnections,
 } from '../api'
 import { bitbucketErrorMessage } from '../lib/bitbucketErrorMessage'
+import { useFocusHandoff, type FocusTarget } from '../lib/useFocusHandoff'
 import type { BitbucketDiscoveredRepository, BitbucketWebhookSetup } from '../model/schemas'
 import styles from './BitbucketConnectionsPanel.module.css'
 
@@ -33,18 +34,6 @@ interface WebhookSetupEntry {
   disconnected: boolean
 }
 
-type FocusTarget =
-  | { kind: 'workspace' }
-  | { kind: 'setup'; id: number }
-  | { kind: 'connect' | 'credential' | 'hook' | 'disconnect'; repositoryId: string }
-  | { kind: 'credential-submit' }
-
-interface FocusRequest {
-  epoch: number
-  from: HTMLElement
-  target: FocusTarget
-}
-
 export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ workspaces }) => {
   const { message, modal } = App.useApp()
   const queryClient = useQueryClient()
@@ -58,63 +47,25 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
   const [busy, setBusy] = useState(false)
   const [rotationInstallation, setRotationInstallation] = useState<string | null>(null)
   const [replacementToken, setReplacementToken] = useState('')
-  const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null)
   const workspaceEpoch = useRef(0)
   const discoveryCriteria = useRef<{ bitbucketWorkspace: string; apiToken: string } | null>(null)
   const setupSequence = useRef(0)
-  const workspaceInput = useRef<HTMLInputElement | null>(null)
-  const credentialSubmit = useRef<HTMLAnchorElement | HTMLButtonElement | null>(null)
   const credentialOrigin = useRef<string | null>(null)
-  const setupActions = useRef(new Map<number, HTMLElement>())
-  const connectActions = useRef(new Map<string, HTMLElement>())
-  const credentialActions = useRef(new Map<string, HTMLElement>())
-  const hookActions = useRef(new Map<string, HTMLElement>())
-  const disconnectActions = useRef(new Map<string, HTMLElement>())
   const connections = useBitbucketConnections(workspaceId)
-
-  useLayoutEffect(() => {
-    if (!focusRequest || busy) return
-    if (focusRequest.epoch !== workspaceEpoch.current) {
-      setFocusRequest(null)
-      return
-    }
-    const { target } = focusRequest
-    const element =
-      target.kind === 'workspace'
-        ? workspaceInput.current
-        : target.kind === 'setup'
-          ? setupActions.current.get(target.id)
-          : target.kind === 'connect'
-            ? connectActions.current.get(target.repositoryId)
-            : target.kind === 'credential'
-              ? credentialActions.current.get(target.repositoryId)
-              : target.kind === 'hook'
-                ? hookActions.current.get(target.repositoryId)
-                : target.kind === 'disconnect'
-                  ? disconnectActions.current.get(target.repositoryId)
-                  : credentialSubmit.current
-    const active = document.activeElement
-    if (!element || (element instanceof HTMLButtonElement && element.disabled)) {
-      if (active === document.body || active === focusRequest.from) {
-        workspaceInput.current?.focus()
-      }
-      setFocusRequest(null)
-      return
-    }
-    if (active === document.body || active === focusRequest.from) {
-      element.focus()
-    }
-    setFocusRequest(null)
-  }, [busy, connections.data, discovered, focusRequest, rotationInstallation, setups])
-
-  const requestFocus = (epoch: number, from: HTMLElement, target: FocusTarget) => {
-    if (epoch === workspaceEpoch.current) setFocusRequest({ epoch, from, target })
-  }
-
-  const trackAction = (actions: Map<string, HTMLElement>, id: string, node: HTMLElement | null) => {
-    if (node) actions.set(id, node)
-    else actions.delete(id)
-  }
+  const {
+    workspaceInputRef,
+    discoverySubmitRef,
+    credentialSubmitRef,
+    requestFocus,
+    clearFocusRequest,
+    trackSetupAction,
+    trackConnectAction,
+    trackBindingAction,
+  } = useFocusHandoff({
+    busy,
+    epoch: workspaceEpoch,
+    latestSetupId: setups[setups.length - 1]?.id ?? null,
+  })
 
   const showSetup = (
     repositoryId: string,
@@ -150,15 +101,9 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
 
   const dismissSetup = (id: number, trigger: HTMLElement) => {
     const hadFocus = document.activeElement === trigger
-    const remaining = setups.filter((entry) => entry.id !== id)
-    setSetups(remaining)
+    setSetups((current) => current.filter((entry) => entry.id !== id))
     if (hadFocus) {
-      const next = remaining[remaining.length - 1]
-      requestFocus(
-        workspaceEpoch.current,
-        trigger,
-        next ? { kind: 'setup', id: next.id } : { kind: 'workspace' },
-      )
+      requestFocus(workspaceEpoch.current, trigger, { kind: 'latest-setup' })
     }
   }
 
@@ -184,16 +129,20 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
     setReplacementToken('')
     setRotationInstallation(null)
     credentialOrigin.current = null
-    setFocusRequest(null)
+    clearFocusRequest()
     discoveryCriteria.current = null
   }
 
-  const discover = async (cursor?: string | null) => {
+  const discover = async (cursor?: string | null, trigger?: HTMLElement) => {
     if (!workspaceId) return
     const criteria = cursor
       ? discoveryCriteria.current
       : { bitbucketWorkspace: bitbucketWorkspace.trim(), apiToken }
     if (!criteria?.bitbucketWorkspace || !criteria.apiToken) return
+    if (criteria.bitbucketWorkspace.length > 128) {
+      void message.error('Bitbucket workspace не может быть длиннее 128 символов.')
+      return
+    }
     if (!cursor) {
       discoveryCriteria.current = criteria
       setBitbucketWorkspace(criteria.bitbucketWorkspace)
@@ -210,6 +159,16 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
       if (epoch !== workspaceEpoch.current) return
       setDiscovered(cursor ? (old) => [...old, ...result.repositories] : result.repositories)
       setNextCursor(result.nextCursor)
+      if (cursor && !result.nextCursor && trigger && document.activeElement === trigger) {
+        const first = result.repositories[0]
+        requestFocus(
+          epoch,
+          trigger,
+          first
+            ? { kind: 'connect', remoteRepositoryUuid: first.uuid }
+            : { kind: 'discover-submit' },
+        )
+      }
     } catch (error) {
       if (epoch === workspaceEpoch.current) void message.error(bitbucketErrorMessage(error))
     } finally {
@@ -219,6 +178,10 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
 
   const connect = async (repository: BitbucketDiscoveredRepository, trigger: HTMLElement) => {
     if (!workspaceId) return
+    if (!apiToken.trim()) {
+      void message.error('Введите API token Bitbucket для подключения.')
+      return
+    }
     const affectedWorkspaceId = workspaceId
     const epoch = workspaceEpoch.current
     const hadFocus = document.activeElement === trigger
@@ -237,7 +200,7 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
             `${result.workspaceSlug}/${result.repositorySlug}`,
             result.webhook,
           )
-          if (hadFocus) requestFocus(epoch, trigger, { kind: 'setup', id: setupId })
+          if (hadFocus) requestFocus(epoch, trigger, { kind: 'setup', setupId })
         } else {
           setSetupHelp(
             'Секрет уже выдавался для этого репозитория. Обновите webhook secret, чтобы получить новый.',
@@ -256,7 +219,10 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
       if (epoch === workspaceEpoch.current) {
         void message.error(bitbucketErrorMessage(error))
         if (hadFocus)
-          requestFocus(epoch, trigger, { kind: 'connect', repositoryId: repository.uuid })
+          requestFocus(epoch, trigger, {
+            kind: 'connect',
+            remoteRepositoryUuid: repository.uuid,
+          })
       }
     } finally {
       if (epoch === workspaceEpoch.current) setBusy(false)
@@ -310,7 +276,9 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
         const confirmButton =
           document.activeElement instanceof HTMLElement ? document.activeElement : trigger
         const removed = await disconnect(affectedWorkspaceId, epoch, installationId, repositoryId)
-        focusAfterClose = removed ? { kind: 'workspace' } : { kind: 'disconnect', repositoryId }
+        focusAfterClose = removed
+          ? { kind: 'workspace' }
+          : { kind: 'disconnect', portalRepositoryId: repositoryId }
         // Ant Design closes the dialog after onOk resolves. Queue the handoff behind that update;
         // afterClose repeats it if the dialog's own focus restoration runs later.
         setTimeout(() => {
@@ -336,7 +304,7 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
         setReplacementToken('')
         setRotationInstallation(null)
         if (hadFocus && origin) {
-          requestFocus(epoch, trigger, { kind: 'credential', repositoryId: origin })
+          requestFocus(epoch, trigger, { kind: 'credential', portalRepositoryId: origin })
         }
       }
       await refresh(affectedWorkspaceId)
@@ -371,13 +339,14 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
       )
       if (epoch === workspaceEpoch.current) {
         const setupId = showSetup(repositoryId, repositoryName, result)
-        if (hadFocus) requestFocus(epoch, trigger, { kind: 'setup', id: setupId })
+        if (hadFocus) requestFocus(epoch, trigger, { kind: 'setup', setupId })
       }
       await refresh(affectedWorkspaceId)
     } catch (error) {
       if (epoch === workspaceEpoch.current) {
         void message.error(bitbucketErrorMessage(error))
-        if (hadFocus) requestFocus(epoch, trigger, { kind: 'hook', repositoryId })
+        if (hadFocus)
+          requestFocus(epoch, trigger, { kind: 'hook', portalRepositoryId: repositoryId })
       }
     } finally {
       if (epoch === workspaceEpoch.current) setBusy(false)
@@ -424,7 +393,7 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
                 aria-label={`Новый webhook secret для ${connection.workspaceSlug}/${connection.repositorySlug}`}
                 disabled={busy}
                 ref={(node) => {
-                  trackAction(hookActions.current, connection.repositoryId, node)
+                  trackBindingAction('hook', connection.repositoryId, node)
                 }}
                 onClick={(event) =>
                   void rotateSecret(
@@ -441,7 +410,7 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
                 aria-label={`Обновить API token для ${connection.workspaceSlug}/${connection.repositorySlug}`}
                 disabled={busy}
                 ref={(node) => {
-                  trackAction(credentialActions.current, connection.repositoryId, node)
+                  trackBindingAction('credential', connection.repositoryId, node)
                 }}
                 onClick={() => {
                   credentialOrigin.current = connection.repositoryId
@@ -455,7 +424,7 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
                 danger
                 disabled={busy}
                 ref={(node) => {
-                  trackAction(disconnectActions.current, connection.repositoryId, node)
+                  trackBindingAction('disconnect', connection.repositoryId, node)
                 }}
                 onClick={(event) => {
                   confirmDisconnect(
@@ -483,7 +452,7 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
               <Button
                 disabled={!replacementToken || busy}
                 onClick={(event) => void rotateCredential(event.currentTarget)}
-                ref={credentialSubmit}
+                ref={credentialSubmitRef}
               >
                 Подтвердить обновление token
               </Button>
@@ -507,8 +476,7 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
                     aria-label={`Скопировать URL для ${entry.repositoryName}`}
                     onClick={() => void copySetupValue(entry.setup.url)}
                     ref={(node) => {
-                      if (node) setupActions.current.set(entry.id, node)
-                      else setupActions.current.delete(entry.id)
+                      trackSetupAction(entry.id, node)
                     }}
                   >
                     Скопировать URL
@@ -549,7 +517,7 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
             <Input
               aria-label="Bitbucket workspace"
               ref={(node) => {
-                workspaceInput.current = node?.input ?? null
+                workspaceInputRef.current = node?.input ?? null
               }}
               onChange={(event) => {
                 setBitbucketWorkspace(event.target.value)
@@ -569,6 +537,7 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
             <Button
               disabled={!bitbucketWorkspace.trim() || !apiToken || busy}
               onClick={() => void discover()}
+              ref={discoverySubmitRef}
             >
               Найти репозитории
             </Button>
@@ -586,7 +555,7 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
                 disabled={busy}
                 onClick={(event) => void connect(repository, event.currentTarget)}
                 ref={(node) => {
-                  trackAction(connectActions.current, repository.uuid, node)
+                  trackConnectAction(repository.uuid, node)
                 }}
               >
                 Подключить {repository.slug}
@@ -594,7 +563,10 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
             </Flex>
           ))}
           {nextCursor ? (
-            <Button disabled={busy} onClick={() => void discover(nextCursor)}>
+            <Button
+              disabled={busy}
+              onClick={(event) => void discover(nextCursor, event.currentTarget)}
+            >
               Показать ещё
             </Button>
           ) : null}

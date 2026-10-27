@@ -25,8 +25,19 @@ describe('bitbucketErrorMessage', () => {
     [429, 'provider_rate_limited', 'Bitbucket ограничил частоту запросов. Повторите позже.'],
     [502, 'provider_unavailable', 'Bitbucket временно недоступен. Повторите позже.'],
     [503, 'credential_unavailable', 'Подключение Bitbucket временно недоступно. Повторите позже.'],
+    [401, 'private-session-detail', 'Сессия истекла. Войдите повторно.'],
+    [403, 'private-permission-detail', 'Недостаточно прав для подключения Bitbucket.'],
+    [
+      409,
+      'unrecognized_conflict',
+      'Данные подключения Bitbucket изменились. Обновите список и повторите попытку.',
+    ],
+    [500, 'private-server-detail', 'Сервис временно недоступен. Повторите позже.'],
+    [504, 'private-gateway-detail', 'Сервис временно недоступен. Повторите позже.'],
   ] as const)('maps %i %s to a fixed Russian message', (status, detail, expected) => {
-    expect(bitbucketErrorMessage(new ApiError(status, 'Provider error', { detail }))).toBe(expected)
+    const message = bitbucketErrorMessage(new ApiError(status, 'Provider error', { detail }))
+    expect(message).toBe(expected)
+    expect(message).not.toContain(detail)
   })
 
   it('never renders unknown server detail or the ApiError message', () => {

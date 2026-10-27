@@ -523,6 +523,44 @@ describe('initMockTransport', () => {
       initMockTransport()
     })
 
+    it('serves a connected Bitbucket repository instead of a 404', async () => {
+      const connected = await connectBitbucketRepository('123e4567-e89b-12d3-a456-426614174000', {
+        bitbucketWorkspace: 'demo-bitbucket',
+        repositorySlug: 'private-repo',
+        repositoryUuid: '66666666-6666-4666-8666-666666666666',
+        apiToken: 'demo-token',
+      })
+      expect(connected.repositoryId).toBe('77777777-7777-4777-8777-777777777777')
+      const repository = await apiClient<Repository>(endpoints.repos.detail(connected.repositoryId))
+      expect(repository.provider).toBe('bitbucket')
+
+      const first = RulesStatusSchema.parse(
+        await apiClient<unknown>(endpoints.repos.rulesStatus(connected.repositoryId)),
+      )
+      const second = RulesStatusSchema.parse(
+        await apiClient<unknown>(endpoints.repos.rulesStatus(connected.repositoryId)),
+      )
+      expect(first).toMatchObject({ status: 'pending', branch: 'main' })
+      expect(second).toMatchObject({ status: 'missing', branch: 'main', defaultsVersion: 'v1' })
+
+      await disconnectBitbucketRepository(
+        '123e4567-e89b-12d3-a456-426614174000',
+        connected.id,
+        connected.repositoryId,
+      )
+      await connectBitbucketRepository('123e4567-e89b-12d3-a456-426614174000', {
+        bitbucketWorkspace: 'demo-bitbucket',
+        repositorySlug: 'private-repo',
+        repositoryUuid: '66666666-6666-4666-8666-666666666666',
+        apiToken: 'demo-token',
+      })
+      expect(
+        RulesStatusSchema.parse(
+          await apiClient<unknown>(endpoints.repos.rulesStatus(connected.repositoryId)),
+        ).status,
+      ).toBe('pending')
+    })
+
     it('serves the rules status of each mock repository', async () => {
       const statuses = await Promise.all(
         mockRepositories.map((repo) =>
