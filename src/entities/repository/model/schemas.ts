@@ -98,6 +98,8 @@ export const RulesDiagnosticSchema = z.object({
   // absent when `actual` is exact.
   actualIsLowerBound: z.boolean().optional(),
   patternIndex: z.int().optional(),
+  // The offending mask, shortened by the server; omitted when the error has none.
+  excerpt: z.string().optional(),
 })
 export type RulesDiagnostic = z.infer<typeof RulesDiagnosticSchema>
 

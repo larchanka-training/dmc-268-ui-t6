@@ -67,11 +67,13 @@ export const mockRulesStatuses: Record<string, RulesStatus> = {
     diagnostics: [
       {
         code: 'policy_ignore_pattern_invalid',
-        message: 'Маска не принята: не закрыта квадратная скобка',
+        message:
+          'The review-ignore block has a mask that is not allowed. Where: file `.review/rules.md`, line 14, column 5, mask `src/[generated/**`.',
         line: 14,
         column: 5,
         retryable: false,
         patternIndex: 3,
+        excerpt: 'src/[generated/**',
       },
     ],
   },
@@ -85,7 +87,7 @@ export const mockRulesStatuses: Record<string, RulesStatus> = {
     diagnostics: [
       {
         code: 'policy_access_denied',
-        message: 'GitHub отказал в доступе к репозиторию',
+        message: 'No access to the rules documents of the repository.',
         line: null,
         column: null,
         retryable: false,

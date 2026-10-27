@@ -21,6 +21,12 @@ export const rules: Translation<typeof en> = {
   unavailable: 'Не удалось прочитать файл правил',
   limit: 'допустимо {{limit}}, фактически {{actual}}',
   limitLowerBound: 'допустимо {{limit}}, фактически более {{actual}}',
+  mask: 'маска',
+  // A diagnostic text that differs from the run text of its code (reasons.*): no run here.
+  statusTexts: {
+    policy_document_too_large:
+      'Документ правил превышает 64 КиБ. Ревью с ним не выполнится; уменьшите документ.',
+  },
   reasons: {
     policy_access_denied: 'У GitHub App нет доступа к репозиторию',
     policy_revision_unavailable:
