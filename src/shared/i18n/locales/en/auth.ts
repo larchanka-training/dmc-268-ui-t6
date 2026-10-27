@@ -11,8 +11,6 @@ export const auth = {
   button: {
     github: 'Sign in with GitHub',
     notConfigured: 'Sign-in is not configured (VITE_GITHUB_CLIENT_ID)',
-    demoLabel: 'Sign in as the demo user',
-    demo: 'Demo sign-in (Mock)',
   },
   callback: {
     loadingTitle: 'Signing in with GitHub...',
