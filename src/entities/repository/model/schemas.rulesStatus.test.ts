@@ -137,8 +137,10 @@ describe('RulesDiagnosticSchema', () => {
 
   it('takes the optional actualIsLowerBound flag and leaves it out when the server does', () => {
     const lowerBound = { ...diagnostic, limit: 65536, actual: 69632, actualIsLowerBound: true }
+    const exact = { ...diagnostic, limit: 65536, actual: 85000, actualIsLowerBound: false }
 
     expect(RulesDiagnosticSchema.parse(lowerBound)).toEqual(lowerBound)
+    expect(RulesDiagnosticSchema.parse(exact)).toEqual(exact)
     expect('actualIsLowerBound' in RulesDiagnosticSchema.parse(diagnostic)).toBe(false)
     expect(
       RulesDiagnosticSchema.safeParse({ ...diagnostic, actualIsLowerBound: 'yes' }).success,
