@@ -34,6 +34,18 @@ export const reasons = {
   verification_unavailable: 'The checker is temporarily unavailable.',
   verification_budget_exceeded: 'The budget is not enough for the required check.',
   verification_deadline_exceeded: 'There is not enough time for the required check.',
+  gitlab_forbidden: 'The GitLab integration has no access to the project or the merge request.',
+  gitlab_publish_failed: 'GitLab did not accept the review.',
+  publication_payload_too_large: 'The result is over the publication limit of the code host.',
+  publication_outcome_unknown:
+    'Could not confirm whether the review was published. It needs a check.',
+  legacy_publication_unresolved: 'Could not reliably restore the earlier publication.',
+  snapshot_integrity_error: 'The saved review snapshot failed its integrity check.',
+  installation_unavailable: 'The app installation of this repository is no longer available.',
+  installation_replaced: 'The repository moved to another app installation.',
+  installation_revoked: 'The GitLab connection was revoked.',
+  credential_rotated: 'The GitLab access token changed during the run.',
+  run_inactive: 'The run was no longer active.',
   policy_document_too_large:
     'The rules document is over 64 KiB. The review did not run; make the document smaller.',
   policy_document_decode_error: 'The rules document must be valid UTF-8. Fix the encoding.',

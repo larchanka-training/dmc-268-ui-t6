@@ -1,7 +1,8 @@
 import type { reasons as en } from '../en/reasons'
 import type { Translation } from '../types'
 
-// The texts of the api check-run (check_runs.py), word for word.
+// The texts of the api check-run (check_runs.py) and of PIPELINE_SPEC §6, word for word; the
+// codes the api has no text for (no check-run) have short texts of their own.
 export const reasons: Translation<typeof en> = {
   llm_timeout: 'Модель не ответила вовремя. Прогон можно перезапустить из UI.',
   llm_rate_limited: 'Провайдер модели ограничил частоту запросов. Перезапустите прогон позже.',
@@ -32,6 +33,17 @@ export const reasons: Translation<typeof en> = {
   verification_unavailable: 'Проверяющий временно недоступен.',
   verification_budget_exceeded: 'Бюджета недостаточно для обязательной проверки.',
   verification_deadline_exceeded: 'Недостаточно времени для обязательной проверки.',
+  gitlab_forbidden: 'У интеграции GitLab нет доступа к проекту или merge request.',
+  gitlab_publish_failed: 'GitLab не принял ревью.',
+  publication_payload_too_large: 'Результат превышает лимит публикации VCS.',
+  publication_outcome_unknown: 'Исход публикации не удалось подтвердить. Требуется сверка.',
+  legacy_publication_unresolved: 'Не удалось однозначно восстановить прежнюю публикацию.',
+  snapshot_integrity_error: 'Сохранённый снимок проверки не прошёл проверку целостности.',
+  installation_unavailable: 'Установка приложения для этого репозитория больше недоступна.',
+  installation_replaced: 'Репозиторий перешёл в другую установку приложения.',
+  installation_revoked: 'Подключение GitLab отозвано.',
+  credential_rotated: 'Токен доступа GitLab сменился во время прогона.',
+  run_inactive: 'Прогон уже не активен.',
   policy_document_too_large:
     'Документ правил превышает 64 КиБ. Ревью не выполнено; уменьшите документ.',
   policy_document_decode_error:
