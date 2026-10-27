@@ -10,6 +10,7 @@ import {
   useRerunRun,
   type RunSession,
 } from '../../../entities/run'
+import { useTranslation } from '../../../shared/i18n'
 import { useDisabledButtonClass } from '../../../shared/ui'
 
 interface RunControlsProps {
@@ -18,6 +19,7 @@ interface RunControlsProps {
 
 export function RunControls(props: RunControlsProps): JSX.Element {
   const { run } = props
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const cancelMutation = useCancelRun(run.id)
   const rerunMutation = useRerunRun(run.id)
@@ -46,7 +48,7 @@ export function RunControls(props: RunControlsProps): JSX.Element {
             },
           })
         },
-    children: run.cancelRequested ? 'Отмена запрошена' : 'Отменить',
+    children: run.cancelRequested ? t('runs.controls.cancelRequested') : t('runs.controls.cancel'),
   }
   const rerunButtonProps: ButtonProps = {
     loading: rerunMutation.isPending,
@@ -61,7 +63,7 @@ export function RunControls(props: RunControlsProps): JSX.Element {
       })
     },
     type: 'primary',
-    children: 'Перезапустить',
+    children: t('runs.controls.restart'),
   }
 
   const buttonProps = canCancel ? cancelButtonProps : canRerun ? rerunButtonProps : null
@@ -76,7 +78,7 @@ export function RunControls(props: RunControlsProps): JSX.Element {
           <Button
             {...buttonProps}
             // A held Enter repeats keydown into clicks and the browser would click the button
-            // again: after a cancel that ended the run that is «Перезапустить» (frontend.md §3b
+            // again: after a cancel that ended the run that is "Restart" (frontend.md §3b
             // item 4). Only Enter: Space clicks on keyup, and a held Tab or arrow must still
             // move on.
             onKeyDown={(event) => {

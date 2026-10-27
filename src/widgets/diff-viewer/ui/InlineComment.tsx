@@ -4,6 +4,7 @@ import { Typography } from 'antd'
 import { extractNewSideLines, type FileDiff } from '../../../entities/diff'
 import type { FindingView, Severity } from '../../../entities/review'
 import { findingLineRangeLabel, SEVERITY_LABEL } from '../../../entities/review'
+import { useTranslation } from '../../../shared/i18n'
 import { RowButton, Tag, type TagProps } from '../../../shared/ui'
 import { DiffSuggestion } from './DiffSuggestion'
 
@@ -25,6 +26,7 @@ interface InlineCommentProps {
 
 export function InlineComment(props: InlineCommentProps): JSX.Element {
   const { finding, file, defaultExpanded = false } = props
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(defaultExpanded)
   const badge = SEVERITY_TAG[finding.severity]
   const range = findingLineRangeLabel(finding)
@@ -59,7 +61,7 @@ export function InlineComment(props: InlineCommentProps): JSX.Element {
         <div className="inline-comment-body">
           <Typography.Text type="secondary">{finding.category}</Typography.Text>
           {finding.ruleName !== null ? (
-            <Tag variant="outline">правило: {finding.ruleName}</Tag>
+            <Tag variant="outline">{t('runs.diff.rule', { name: finding.ruleName })}</Tag>
           ) : null}
           <Typography.Paragraph className="inline-comment-text">
             {finding.body}

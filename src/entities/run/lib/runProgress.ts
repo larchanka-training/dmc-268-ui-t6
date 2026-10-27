@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import type { RunAction, RunSession } from '../model/schemas'
+import { i18n } from '../../../shared/i18n'
 import { RUN_FETCH_DIFF_TOOL } from './runTools'
 
 export type RunProgressStageKey = 'context' | 'analysis' | 'publishing'
@@ -17,11 +18,7 @@ export interface RunProgressStage {
 
 export type RunProgress = readonly RunProgressStage[]
 
-const STAGES: readonly { key: RunProgressStageKey; label: string }[] = [
-  { key: 'context', label: 'Сбор контекста' },
-  { key: 'analysis', label: 'Анализ LLM' },
-  { key: 'publishing', label: 'Публикация' },
-]
+const STAGES: readonly RunProgressStageKey[] = ['context', 'analysis', 'publishing']
 
 // Stage indexes into STAGES.
 const CONTEXT = 0
@@ -161,10 +158,12 @@ export function runProgress(
   }
   const attempt = currentAttempt(actions, run.attempt)
   const states = stageStates(run.status, attempt)
-  return STAGES.map((stage, index) => {
+  return STAGES.map((key, index) => {
     const state = states[index] ?? 'wait'
     return {
-      ...stage,
+      key,
+      // Read at call time: the bar shows the stages in the current language.
+      label: i18n.t(`runs.progress.${key}`),
       state,
       errorCode: state === 'error' || state === 'stopped' ? run.errorCode : null,
     }

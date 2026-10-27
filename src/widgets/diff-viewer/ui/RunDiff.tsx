@@ -17,6 +17,7 @@ import {
   type FindingFiltersChange,
 } from '../../../features/finding-filters'
 import type { ContextGap } from '../model/types'
+import { useTranslation } from '../../../shared/i18n'
 import { InlineComment } from './InlineComment'
 import { DiffViewer } from './DiffViewer'
 
@@ -83,6 +84,7 @@ function outsideCards(findings: FindingView[], searchActive: boolean): JSX.Eleme
 }
 
 export function RunDiff(props: RunDiffProps): JSX.Element {
+  const { t } = useTranslation()
   const {
     summaryOnly,
     files,
@@ -163,8 +165,8 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
       <div className="run-diff">
         {filtersBar}
         <Alert
-          description="Больше 3 000 строк — показан только список файлов, построчного ревью нет."
-          title="Дифф слишком большой"
+          description={t('runs.diff.tooLarge')}
+          title={t('runs.diff.tooLargeTitle')}
           type="info"
         />
         {visibleFiles.length > 0 || !filtering ? (
@@ -178,7 +180,7 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
             data-testid="findings-outside-diff"
             description={<div>{outsideCards(outsideFindings, searchActive)}</div>}
             className="diff-outside"
-            title="Замечания вне диффа"
+            title={t('runs.diff.outside')}
             type="warning"
           />
         ) : null}
@@ -212,7 +214,7 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
           data-testid="findings-outside-diff"
           description={<div>{outsideCards(outsideFindings, searchActive)}</div>}
           className="diff-outside"
-          title="Замечания вне диффа"
+          title={t('runs.diff.outside')}
           type="warning"
         />
       ) : null}

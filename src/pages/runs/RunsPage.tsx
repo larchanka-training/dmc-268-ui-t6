@@ -11,6 +11,7 @@ import {
   type RunSession,
 } from '../../entities/run'
 import { useRunListFilterParams } from '../../features/run-list-filter'
+import { useTranslation } from '../../shared/i18n'
 import { DataTable, PageHeader, Tag } from '../../shared/ui'
 import styles from './RunsPage.module.css'
 
@@ -32,6 +33,7 @@ function uniqueRuns(pages: readonly RunListPage[]): RunSession[] {
 }
 
 export const RunsPage: FC = () => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { filter, resetFilter } = useRunListFilterParams()
   const {
@@ -49,9 +51,9 @@ export const RunsPage: FC = () => {
 
   // Focus follows the action. A control that is gone (the filter reset, the last page loaded,
   // a failed page) would drop focus to <body>: the heading takes it after a reset, and the link
-  // of the first run a page brought takes it after «Показать ещё»; both always. Three moves are
-  // conditional: «Повторить» takes it after a failed page, the heading after a last page with
-  // nothing new, and «Показать ещё» after a retry that brought nothing new while pages are left,
+  // of the first run a page brought takes it after "Show more"; both always. Three moves are
+  // conditional: "Retry" takes it after a failed page, the heading after a last page with
+  // nothing new, and "Show more" after a retry that brought nothing new while pages are left,
   // but only if the control that asked for the page held the focus and the user has not moved on
   // since.
   const titleRef = useRef<HTMLHeadingElement>(null)
@@ -61,16 +63,16 @@ export const RunsPage: FC = () => {
   // looks for the first run it has not seen, whenever the rows change.
   const knownRunIds = useRef<ReadonlySet<string> | null>(null)
   // Set while a page asked for by a control that held the focus is on its way. If the page fails,
-  // the control is gone and «Повторить» has appeared: the effect below hands the focus to it.
+  // the control is gone and "Retry" has appeared: the effect below hands the focus to it.
   const retryRef = useRef<HTMLButtonElement>(null)
   const retryTakesFocus = useRef(false)
   // Set when a retry that held the focus brought nothing new and left a next page: the retry is
-  // gone and «Показать ещё» is a new button, which the focus is handed to once it is on screen.
+  // gone and "Show more" is a new button, which the focus is handed to once it is on screen.
   const moreRef = useRef<HTMLButtonElement>(null)
   const moreTakesFocus = useRef(false)
 
   const focusHeading = useCallback(() => {
-    // A «Показать ещё» still on its way belongs to a list that is gone, or has nothing to show:
+    // A "Show more" still on its way belongs to a list that is gone, or has nothing to show:
     // its rows must not take the focus off the heading.
     knownRunIds.current = null
     moreTakesFocus.current = false
@@ -125,7 +127,7 @@ export const RunsPage: FC = () => {
     ) {
       focusHeading()
     }
-    // The retry is gone, nothing is new, and «Показать ещё» is back for the next page.
+    // The retry is gone, nothing is new, and "Show more" is back for the next page.
     if (hadFocus && fromRetry && !result.isError && nothingNew && result.hasNextPage) {
       moreTakesFocus.current = true
       focusMoreIfReady()
@@ -184,25 +186,25 @@ export const RunsPage: FC = () => {
       ),
     },
     {
-      title: 'Репозиторий',
+      title: t('runs.columns.repository'),
       dataIndex: ['pullRequest', 'repo'],
       key: 'repo',
     },
     {
-      title: 'Статус ревью',
+      title: t('runs.columns.status'),
       key: 'status',
       render: (_, run) => (
         <Flex gap={8} wrap>
           <Tag pulse={isActive(run.status)} tone={statusTone(run.status)}>
             {run.status}
           </Tag>
-          {isActive(run.status) ? <Tag variant="outline">в процессе</Tag> : null}
+          {isActive(run.status) ? <Tag variant="outline">{t('runs.inProgress')}</Tag> : null}
           {run.summaryOnly ? <Tag variant="outline">summary-only</Tag> : null}
         </Flex>
       ),
     },
     {
-      title: 'Движок',
+      title: t('runs.columns.engine'),
       dataIndex: 'engine',
       key: 'engine',
       render: (engine: string) => <Text type="secondary">{engine}</Text>,
@@ -217,7 +219,7 @@ export const RunsPage: FC = () => {
             {filter.repo !== undefined ? (
               <>
                 <Tag variant="outline">{filter.repo}</Tag>
-                <Button onClick={resetFilterAndFocus}>Сбросить фильтр</Button>
+                <Button onClick={resetFilterAndFocus}>{t('runs.resetFilter')}</Button>
               </>
             ) : null}
             <Button
@@ -226,16 +228,16 @@ export const RunsPage: FC = () => {
                 void refetch()
               }}
             >
-              Обновить
+              {t('runs.refresh')}
             </Button>
           </>
         }
         description={
           filter.repo !== undefined
-            ? `Pull request'ы репозитория ${filter.repo}, по которым выполнялось или выполняется ревью`
-            : "Pull request'ы, по которым выполнялось или выполняется ревью"
+            ? t('runs.descriptionForRepo', { repo: filter.repo })
+            : t('runs.description')
         }
-        title="Прогоны"
+        title={t('runs.title')}
         titleRef={titleRef}
       />
 
@@ -247,9 +249,9 @@ export const RunsPage: FC = () => {
 
       {loadError ? (
         <Alert
-          description={error instanceof Error ? error.message : 'Не удалось загрузить список'}
+          description={error instanceof Error ? error.message : t('runs.loadFailed')}
           showIcon
-          title="Ошибка загрузки"
+          title={t('runs.loadFailedTitle')}
           type="error"
         />
       ) : null}
@@ -262,13 +264,13 @@ export const RunsPage: FC = () => {
             emptyText:
               filter.repo !== undefined ? (
                 <Empty
-                  description={`Для репозитория ${filter.repo} прогонов ещё нет`}
+                  description={t('runs.emptyForRepo', { repo: filter.repo })}
                   image={Empty.PRESENTED_IMAGE_SIMPLE}
                 >
-                  <Button onClick={resetFilterAndFocus}>Показать все прогоны</Button>
+                  <Button onClick={resetFilterAndFocus}>{t('runs.showAll')}</Button>
                 </Empty>
               ) : (
-                'Нет прогонов ревью'
+                t('runs.empty')
               ),
           }}
           onRow={(run) => ({
@@ -297,12 +299,12 @@ export const RunsPage: FC = () => {
               ref={retryRef}
               size="small"
             >
-              Повторить
+              {t('runs.retry')}
             </Button>
           }
           className={styles.more}
           showIcon
-          title="Не удалось загрузить следующую страницу"
+          title={t('runs.nextPageFailed')}
           type="error"
         />
       ) : null}
@@ -316,7 +318,7 @@ export const RunsPage: FC = () => {
             }}
             ref={moreRef}
           >
-            Показать ещё
+            {t('runs.showMore')}
           </Button>
         </Flex>
       ) : null}

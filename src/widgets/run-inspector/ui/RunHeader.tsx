@@ -3,6 +3,7 @@ import { Flex, Typography } from 'antd'
 
 import type { RunSession, SeverityCounts, Verdict } from '../../../entities/run'
 import { isActive, isStaleRunning, statusTone } from '../../../entities/run'
+import { useTranslation } from '../../../shared/i18n'
 import { safeHttpUrl } from '../../../shared/lib/safeHttpUrl'
 import { cx, Tag } from '../../../shared/ui'
 import { formatDateTime, formatDuration, runDuration } from '../lib/format'
@@ -67,16 +68,17 @@ function formatRefs(
 
 export function RunHeader(props: RunHeaderProps): JSX.Element {
   const { run, now, verdict = null, severityCounts, droppedFindings = 0, loggedActions = 0 } = props
+  const { t } = useTranslation()
   const duration = runDuration(run, now)
   const pr = run.pullRequest
   const refs = formatRefs(pr.headRef, pr.baseRef)
   const prHref = safeHttpUrl(pr.url)
 
   const items: MetadataItem[] = [
-    { key: 'repo', label: 'Репозиторий', children: pr.repo },
+    { key: 'repo', label: t('runs.header.repository'), children: pr.repo },
     {
       key: 'pullRequest',
-      label: 'PR',
+      label: t('runs.header.pullRequest'),
       children: prHref ? (
         <a href={prHref} rel="noreferrer" target="_blank">
           {`#${String(pr.number)} ${pr.title}`}
@@ -87,22 +89,22 @@ export function RunHeader(props: RunHeaderProps): JSX.Element {
     },
     {
       key: 'headSha',
-      label: 'Commit',
+      label: t('runs.header.commit'),
       children: <code className={styles.commit}>{shortSha(pr.headSha)}</code>,
     },
-    ...(pr.author ? [{ key: 'author', label: 'Автор', children: pr.author }] : []),
-    ...(refs ? [{ key: 'refs', label: 'Ветки', children: refs }] : []),
-    { key: 'engine', label: 'Движок', children: run.engine },
-    { key: 'model', label: 'Модель', children: run.model ?? '—' },
+    ...(pr.author ? [{ key: 'author', label: t('runs.header.author'), children: pr.author }] : []),
+    ...(refs ? [{ key: 'refs', label: t('runs.header.branches'), children: refs }] : []),
+    { key: 'engine', label: t('runs.header.engine'), children: run.engine },
+    { key: 'model', label: t('runs.header.model'), children: run.model ?? '—' },
     {
       key: 'status',
-      label: 'Статус',
+      label: t('runs.header.status'),
       children: (
         <Flex gap={6} wrap>
           <Tag pulse={isActive(run.status)} tone={statusTone(run.status)}>
             {run.status}
           </Tag>
-          {isStaleRunning(run, now) ? <Tag tone="warning">нет ответа &gt; 10 мин</Tag> : null}
+          {isStaleRunning(run, now) ? <Tag tone="warning">{t('runs.header.stale')}</Tag> : null}
           {verdict !== null ? (
             <Tag tone={VERDICT_TAG[verdict].tone} variant={VERDICT_TAG[verdict].variant}>
               {VERDICT_LABEL[verdict]}
@@ -115,7 +117,7 @@ export function RunHeader(props: RunHeaderProps): JSX.Element {
       ? [
           {
             key: 'severityCounts',
-            label: 'Находки',
+            label: t('runs.header.findings'),
             wide: true,
             children: (
               <Flex gap={4} wrap>
@@ -126,7 +128,7 @@ export function RunHeader(props: RunHeaderProps): JSX.Element {
                 <Tag variant="outline">info: {severityCounts.info}</Tag>
                 {droppedFindings > 0 ? (
                   <Typography.Text type="secondary">
-                    {`Не показано находок: ${String(droppedFindings)} — не прошли проверку формата`}
+                    {t('runs.header.dropped', { count: droppedFindings })}
                   </Typography.Text>
                 ) : null}
               </Flex>
@@ -135,26 +137,32 @@ export function RunHeader(props: RunHeaderProps): JSX.Element {
         ]
       : []),
     ...(run.trigger === 'rerun'
-      ? [{ key: 'trigger', label: 'Запуск', children: 'Перезапущен вручную' }]
+      ? [
+          {
+            key: 'trigger',
+            label: t('runs.header.trigger'),
+            children: t('runs.header.rerunManually'),
+          },
+        ]
       : []),
-    { key: 'createdAt', label: 'Создан', children: formatDateTime(run.createdAt) },
+    { key: 'createdAt', label: t('runs.header.created'), children: formatDateTime(run.createdAt) },
     {
       key: 'startedAt',
-      label: 'Начат',
+      label: t('runs.header.started'),
       children: run.startedAt ? formatDateTime(run.startedAt) : '—',
     },
     {
       key: 'duration',
-      label: 'Длительность',
+      label: t('runs.header.duration'),
       children: duration !== null ? formatDuration(duration) : '—',
     },
-    { key: 'attempt', label: 'Попытка', children: String(run.attempt) },
+    { key: 'attempt', label: t('runs.header.attempt'), children: String(run.attempt) },
     {
       key: 'actionCount',
-      label: 'Действий',
+      label: t('runs.header.actions'),
       children: String(Math.max(run.actionCount, loggedActions)),
     },
-    { key: 'errorCode', label: 'Ошибка', children: run.errorCode ?? '—' },
+    { key: 'errorCode', label: t('runs.header.error'), children: run.errorCode ?? '—' },
   ]
 
   return (
@@ -168,9 +176,7 @@ export function RunHeader(props: RunHeaderProps): JSX.Element {
         ))}
       </dl>
       {run.summaryOnly ? (
-        <Typography.Text type="secondary">
-          Summary-only прогон (дифф &gt; 3000 строк)
-        </Typography.Text>
+        <Typography.Text type="secondary">{t('runs.header.summaryOnly')}</Typography.Text>
       ) : null}
     </div>
   )

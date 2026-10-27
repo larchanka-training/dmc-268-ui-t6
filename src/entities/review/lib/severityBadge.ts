@@ -19,7 +19,7 @@ export const SEVERITY_BADGE_LABEL: Record<SeverityBadgeGroup, string> = {
   info: 'Info',
 }
 
-/** Badge text of one finding: its exact level. The group is used by the «Критичность» filter. */
+/** Badge text of one finding: its exact level. The group is used by the severity filter. */
 export const SEVERITY_LABEL: Record<Severity, string> = {
   critical: 'Critical',
   high: 'High',

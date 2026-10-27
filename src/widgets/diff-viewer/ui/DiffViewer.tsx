@@ -11,6 +11,7 @@ import './diff-layout.css'
 import type { FileDiff } from '../../../entities/diff'
 import { commentKey, toHunks } from '../../../entities/diff'
 import type { FindingView, ReviewComment } from '../../../entities/review'
+import { useTranslation } from '../../../shared/i18n'
 import { Segmented } from '../../../shared/ui'
 import { useDiffThemeStyle } from '../lib/diffTheme'
 import { findingCardKey } from '../lib/findingCardKey'
@@ -93,6 +94,7 @@ function decorationForGap(gap: ContextGap, onLoadMore: (gap: ContextGap) => void
 }
 
 export function DiffViewer(props: DiffViewerProps): JSX.Element {
+  const { t } = useTranslation()
   const {
     file,
     findings = [],
@@ -122,7 +124,7 @@ export function DiffViewer(props: DiffViewerProps): JSX.Element {
           <Typography.Text className="diff-file-name" strong>
             {file.filename}
           </Typography.Text>
-          <Typography.Text type="secondary">Без диффа</Typography.Text>
+          <Typography.Text type="secondary">{t('runs.diff.noDiff')}</Typography.Text>
         </div>
       </div>
     )
@@ -136,7 +138,7 @@ export function DiffViewer(props: DiffViewerProps): JSX.Element {
           <Typography.Text className="diff-file-name" strong>
             {file.filename}
           </Typography.Text>
-          <Typography.Text type="secondary">Бинарный файл или пустой дифф</Typography.Text>
+          <Typography.Text type="secondary">{t('runs.diff.binary')}</Typography.Text>
         </div>
       </div>
     )
@@ -215,7 +217,7 @@ export function DiffViewer(props: DiffViewerProps): JSX.Element {
             {file.filename}
           </Typography.Text>
           <Segmented
-            aria-label={`Вид диффа: ${file.filename}`}
+            aria-label={t('runs.diff.viewLabel', { file: file.filename })}
             onChange={(value: DiffViewType) => {
               setViewType(value)
             }}
@@ -252,7 +254,7 @@ export function DiffViewer(props: DiffViewerProps): JSX.Element {
             </div>
           }
           className="diff-outside"
-          title="Замечания вне диффа"
+          title={t('runs.diff.outside')}
           type="warning"
         />
       ) : null}

@@ -4,6 +4,7 @@ import { z } from 'zod'
 
 import { ApiError, apiClient } from '../../../shared/api/client'
 import { endpoints, type Endpoint } from '../../../shared/api/endpoints'
+import { i18n } from '../../../shared/i18n'
 import {
   RunActionSchema,
   RunDetailSchema,
@@ -54,19 +55,19 @@ export function runMutationErrorMessage(error: unknown, action: 'rerun' | 'cance
   if (error instanceof ApiError) {
     switch (error.status) {
       case 404:
-        return 'Прогон не найден — обновите страницу'
+        return i18n.t('runs.errors.mutationNotFound')
       case 409:
         if (action === 'rerun') {
-          return 'Нельзя перезапустить ревью: у PR уже есть активный прогон, PR закрыт, ревью репозитория приостановлено или GitHub App недоступна'
+          return i18n.t('runs.errors.rerunConflict')
         }
         break
       case 422:
         return action === 'rerun'
-          ? 'Нельзя перезапустить: у репозитория нет активного правила или версии промпта'
-          : 'Сервер отклонил запрос на отмену'
+          ? i18n.t('runs.errors.rerunNoRule')
+          : i18n.t('runs.errors.cancelRejected')
     }
   }
-  return 'Не удалось выполнить операцию'
+  return i18n.t('runs.errors.mutationFailed')
 }
 
 export { parseRunStepEvent, parseRunUpdatedEvent, parseSseBuffer } from './runStreamParse'

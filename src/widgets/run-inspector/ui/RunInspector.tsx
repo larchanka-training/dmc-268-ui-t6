@@ -2,6 +2,7 @@ import type { JSX, ReactNode } from 'react'
 import { Card, Spin } from 'antd'
 
 import type { RunAction, RunSession, SeverityCounts, Verdict } from '../../../entities/run'
+import { useTranslation } from '../../../shared/i18n'
 import { ActionTree } from './ActionTree'
 import { RunHeader } from './RunHeader'
 import styles from './RunInspector.module.css'
@@ -26,6 +27,7 @@ interface RunInspectorProps {
 
 /** A run on one screen: the card with its metadata, the action log and, next to it, the diff. */
 export function RunInspector(props: RunInspectorProps): JSX.Element {
+  const { t } = useTranslation()
   const {
     run,
     actions,
@@ -57,8 +59,8 @@ export function RunInspector(props: RunInspectorProps): JSX.Element {
       />
       {headerExtra}
       <div className={styles.columns}>
-        <section aria-label="Сессия ревью" className={styles.trace}>
-          <h2 className={styles.label}>Сессия ревью</h2>
+        <section aria-label={t('runs.detail.session')} className={styles.trace}>
+          <h2 className={styles.label}>{t('runs.detail.session')}</h2>
           {actionsLoading ? <Spin /> : <ActionTree actions={actions} runId={run.id} />}
         </section>
         {children}
