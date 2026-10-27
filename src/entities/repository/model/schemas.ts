@@ -94,6 +94,9 @@ export const RulesDiagnosticSchema = z.object({
   retryable: z.boolean(),
   limit: z.int().optional(),
   actual: z.int().optional(),
+  // True when the server stopped reading the file, so the real value is more than `actual`;
+  // absent when `actual` is exact.
+  actualIsLowerBound: z.boolean().optional(),
   patternIndex: z.int().optional(),
 })
 export type RulesDiagnostic = z.infer<typeof RulesDiagnosticSchema>
