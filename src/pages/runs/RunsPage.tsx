@@ -12,6 +12,7 @@ import {
 } from '../../entities/run'
 import { useRunListFilterParams } from '../../features/run-list-filter'
 import { useTranslation } from '../../shared/i18n'
+import { VCS_PROVIDER_LABEL } from '../../shared/model/provider'
 import { DataTable, PageHeader, Tag } from '../../shared/ui'
 import styles from './RunsPage.module.css'
 
@@ -189,6 +190,11 @@ export const RunsPage: FC = () => {
       title: t('runs.columns.repository'),
       dataIndex: ['pullRequest', 'repo'],
       key: 'repo',
+    },
+    {
+      title: t('runs.columns.provider'),
+      key: 'provider',
+      render: (_, run) => VCS_PROVIDER_LABEL[run.provider],
     },
     {
       title: t('runs.columns.status'),

@@ -11,6 +11,7 @@ import {
 } from '../../../entities/run'
 import { useTranslation } from '../../../shared/i18n'
 import { safeHttpUrl } from '../../../shared/lib/safeHttpUrl'
+import { VCS_PROVIDER_LABEL } from '../../../shared/model/provider'
 import { cx, Tag } from '../../../shared/ui'
 import { formatDateTime, formatDuration, runDuration } from '../lib/format'
 import styles from './RunHeader.module.css'
@@ -94,6 +95,7 @@ export function RunHeader(props: RunHeaderProps): JSX.Element {
 
   const items: MetadataItem[] = [
     { key: 'repo', label: t('runs.header.repository'), children: pr.repo },
+    { key: 'provider', label: t('runs.header.provider'), children: VCS_PROVIDER_LABEL[run.provider] },
     {
       key: 'pullRequest',
       label: t('runs.header.pullRequest'),

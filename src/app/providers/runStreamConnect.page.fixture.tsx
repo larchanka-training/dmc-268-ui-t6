@@ -13,6 +13,7 @@ export const RUN_B = '11111111-1111-4111-8111-00000000000b'
 const STARTED_AT = '2026-09-18T10:00:00.000Z'
 export const NOW = new Date('2026-09-18T10:00:01.000Z')
 const runningRun: RunDetail = {
+  provider: 'github',
   id: RUN_A,
   engine: 'fast',
   model: null,
@@ -25,6 +26,7 @@ const runningRun: RunDetail = {
   cancelRequested: false,
   summaryOnly: false,
   pullRequest: {
+    provider: 'github',
     repo: 'org/repo',
     number: 113,
     title: 'Stream-driven review',

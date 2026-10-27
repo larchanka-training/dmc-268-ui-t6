@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { VcsProviderSchema } from '../../../shared/model/provider'
+
 // deep (SandboxEngine) is phase 3: the api accepts only fast until then (api#52).
 export const RepositoryEngineSchema = z.enum(['fast'])
 export type RepositoryEngine = z.infer<typeof RepositoryEngineSchema>
@@ -51,6 +53,7 @@ export const disabledRagIndex: RagIndex = {
 
 export const RepositorySchema = z.object({
   id: RepositoryIdSchema,
+  provider: VcsProviderSchema,
   fullName: z.string().min(1),
   url: z.url(),
   defaultBranch: z.string().min(1),

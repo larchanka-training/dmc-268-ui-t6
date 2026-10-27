@@ -23,6 +23,7 @@ describe('repository API client methods', () => {
   })
 
   const sampleRepo = {
+    provider: 'github',
     id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
     fullName: 'org/test-repo',
     url: 'https://github.com/org/test-repo',

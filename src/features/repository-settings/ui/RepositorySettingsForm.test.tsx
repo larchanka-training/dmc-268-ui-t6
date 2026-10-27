@@ -12,6 +12,7 @@ import { i18n } from '../../../shared/i18n'
 import { RepositorySettingsForm } from './RepositorySettingsForm'
 
 const REPOSITORY: Repository = {
+  provider: 'github',
   id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
   fullName: 'larchanka-training/dmc-268-ui-t6',
   url: 'https://github.com/larchanka-training/dmc-268-ui-t6',

@@ -19,6 +19,7 @@ import {
   type UpdateRepositoryInput,
 } from '../../entities/repository'
 import { setMockAuthAdapter, useAuthStore } from '../../features/auth'
+import type { BitbucketConnectionItem } from '../../features/bitbucket-connections/model/schemas'
 import {
   ApiError,
   setAccessToken,
@@ -55,6 +56,32 @@ export const MOCK_OAUTH_CODE = 'mock_code_123'
 // `serveRepository` of it.
 let repositories: Repository[] = structuredClone(mockRepositories)
 let runSessions: RunSession[] = structuredClone(mockRunsListPage.items)
+const MOCK_BITBUCKET_WORKSPACE_ID = '123e4567-e89b-12d3-a456-426614174000'
+const MOCK_BITBUCKET_INSTALLATION_ID = '55555555-5555-4555-8555-555555555555'
+const MOCK_BITBUCKET_REPOSITORIES = [
+  {
+    uuid: '66666666-6666-4666-8666-666666666666',
+    repositoryId: '77777777-7777-4777-8777-777777777777',
+    workspaceSlug: 'demo-bitbucket',
+    slug: 'private-repo',
+    name: 'Private repo',
+    isPrivate: true,
+    htmlUrl: 'https://bitbucket.org/demo-bitbucket/private-repo',
+  },
+  {
+    uuid: '88888888-8888-4888-8888-888888888888',
+    repositoryId: '99999999-9999-4999-8999-999999999999',
+    workspaceSlug: 'demo-bitbucket',
+    slug: 'second-repo',
+    name: 'Second repo',
+    isPrivate: false,
+    htmlUrl: 'https://bitbucket.org/demo-bitbucket/second-repo',
+  },
+] as const
+let bitbucketConnections: BitbucketConnectionItem[] = []
+let bitbucketToken: string | null = null
+let bitbucketCredentialGeneration = 1
+let bitbucketHookSequence = 0
 const createdRunIds = new Set<string>()
 // Repositories whose rules status has been asked for since `initMockTransport`.
 const rulesStatusAsked = new Set<string>()
@@ -311,6 +338,143 @@ function handleMockTransport(
 
   const queryStart = endpoint.path.indexOf('?')
   const pathname = queryStart === -1 ? endpoint.path : endpoint.path.slice(0, queryStart)
+  const bitbucketMatch = /^\/workspaces\/([^/]+)\/bitbucket\/(.*)$/.exec(pathname)
+  if (bitbucketMatch) {
+    const [, workspaceId, suffix] = bitbucketMatch
+    if (workspaceId !== MOCK_BITBUCKET_WORKSPACE_ID) {
+      throw new ApiError(404, 'Not Found', { message: 'Workspace not found' })
+    }
+    if (suffix === 'discovery' && endpoint.method === 'POST') {
+      const body = z
+        .object({ bitbucketWorkspace: z.string(), apiToken: z.string().min(1) })
+        .parse(options.body)
+      return {
+        repositories:
+          body.bitbucketWorkspace === 'demo-bitbucket'
+            ? MOCK_BITBUCKET_REPOSITORIES.map((repo) => ({
+                uuid: repo.uuid,
+                workspaceSlug: repo.workspaceSlug,
+                slug: repo.slug,
+                name: repo.name,
+                isPrivate: repo.isPrivate,
+                htmlUrl: repo.htmlUrl,
+              }))
+            : [],
+        nextCursor: null,
+      }
+    }
+    if (suffix === 'connections' && endpoint.method === 'GET') {
+      return { connections: structuredClone(bitbucketConnections), nextCursor: null }
+    }
+    if (suffix === 'connections' && endpoint.method === 'POST') {
+      const body = z
+        .object({
+          bitbucketWorkspace: z.string(),
+          repositorySlug: z.string(),
+          repositoryUuid: z.uuid(),
+          apiToken: z.string().min(1),
+        })
+        .parse(options.body)
+      const repo = MOCK_BITBUCKET_REPOSITORIES.find(
+        (item) =>
+          item.workspaceSlug === body.bitbucketWorkspace &&
+          item.slug === body.repositorySlug &&
+          item.uuid === body.repositoryUuid,
+      )
+      if (!repo) throw new ApiError(404, 'Not Found', { message: 'Repository not found' })
+      if (bitbucketToken !== null && bitbucketToken !== body.apiToken) {
+        throw new ApiError(409, 'Conflict', { message: 'Rotate the shared credential first' })
+      }
+      if (bitbucketConnections.some((item) => item.repositoryUuid === repo.uuid)) {
+        throw new ApiError(409, 'Conflict', { message: 'Already connected' })
+      }
+      bitbucketToken = body.apiToken
+      const webhookUrl = `https://api.example.test/webhooks/bitbucket/${MOCK_BITBUCKET_INSTALLATION_ID}/${repo.repositoryId}`
+      const item: BitbucketConnectionItem = {
+        id: MOCK_BITBUCKET_INSTALLATION_ID,
+        repositoryId: repo.repositoryId,
+        repositoryUuid: repo.uuid,
+        workspaceSlug: repo.workspaceSlug,
+        repositorySlug: repo.slug,
+        status: 'awaiting_webhook',
+        credentialGeneration: bitbucketCredentialGeneration,
+        webhookUrl,
+      }
+      bitbucketConnections.push(item)
+      const base = mockRepositories[0]
+      if (!base) throw new Error('Missing demo repository fixture')
+      repositories.push({
+        ...structuredClone(base),
+        id: repo.repositoryId,
+        provider: 'bitbucket',
+        fullName: `${repo.workspaceSlug}/${repo.slug}`,
+        url: repo.htmlUrl,
+        defaultBranch: 'main',
+        enabled: true,
+        installationAvailable: true,
+        ragEnabled: false,
+        ragIndex: { ...disabledRagIndex },
+      })
+      bitbucketHookSequence += 1
+      return {
+        id: item.id,
+        repositoryId: item.repositoryId,
+        repositoryUuid: item.repositoryUuid,
+        workspaceSlug: item.workspaceSlug,
+        repositorySlug: item.repositorySlug,
+        status: item.status,
+        credentialGeneration: item.credentialGeneration,
+        webhook: {
+          url: webhookUrl,
+          events: ['repo:push', 'pullrequest:created', 'pullrequest:updated'],
+          secret: `demo-hook-${String(bitbucketHookSequence)}`,
+        },
+      }
+    }
+    const rotateCredential = /^connections\/([^/]+)\/credential$/.exec(suffix ?? '')
+    if (rotateCredential && endpoint.method === 'PUT') {
+      if (rotateCredential[1] !== MOCK_BITBUCKET_INSTALLATION_ID || !bitbucketConnections.length) {
+        throw new ApiError(404, 'Not Found', { message: 'Connection not found' })
+      }
+      bitbucketToken = z.object({ apiToken: z.string().min(1) }).parse(options.body).apiToken
+      bitbucketCredentialGeneration += 1
+      bitbucketConnections = bitbucketConnections.map((item) => ({
+        ...item,
+        credentialGeneration: bitbucketCredentialGeneration,
+      }))
+      return {
+        id: MOCK_BITBUCKET_INSTALLATION_ID,
+        credentialGeneration: bitbucketCredentialGeneration,
+      }
+    }
+    const binding = /^connections\/([^/]+)\/repositories\/([^/]+)(\/webhook-secret)?$/.exec(
+      suffix ?? '',
+    )
+    if (binding) {
+      const [, installationId, repositoryId, action] = binding
+      const item = bitbucketConnections.find((entry) => entry.repositoryId === repositoryId)
+      if (installationId !== MOCK_BITBUCKET_INSTALLATION_ID || !item) {
+        throw new ApiError(404, 'Not Found', { message: 'Connection not found' })
+      }
+      if (action === '/webhook-secret' && endpoint.method === 'POST') {
+        bitbucketHookSequence += 1
+        return {
+          url: item.webhookUrl,
+          events: ['repo:push', 'pullrequest:created', 'pullrequest:updated'],
+          secret: `demo-hook-${String(bitbucketHookSequence)}`,
+        }
+      }
+      if (!action && endpoint.method === 'DELETE') {
+        bitbucketConnections = bitbucketConnections.filter(
+          (entry) => entry.repositoryId !== repositoryId,
+        )
+        repositories = repositories.filter((entry) => entry.id !== repositoryId)
+        if (!bitbucketConnections.length) bitbucketToken = null
+        return null
+      }
+    }
+    throw new ApiError(404, 'Not Found', { message: 'Bitbucket endpoint not found' })
+  }
   if (pathname === '/runs' && endpoint.method === 'GET') {
     return listMockRuns(queryStart === -1 ? '' : endpoint.path.slice(queryStart + 1))
   }
@@ -553,6 +717,10 @@ export function initMockTransport(): void {
 
   repositories = structuredClone(mockRepositories)
   runSessions = structuredClone(mockRunsListPage.items)
+  bitbucketConnections = []
+  bitbucketToken = null
+  bitbucketCredentialGeneration = 1
+  bitbucketHookSequence = 0
   createdRunIds.clear()
   rulesStatusAsked.clear()
   ragBuildTicks.clear()

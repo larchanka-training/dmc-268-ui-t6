@@ -84,6 +84,7 @@ describe('run api actions', () => {
 
   it('rerunRun parses a queued session', async () => {
     vi.mocked(apiClient).mockResolvedValueOnce({
+      provider: 'github',
       id: '11111111-1111-4111-8111-000000000099',
       engine: 'deep',
       model: 'claude-sonnet-5',
@@ -96,6 +97,7 @@ describe('run api actions', () => {
       createdAt: '2026-09-18T11:00:00.000Z',
       summaryOnly: false,
       pullRequest: {
+        provider: 'github',
         repo: 'org/repo',
         number: 1,
         title: 'T',

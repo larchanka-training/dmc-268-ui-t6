@@ -28,6 +28,7 @@ import type {
 import { GITHUB_APP_SLUG, GITHUB_CLIENT_ID, isMockMode } from '../../../shared/config/env'
 import { useTranslation } from '../../../shared/i18n'
 import { safeHttpUrl } from '../../../shared/lib/safeHttpUrl'
+import { VCS_PROVIDER_LABEL } from '../../../shared/model/provider'
 import { DataTable, IconSettings, PageHeader, Segmented, Tag } from '../../../shared/ui'
 import {
   accessRefreshLoadingText,
@@ -114,7 +115,7 @@ const StatusCell: FC<StatusCellProps> = ({
     <Flex align="center" gap={10}>
       <ExclamationCircleFilled aria-hidden="true" className={styles.noAccessIcon} />
       <Link
-        aria-label={t('repositories.noAccessLabel', { name: fullName })}
+        aria-label={t('repositories.noAccessLabel', { name: fullName, provider: VCS_PROVIDER_LABEL[repository.provider] })}
         href={settingsHref}
         onClick={onSettingsClick}
       >
@@ -256,6 +257,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
             ) : (
               <Text strong>{fullName}</Text>
             )}
+            <Tag variant="outline">{VCS_PROVIDER_LABEL[record.provider]}</Tag>
             {fullTable ? (
               <Text className={styles.repoMeta} type="secondary">
                 {shortName}

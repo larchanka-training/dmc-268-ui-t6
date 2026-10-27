@@ -3,6 +3,7 @@
   "pages": [
     "index",
     "quickstart",
+    "bitbucket",
     "how-it-works",
     "features",
     "rules-file",

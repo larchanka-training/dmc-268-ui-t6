@@ -98,6 +98,7 @@ describe('App root integration and protected routes', () => {
       avatarUrl: null,
     }
     const mockRepo = {
+      provider: 'github',
       id: 'a1b2c3d4-e5f6-4890-abcd-ef1234567890',
       fullName: 'larchanka-training/dmc-268-ui-t6',
       url: 'https://github.com/larchanka-training/dmc-268-ui-t6',
@@ -173,6 +174,7 @@ describe('App root integration and protected routes', () => {
     }
 
     const mockRepo = {
+      provider: 'github',
       id: 'a1b2c3d4-e5f6-4890-abcd-ef1234567890',
       fullName: 'larchanka-training/dmc-268-ui-t6',
       url: 'https://github.com/larchanka-training/dmc-268-ui-t6',
@@ -268,6 +270,7 @@ describe('App root integration and protected routes', () => {
     }
 
     const mockRepo = {
+      provider: 'github',
       id: 'a1b2c3d4-e5f6-4890-abcd-ef1234567890',
       fullName: 'larchanka-training/dmc-268-ui-t6',
       url: 'https://github.com/larchanka-training/dmc-268-ui-t6',
@@ -368,6 +371,7 @@ describe('App root integration and protected routes', () => {
       workspaces: [],
     }
     const mockRepo = {
+      provider: 'github',
       id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
       fullName: 'larchanka-training/dmc-268-ui-t6',
       url: 'https://github.com/larchanka-training/dmc-268-ui-t6',
@@ -492,6 +496,7 @@ describe('App root integration and protected routes', () => {
     }
 
     const mockRepo = {
+      provider: 'github',
       id: 'a1b2c3d4-e5f6-4890-abcd-ef1234567890',
       fullName: 'larchanka-training/dmc-268-ui-t6',
       url: 'https://github.com/larchanka-training/dmc-268-ui-t6',
@@ -582,6 +587,7 @@ describe('App root integration and protected routes', () => {
     }
 
     const mockRepo = {
+      provider: 'github',
       id: 'a1b2c3d4-e5f6-4890-abcd-ef1234567890',
       fullName: 'larchanka-training/dmc-268-ui-t6',
       url: 'https://github.com/larchanka-training/dmc-268-ui-t6',
@@ -750,6 +756,7 @@ describe('App root integration and protected routes', () => {
       avatarUrl: null,
     }
     const mockRepo = {
+      provider: 'github',
       id: 'a1b2c3d4-e5f6-4890-abcd-ef1234567890',
       fullName: 'larchanka-training/dmc-268-ui-t6',
       url: 'https://github.com/larchanka-training/dmc-268-ui-t6',
