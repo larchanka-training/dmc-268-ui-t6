@@ -59,6 +59,10 @@ export const UserMenu: FC<UserMenuProps> = ({ extraItems, compact = false }) => 
     <Dropdown
       menu={{
         items,
+        // Every item shows its whole label, so a tooltip would only repeat it. Ant Design adds one
+        // to the items of a menu inside a folded sidebar (it reads the fold from the Sider), which
+        // this dropdown is, though its own items are never folded.
+        tooltip: false,
         // The menu closes on a choice and the focus goes back to the button that opened it,
         // but only after the key press is over: focused right away, the button would receive
         // the rest of the same Enter and open the menu again.
