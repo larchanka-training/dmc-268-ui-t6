@@ -2,8 +2,10 @@ import { i18n } from '../../../shared/i18n'
 
 /**
  * The `errorCode` values the dictionaries have a text for (`reasons.*`): every code the api writes
- * to a run (the check-run catalog in check_runs.py, the publication, installation and GitLab
- * codes, `repo_disabled`) and the codes PIPELINE_SPEC §6 reserves for publication.
+ * to a run as of api main f8b0981 (the check-run catalog in check_runs.py, the publication,
+ * installation and GitLab codes, `repo_disabled`), the Bitbucket publication codes of api#340
+ * and the codes PIPELINE_SPEC §6 reserves for publication. A code the api adds later reads
+ * "Unknown reason" until it is added here.
  */
 export const REASON_CODES = [
   'llm_timeout',
@@ -36,6 +38,8 @@ export const REASON_CODES = [
   'verification_deadline_exceeded',
   'gitlab_forbidden',
   'gitlab_publish_failed',
+  'bitbucket_forbidden',
+  'bitbucket_publish_failed',
   'publication_payload_too_large',
   'publication_outcome_unknown',
   'legacy_publication_unresolved',

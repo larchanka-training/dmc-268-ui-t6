@@ -23,7 +23,7 @@ describe('reasonText', () => {
   it('reads the Russian text of a known code, as the api check-run says it', async () => {
     await i18n.changeLanguage('ru')
     expect(reasonText('llm_timeout')).toBe(
-      'Модель не ответила вовремя. Прогон можно перезапустить из UI.',
+      'Модель не ответила вовремя. Прогон можно перезапустить.',
     )
     expect(reasonText('policy_ignore_pattern_invalid')).toBe(
       'В блоке review-ignore недопустимая маска.',
@@ -44,8 +44,10 @@ describe('reasonText', () => {
   })
 })
 
-// Every errorCode the api writes to a run, by where it comes from (api main, #341), plus the
-// publication codes PIPELINE_SPEC §6 reserves. None of them may read "Unknown reason".
+// A hand-kept copy of the errorCode list the api writes to a run, as of api main f8b0981 (checked
+// against the api source in the review of ui#196), by where it comes from, plus the publication
+// codes PIPELINE_SPEC §6 reserves and the Bitbucket codes of api#340. None of them may read
+// "Unknown reason". A code the api adds later is not caught here: update this list with it.
 const API_RUN_CODES = [
   // run_failures.py KNOWN_ERROR_CODES and the RunFailure codes raised directly
   'llm_timeout',
@@ -91,6 +93,9 @@ const API_RUN_CODES = [
   // publish_run_review.py with the gitlab route
   'gitlab_forbidden',
   'gitlab_publish_failed',
+  // publish_run_review.py with the bitbucket route (api#340, not on main f8b0981 yet)
+  'bitbucket_forbidden',
+  'bitbucket_publish_failed',
   // cancellations: run_failures.cancellation_reason, the run store, rebinding, GitLab connections
   'pr_closed',
   'superseded',
@@ -122,7 +127,7 @@ describe('reason dictionaries', () => {
     expect(reasonText(code)).not.toMatch(/^Неизвестная причина/)
   })
 
-  it('know no code the api does not write', () => {
+  it('cover exactly the api code list as of main f8b0981', () => {
     expect([...REASON_CODES].sort()).toEqual([...API_RUN_CODES].sort())
   })
 
@@ -136,6 +141,12 @@ describe('reason dictionaries', () => {
     for (const code of REASON_CODES) {
       expect(en.reasons[code]).not.toBe(ru.reasons[code])
       expect(en.reasons[code].length).toBeGreaterThan(0)
+      expect(ru.reasons[code].length).toBeGreaterThan(0)
     }
+  })
+
+  // Every text is pinned: a changed word shows up in the diff of the snapshot, for review.
+  it('keep the reviewed texts in both languages', () => {
+    expect({ en: en.reasons, ru: ru.reasons }).toMatchSnapshot()
   })
 })
