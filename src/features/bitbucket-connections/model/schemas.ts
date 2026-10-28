@@ -2,10 +2,16 @@ import { z } from 'zod'
 
 const UuidSchema = z.uuid()
 const BitbucketStatusSchema = z.enum(['awaiting_webhook', 'active'])
+// JavaScript `$` also matches before a final newline; this lookahead requires the true end.
+const BitbucketApiTokenSchema = z
+  .string()
+  .min(1)
+  .max(4096)
+  .regex(/^[\x21-\x7E]+(?![\s\S])/)
 
 export const BitbucketDiscoveryRequestSchema = z.object({
   bitbucketWorkspace: z.string().min(1).max(128),
-  apiToken: z.string().min(1),
+  apiToken: BitbucketApiTokenSchema,
   cursor: z.string().nullable().optional(),
 })
 export type BitbucketDiscoveryRequest = z.infer<typeof BitbucketDiscoveryRequestSchema>
@@ -30,13 +36,21 @@ export const BitbucketConnectRequestSchema = z.object({
   bitbucketWorkspace: z.string().min(1).max(128),
   repositorySlug: z.string().min(1).max(128),
   repositoryUuid: UuidSchema,
-  apiToken: z.string().min(1),
+  apiToken: BitbucketApiTokenSchema,
 })
 export type BitbucketConnectRequest = z.infer<typeof BitbucketConnectRequestSchema>
 
 export const BitbucketWebhookSetupSchema = z.object({
   url: z.url(),
-  events: z.array(z.enum(['repo:push', 'pullrequest:created', 'pullrequest:updated'])),
+  events: z.array(
+    z.enum([
+      'repo:push',
+      'pullrequest:created',
+      'pullrequest:updated',
+      'pullrequest:fulfilled',
+      'pullrequest:rejected',
+    ]),
+  ),
   secret: z.string().min(1),
 })
 export type BitbucketWebhookSetup = z.infer<typeof BitbucketWebhookSetupSchema>
@@ -70,7 +84,7 @@ export const BitbucketConnectionListSchema = z.object({
 export type BitbucketConnectionList = z.infer<typeof BitbucketConnectionListSchema>
 
 export const BitbucketCredentialRotateRequestSchema = z.object({
-  apiToken: z.string().min(1),
+  apiToken: BitbucketApiTokenSchema,
 })
 
 export const BitbucketCredentialRotateResponseSchema = z.object({

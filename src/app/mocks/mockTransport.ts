@@ -59,6 +59,13 @@ let repositories: Repository[] = structuredClone(mockRepositories)
 let runSessions: RunSession[] = structuredClone(mockRunsListPage.items)
 const MOCK_BITBUCKET_WORKSPACE_ID = '123e4567-e89b-12d3-a456-426614174000'
 const MOCK_BITBUCKET_INSTALLATION_ID = '55555555-5555-4555-8555-555555555555'
+const BITBUCKET_WEBHOOK_EVENTS = [
+  'repo:push',
+  'pullrequest:created',
+  'pullrequest:updated',
+  'pullrequest:fulfilled',
+  'pullrequest:rejected',
+] as const
 const MOCK_BITBUCKET_REPOSITORIES = [
   {
     uuid: '66666666-6666-4666-8666-666666666666',
@@ -455,7 +462,7 @@ function handleMockTransport(
         credentialGeneration: item.credentialGeneration,
         webhook: {
           url: webhookUrl,
-          events: ['repo:push', 'pullrequest:created', 'pullrequest:updated'],
+          events: [...BITBUCKET_WEBHOOK_EVENTS],
           secret: `demo-hook-${String(bitbucketHookSequence)}`,
         },
       }
@@ -490,7 +497,7 @@ function handleMockTransport(
         bitbucketHookSequence += 1
         return {
           url: item.webhookUrl,
-          events: ['repo:push', 'pullrequest:created', 'pullrequest:updated'],
+          events: [...BITBUCKET_WEBHOOK_EVENTS],
           secret: `demo-hook-${String(bitbucketHookSequence)}`,
         }
       }
