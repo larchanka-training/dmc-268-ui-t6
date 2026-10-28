@@ -258,10 +258,10 @@ describe('RunDetailPage progress bar', () => {
     await settle()
 
     expect(stageStates()).toEqual(['error', 'wait', 'wait'])
-    // The header «Ошибка» row shows the code too; the bar shows it on the stage itself.
+    // The header «Причина» row shows the reason with its code; the bar shows the text on the stage.
     expect(
       within(screen.getByTestId('run-progress')).getByText(
-        'Модель не ответила вовремя. Прогон можно перезапустить из UI.',
+        'Модель не ответила вовремя. Прогон можно перезапустить.',
       ),
     ).toBeTruthy()
   })

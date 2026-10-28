@@ -1,22 +1,24 @@
 import type { reasons as en } from '../en/reasons'
 import type { Translation } from '../types'
 
-// The texts of the api check-run (check_runs.py) and of PIPELINE_SPEC §6, word for word; the
-// codes the api has no text for (no check-run) have short texts of their own.
+// The texts of the api check-run (check_runs.py) and of PIPELINE_SPEC §6. Where the en text
+// gives an action (split the PR, restart), the same action is added here, so both languages give
+// the same advice; "from the UI" is dropped, as the text is read inside the UI. The codes the api
+// has no text for (no check-run) have short texts of their own.
 export const reasons: Translation<typeof en> = {
-  llm_timeout: 'Модель не ответила вовремя. Прогон можно перезапустить из UI.',
+  llm_timeout: 'Модель не ответила вовремя. Прогон можно перезапустить.',
   llm_rate_limited: 'Провайдер модели ограничил частоту запросов. Перезапустите прогон позже.',
   llm_payment_required: 'AI-ревью временно недоступно.',
   llm_unavailable: 'Провайдер модели недоступен.',
   llm_invalid_output: 'Модель вернула ответ не по контракту.',
-  llm_context_overflow: 'PR не помещается в контекст модели.',
-  budget_exceeded: 'Превышен лимит стоимости прогона.',
-  deadline_exceeded: 'Прогон не уложился в лимит времени.',
+  llm_context_overflow: 'PR не помещается в контекст модели. Разделите PR.',
+  budget_exceeded: 'Превышен лимит стоимости прогона. Разделите PR.',
+  deadline_exceeded: 'Прогон не уложился в лимит времени. Перезапустите его.',
   diff_fetch_failed: 'Не удалось получить дифф из GitHub.',
   commit_messages_fetch_failed: 'Не удалось получить сообщения коммитов PR из GitHub.',
   github_forbidden: 'У GitHub App нет доступа к репозиторию или PR.',
   github_publish_failed: 'GitHub не принял ревью.',
-  pr_base_changed: 'Целевая ветка PR изменилась после запуска ревью. Перезапустите ревью из UI.',
+  pr_base_changed: 'Целевая ветка PR изменилась после запуска ревью. Перезапустите ревью.',
   lease_expired: 'Обработка прервалась 3 раза подряд.',
   internal_error: 'Внутренняя ошибка сервиса.',
   superseded: 'В PR новый коммит: ревью будет для него.',
@@ -25,7 +27,8 @@ export const reasons: Translation<typeof en> = {
   // The api has no text of its own for this code: it posts no check-run for it.
   repo_disabled: 'Автоматическое ревью выключили до начала прогона.',
   rule_not_matched: 'Целевая ветка PR не подходит под фильтр веток репозитория.',
-  all_changes_ignored: 'Все изменения исключены из AI-ревью.',
+  all_changes_ignored:
+    'Все изменённые файлы исключены из AI-ревью: игнорируемые, артефакты сборки или бинарные.',
   no_changes: 'В PR нет изменённых файлов. Ревью не выполнялось.',
   budget_paused: 'Дневной бюджет исчерпан, ревью на паузе.',
   verification_context_overflow: 'Обязательные данные проверки не помещаются в контекст.',
@@ -35,12 +38,16 @@ export const reasons: Translation<typeof en> = {
   verification_deadline_exceeded: 'Недостаточно времени для обязательной проверки.',
   gitlab_forbidden: 'У интеграции GitLab нет доступа к проекту или merge request.',
   gitlab_publish_failed: 'GitLab не принял ревью.',
+  bitbucket_forbidden: 'У интеграции Bitbucket нет доступа к репозиторию или pull request.',
+  bitbucket_publish_failed: 'Bitbucket не принял ревью.',
   publication_payload_too_large: 'Результат превышает лимит публикации VCS.',
   publication_outcome_unknown: 'Исход публикации не удалось подтвердить. Требуется сверка.',
   legacy_publication_unresolved: 'Не удалось однозначно восстановить прежнюю публикацию.',
   snapshot_integrity_error: 'Сохранённый снимок проверки не прошёл проверку целостности.',
-  installation_unavailable: 'Установка приложения для этого репозитория больше недоступна.',
-  installation_replaced: 'Репозиторий перешёл в другую установку приложения.',
+  installation_unavailable:
+    'Установка приложения для этого репозитория больше недоступна. Обновите доступ перед новым прогоном.',
+  installation_replaced:
+    'Репозиторий перешёл в другую установку приложения. Создайте новый прогон после обновления доступа.',
   installation_revoked: 'Подключение GitLab отозвано.',
   credential_rotated: 'Токен доступа GitLab сменился во время прогона.',
   run_inactive: 'Прогон уже не активен.',
@@ -55,7 +62,8 @@ export const reasons: Translation<typeof en> = {
   policy_ignore_block_unclosed: 'Блок review-ignore в .review/rules.md не закрыт.',
   policy_ignore_info_invalid: 'review-ignore не принимает дополнительные параметры.',
   policy_ignore_pattern_invalid: 'В блоке review-ignore недопустимая маска.',
-  policy_ignore_limit_exceeded: 'В блоке review-ignore слишком много масок или маска длинна.',
+  policy_ignore_limit_exceeded:
+    'В блоке review-ignore слишком много масок или слишком длинная маска.',
   policy_path_invalid: 'В изменениях есть недопустимый путь файла.',
   policy_match_budget_exceeded:
     'Маски review-ignore слишком дороги в проверке. Упростите политику.',

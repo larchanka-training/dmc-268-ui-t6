@@ -262,8 +262,7 @@ describe('RunProgressBar', () => {
       expect(screen.getByTestId('run-progress-analysis').style.color).toBe('')
       expect(screen.getByTestId('run-progress-publishing').style.color).toBe('')
       expect(
-        screen.getByText('Модель не ответила вовремя. Прогон можно перезапустить из UI.').style
-          .color,
+        screen.getByText('Модель не ответила вовремя. Прогон можно перезапустить.').style.color,
       ).toBe('')
       expect(container.querySelector('[style*="color"]')).toBeNull()
     })
@@ -316,7 +315,7 @@ describe('RunProgressBar', () => {
       expect(stageItem('analysis').className).toContain('ant-steps-item-error')
       expect(
         within(stageItem('analysis')).getByText(
-          'Модель не ответила вовремя. Прогон можно перезапустить из UI.',
+          'Модель не ответила вовремя. Прогон можно перезапустить.',
         ),
       ).toBeTruthy()
     })
@@ -324,16 +323,16 @@ describe('RunProgressBar', () => {
     it('shows the errorCode once, on the failed stage only', () => {
       renderBar('failed', actions, 'llm_timeout')
       expect(
-        screen.getAllByText('Модель не ответила вовремя. Прогон можно перезапустить из UI.'),
+        screen.getAllByText('Модель не ответила вовремя. Прогон можно перезапустить.'),
       ).toHaveLength(1)
       expect(
         within(stageItem('context')).queryByText(
-          'Модель не ответила вовремя. Прогон можно перезапустить из UI.',
+          'Модель не ответила вовремя. Прогон можно перезапустить.',
         ),
       ).toBeNull()
       expect(
         within(stageItem('publishing')).queryByText(
-          'Модель не ответила вовремя. Прогон можно перезапустить из UI.',
+          'Модель не ответила вовремя. Прогон можно перезапустить.',
         ),
       ).toBeNull()
     })
