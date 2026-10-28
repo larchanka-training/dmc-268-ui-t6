@@ -10,6 +10,8 @@ import {
   RoutedLoginPage,
   RoutedRepositoriesPage,
   RoutedRepositorySettingsPage,
+  RoutedAnalyticsPage,
+  RoutedAuditPage,
   RoutedReviewRedirectPage,
   RoutedRunDetailPage,
   RoutedRunsPage,
@@ -61,6 +63,14 @@ export function createRoutes() {
                 {
                   path: '/runs/:runId',
                   element: <RoutedRunDetailPage />,
+                },
+                {
+                  path: '/audit',
+                  element: <RoutedAuditPage />,
+                },
+                {
+                  path: '/analytics',
+                  element: <RoutedAnalyticsPage />,
                 },
                 {
                   path: '/review',

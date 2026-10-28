@@ -1182,7 +1182,8 @@ strict — `z.object` в Zod 4 по умолчанию отбрасывает н
 RunStatusSchema = enum(queued|running|publishing|succeeded|failed|cancelled|skipped)
 RunSession = { id, engine: fast|deep, model, status, trigger: webhook|manual|rerun|dry_run,
   createdAt, startedAt, finishedAt, attempt, cancelRequested, summaryOnly,
-  pullRequest: PullRequestRef, actionCount, errorCode }
+  pullRequest: PullRequestRef, actionCount, errorCode,
+  usage?: { tokensIn, tokensOut, costUsd }, triggeredBy?: string|null }
 RunAction = { id, runId, index, tool, request: unknown, response: unknown|null,
   responseRef, startedAt, durationMs }
 RunListPage = { items: RunSession[], nextCursor }
@@ -1248,6 +1249,12 @@ RulesDiagnostic = { code, message, line: int|null, column: int|null, retryable,
   `diagnostics` непуст у `invalid` и `unavailable`. `pending` — без `sha` и `checkedAt` (оба `null`),
   больше членов у него нет.
 - `RunListQuery` (в снимок api не входит): `repo` — 1..512 символов, `limit` — целое 1..100.
+- `usage` и `triggeredBy` на `RunSession` необязательны, пока staging api#310 их не отдаёт.
+  `usage` — объект `{ tokensIn, tokensOut, costUsd }` (числа ≥ 0), не `null`: нет поля — сегодняшний
+  ответ. `triggeredBy` — логин GitHub или `null`, не объект. После staging, когда api#310 Ч.1 и Ч.2
+  уже отдают поля, они становятся обязательными по OpenAPI (`usage` обязателен и не nullable,
+  `triggeredBy` обязателен и nullable). До этого абзаца они не обязательны. `Me` и `Workspace` полей
+  бюджета не получают.
 
 Summary-only прогон (дифф больше 3 000 строк, Р-15 в [SD §1][sd-1], контракт — [SD §12][sd-12],
 решение 10 техлида [от 2026-09-24][tl-2026-09-24-10]): снимок диффа хранит только список файлов,
@@ -1522,6 +1529,22 @@ PATCH с переключателя, ничем другим не дополня
 хранится; подсказка говорит об этом без терминов — «Хранится только структура кода, не его текст».
 
 ---
+
+### Предложение api#310 (ui#186)
+
+Пока части api#310 не влиты, это предложение UI, а не действующий провод. `usage` на прогоне — сумма
+`usage_events` по всем попыткам и совпадает с расходной частью `budget`; записей нет — нули, не
+`null`. `triggeredBy` — логин того, чьё действие сделало head пригодным к ревью, либо логин портала
+при повторном запуске; старый прогон и неизвестный инициатор — `null`. Объекта `{ login, name }` нет.
+`Me` обязательных полей не получает.
+
+`GET /api/metrics/summary?range&repo`. `range` — `24h | 7d | 30d`, `repo` необязателен (full name,
+1..512). Страница шлёт только `7d` и `30d`; нет `range` в адресе — это `7d`. Тело — предложение
+`MetricsSummary` (`entities/metrics`): итоги по четырём терминальным статусам, вердикты PR
+(`noVerdict` отдельно от `clean`), severity, категории, `averageDurationMs | null`, токены, стоимость,
+ряд по календарным дням UTC и `workspaces` (`dailyBudgetUsd`, `spentTodayUsd`, `paused`). Ориентировочные
+`tiles` и `bucketStart` контрактом дашборда не являются. UI не считает `paused`, вердикт и среднюю
+длительность: это числа и флаг API. UI не сравнивает остаток бюджета с порогом воркера.
 
 ## 6. Просмотрщик диффа
 
@@ -1884,6 +1907,24 @@ React, без `innerHTML`.
 причины из словарей по коду (`reasonText`) и сам код рядом; для кода, которого сборка не знает,
 только «Unknown reason: `<code>`» / «Неизвестная причина: `<code>`».
 
+`errorReason` (фразы в `src/shared/i18n/locales/ru/limitReasons.ts`, реэкспорт из `src/entities/run/lib/errorReason.ts`) — отдельная карта девяти кодов лимита. Восемь фраз
+совпадают с `_ERROR_TEXTS` (`app/modules/reviews/application/check_runs.py`), фраза
+`publication_payload_too_large` — с PIPELINE_SPEC §6: «Результат превышает лимит публикации VCS.»
+Поиск только по собственным ключам карты, как в `ragIndexView`: неизвестный код, пустая строка и
+`constructor` дают `null`, исключение не бросается. `policy_*` в карту не входят (api#204); их тексты
+уже есть в словаре `reasonText` и этой картой не заменяются. Ч.4 добавляет строки в ту же карту, а не
+новый рендер.
+
+Известный код карты показывает `Alert` в `RunHeader`: фраза и сырой код рядом. `failed` —
+`type="error"`, `skipped` и `cancelled` — `type="warning"`. Нет текста карты — Alert причины нет.
+Строка «Причина» по-прежнему берёт `reasonText`: у трёх кодов (`llm_context_overflow`,
+`budget_exceeded`, `deadline_exceeded`) словарь длиннее карты, потому что повторяет совет из
+английского текста. Прогресс-бар тоже остаётся на `reasonText` и не переключается на девять фраз
+карты. В списке `/runs` рядом со статусом видна фраза карты без кода; неизвестный код и
+`errorCode: null` список не меняют. Заголовок summary-only — константа `SUMMARY_ONLY_ALERT_TITLE`
+в `RunDiff` (ключ `runs.diff.tooLargeTitle`). Если размер PR так и останется режимом summary-only,
+Ч.4 меняет эту константу, а не вёрстку.
+
 `ActionTree` (`src/widgets/run-inspector/ui/ActionTree.tsx`) — дерево действий поверх antd `Tree`.
 Ключи узлов: группа — `group-<firstIndex>` (индекс первого действия в группе), одиночное действие
 и лист группы — `action-<index>`.
@@ -2128,6 +2169,11 @@ checkpoint или ошибка до входа в `traced_step` могут ос�
 - `mockRepositories` — 4 репозитория с полями настроек api#149 и RAG api#145 (ниже, «Репозитории,
   правила и история»).
 
+`GET /runs` применяет `status` (неизвестное значение — 422). В наборе есть прогон без `usage` и
+`triggeredBy`, прогон с `triggeredBy: null` и нулевым `usage`, и прогон с логином и ненулевым расходом.
+`GET /metrics/summary` отвечает фикстурой `src/app/mocks/mockMetrics.ts`: чужой `repo` даёт нулевые итоги
+и пустой `series`. Страницы и `entities/metrics` эту фикстуру не импортируют.
+
 Фрагмент одного `RunSession`:
 
 ```json
@@ -2306,6 +2352,11 @@ issue прямо выносит подключение логирования з
 (`App.returnTo.test.tsx`). На страницу ведут в `RepositoryList` кнопка-иконка «Настройки
 {fullName}» (подсказка «Настроить») и ссылка «Нет доступа» в строке без доступа GitHub App, а также
 прямой адрес; кнопка «История проверок» в шапке ведёт на `/runs?repo=<fullName>` (§2, «Фильтр истории прогонов»).
+
+**Журнал и дашборд (ui#186).** `/audit` и `/analytics` — ленивые страницы за тем же `ProtectedLayout`
+и `AppLayoutRoute`, что `/runs`. В меню после «Прогоны» идут «Аудит» и «Аналитика». Журнал фильтруется
+`repo` и `status` в адресе; дашборд — `range` (`7d` или `30d`) и `repo`. Ядерные страницы docs-site
+в этот контракт не входят: их обновление — отдельная фаза после выката.
 
 **Сборка и чанки.** `vite.config.ts`: `build.rolldownOptions.output.codeSplitting`
 (`vendor-react`, `vendor-query`, `vendor-zod`, `includeDependenciesRecursively: false`);

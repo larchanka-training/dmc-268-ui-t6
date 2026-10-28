@@ -1,4 +1,6 @@
 export * from './model/schemas'
+export * from './lib/errorReason'
+export * from './lib/formatRun'
 export * from './lib/groupActions'
 export * from './lib/reasons'
 export * from './lib/runProgress'

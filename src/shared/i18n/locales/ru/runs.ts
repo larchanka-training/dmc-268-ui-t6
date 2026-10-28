@@ -77,6 +77,12 @@ export const runs: Translation<typeof en> = {
     duration: 'Длительность',
     attempt: 'Попытка',
     actions: 'Действий',
+    startedBy: 'Запустил',
+    tokensIn: 'Токены на входе',
+    tokensOut: 'Токены на выходе',
+    cost: 'Стоимость',
+    tokenLimit: 'Лимит токенов',
+    costLimit: 'Лимит стоимости',
     reason: 'Причина',
     stale: 'нет ответа > 10 мин',
     // The same wording for every count, as before the dictionaries.

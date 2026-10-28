@@ -115,6 +115,8 @@ export const mockRunSessions: RunSession[] = [
     },
     actionCount: 34,
     errorCode: null,
+    triggeredBy: 'octocat',
+    usage: { tokensIn: 1200, tokensOut: 340, costUsd: 1.25 },
   },
   {
     id: FAILED_ID,
@@ -159,6 +161,8 @@ export const mockRunSessions: RunSession[] = [
     },
     actionCount: 5,
     errorCode: null,
+    triggeredBy: null,
+    usage: { tokensIn: 0, tokensOut: 0, costUsd: 0 },
   },
   {
     id: SKIPPED_ID,

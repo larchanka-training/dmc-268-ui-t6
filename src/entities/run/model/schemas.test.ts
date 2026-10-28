@@ -311,6 +311,36 @@ describe('RunSession origin', () => {
       expect(RunSessionSchema.safeParse({ ...runSession, createdAt }).success).toBe(false)
     },
   )
+
+  it('parses a session without usage and triggeredBy and strips an unknown key', () => {
+    const result = RunSessionSchema.parse({ ...runSession, futureField: true })
+    expect(result).not.toHaveProperty('futureField')
+    expect(result.usage).toBeUndefined()
+    expect(result.triggeredBy).toBeUndefined()
+  })
+
+  it('parses triggeredBy null and a filled usage', () => {
+    const result = RunSessionSchema.parse({
+      ...runSession,
+      triggeredBy: null,
+      usage: { tokensIn: 3, tokensOut: 4, costUsd: 0.5 },
+    })
+    expect(result.triggeredBy).toBeNull()
+    expect(result.usage).toEqual({ tokensIn: 3, tokensOut: 4, costUsd: 0.5 })
+  })
+
+  it('rejects triggeredBy as an object and usage null', () => {
+    expect(
+      RunSessionSchema.safeParse({ ...runSession, triggeredBy: { login: 'octocat' } }).success,
+    ).toBe(false)
+    expect(RunSessionSchema.safeParse({ ...runSession, usage: null }).success).toBe(false)
+  })
+
+  it('does not require usage or triggeredBy in JSON Schema', () => {
+    const required = z.toJSONSchema(RunSessionSchema).required
+    expect(required).not.toContain('usage')
+    expect(required).not.toContain('triggeredBy')
+  })
 })
 
 describe('RunActionSchema', () => {

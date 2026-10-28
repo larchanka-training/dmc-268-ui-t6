@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, type FC } from 'react'
 import { Link, useNavigate } from 'react-router'
 
 import {
+  errorReason,
   isActive,
   statusTone,
   useRunList,
@@ -193,15 +194,19 @@ export const RunsPage: FC = () => {
     {
       title: t('runs.columns.status'),
       key: 'status',
-      render: (_, run) => (
-        <Flex gap={8} wrap>
-          <Tag pulse={isActive(run.status)} tone={statusTone(run.status)}>
-            {run.status}
-          </Tag>
-          {isActive(run.status) ? <Tag variant="outline">{t('runs.inProgress')}</Tag> : null}
-          {run.summaryOnly ? <Tag variant="outline">summary-only</Tag> : null}
-        </Flex>
-      ),
+      render: (_, run) => {
+        const phrase = run.errorCode === null ? null : errorReason(run.errorCode)
+        return (
+          <Flex gap={8} wrap>
+            <Tag pulse={isActive(run.status)} tone={statusTone(run.status)}>
+              {run.status}
+            </Tag>
+            {isActive(run.status) ? <Tag variant="outline">{t('runs.inProgress')}</Tag> : null}
+            {run.summaryOnly ? <Tag variant="outline">summary-only</Tag> : null}
+            {phrase !== null ? <span data-testid="run-list-reason">{phrase}</span> : null}
+          </Flex>
+        )
+      },
     },
     {
       title: t('runs.columns.engine'),

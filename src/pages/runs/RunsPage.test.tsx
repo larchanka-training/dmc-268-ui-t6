@@ -874,3 +874,64 @@ describe('RunsPage', () => {
     })
   })
 })
+
+const LIST_REASONS = [
+  ['budget_paused', 'Дневной бюджет исчерпан, ревью на паузе.'],
+  ['budget_exceeded', 'Превышен лимит стоимости прогона.'],
+  ['deadline_exceeded', 'Прогон не уложился в лимит времени.'],
+  ['llm_context_overflow', 'PR не помещается в контекст модели.'],
+  ['llm_rate_limited', 'Провайдер модели ограничил частоту запросов. Перезапустите прогон позже.'],
+  ['verification_budget_exceeded', 'Бюджета недостаточно для обязательной проверки.'],
+  ['verification_deadline_exceeded', 'Недостаточно времени для обязательной проверки.'],
+  ['verification_context_overflow', 'Обязательные данные проверки не помещаются в контекст.'],
+  ['publication_payload_too_large', 'Результат превышает лимит публикации VCS.'],
+] as const
+
+function runWithCode(code: string | null, extras: Partial<RunSession> = {}): RunSession {
+  return {
+    ...listedRun(0),
+    errorCode: code,
+    status: 'failed',
+    ...extras,
+  }
+}
+
+describe('RunsPage limit reason', () => {
+  it.each(LIST_REASONS)('shows the phrase for %s and not the raw code', async (code, phrase) => {
+    stubFetch(() => ({ items: [runWithCode(code)], nextCursor: null }))
+    renderPage()
+    const phraseNode = await screen.findByTestId('run-list-reason')
+    expect(phraseNode.textContent).toBe(phrase)
+    const row = phraseNode.closest('tr')
+    expect(row).not.toBeNull()
+    expect(within(row as HTMLElement).queryByText(code)).toBeNull()
+  })
+
+  it('adds no phrase for an unknown code or a null error code', async () => {
+    stubFetch(() => ({
+      items: [
+        runWithCode('not_a_limit', { id: '11111111-1111-4111-8111-000000000201' }),
+        runWithCode(null, {
+          id: '11111111-1111-4111-8111-000000000202',
+          pullRequest: {
+            ...listedRun(0).pullRequest,
+            number: 201,
+            title: 'chore: no error code',
+          },
+        }),
+      ],
+      nextCursor: null,
+    }))
+    renderPage()
+    expect(await screen.findByText('chore: no error code')).toBeTruthy()
+    expect(screen.queryByTestId('run-list-reason')).toBeNull()
+    expect(screen.queryByText('not_a_limit')).toBeNull()
+  })
+
+  it('keeps the in-progress tag and the summary-only tag', async () => {
+    stubFetch(() => mockRunsListPage)
+    renderPage()
+    expect((await screen.findAllByText('в процессе')).length).toBeGreaterThan(0)
+    expect(screen.getByText('summary-only')).toBeTruthy()
+  })
+})

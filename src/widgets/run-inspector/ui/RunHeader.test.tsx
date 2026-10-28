@@ -301,3 +301,111 @@ describe('RunHeader action count', () => {
     expect(actionCountCell()).toBe('0')
   })
 })
+
+const LIMIT_REASONS = [
+  ['budget_exceeded', 'Превышен лимит стоимости прогона.', 'failed'],
+  ['deadline_exceeded', 'Прогон не уложился в лимит времени.', 'failed'],
+  ['llm_context_overflow', 'PR не помещается в контекст модели.', 'failed'],
+  [
+    'llm_rate_limited',
+    'Провайдер модели ограничил частоту запросов. Перезапустите прогон позже.',
+    'failed',
+  ],
+  ['verification_budget_exceeded', 'Бюджета недостаточно для обязательной проверки.', 'failed'],
+  [
+    'verification_context_overflow',
+    'Обязательные данные проверки не помещаются в контекст.',
+    'failed',
+  ],
+  ['publication_payload_too_large', 'Результат превышает лимит публикации VCS.', 'failed'],
+  ['budget_paused', 'Дневной бюджет исчерпан, ревью на паузе.', 'skipped'],
+  [
+    'verification_deadline_exceeded',
+    'Недостаточно времени для обязательной проверки.',
+    'cancelled',
+  ],
+] as const
+
+describe('RunHeader limit reason', () => {
+  const NOW = new Date('2026-09-18T12:00:00.000Z')
+
+  it.each(LIMIT_REASONS)(
+    'shows an alert with the phrase and the code for %s',
+    (code, phrase, status) => {
+      render(
+        <RunHeader
+          now={NOW}
+          run={{
+            ...baseRun,
+            status,
+            finishedAt: '2026-09-18T11:55:12.000Z',
+            errorCode: code,
+          }}
+        />,
+      )
+      const alert = screen.getByTestId('run-limit-reason')
+      expect(alert.textContent).toContain(phrase)
+      expect(alert.querySelector('code')?.textContent).toBe(code)
+      expect(alert.className).toContain(
+        status === 'failed' ? 'ant-alert-error' : 'ant-alert-warning',
+      )
+    },
+  )
+
+  it('does not add a limit alert for an unknown code and keeps the reason row', () => {
+    render(
+      <RunHeader now={NOW} run={{ ...baseRun, status: 'failed', errorCode: 'provider_timeout' }} />,
+    )
+    expect(screen.queryByTestId('run-limit-reason')).toBeNull()
+    expect(screen.getByText('Причина', { selector: 'dt' }).nextElementSibling?.textContent).toBe(
+      'Неизвестная причина: provider_timeout',
+    )
+  })
+
+  it('keeps the summary-only line', () => {
+    render(<RunHeader now={NOW} run={{ ...baseRun, summaryOnly: true }} />)
+    expect(screen.getByText('Summary-only прогон (дифф > 3 000 строк)')).toBeTruthy()
+    expect(screen.queryByTestId('run-limit-reason')).toBeNull()
+  })
+})
+
+describe('RunHeader starter and budget', () => {
+  const NOW = new Date('2026-09-18T12:00:00.000Z')
+
+  function row(label: string): string {
+    return screen.getByText(label, { selector: 'dt' }).nextElementSibling?.textContent ?? ''
+  }
+
+  it('shows a dash when nobody started the run and when there is no budget', () => {
+    const { container } = render(<RunHeader now={NOW} run={baseRun} />)
+    expect(row('Запустил')).toBe('—')
+    expect(row('Токены на входе')).toBe('—')
+    expect(row('Токены на выходе')).toBe('—')
+    expect(row('Стоимость')).toBe('—')
+    expect(row('Лимит токенов')).toBe('—')
+    expect(row('Лимит стоимости')).toBe('—')
+    expect(container.querySelector('input, textarea, button')).toBeNull()
+  })
+
+  it('shows the login and the budget numbers without an editor', () => {
+    const { container } = render(
+      <RunHeader
+        budget={{ tokensIn: 10, tokensOut: 4, costUsd: 1.5, tokenLimit: 1000, costLimitUsd: 2 }}
+        now={NOW}
+        run={{ ...baseRun, triggeredBy: 'octocat' }}
+      />,
+    )
+    expect(row('Запустил')).toBe('octocat')
+    expect(row('Токены на входе')).toBe('10')
+    expect(row('Токены на выходе')).toBe('4')
+    expect(row('Стоимость')).toBe('$1.50')
+    expect(row('Лимит токенов')).toBe('1000')
+    expect(row('Лимит стоимости')).toBe('$2.00')
+    expect(container.querySelector('input, textarea, button')).toBeNull()
+  })
+
+  it('shows a dash for a null initiator', () => {
+    render(<RunHeader now={NOW} run={{ ...baseRun, triggeredBy: null }} />)
+    expect(row('Запустил')).toBe('—')
+  })
+})
