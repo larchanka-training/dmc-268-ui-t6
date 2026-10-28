@@ -25,7 +25,7 @@ Open <AppLink path="/repositories">**Repositories**</AppLink> («Репозит�
 
 ### Configure the repository webhook
 
-The portal shows **Webhook URL**, **События** and **Webhook secret** in a setup card. Copy them before closing the card or switching portal workspaces: the secret is shown only once and cannot be retrieved later. In that repository's Bitbucket settings, add a webhook with the shown URL and secret. Subscribe to `repo:push`, `pullrequest:created` and `pullrequest:updated`. Keep the secret in Bitbucket's webhook settings or a protected secret store; keep it out of screenshots. The portal shows **Awaiting webhook** («Ожидает webhook») until the first valid signed delivery for that repository, then **Webhook active** («Webhook активен»).
+The portal shows **Webhook URL**, **События** and **Webhook secret** in a setup card. Copy them before closing the card or switching portal workspaces: the secret is shown only once and cannot be retrieved later. In that repository's Bitbucket settings, add a webhook with the shown URL and secret. Subscribe to `repo:push`, `pullrequest:created`, `pullrequest:updated`, `pullrequest:fulfilled` and `pullrequest:rejected`. Keep the secret in Bitbucket's webhook settings or a protected secret store; keep it out of screenshots. The portal shows **Awaiting webhook** («Ожидает webhook») until the first valid signed delivery for that repository, then **Webhook active** («Webhook активен»).
 
 If you reconnect an already connected repository, the portal does not show its old secret again. Choose **New webhook secret** («Новый webhook secret») for that repository to issue a replacement, update the webhook in Bitbucket, and discard the old secret. Other repositories keep their own webhook secrets.
 

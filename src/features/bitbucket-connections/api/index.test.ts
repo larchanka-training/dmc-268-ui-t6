@@ -17,7 +17,13 @@ const REPOSITORY = '33333333-3333-4333-8333-333333333333'
 const REMOTE = '44444444-4444-4444-8444-444444444444'
 const WEBHOOK = {
   url: `https://api.example.test/webhooks/bitbucket/${INSTALLATION}/${REPOSITORY}`,
-  events: ['repo:push', 'pullrequest:created', 'pullrequest:updated'],
+  events: [
+    'repo:push',
+    'pullrequest:created',
+    'pullrequest:updated',
+    'pullrequest:fulfilled',
+    'pullrequest:rejected',
+  ],
   secret: 'one-time-secret',
 }
 const CONNECTION = {
@@ -87,6 +93,13 @@ describe('Bitbucket workspace connection API', () => {
       apiToken: 'temporary-token',
     })
     expect(connected.webhook?.secret).toBe('one-time-secret')
+    expect(connected.webhook?.events).toEqual([
+      'repo:push',
+      'pullrequest:created',
+      'pullrequest:updated',
+      'pullrequest:fulfilled',
+      'pullrequest:rejected',
+    ])
     expect(calls).toEqual([
       {
         path: `/workspaces/${WORKSPACE}/bitbucket/discovery`,
@@ -148,6 +161,22 @@ describe('Bitbucket workspace connection API', () => {
     await expect(connectBitbucketRepository(WORKSPACE, input)).rejects.toThrow(/status/i)
   })
 
+  it('rejects an undeclared webhook event on connect and secret rotation', async () => {
+    const webhook = { ...WEBHOOK, events: [...WEBHOOK.events, 'pullrequest:merged'] }
+    const input = {
+      bitbucketWorkspace: 'private-space',
+      repositorySlug: 'private-repo',
+      repositoryUuid: REMOTE,
+      apiToken: 'temporary-token',
+    }
+    setMockTransport(() => ({ ...CONNECTION, webhook }))
+    await expect(connectBitbucketRepository(WORKSPACE, input)).rejects.toThrow(/events/i)
+    setMockTransport(() => webhook)
+    await expect(rotateBitbucketWebhookSecret(WORKSPACE, INSTALLATION, REPOSITORY)).rejects.toThrow(
+      /events/i,
+    )
+  })
+
   it('uses an unpaged connection endpoint and rejects a fabricated next cursor', async () => {
     const paths: string[] = []
     setMockTransport((endpoint) => {
@@ -182,6 +211,83 @@ describe('Bitbucket workspace connection API', () => {
     expect(calls).toEqual([])
   })
 
+  it.each([
+    ['empty', ''],
+    ['4097 bytes', 'a'.repeat(4097)],
+    ['space', 'token with space'],
+    ['trailing newline', 'token\n'],
+    ['tab', 'token\t'],
+    ['NUL', 'token\0'],
+    ['DEL', 'token\x7f'],
+    ['non-ASCII', 'tökén'],
+  ])(
+    'rejects %s API token before discovery, connect and credential rotation HTTP',
+    async (_, token) => {
+      const calls: string[] = []
+      setMockTransport((endpoint) => {
+        calls.push(endpoint.path)
+        throw new Error('invalid token reached transport')
+      })
+      await expect(
+        discoverBitbucketRepositories(WORKSPACE, {
+          bitbucketWorkspace: 'private-space',
+          apiToken: token,
+        }),
+      ).rejects.toThrow(/apiToken/i)
+      await expect(
+        connectBitbucketRepository(WORKSPACE, {
+          bitbucketWorkspace: 'private-space',
+          repositorySlug: 'private-repo',
+          repositoryUuid: REMOTE,
+          apiToken: token,
+        }),
+      ).rejects.toThrow(/apiToken/i)
+      await expect(rotateBitbucketCredential(WORKSPACE, INSTALLATION, token)).rejects.toThrow(
+        /apiToken/i,
+      )
+      expect(calls).toEqual([])
+    },
+  )
+
+  it('accepts a 4096-character printable ASCII API token at all three boundaries', async () => {
+    const token = '!' + '~'.repeat(4095)
+    const calls: { path: string; token: string | undefined }[] = []
+    setMockTransport((endpoint, options) => {
+      const body = options.body as { apiToken?: string }
+      calls.push({ path: endpoint.path, token: body.apiToken })
+      if (endpoint.path.endsWith('/discovery')) {
+        return { repositories: [DISCOVERED], nextCursor: null }
+      }
+      if (endpoint.path.endsWith('/credential')) {
+        return { id: INSTALLATION, credentialGeneration: 2 }
+      }
+      return { ...CONNECTION, webhook: WEBHOOK }
+    })
+    await expect(
+      discoverBitbucketRepositories(WORKSPACE, {
+        bitbucketWorkspace: 'private-space',
+        apiToken: token,
+      }),
+    ).resolves.toMatchObject({ nextCursor: null })
+    await expect(
+      connectBitbucketRepository(WORKSPACE, {
+        bitbucketWorkspace: 'private-space',
+        repositorySlug: 'private-repo',
+        repositoryUuid: REMOTE,
+        apiToken: token,
+      }),
+    ).resolves.toMatchObject({ webhook: WEBHOOK })
+    await expect(rotateBitbucketCredential(WORKSPACE, INSTALLATION, token)).resolves.toEqual({
+      id: INSTALLATION,
+      credentialGeneration: 2,
+    })
+    expect(calls).toEqual([
+      { path: `/workspaces/${WORKSPACE}/bitbucket/discovery`, token },
+      { path: `/workspaces/${WORKSPACE}/bitbucket/connections`, token },
+      { path: `/workspaces/${WORKSPACE}/bitbucket/connections/${INSTALLATION}/credential`, token },
+    ])
+  })
+
   it('disconnects one binding, rotates shared credential explicitly and rotates only its hook secret', async () => {
     const calls: { method: string; path: string; body: unknown }[] = []
     setMockTransport((endpoint, options) => {
@@ -193,7 +299,14 @@ describe('Bitbucket workspace connection API', () => {
       return WEBHOOK
     })
     await rotateBitbucketCredential(WORKSPACE, INSTALLATION, 'replacement-token')
-    await rotateBitbucketWebhookSecret(WORKSPACE, INSTALLATION, REPOSITORY)
+    const rotatedWebhook = await rotateBitbucketWebhookSecret(WORKSPACE, INSTALLATION, REPOSITORY)
+    expect(rotatedWebhook.events).toEqual([
+      'repo:push',
+      'pullrequest:created',
+      'pullrequest:updated',
+      'pullrequest:fulfilled',
+      'pullrequest:rejected',
+    ])
     await disconnectBitbucketRepository(WORKSPACE, INSTALLATION, REPOSITORY)
     expect(calls).toEqual([
       {

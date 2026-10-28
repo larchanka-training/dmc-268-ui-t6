@@ -190,6 +190,13 @@ describe('initMockTransport', () => {
     )
     const [firstConnection, secondConnection] = connected
     if (!firstConnection || !secondConnection) throw new Error('missing Bitbucket demo connection')
+    expect(firstConnection.webhook?.events).toEqual([
+      'repo:push',
+      'pullrequest:created',
+      'pullrequest:updated',
+      'pullrequest:fulfilled',
+      'pullrequest:rejected',
+    ])
     expect(firstConnection.id).toBe(secondConnection.id)
     expect((await listBitbucketConnections(workspace)).connections).toHaveLength(2)
     const rotated = await rotateBitbucketCredential(workspace, firstConnection.id, 'new-token')
@@ -200,6 +207,13 @@ describe('initMockTransport', () => {
       firstConnection.repositoryId,
     )
     expect(hook.secret).toBeTruthy()
+    expect(hook.events).toEqual([
+      'repo:push',
+      'pullrequest:created',
+      'pullrequest:updated',
+      'pullrequest:fulfilled',
+      'pullrequest:rejected',
+    ])
     await disconnectBitbucketRepository(workspace, firstConnection.id, firstConnection.repositoryId)
     expect(
       (await listBitbucketConnections(workspace)).connections.map((item) => item.repositoryUuid),
