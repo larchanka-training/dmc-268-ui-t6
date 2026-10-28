@@ -46,13 +46,13 @@ function MotionProbe(): JSX.Element {
 describe('DesignSystemProvider', () => {
   it('sets the theme attribute that the CSS tokens read', () => {
     const { rerender } = render(
-      <DesignSystemProvider mode="dark">
+      <DesignSystemProvider language="en" mode="dark">
         <span />
       </DesignSystemProvider>,
     )
     expect(document.documentElement.dataset.rvTheme).toBe('dark')
     rerender(
-      <DesignSystemProvider mode="light">
+      <DesignSystemProvider language="en" mode="light">
         <span />
       </DesignSystemProvider>,
     )
@@ -61,7 +61,7 @@ describe('DesignSystemProvider', () => {
 
   it('replaces the default Ant Design spin indicator with the ring', () => {
     const { container } = render(
-      <DesignSystemProvider mode="dark">
+      <DesignSystemProvider language="en" mode="dark">
         <Spin />
       </DesignSystemProvider>,
     )
@@ -75,7 +75,7 @@ describe('DesignSystemProvider', () => {
       return <output data-testid="wave">{String(wave?.disabled)}</output>
     }
     const { getByTestId } = render(
-      <DesignSystemProvider mode="dark">
+      <DesignSystemProvider language="en" mode="dark">
         <WaveProbe />
       </DesignSystemProvider>,
     )
@@ -85,7 +85,7 @@ describe('DesignSystemProvider', () => {
   it('keeps Ant Design animations while the system does not ask to reduce motion', () => {
     mockReducedMotion(false)
     const { getByTestId } = render(
-      <DesignSystemProvider mode="dark">
+      <DesignSystemProvider language="en" mode="dark">
         <MotionProbe />
       </DesignSystemProvider>,
     )
@@ -95,7 +95,7 @@ describe('DesignSystemProvider', () => {
   it('stops Ant Design animations under reduced motion and follows a change of the setting', () => {
     const setReducedMotion = mockReducedMotion(true)
     const { getByTestId } = render(
-      <DesignSystemProvider mode="dark">
+      <DesignSystemProvider language="en" mode="dark">
         <MotionProbe />
       </DesignSystemProvider>,
     )

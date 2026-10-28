@@ -46,7 +46,7 @@ function reduceMotion(): void {
 /** The host with one marker per key: a new key is a new marker, a missing one is unmounted. */
 function Screen(props: { markers: string[] }): JSX.Element {
   return (
-    <DesignSystemProvider mode="dark">
+    <DesignSystemProvider language="en" mode="dark">
       <PageLoaderHost />
       {props.markers.map((key) => (
         <PageLoading key={key} />

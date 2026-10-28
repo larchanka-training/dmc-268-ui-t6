@@ -62,7 +62,7 @@ function mockReducedMotion(initial: boolean): (matches: boolean) => void {
 function renderLogin() {
   return render(
     <QueryClientProvider client={queryClient}>
-      <DesignSystemProvider mode="light">
+      <DesignSystemProvider language="en" mode="light">
         <LoginPage />
       </DesignSystemProvider>
     </QueryClientProvider>,
