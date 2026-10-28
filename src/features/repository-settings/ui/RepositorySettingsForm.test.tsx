@@ -7,6 +7,8 @@ import {
   type Repository,
   type UpdateRepositoryInput,
 } from '../../../entities/repository'
+import { ApiError } from '../../../shared/api/client'
+import { i18n } from '../../../shared/i18n'
 import { RepositorySettingsForm } from './RepositorySettingsForm'
 
 const REPOSITORY: Repository = {
@@ -110,5 +112,59 @@ describe('RepositorySettingsForm: after a successful save', () => {
         false,
       )
     })
+  })
+})
+
+/** The errors under a field, without the ones antd still animates out (jsdom never ends it). */
+function shownErrors(field: string): string[] {
+  return [
+    ...document.querySelectorAll(
+      `#${field}_help .ant-form-item-explain-error:not([class*="-leave"])`,
+    ),
+  ].map((item) => item.textContent)
+}
+
+describe('RepositorySettingsForm: after a change of the interface language', () => {
+  it('shows the field errors already on screen in the new language', async () => {
+    const onSave = vi.fn<OnSave>(() =>
+      Promise.reject(
+        new ApiError(422, 'Unprocessable Entity', {
+          detail: [{ loc: ['body', 'waitForCi'], msg: 'Input should be auto', type: 'enum' }],
+        }),
+      ),
+    )
+    render(
+      <RepositorySettingsForm
+        describeError={() => 'error'}
+        onSave={onSave}
+        repository={REPOSITORY}
+      />,
+    )
+
+    // A rule error (the emptied limit) and a server error (the CI wait) at once.
+    await chooseOption(CI_LABEL, NEVER_OPTION)
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
+    expect(await screen.findByText('Сервер не принял значение')).toBeTruthy()
+    fireEvent.change(screen.getByLabelText(LIMIT_LABEL), { target: { value: '' } })
+    expect(await screen.findByText('Укажите лимит')).toBeTruthy()
+
+    try {
+      await act(async () => {
+        await i18n.changeLanguage('en')
+      })
+      await waitFor(() => {
+        expect(shownErrors('maxComments')).toEqual(['Enter the limit'])
+      })
+      expect(shownErrors('waitForCi')).toEqual(['The server did not accept the value'])
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage('ru')
+      })
+    }
+    // And back.
+    await waitFor(() => {
+      expect(shownErrors('maxComments')).toEqual(['Укажите лимит'])
+    })
+    expect(shownErrors('waitForCi')).toEqual(['Сервер не принял значение'])
   })
 })

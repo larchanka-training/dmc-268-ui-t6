@@ -1,5 +1,5 @@
 import { Alert, Button, Flex, Form, Input, InputNumber, Radio, Select, Typography } from 'antd'
-import { useImperativeHandle, useState, type FC, type ReactNode, type Ref } from 'react'
+import { useEffect, useImperativeHandle, useState, type FC, type ReactNode, type Ref } from 'react'
 
 import type {
   Repository,
@@ -9,6 +9,7 @@ import type {
 import { useTranslation } from '../../../shared/i18n'
 import {
   splitServerError,
+  type ServerFieldErrorKey,
   type ServerFieldErrors,
   type SettingsFieldName,
 } from '../lib/serverFieldErrors'
@@ -28,18 +29,22 @@ const { Text } = Typography
 // The first editable field: where focus goes when a button the user used turns disabled.
 const FIRST_FIELD: SettingsFieldName = 'waitForCi'
 
-/** Props that put the server's complaint under a field, or none when it had no complaint. */
+/**
+ * Props that put the server's complaint under a field, or none when it had no complaint. The
+ * text is read here, at render, so it follows a change of the interface language.
+ */
 function serverErrorProps(
   errors: ServerFieldErrors,
   name: SettingsFieldName,
+  translate: (key: ServerFieldErrorKey) => string,
 ): { validateStatus?: 'error'; help?: ReactNode } {
-  const messages = errors[name]
-  if (messages === undefined) {
+  const keys = errors[name]
+  if (keys === undefined) {
     return {}
   }
   return {
     validateStatus: 'error',
-    help: messages.map((message) => <div key={message}>{message}</div>),
+    help: keys.map((key) => <div key={key}>{translate(key)}</div>),
   }
 }
 
@@ -94,7 +99,8 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
   onCancel,
   ref,
 }) => {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const language = i18n.language
   // deep (SandboxEngine) is phase 3; the api returns only fast until then.
   const engineLabel: Record<RepositoryEngine, string> = { fast: t('settings.form.engineFast') }
   const [form] = Form.useForm<SettingsFormValues>()
@@ -137,6 +143,19 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
     }),
     [form, baseline],
   )
+
+  // antd keeps the text of a failed rule from the moment it ran. After a change of the interface
+  // language the fields that show an error are judged again, so the error reads in the new one.
+  useEffect(() => {
+    const withErrors = form
+      .getFieldsError()
+      .filter((field) => field.errors.length > 0)
+      .map((field) => field.name)
+    if (withErrors.length > 0) {
+      // The errors are shown under the fields; the rejection carries nothing more.
+      form.validateFields(withErrors).catch(() => undefined)
+    }
+  }, [form, language])
 
   const handleFinish = async (submitted: SettingsFormValues): Promise<void> => {
     const patch = buildSettingsPatch(baseline, submitted)
@@ -220,7 +239,7 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
         label={t('settings.form.waitForCi')}
         name="waitForCi"
         rules={[{ required: true }]}
-        {...serverErrorProps(serverErrors, 'waitForCi')}
+        {...serverErrorProps(serverErrors, 'waitForCi', t)}
       >
         <Select
           options={[
@@ -238,7 +257,7 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
           { required: true, message: t('settings.form.maxCommentsRequired') },
           { type: 'number', min: 1, max: 10, message: t('settings.form.maxCommentsRange') },
         ]}
-        {...serverErrorProps(serverErrors, 'maxComments')}
+        {...serverErrorProps(serverErrors, 'maxComments', t)}
       >
         <InputNumber className={styles.fullWidth} max={10} min={1} precision={0} />
       </Form.Item>
@@ -247,7 +266,7 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
         label={t('settings.form.reviewEvent')}
         name="reviewEvent"
         rules={[{ required: true }]}
-        {...serverErrorProps(serverErrors, 'reviewEvent')}
+        {...serverErrorProps(serverErrors, 'reviewEvent', t)}
       >
         <Select
           options={[
@@ -269,7 +288,7 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
             },
           },
         ]}
-        {...serverErrorProps(serverErrors, 'branchFilter')}
+        {...serverErrorProps(serverErrors, 'branchFilter', t)}
       >
         <Input.TextArea rows={4} spellCheck={false} />
       </Form.Item>
@@ -278,7 +297,7 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
         extra={t('settings.form.severityThresholdExtra')}
         label={t('settings.form.severityThreshold')}
         name="severityThreshold"
-        {...serverErrorProps(serverErrors, 'severityThreshold')}
+        {...serverErrorProps(serverErrors, 'severityThreshold', t)}
       >
         <Radio.Group aria-label={t('settings.form.severityThreshold')} orientation="vertical">
           {SEVERITY_THRESHOLD_OPTIONS.map((option) => (

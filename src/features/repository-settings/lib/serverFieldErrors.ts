@@ -1,6 +1,5 @@
 import { ApiError } from '../../../shared/api/client'
 import { validationErrorLocations } from '../../../shared/api/validationError'
-import { i18n } from '../../../shared/i18n'
 
 const FIELD_NAMES = [
   'waitForCi',
@@ -11,10 +10,14 @@ const FIELD_NAMES = [
 ] as const
 export type SettingsFieldName = (typeof FIELD_NAMES)[number]
 
-export type ServerFieldErrors = Partial<Record<SettingsFieldName, string[]>>
+/** The dictionary key of a field message: the text is read at render, in the current language. */
+export type ServerFieldErrorKey =
+  'settings.form.serverRejectedThreshold' | 'settings.form.serverRejectedValue'
+
+export type ServerFieldErrors = Partial<Record<SettingsFieldName, ServerFieldErrorKey[]>>
 
 export interface ServerErrorSplit {
-  /** Texts to show under the field the server named. */
+  /** Keys of the texts to show under the field the server named. */
   fields: ServerFieldErrors
   /** The error (or part of it) names no field of the form: show it above the form. */
   general: boolean
@@ -25,11 +28,11 @@ function isFieldName(value: unknown): value is SettingsFieldName {
 }
 
 // The server's own `msg` is English text and is never shown (see `runMutationErrorMessage`).
-function fieldMessage(field: SettingsFieldName): string {
+function fieldMessage(field: SettingsFieldName): ServerFieldErrorKey {
   if (field === 'severityThreshold') {
-    return i18n.t('settings.form.serverRejectedThreshold')
+    return 'settings.form.serverRejectedThreshold'
   }
-  return i18n.t('settings.form.serverRejectedValue')
+  return 'settings.form.serverRejectedValue'
 }
 
 /**

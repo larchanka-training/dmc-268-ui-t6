@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { i18n } from '../i18n'
 import { formatApiErrorMessage } from './apiErrorMessage'
 import { ApiError } from './client'
 
@@ -27,5 +28,20 @@ describe('formatApiErrorMessage', () => {
 
   it('falls back to status when detail is missing', () => {
     expect(formatApiErrorMessage(502, 'Bad Gateway', null)).toBe('Ошибка API (502: Bad Gateway)')
+  })
+
+  it('falls back to the status alone when there is no status text', () => {
+    expect(formatApiErrorMessage(502, '', null)).toBe('Ошибка API (502)')
+  })
+
+  it('reads the ApiError message in the current language', async () => {
+    const error = new ApiError(502, 'Bad Gateway', null)
+    expect(error.message).toBe('Ошибка API (502: Bad Gateway)')
+    try {
+      await i18n.changeLanguage('en')
+      expect(error.message).toBe('API error (502: Bad Gateway)')
+    } finally {
+      await i18n.changeLanguage('ru')
+    }
   })
 })
