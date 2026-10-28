@@ -22,7 +22,7 @@ export default tseslint.config(
 
   // Исходники приложения: полный type-aware набор.
   {
-    files: ['**/*.{ts,tsx}'],
+    files: ['**/*.{ts,tsx,mts,cts}'],
     extends: [
       js.configs.recommended,
       tseslint.configs.strictTypeChecked,
@@ -112,17 +112,31 @@ export default tseslint.config(
     },
   },
 
+  // A .jsx file is in no TS project but still reaches the bundle: the base rules, no type info.
+  {
+    files: ['src/**/*.jsx'],
+    extends: [js.configs.recommended, tseslint.configs.disableTypeChecked],
+    languageOptions: {
+      globals: globals.browser,
+      parser: tseslint.parser,
+      parserOptions: { ecmaFeatures: { jsx: true } },
+    },
+  },
+
   // i18n: user-facing text lives in the dictionaries of src/shared/i18n. A Cyrillic string in the
   // app code means a text that bypasses them; only the Russian dictionary, tests, stories, mocks
   // and fixtures may hold one.
   {
-    files: ['src/**/*.{ts,tsx}'],
+    files: ['src/**/*.{ts,tsx,mts,cts,jsx}'],
     ignores: [
-      '**/*.test.{ts,tsx}',
+      '**/*.test.{ts,tsx,mts,cts,jsx}',
       '**/*.stories.{ts,tsx}',
       '**/*.fixture.{ts,tsx}',
       '**/fixtures/**',
-      '**/mocks/**',
+      // Mock mode only; the demo sign-in texts are imported statically, and
+      // `pnpm verify:prod-bundle` checks that they stay out of the production bundle.
+      'src/app/mocks/**',
+      'src/features/auth/mocks/demoLoginTexts.ts',
       'src/test/**',
       'src/shared/i18n/locales/ru/**',
     ],
@@ -132,6 +146,8 @@ export default tseslint.config(
         ...[
           'Literal[value=/[\\u0400-\\u04FF]/]',
           'TemplateElement[value.raw=/[\\u0400-\\u04FF]/]',
+          // An escape (`\u{41F}`) in a template string: `raw` keeps it as written.
+          'TemplateElement[value.cooked=/[\\u0400-\\u04FF]/]',
           'JSXText[value=/[\\u0400-\\u04FF]/]',
         ].map((selector) => ({
           selector,
