@@ -20,6 +20,13 @@ export class ApiError extends Error {
   ) {
     super(formatApiErrorMessage(status, statusText, data))
     this.name = 'ApiError'
+    // The text is built again on every read, so an error held on screen (a TanStack Query error,
+    // a saved form error) follows a change of the interface language on the next render.
+    Object.defineProperty(this, 'message', {
+      get: () => formatApiErrorMessage(status, statusText, data),
+      configurable: true,
+      enumerable: false,
+    })
   }
 }
 

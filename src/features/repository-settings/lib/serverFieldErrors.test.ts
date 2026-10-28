@@ -16,7 +16,7 @@ describe('splitServerError', () => {
     ])
 
     expect(splitServerError(error)).toEqual({
-      fields: { severityThreshold: ['Сервер не принял порог'] },
+      fields: { severityThreshold: ['settings.form.serverRejectedThreshold'] },
       general: false,
     })
   })
@@ -31,10 +31,10 @@ describe('splitServerError', () => {
 
     expect(splitServerError(error)).toEqual({
       fields: {
-        maxComments: ['Сервер не принял значение'],
-        waitForCi: ['Сервер не принял значение'],
-        reviewEvent: ['Сервер не принял значение'],
-        branchFilter: ['Сервер не принял значение'],
+        maxComments: ['settings.form.serverRejectedValue'],
+        waitForCi: ['settings.form.serverRejectedValue'],
+        reviewEvent: ['settings.form.serverRejectedValue'],
+        branchFilter: ['settings.form.serverRejectedValue'],
       },
       general: false,
     })
@@ -70,7 +70,7 @@ describe('splitServerError', () => {
     ])
 
     expect(splitServerError(error)).toEqual({
-      fields: { branchFilter: ['Сервер не принял значение'] },
+      fields: { branchFilter: ['settings.form.serverRejectedValue'] },
       general: true,
     })
   })
