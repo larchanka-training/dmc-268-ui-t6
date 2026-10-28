@@ -49,7 +49,7 @@ const MetricsTotalsSchema = z.object({
 })
 
 const MetricsDaySchema = z.object({
-  day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  day: z.iso.date(),
   findingsByCategory: FindingsByCategorySchema,
   runCount: CountSchema,
   averageDurationSeconds: z.number().nonnegative(),
@@ -57,7 +57,7 @@ const MetricsDaySchema = z.object({
 })
 
 const WorkspaceBudgetSchema = z.object({
-  name: z.string().min(1),
+  name: z.string(),
   dailyBudgetUsd: z.number().nonnegative(),
   spentTodayUsd: z.number().nonnegative(),
   paused: z.boolean(),
