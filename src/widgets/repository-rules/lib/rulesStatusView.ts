@@ -1,7 +1,7 @@
 import type { ParseKeys } from 'i18next'
 
 import type { RulesDiagnostic } from '../../../entities/repository'
-import { formatDateTime, i18n } from '../../../shared/i18n'
+import { formatDateTime, formatNumber, i18n } from '../../../shared/i18n'
 
 /** The seven characters git itself shows; the full sha stays in a tooltip. */
 export function shortSha(sha: string): string {
@@ -36,8 +36,8 @@ export function describeDiagnosticLimit(diagnostic: RulesDiagnostic): string | n
     return null
   }
   return i18n.t(diagnostic.actualIsLowerBound === true ? 'rules.limitLowerBound' : 'rules.limit', {
-    limit: diagnostic.limit,
-    actual: diagnostic.actual,
+    limit: formatNumber(diagnostic.limit),
+    actual: formatNumber(diagnostic.actual),
   })
 }
 

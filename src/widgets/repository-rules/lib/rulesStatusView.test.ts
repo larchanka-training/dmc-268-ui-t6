@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { RulesDiagnostic } from '../../../entities/repository'
+import { i18n } from '../../../shared/i18n'
 import {
   describeDiagnosticLimit,
   describeDiagnosticLocation,
@@ -42,17 +43,28 @@ describe('describeDiagnosticLocation', () => {
 describe('describeDiagnosticLimit', () => {
   it('names the limit and the actual value when the server gave both', () => {
     expect(describeDiagnosticLimit({ ...base, limit: 65536, actual: 85000 })).toBe(
-      'допустимо 65536, фактически 85000',
+      'допустимо 65\u00a0536, фактически 85\u00a0000',
     )
   })
 
   it('says the actual value is more than given when it is a lower bound', () => {
     expect(
       describeDiagnosticLimit({ ...base, limit: 65536, actual: 69632, actualIsLowerBound: true }),
-    ).toBe('допустимо 65536, фактически более 69632')
+    ).toBe('допустимо 65\u00a0536, фактически более 69\u00a0632')
     expect(
       describeDiagnosticLimit({ ...base, limit: 65536, actual: 85000, actualIsLowerBound: false }),
-    ).toBe('допустимо 65536, фактически 85000')
+    ).toBe('допустимо 65\u00a0536, фактически 85\u00a0000')
+  })
+
+  it('groups the digits in the notation of the language', () => {
+    void i18n.changeLanguage('en')
+    try {
+      expect(describeDiagnosticLimit({ ...base, limit: 65536, actual: 85000 })).toBe(
+        'allowed 65,536, actual 85,000',
+      )
+    } finally {
+      void i18n.changeLanguage('ru')
+    }
   })
 
   it('says nothing when either is missing', () => {

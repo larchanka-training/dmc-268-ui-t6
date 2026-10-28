@@ -369,7 +369,7 @@ describe('RulesStatusPanel', () => {
 
     renderPanel()
 
-    expect(await within(panel()).findByText(/допустимо 65536, фактически 85000/)).toBeTruthy()
+    expect(await within(panel()).findByText(/допустимо 65\s536, фактически 85\s000/)).toBeTruthy()
   })
 
   it('explains an unavailable file by its code and offers no retry when it is not retryable', async () => {

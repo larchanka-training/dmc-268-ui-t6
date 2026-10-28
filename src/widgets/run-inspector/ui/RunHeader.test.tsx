@@ -189,7 +189,7 @@ describe('RunHeader PR metadata', () => {
     expect(screen.queryByText('Находки')).toBeNull()
     expect(screen.queryByText('critical: 0')).toBeNull()
     if (run.summaryOnly) {
-      expect(screen.getByText('Summary-only прогон (дифф > 3000 строк)')).toBeTruthy()
+      expect(screen.getByText('Summary-only прогон (дифф > 3 000 строк)')).toBeTruthy()
     }
   })
 

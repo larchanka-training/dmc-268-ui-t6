@@ -84,7 +84,7 @@ export const runs: Translation<typeof en> = {
     dropped_few: 'Не показано находок: {{count}} — не прошли проверку формата',
     dropped_many: 'Не показано находок: {{count}} — не прошли проверку формата',
     dropped_other: 'Не показано находок: {{count}} — не прошли проверку формата',
-    summaryOnly: 'Summary-only прогон (дифф > 3000 строк)',
+    summaryOnly: 'Summary-only прогон (дифф > 3\u00a0000 строк)',
   },
   diff: {
     noDiff: 'Без диффа',
@@ -92,7 +92,7 @@ export const runs: Translation<typeof en> = {
     viewLabel: 'Вид диффа: {{file}}',
     outside: 'Замечания вне диффа',
     tooLargeTitle: 'Дифф слишком большой',
-    tooLarge: 'Больше 3 000 строк — показан только список файлов, построчного ревью нет.',
+    tooLarge: 'Больше 3\u00a0000 строк — показан только список файлов, построчного ревью нет.',
     rule: 'правило: {{name}}',
     showMore_one: 'Показать ещё {{count}} строк',
     showMore_few: 'Показать ещё {{count}} строк',
