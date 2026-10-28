@@ -269,7 +269,7 @@ describe('shortSha', () => {
 })
 
 describe('formatIndexedAt', () => {
-  it('writes the UTC time as YYYY-MM-DD HH:mm:ss', () => {
+  it('writes the UTC time in the notation of the language, to the second', () => {
     expect(formatIndexedAt(INDEXED_AT)).toBe('14.10.2026, 09:30:15')
   })
 

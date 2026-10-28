@@ -220,11 +220,23 @@ describe('AppSidebar language switch', () => {
     )
     expect(screen.getByText('Theme')).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Documentation' })).toBeTruthy()
+
+    // And back to Russian from the same menu. The storage key is spelled out: renaming it would
+    // silently drop the choice users already saved.
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'RU' }))
+    expect(i18n.language).toBe('ru')
+    expect(localStorage.getItem('dmc_language')).toBe('ru')
+    expect(await screen.findByText('Прогоны')).toBeTruthy()
+    expect(screen.queryByText('Runs')).toBeNull()
     localStorage.clear()
   })
 })
 
 describe('AppSidebar tooltips', () => {
+  function tooltipTexts(): (string | null)[] {
+    return [...document.querySelectorAll('.ant-tooltip')].map((tooltip) => tooltip.textContent)
+  }
+
   /** Hovers an element and gives an Ant Design tooltip time to open. */
   async function hover(element: Element): Promise<void> {
     fireEvent.mouseEnter(element)
@@ -237,6 +249,14 @@ describe('AppSidebar tooltips', () => {
     renderWithQuery(<AppSidebar currentPath="/runs" onNavigate={vi.fn()} />)
     // Folded: Ant Design then treats every menu inside the sidebar as folded, the profile menu too.
     fireEvent.click(screen.getByRole('button', { name: 'Свернуть меню' }))
+    // Positive control: in this run a tooltip does open in time over a folded navigation item.
+    const runs = screen.getByRole('menuitem', { name: 'Прогоны' })
+    await hover(runs)
+    await waitFor(() => {
+      expect(tooltipTexts()).toContain('Прогоны')
+    })
+    fireEvent.mouseLeave(runs)
+
     fireEvent.click(screen.getByLabelText('Меню пользователя'))
     const docs = await screen.findByRole('link', { name: 'Документация' })
     const item = docs.closest('[role="menuitem"]')
@@ -245,7 +265,8 @@ describe('AppSidebar tooltips', () => {
     const theme = screen.getByText('Тёмная').closest('[role="menuitemradio"]')
     if (theme === null) throw new Error('the theme option is not a menu item')
     await hover(theme)
-    expect(document.querySelector('.ant-tooltip')).toBeNull()
+    expect(tooltipTexts()).not.toContain('Документация')
+    expect(tooltipTexts()).not.toContain('Тёмная')
   })
 
   it('keeps the tooltip of a folded navigation item, whose label is hidden', async () => {
