@@ -243,7 +243,7 @@ export function RunDetailScreen() {
                 { label: 'Duration', value: '24 s' },
                 { label: 'Attempt', value: '1' },
                 { label: 'Actions', value: '7' },
-                { label: 'Error', value: '—' },
+                { label: 'Reason', value: '—' },
               ]}
             />
           </Card>
