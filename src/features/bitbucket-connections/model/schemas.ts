@@ -58,8 +58,8 @@ const connectionFields = {
   id: UuidSchema,
   repositoryId: UuidSchema,
   repositoryUuid: UuidSchema,
-  workspaceSlug: z.string().min(1),
-  repositorySlug: z.string().min(1),
+  workspaceSlug: z.string().min(1).max(128),
+  repositorySlug: z.string().min(1).max(128),
   status: BitbucketStatusSchema,
   credentialGeneration: z.int().min(1),
 }

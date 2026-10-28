@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { setMockTransport } from '../../../shared/api/client'
-import { BitbucketCredentialRotateRequestSchema } from '../model/schemas'
+import {
+  BitbucketConnectionItemSchema,
+  BitbucketConnectResponseSchema,
+  BitbucketCredentialRotateRequestSchema,
+} from '../model/schemas'
 import {
   connectBitbucketRepository,
   discoverBitbucketRepositories,
@@ -50,6 +54,19 @@ afterEach(() => {
 })
 
 describe('Bitbucket workspace connection API', () => {
+  describe.each([
+    ['connect response', BitbucketConnectResponseSchema, { ...CONNECTION, webhook: WEBHOOK }],
+    ['connection item', BitbucketConnectionItemSchema, CONNECTION],
+  ])('%s slug bounds', (_name, schema, connection) => {
+    it.each(['workspaceSlug', 'repositorySlug'] as const)('accepts a 128-character %s', (field) => {
+      expect(schema.safeParse({ ...connection, [field]: 'a'.repeat(128) }).success).toBe(true)
+    })
+
+    it.each(['workspaceSlug', 'repositorySlug'] as const)('rejects a 129-character %s', (field) => {
+      expect(schema.safeParse({ ...connection, [field]: 'a'.repeat(129) }).success).toBe(false)
+    })
+  })
+
   it('sends discovery and connect only to the selected portal workspace and validates private repositories', async () => {
     const calls: { path: string; body: unknown }[] = []
     setMockTransport((endpoint, options) => {
