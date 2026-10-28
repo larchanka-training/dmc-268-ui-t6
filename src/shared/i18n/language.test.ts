@@ -19,6 +19,8 @@ describe('interface language', () => {
   })
 
   it('starts a fresh app in English when nothing is saved', async () => {
+    // A fresh module graph of its own, not one left by the order of the tests.
+    vi.resetModules()
     const { i18n } = await import('./i18n')
     expect(i18n.language).toBe('en')
     expect(i18n.t('layout.nav.runs')).toBe('Runs')

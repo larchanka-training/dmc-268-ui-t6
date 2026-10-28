@@ -1,7 +1,21 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 
 import { formatDateTime, formatDuration, formatNumber } from './format'
 import { i18n } from './i18n'
+
+// A runner in UTC (CI) would pass the "in UTC" tests with no `timeZone` at all: the file runs in a
+// zone far from it, so a lost `timeZone: 'UTC'` shows up as another hour.
+const runnerZone = process.env.TZ
+beforeAll(() => {
+  process.env.TZ = 'Asia/Tokyo'
+})
+afterAll(() => {
+  if (runnerZone === undefined) {
+    delete process.env.TZ
+  } else {
+    process.env.TZ = runnerZone
+  }
+})
 
 afterEach(() => {
   void i18n.changeLanguage('ru')
@@ -24,6 +38,15 @@ describe('formatting by language', () => {
     expect(formatDuration(400)).toBe('<1 sec')
     expect(formatDuration(19_000)).toBe('19 sec')
     expect(formatDuration(125_000)).toBe('2 min 5 sec')
+  })
+
+  it('turns to whole seconds at one second and to minutes at one minute', () => {
+    void i18n.changeLanguage('en')
+    expect(formatDuration(999)).toBe('<1 sec')
+    expect(formatDuration(1000)).toBe('1 sec')
+    expect(formatDuration(1999.5)).toBe('1 sec')
+    expect(formatDuration(59_999)).toBe('59 sec')
+    expect(formatDuration(60_000)).toBe('1 min 0 sec')
   })
 
   it('writes durations with Russian units', () => {

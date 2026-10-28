@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { mockRunsListPage } from '../../app/mocks/mockRunsList.fixture'
 import type { RunListPage, RunSession } from '../../entities/run'
+import { i18n } from '../../shared/i18n'
 import { RunsPage } from './RunsPage'
 
 const API_REPO = 'larchanka-training/dmc-268-api-t6'
@@ -102,6 +103,19 @@ describe('RunsPage', () => {
     })
 
     expect(await screen.findByText('feat: frontend architecture skeleton')).toBeTruthy()
+  })
+
+  it('has no Russian text left when the interface is in English', async () => {
+    stubFetch(() => mockRunsListPage)
+    await i18n.changeLanguage('en')
+    try {
+      renderPage()
+      expect(await screen.findByRole('heading', { name: 'Runs' })).toBeTruthy()
+      expect(await screen.findByText('feat: frontend architecture skeleton')).toBeTruthy()
+      expect(document.body.textContent).not.toMatch(/[\u0400-\u04FF]/)
+    } finally {
+      await i18n.changeLanguage('ru')
+    }
   })
 
   it('navigates to /runs/{id} when a table row is clicked', async () => {
