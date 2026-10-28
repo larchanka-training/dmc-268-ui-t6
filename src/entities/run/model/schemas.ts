@@ -51,6 +51,14 @@ export const PullRequestRefSchema = z.object({
 })
 export type PullRequestRef = z.infer<typeof PullRequestRefSchema>
 
+/** Spending of a run across attempts. Absent on today's API; never null once present. */
+export const RunUsageSchema = z.object({
+  tokensIn: z.int().nonnegative(),
+  tokensOut: z.int().nonnegative(),
+  costUsd: z.number().nonnegative(),
+})
+export type RunUsage = z.infer<typeof RunUsageSchema>
+
 export const RunSessionSchema = z
   .object({
     id: z.uuid(),
@@ -68,6 +76,10 @@ export const RunSessionSchema = z
     pullRequest: PullRequestRefSchema,
     actionCount: z.int().nonnegative(),
     errorCode: z.string().nullable(),
+    // Optional until api#310 is on staging. `usage` is an object, never null; `triggeredBy` is a
+    // login or null, never an object.
+    usage: RunUsageSchema.optional(),
+    triggeredBy: z.string().nullable().optional(),
   })
   .superRefine((value, ctx) => {
     if (value.provider !== value.pullRequest.provider) {

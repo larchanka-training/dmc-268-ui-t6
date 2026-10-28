@@ -36,6 +36,10 @@
   font-size: inherit;
 }
 
+.limitReason {
+  margin-top: 16px;
+}
+
 @media (width >= 576px) {
   .metadata {
     grid-template-columns: repeat(2, minmax(0, 1fr));

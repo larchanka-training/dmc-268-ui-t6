@@ -279,4 +279,32 @@ describe('AppSidebar tooltips', () => {
       expect(document.querySelector('.ant-tooltip')?.textContent).toBe('Прогоны')
     })
   })
+
+  it('highlights Audit on /audit and not on /runs', () => {
+    vi.mocked(isMockMode).mockReturnValue(false)
+    const { unmount } = renderWithQuery(<AppSidebar currentPath="/audit" onNavigate={vi.fn()} />)
+    const nav = screen.getByRole('navigation', { name: 'Разделы' })
+    expect(within(nav).getByText('Аудит').getAttribute('aria-current')).toBe('page')
+    expect(within(nav).getByText('Прогоны').hasAttribute('aria-current')).toBe(false)
+    const link = screen.getByRole('link', { name: 'Аудит' })
+    expect(link.getAttribute('href')).toBe('/audit')
+    link.focus()
+    expect(document.activeElement).toBe(link)
+    unmount()
+
+    renderWithQuery(<AppSidebar currentPath="/runs" onNavigate={vi.fn()} />)
+    const runsNav = screen.getByRole('navigation', { name: 'Разделы' })
+    expect(within(runsNav).getByText('Аудит').hasAttribute('aria-current')).toBe(false)
+    expect(within(runsNav).getByText('Прогоны').getAttribute('aria-current')).toBe('page')
+  })
+
+  it('highlights Analytics only on /analytics', () => {
+    vi.mocked(isMockMode).mockReturnValue(false)
+    renderWithQuery(<AppSidebar currentPath="/analytics" onNavigate={vi.fn()} />)
+    const nav = screen.getByRole('navigation', { name: 'Разделы' })
+    expect(within(nav).getByText('Аналитика').getAttribute('aria-current')).toBe('page')
+    expect(within(nav).getByText('Аудит').hasAttribute('aria-current')).toBe(false)
+    expect(within(nav).getByText('Прогоны').hasAttribute('aria-current')).toBe(false)
+    expect(screen.getByRole('link', { name: 'Аналитика' }).getAttribute('href')).toBe('/analytics')
+  })
 })

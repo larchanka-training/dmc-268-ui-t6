@@ -123,6 +123,8 @@ export const mockRunSessions: RunSession[] = [
     },
     actionCount: 34,
     errorCode: null,
+    triggeredBy: 'octocat',
+    usage: { tokensIn: 1200, tokensOut: 340, costUsd: 1.25 },
   },
   {
     provider: 'github',
@@ -171,6 +173,8 @@ export const mockRunSessions: RunSession[] = [
     },
     actionCount: 5,
     errorCode: null,
+    triggeredBy: null,
+    usage: { tokensIn: 0, tokensOut: 0, costUsd: 0 },
   },
   {
     provider: 'github',

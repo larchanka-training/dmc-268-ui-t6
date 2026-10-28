@@ -1,0 +1,24 @@
+.chart {
+  width: 100%;
+  height: auto;
+}
+
+.security {
+  fill: var(--rv-critical);
+}
+
+.correctness {
+  fill: var(--rv-high);
+}
+
+.performance {
+  fill: var(--rv-warning);
+}
+
+.readability {
+  fill: var(--rv-link);
+}
+
+.axis {
+  stroke: var(--rv-border-strong);
+}

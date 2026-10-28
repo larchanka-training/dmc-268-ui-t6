@@ -1,3 +1,5 @@
+import { analytics } from './analytics'
+import { audit } from './audit'
 import { auth } from './auth'
 import { bitbucket } from './bitbucket'
 import { common } from './common'
@@ -14,6 +16,8 @@ export const en = {
   auth,
   bitbucket,
   layout,
+  analytics,
+  audit,
   repositories,
   settings,
   rules,

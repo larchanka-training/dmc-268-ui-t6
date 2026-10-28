@@ -1,0 +1,44 @@
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+  margin: 0 0 16px;
+}
+
+.tile {
+  margin: 0;
+}
+
+.tile dt {
+  margin: 0;
+  color: var(--rv-text-2);
+}
+
+.tile dd {
+  margin: 4px 0 0;
+}
+
+.charts {
+  display: grid;
+  gap: 16px;
+}
+
+.numbers {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 16px;
+}
+
+.numbers th,
+.numbers td {
+  padding: 8px;
+  text-align: left;
+}

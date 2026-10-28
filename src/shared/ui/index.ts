@@ -6,7 +6,15 @@ export { CodeBlock } from './CodeBlock/CodeBlock'
 export type { CodeBlockProps } from './CodeBlock/CodeBlock'
 export { DataTable } from './DataTable/DataTable'
 export type { DataTableProps } from './DataTable/DataTable'
-export { IconRepositories, IconReview, IconRuns, IconSettings, IconSidebar } from './icons/icons'
+export {
+  IconAnalytics,
+  IconAudit,
+  IconRepositories,
+  IconReview,
+  IconRuns,
+  IconSettings,
+  IconSidebar,
+} from './icons/icons'
 export { cx } from './lib/cx'
 export { useDisabledButtonClass } from './lib/useDisabledButtonClass'
 export { Logo } from './Logo/Logo'

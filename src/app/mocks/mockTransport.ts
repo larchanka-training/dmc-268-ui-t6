@@ -37,6 +37,7 @@ import {
   MOCK_NOW,
 } from './app-state'
 import { mockRulesStatuses } from './mockRulesStatus'
+import { mockMetricsSummary } from './mockMetrics'
 import { mockRunsListPage } from './mockRunsList.fixture'
 import { buildMockRunDetail, mockRawDiffForRun, REVIEW_DEMO_RUN_ID } from './mockRunReview'
 import {
@@ -205,7 +206,7 @@ function listMockRuns(search: string): RunListPage {
       field === 'cursor' || field === 'limit' || field === 'status' ? field : 'repo',
     )
   }
-  const { repo, cursor, limit = MOCK_RUN_LIST_DEFAULT_LIMIT } = parsed.data
+  const { repo, status, cursor, limit = MOCK_RUN_LIST_DEFAULT_LIMIT } = parsed.data
   let offset = 0
   if (cursor !== undefined) {
     const match = MOCK_RUN_CURSOR.exec(cursor)
@@ -215,9 +216,13 @@ function listMockRuns(search: string): RunListPage {
     offset = Number(match[1])
   }
 
-  const matching = runSessions.filter(
-    (item) => repo === undefined || item.pullRequest.repo === repo,
-  )
+  const matching = runSessions.filter((item) => {
+    if (repo !== undefined && item.pullRequest.repo !== repo) {
+      return false
+    }
+    const statusOf = item.id === WALKING_RUN_ID ? currentWalkingRun().session.status : item.status
+    return status === undefined || statusOf === status
+  })
   const end = offset + limit
   return {
     items: matching.slice(offset, end).map((item) => {
@@ -514,6 +519,10 @@ function handleMockTransport(
   }
   if (pathname === '/runs' && endpoint.method === 'GET') {
     return listMockRuns(queryStart === -1 ? '' : endpoint.path.slice(queryStart + 1))
+  }
+
+  if (pathname === '/metrics/summary' && endpoint.method === 'GET') {
+    return mockMetricsSummary(queryStart === -1 ? '' : endpoint.path.slice(queryStart + 1))
   }
 
   // Before the repository itself: `/repos/{id}/rules-status` must not be read as an id.
