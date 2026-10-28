@@ -180,7 +180,7 @@ export const mockRunSessions: RunSession[] = [
       headSha: 'ffff7777ffff7777ffff7777ffff7777ffff7777',
     },
     actionCount: 1,
-    errorCode: 'no_reviewable_changes',
+    errorCode: 'no_changes',
   },
 ]
 
