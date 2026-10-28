@@ -78,7 +78,7 @@ export const runs = {
     stale: 'no response > 10 min',
     dropped_one: '{{count}} finding not shown: it failed the format check',
     dropped_other: '{{count}} findings not shown: they failed the format check',
-    summaryOnly: 'Summary-only run (diff > 3000 lines)',
+    summaryOnly: 'Summary-only run (diff > 3,000 lines)',
   },
   diff: {
     noDiff: 'No diff',
