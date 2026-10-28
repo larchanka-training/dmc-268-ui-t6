@@ -122,6 +122,33 @@ describe('RepositoryList', () => {
       screen.getByRole('link', { name: 'private-space/private-repo' }).getAttribute('href'),
     ).toBe('https://bitbucket.org/private-space/private-repo')
   })
+
+  it('names inaccessible Bitbucket settings without mentioning a GitHub App', () => {
+    const first = mockRepos[0]
+    if (!first) throw new Error('missing repository fixture')
+    const bitbucket: Repository = {
+      ...first,
+      id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      provider: 'bitbucket',
+      fullName: 'private-space/private-repo',
+      url: 'https://bitbucket.org/private-space/private-repo',
+      installationAvailable: false,
+    }
+    render(
+      <RepositoryList
+        settingsHref={settingsHref}
+        onSyncAccess={vi.fn()}
+        repositories={[bitbucket]}
+      />,
+    )
+    expect(
+      screen.getByRole('link', {
+        name: 'Нет доступа к Bitbucket для private-space/private-repo: открыть настройки',
+      }),
+    ).toBeTruthy()
+    expect(screen.queryByRole('link', { name: /GitHub App к private-space/i })).toBeNull()
+  })
+
   it('names the settings column for table navigation', () => {
     render(
       <RepositoryList

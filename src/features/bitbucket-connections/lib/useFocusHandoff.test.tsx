@@ -7,8 +7,15 @@ import { useFocusHandoff } from './useFocusHandoff'
 
 afterEach(cleanup)
 
-function FocusHarness() {
+function FocusHarness({
+  targetMode = 'enabled',
+  moveFocus = false,
+}: {
+  targetMode?: 'enabled' | 'missing' | 'disabled'
+  moveFocus?: boolean
+}) {
   const epoch = useRef(0)
+  const otherRef = useRef<HTMLButtonElement | null>(null)
   const [originVisible, setOriginVisible] = useState(true)
   const { workspaceInputRef, requestFocus, trackConnectAction, trackBindingAction } =
     useFocusHandoff({ busy: false, epoch, latestSetupId: null })
@@ -23,18 +30,23 @@ function FocusHarness() {
               remoteRepositoryUuid: 'remote-uuid',
             })
             setOriginVisible(false)
+            if (moveFocus) otherRef.current?.focus()
           }}
         >
           Open repository
         </button>
       ) : null}
-      <button
-        ref={(node) => {
-          trackConnectAction('remote-uuid', node)
-        }}
-      >
-        Connect target
-      </button>
+      {targetMode !== 'missing' ? (
+        <button
+          disabled={targetMode === 'disabled'}
+          ref={(node) => {
+            trackConnectAction('remote-uuid', node)
+          }}
+        >
+          Connect target
+        </button>
+      ) : null}
+      <button ref={otherRef}>Other control</button>
       <button
         onClick={(event) => {
           requestFocus(0, event.currentTarget, {
@@ -72,5 +84,28 @@ describe('useFocusHandoff', () => {
     await waitFor(() => {
       expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Hook target' }))
     })
+  })
+
+  it.each(['missing', 'disabled'] as const)(
+    'falls back to the workspace input when the %s target cannot receive focus',
+    async (targetMode) => {
+      render(<FocusHarness targetMode={targetMode} />)
+      const open = screen.getByRole('button', { name: 'Open repository' })
+      open.focus()
+      fireEvent.click(open)
+      await waitFor(() => {
+        expect(document.activeElement).toBe(
+          screen.getByRole('textbox', { name: 'Workspace fallback' }),
+        )
+      })
+    },
+  )
+
+  it('does not steal focus when the user moves to another control', () => {
+    render(<FocusHarness moveFocus />)
+    const open = screen.getByRole('button', { name: 'Open repository' })
+    open.focus()
+    fireEvent.click(open)
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Other control' }))
   })
 })

@@ -49,6 +49,35 @@ function renderPanel(availableWorkspaces: Workspace[] = workspaces) {
 }
 
 describe('Bitbucket connections panel', () => {
+  it('disables discovery and credential rotation for whitespace-only tokens', async () => {
+    const requests: string[] = []
+    setMockTransport((endpoint) => {
+      requests.push(endpoint.path)
+      return { connections: [firstConnection], nextCursor: null }
+    })
+    renderPanel()
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: /portal workspace/i }))
+    fireEvent.click(screen.getByText('First team'))
+    expect(await screen.findByText('private-space/first-repo')).toBeTruthy()
+
+    fireEvent.change(screen.getByRole('textbox', { name: /bitbucket workspace/i }), {
+      target: { value: 'private-space' },
+    })
+    fireEvent.change(screen.getByLabelText('API token'), { target: { value: '   ' } })
+    expect(screen.getByRole('button', { name: 'Найти репозитории' }).hasAttribute('disabled')).toBe(
+      true,
+    )
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Обновить API token для private-space/first-repo' }),
+    )
+    fireEvent.change(screen.getByLabelText('Новый API token'), { target: { value: '   ' } })
+    expect(
+      screen.getByRole('button', { name: 'Подтвердить обновление token' }).hasAttribute('disabled'),
+    ).toBe(true)
+    expect(requests).toEqual([`/workspaces/${FIRST}/bitbucket/connections`])
+  })
+
   it('labels active and awaiting webhook bindings separately', async () => {
     setMockTransport(() => ({
       connections: [
@@ -138,9 +167,11 @@ describe('Bitbucket connections panel', () => {
     let finishRotation: ((value: unknown) => void) | undefined
     let generation = 1
     const paths: string[] = []
-    setMockTransport((endpoint) => {
+    const rotationBodies: unknown[] = []
+    setMockTransport((endpoint, options) => {
       paths.push(endpoint.path)
       if (endpoint.method === 'PUT') {
+        rotationBodies.push(options.body)
         return new Promise((resolve) => {
           finishRotation = (value) => {
             generation = 2
@@ -174,12 +205,13 @@ describe('Bitbucket connections panel', () => {
       screen.getByRole('button', { name: /обновить api token.*private-space\/first-repo/i }),
     )
     fireEvent.change(screen.getByLabelText('Новый API token'), {
-      target: { value: 'replacement-token' },
+      target: { value: ' replacement-token ' },
     })
     fireEvent.click(screen.getByRole('button', { name: /подтвердить обновление token/i }))
     await waitFor(() => {
       expect(finishRotation).toBeDefined()
     })
+    expect(rotationBodies).toEqual([{ apiToken: 'replacement-token' }])
     fireEvent.mouseDown(screen.getByRole('combobox', { name: /portal workspace/i }))
     fireEvent.click(screen.getByText('Second team'))
     await act(async () => {
@@ -201,6 +233,35 @@ describe('Bitbucket connections panel', () => {
       }>(['bitbucketConnections', FIRST])
       expect(connectionPage?.connections.map((item) => item.credentialGeneration)).toEqual([2, 2])
     })
+  })
+
+  it('explains an invalid replacement token before credential rotation reaches transport', async () => {
+    const rotations = vi.fn()
+    setMockTransport((endpoint) => {
+      if (endpoint.method === 'PUT') rotations()
+      return { connections: [firstConnection], nextCursor: null }
+    })
+    renderPanel()
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: /portal workspace/i }))
+    fireEvent.click(screen.getByText('First team'))
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Обновить API token для private-space/first-repo',
+      }),
+    )
+    fireEvent.change(screen.getByLabelText('Новый API token'), {
+      target: { value: 'bad token' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить обновление token' }))
+
+    expect(
+      await screen.findByText(
+        'API token Bitbucket содержит недопустимые символы или слишком длинный.',
+      ),
+    ).toBeTruthy()
+    expect(rotations).not.toHaveBeenCalled()
+    expect(screen.queryByText(/неожиданный формат ответа сервера/i)).toBeNull()
+    expect(document.body.textContent).not.toContain('bad token')
   })
 
   it('rotates only the named repository hook and keeps the other workspace secret hidden after switch', async () => {
@@ -482,7 +543,7 @@ describe('Bitbucket connections panel', () => {
     fireEvent.change(screen.getByRole('textbox', { name: /bitbucket workspace/i }), {
       target: { value: '  private-space  ' },
     })
-    fireEvent.change(screen.getByLabelText(/api token/i), { target: { value: 'first-token' } })
+    fireEvent.change(screen.getByLabelText(/api token/i), { target: { value: ' first-token ' } })
     fireEvent.click(screen.getByRole('button', { name: /найти репозитории/i }))
     expect(await screen.findByText(/first-repo.*приватный/i)).toBeTruthy()
 
@@ -561,6 +622,119 @@ describe('Bitbucket connections panel', () => {
     expect(screen.queryByRole('button', { name: /показать ещё/i })).toBeNull()
   })
 
+  it.each([
+    ['final', null],
+    ['intermediate', 'third-page'],
+  ])(
+    'hands focus to the new repository after a delayed %s page disables the pager',
+    async (_, nextCursor) => {
+      let page = 0
+      let finishPage: ((value: unknown) => void) | undefined
+      setMockTransport((endpoint) => {
+        if (!endpoint.path.endsWith('/discovery')) return { connections: [], nextCursor: null }
+        page += 1
+        if (page === 1) {
+          return {
+            repositories: [],
+            nextCursor: 'next-page',
+          }
+        }
+        return new Promise((resolve) => {
+          finishPage = resolve
+        })
+      })
+      renderPanel()
+      fireEvent.mouseDown(screen.getByRole('combobox', { name: /portal workspace/i }))
+      fireEvent.click(screen.getByText('First team'))
+      fireEvent.change(screen.getByRole('textbox', { name: /bitbucket workspace/i }), {
+        target: { value: 'private-space' },
+      })
+      fireEvent.change(screen.getByLabelText('API token'), { target: { value: 'temporary-token' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Найти репозитории' }))
+      const pager = await screen.findByRole('button', { name: 'Показать ещё' })
+      pager.focus()
+      fireEvent.click(pager)
+      await waitFor(() => {
+        expect(pager.hasAttribute('disabled')).toBe(true)
+      })
+      const workspaceInput = screen.getByRole('textbox', { name: 'Bitbucket workspace' })
+      workspaceInput.focus()
+      workspaceInput.blur()
+      expect(document.activeElement).toBe(document.body)
+      await act(async () => {
+        finishPage?.({
+          repositories: [
+            {
+              uuid: REMOTE,
+              workspaceSlug: 'private-space',
+              slug: 'private-repo',
+              name: 'Private repo',
+              isPrivate: true,
+              htmlUrl: 'https://bitbucket.org/private-space/private-repo',
+            },
+          ],
+          nextCursor,
+        })
+        await Promise.resolve()
+      })
+      await waitFor(() => {
+        expect(document.activeElement).toBe(
+          screen.getByRole('button', { name: 'Подключить private-repo' }),
+        )
+      })
+    },
+  )
+
+  it('hands focus from a delayed initial discovery to the first connect action', async () => {
+    let finishDiscovery: ((value: unknown) => void) | undefined
+    setMockTransport((endpoint) => {
+      if (endpoint.path.endsWith('/discovery')) {
+        return new Promise((resolve) => {
+          finishDiscovery = resolve
+        })
+      }
+      return { connections: [], nextCursor: null }
+    })
+    renderPanel()
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: /portal workspace/i }))
+    fireEvent.click(screen.getByText('First team'))
+    fireEvent.change(screen.getByRole('textbox', { name: /bitbucket workspace/i }), {
+      target: { value: 'private-space' },
+    })
+    fireEvent.change(screen.getByLabelText('API token'), { target: { value: 'valid-token' } })
+    const discover = screen.getByRole('button', { name: 'Найти репозитории' })
+    discover.focus()
+    fireEvent.click(discover)
+    await waitFor(() => {
+      expect(discover.hasAttribute('disabled')).toBe(true)
+    })
+    const workspaceInput = screen.getByRole('textbox', { name: 'Bitbucket workspace' })
+    workspaceInput.focus()
+    workspaceInput.blur()
+    expect(document.activeElement).toBe(document.body)
+    await act(async () => {
+      finishDiscovery?.({
+        repositories: [
+          {
+            uuid: REMOTE,
+            workspaceSlug: 'private-space',
+            slug: 'private-repo',
+            name: 'Private repo',
+            isPrivate: true,
+            htmlUrl: 'https://bitbucket.org/private-space/private-repo',
+          },
+        ],
+        nextCursor: null,
+      })
+      await Promise.resolve()
+    })
+    await waitFor(() => {
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: 'Подключить private-repo' }),
+      )
+    })
+  })
+
   it('shows a safe message for a connection-list failure', async () => {
     setMockTransport(() => {
       throw new ApiError(422, 'Unprocessable Entity', { detail: 'private-backend-stack' })
@@ -595,6 +769,60 @@ describe('Bitbucket connections panel', () => {
     ).toBeTruthy()
     expect(discovery).not.toHaveBeenCalled()
     expect(screen.queryByText(/неожиданный формат ответа сервера/i)).toBeNull()
+  })
+
+  it('accepts a Bitbucket workspace at the exact 128-character boundary', async () => {
+    const workspace = 'w'.repeat(128)
+    const discoveryBodies: unknown[] = []
+    setMockTransport((endpoint, options) => {
+      if (endpoint.path.endsWith('/discovery')) {
+        discoveryBodies.push(options.body)
+        return { repositories: [], nextCursor: null }
+      }
+      return { connections: [], nextCursor: null }
+    })
+    renderPanel()
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: /portal workspace/i }))
+    fireEvent.click(screen.getByText('First team'))
+    fireEvent.change(screen.getByRole('textbox', { name: /bitbucket workspace/i }), {
+      target: { value: workspace },
+    })
+    fireEvent.change(screen.getByLabelText('API token'), { target: { value: 'valid-token' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Найти репозитории' }))
+
+    await waitFor(() => {
+      expect(discoveryBodies).toEqual([{ bitbucketWorkspace: workspace, apiToken: 'valid-token' }])
+    })
+    expect(screen.queryByText(/длиннее 128 символов/i)).toBeNull()
+  })
+
+  it.each([
+    ['embedded whitespace', 'bad token'],
+    ['non-ASCII', 'tökén'],
+    ['overlong', 'x'.repeat(4097)],
+  ])('explains an invalid %s API token before discovery reaches transport', async (_, token) => {
+    const discovery = vi.fn()
+    setMockTransport((endpoint) => {
+      if (endpoint.path.endsWith('/discovery')) discovery()
+      return { connections: [], nextCursor: null }
+    })
+    renderPanel()
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: /portal workspace/i }))
+    fireEvent.click(screen.getByText('First team'))
+    fireEvent.change(screen.getByRole('textbox', { name: /bitbucket workspace/i }), {
+      target: { value: 'private-space' },
+    })
+    fireEvent.change(screen.getByLabelText('API token'), { target: { value: token } })
+    fireEvent.click(screen.getByRole('button', { name: 'Найти репозитории' }))
+
+    expect(
+      await screen.findByText(
+        'API token Bitbucket содержит недопустимые символы или слишком длинный.',
+      ),
+    ).toBeTruthy()
+    expect(discovery).not.toHaveBeenCalled()
+    expect(screen.queryByText(/неожиданный формат ответа сервера/i)).toBeNull()
+    expect(document.body.textContent).not.toContain(token)
   })
 
   it('keeps a distinct response-format message for malformed discovery JSON', async () => {
@@ -658,7 +886,8 @@ describe('Bitbucket connections panel', () => {
     expect(screen.queryByText(/неожиданный формат ответа сервера/i)).toBeNull()
   })
 
-  it('keeps the response-format message when connect returns malformed JSON', async () => {
+  it('explains an invalid token before connecting a discovered repository', async () => {
+    const connectCalls = vi.fn()
     setMockTransport((endpoint) => {
       if (endpoint.path.endsWith('/discovery')) {
         return {
@@ -675,7 +904,51 @@ describe('Bitbucket connections panel', () => {
           nextCursor: null,
         }
       }
+      if (endpoint.method === 'POST' && endpoint.path.endsWith('/connections')) connectCalls()
+      return { connections: [], nextCursor: null }
+    })
+    renderPanel()
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: /portal workspace/i }))
+    fireEvent.click(screen.getByText('First team'))
+    fireEvent.change(screen.getByRole('textbox', { name: /bitbucket workspace/i }), {
+      target: { value: 'private-space' },
+    })
+    fireEvent.change(screen.getByLabelText('API token'), { target: { value: 'valid-token' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Найти репозитории' }))
+    const connect = await screen.findByRole('button', { name: 'Подключить private-repo' })
+    fireEvent.change(screen.getByLabelText('API token'), { target: { value: 'bad token' } })
+    fireEvent.click(connect)
+
+    expect(
+      await screen.findByText(
+        'API token Bitbucket содержит недопустимые символы или слишком длинный.',
+      ),
+    ).toBeTruthy()
+    expect(connectCalls).not.toHaveBeenCalled()
+    expect(screen.queryByText(/неожиданный формат ответа сервера/i)).toBeNull()
+    expect(document.body.textContent).not.toContain('bad token')
+  })
+
+  it('keeps the response-format message when connect returns malformed JSON', async () => {
+    const connectBodies: unknown[] = []
+    setMockTransport((endpoint, options) => {
+      if (endpoint.path.endsWith('/discovery')) {
+        return {
+          repositories: [
+            {
+              uuid: REMOTE,
+              workspaceSlug: 'private-space',
+              slug: 'private-repo',
+              name: 'Private repo',
+              isPrivate: true,
+              htmlUrl: 'https://bitbucket.org/private-space/private-repo',
+            },
+          ],
+          nextCursor: null,
+        }
+      }
       if (endpoint.method === 'POST' && endpoint.path.endsWith('/connections')) {
+        connectBodies.push(options.body)
         return { id: 'malformed-provider-id' }
       }
       return { connections: [], nextCursor: null }
@@ -686,7 +959,7 @@ describe('Bitbucket connections panel', () => {
     fireEvent.change(screen.getByRole('textbox', { name: /bitbucket workspace/i }), {
       target: { value: 'private-space' },
     })
-    fireEvent.change(screen.getByLabelText('API token'), { target: { value: 'temporary-token' } })
+    fireEvent.change(screen.getByLabelText('API token'), { target: { value: ' temporary-token ' } })
     fireEvent.click(screen.getByRole('button', { name: /найти репозитории/i }))
     fireEvent.click(await screen.findByRole('button', { name: 'Подключить private-repo' }))
 
@@ -696,6 +969,14 @@ describe('Bitbucket connections panel', () => {
       ),
     ).toBeTruthy()
     expect(screen.queryByText(/введите api token bitbucket/i)).toBeNull()
+    expect(connectBodies).toEqual([
+      {
+        bitbucketWorkspace: 'private-space',
+        repositorySlug: 'private-repo',
+        repositoryUuid: REMOTE,
+        apiToken: 'temporary-token',
+      },
+    ])
   })
 
   it('shows the API repository-inaccessible message for a bad Bitbucket token', async () => {
