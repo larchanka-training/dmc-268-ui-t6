@@ -120,8 +120,8 @@ describe('AppSidebar review navigation', () => {
       ['Светлая', 'true'],
       ['Тёмная', 'false'],
       // The language group follows the theme group; the suite runs in Russian.
-      ['EN', 'false'],
-      ['RU', 'true'],
+      ['English', 'false'],
+      ['Русский', 'true'],
     ])
   })
 
@@ -189,13 +189,13 @@ describe('AppSidebar review navigation', () => {
 })
 
 describe('AppSidebar language switch', () => {
-  it('names the language group and its options in English whatever the current language', async () => {
+  it('names the group in English and each option in its own language, whatever the current one', async () => {
     vi.mocked(isMockMode).mockReturnValue(false)
     renderWithQuery(<AppSidebar currentPath="/runs" onNavigate={vi.fn()} />)
     fireEvent.click(screen.getByLabelText('Меню пользователя'))
     expect(await screen.findByText('Language')).toBeTruthy()
-    expect(screen.getByRole('menuitemradio', { name: 'EN' })).toBeTruthy()
-    expect(screen.getByRole('menuitemradio', { name: 'RU' })).toBeTruthy()
+    expect(screen.getByRole('menuitemradio', { name: 'English' })).toBeTruthy()
+    expect(screen.getByRole('menuitemradio', { name: 'Русский' })).toBeTruthy()
   })
 
   it('switches the interface to English at once and remembers the choice', async () => {
@@ -204,7 +204,7 @@ describe('AppSidebar language switch', () => {
     renderWithQuery(<AppSidebar currentPath="/runs" onNavigate={vi.fn()} />)
     expect(screen.getByText('Прогоны')).toBeTruthy()
     fireEvent.click(screen.getByLabelText('Меню пользователя'))
-    fireEvent.click(await screen.findByRole('menuitemradio', { name: 'EN' }))
+    fireEvent.click(await screen.findByRole('menuitemradio', { name: 'English' }))
     expect(i18n.language).toBe('en')
     expect(localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe('en')
     // No reload: the sidebar is already in English.
@@ -213,17 +213,17 @@ describe('AppSidebar language switch', () => {
     expect(screen.queryByText('Прогоны')).toBeNull()
     fireEvent.click(screen.getByLabelText('User menu'))
     expect(
-      (await screen.findByRole('menuitemradio', { name: 'EN' })).getAttribute('aria-checked'),
+      (await screen.findByRole('menuitemradio', { name: 'English' })).getAttribute('aria-checked'),
     ).toBe('true')
-    expect(screen.getByRole('menuitemradio', { name: 'RU' }).getAttribute('aria-checked')).toBe(
-      'false',
-    )
+    expect(
+      screen.getByRole('menuitemradio', { name: 'Русский' }).getAttribute('aria-checked'),
+    ).toBe('false')
     expect(screen.getByText('Theme')).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Documentation' })).toBeTruthy()
 
     // And back to Russian from the same menu. The storage key is spelled out: renaming it would
     // silently drop the choice users already saved.
-    fireEvent.click(screen.getByRole('menuitemradio', { name: 'RU' }))
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Русский' }))
     expect(i18n.language).toBe('ru')
     expect(localStorage.getItem('dmc_language')).toBe('ru')
     expect(await screen.findByText('Прогоны')).toBeTruthy()

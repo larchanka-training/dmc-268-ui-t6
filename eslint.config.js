@@ -139,6 +139,8 @@ export default tseslint.config(
       'src/features/auth/mocks/demoLoginTexts.ts',
       'src/test/**',
       'src/shared/i18n/locales/ru/**',
+      // The self-names of the languages, «Русский» among them.
+      'src/shared/i18n/languageNames.ts',
     ],
     rules: {
       'no-restricted-syntax': [

@@ -13,3 +13,4 @@ export {
   toLanguage,
 } from './language'
 export type { Language } from './language'
+export { LANGUAGE_NAMES } from './languageNames'
