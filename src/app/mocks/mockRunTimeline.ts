@@ -134,6 +134,8 @@ export function walkingRunAt(
     },
     actionCount: actions.length,
     errorCode: null,
+    triggeredBy: null,
+    usage: { tokensIn: 0, tokensOut: 0, costUsd: 0 },
   }
   return { session, actions }
 }
@@ -184,6 +186,8 @@ export const mockFailedRun: RunSession = {
   },
   actionCount: 5,
   errorCode: 'llm_timeout',
+  triggeredBy: null,
+  usage: { tokensIn: 0, tokensOut: 0, costUsd: 0 },
 }
 
 /** A failed step is recorded as `response = { error: { type, message } }` (api run_trace). */

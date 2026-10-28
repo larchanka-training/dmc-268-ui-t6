@@ -6,6 +6,9 @@ export type MetricsRange = z.infer<typeof MetricsRangeSchema>
 const CountSchema = z.int().nonnegative()
 
 const RunsByStatusSchema = z.object({
+  queued: CountSchema,
+  running: CountSchema,
+  publishing: CountSchema,
   succeeded: CountSchema,
   failed: CountSchema,
   cancelled: CountSchema,
@@ -34,11 +37,22 @@ const FindingsByCategorySchema = z.object({
   readability: CountSchema,
 })
 
-const SeriesPointSchema = z.object({
+const MetricsTotalsSchema = z.object({
+  runsByStatus: RunsByStatusSchema,
+  pullsByVerdict: PullsByVerdictSchema,
+  findingsBySeverity: FindingsBySeveritySchema,
+  findingsByCategory: FindingsByCategorySchema,
+  succeededAverageDurationSeconds: z.number().nonnegative(),
+  tokensIn: CountSchema,
+  tokensOut: CountSchema,
+  costUsd: z.number().nonnegative(),
+})
+
+const MetricsDaySchema = z.object({
   day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  findings: FindingsByCategorySchema,
+  findingsByCategory: FindingsByCategorySchema,
   runCount: CountSchema,
-  averageDurationMs: z.number().nonnegative(),
+  averageDurationSeconds: z.number().nonnegative(),
   costUsd: z.number().nonnegative(),
 })
 
@@ -49,18 +63,11 @@ const WorkspaceBudgetSchema = z.object({
   paused: z.boolean(),
 })
 
-/** Proposed summary for api#310 part 3. Names are a proposal until that part leaves `planned`. */
+/** `GET /api/metrics/summary` as in api#310. Closed objects; unknown keys are stripped. */
 export const MetricsSummarySchema = z.object({
   range: MetricsRangeSchema,
-  runsByStatus: RunsByStatusSchema,
-  pullsByVerdict: PullsByVerdictSchema,
-  findingsBySeverity: FindingsBySeveritySchema,
-  findingsByCategory: FindingsByCategorySchema,
-  averageDurationMs: z.number().nonnegative().nullable(),
-  tokensIn: CountSchema,
-  tokensOut: CountSchema,
-  costUsd: z.number().nonnegative(),
-  series: z.array(SeriesPointSchema),
+  totals: MetricsTotalsSchema,
+  series: z.array(MetricsDaySchema),
   workspaces: z.array(WorkspaceBudgetSchema),
 })
 export type MetricsSummary = z.infer<typeof MetricsSummarySchema>

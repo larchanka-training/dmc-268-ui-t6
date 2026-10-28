@@ -104,6 +104,8 @@ describe('run api actions', () => {
       },
       actionCount: 0,
       errorCode: null,
+      triggeredBy: null,
+      usage: { tokensIn: 0, tokensOut: 0, costUsd: 0 },
     })
     const session = await rerunRun('11111111-1111-4111-8111-000000000004')
     expect(session.status).toBe('queued')

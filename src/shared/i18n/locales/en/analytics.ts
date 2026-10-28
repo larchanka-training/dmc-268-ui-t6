@@ -40,7 +40,7 @@ export const analytics = {
   durationByDay: 'Average duration by day',
   dailyNumbers: 'Numbers by day',
   day: 'Day',
-  durationMs: 'Duration, ms',
+  durationSeconds: 'Duration, s',
   budgetTitle: 'Budget today',
   spent: 'Spent today, UTC',
   limit: 'Daily limit',

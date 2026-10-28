@@ -51,6 +51,8 @@ function session(overrides: Partial<RunSession> = {}): RunSession {
     },
     actionCount: 1,
     errorCode: 'budget_exceeded',
+    triggeredBy: null,
+    usage: { tokensIn: 0, tokensOut: 0, costUsd: 0 },
     ...overrides,
   }
 }

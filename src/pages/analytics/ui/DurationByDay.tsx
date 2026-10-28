@@ -4,7 +4,7 @@ import styles from './DurationByDay.module.css'
 
 interface DayDuration {
   day: string
-  averageDurationMs: number
+  averageDurationSeconds: number
 }
 
 export function DurationByDay(props: {
@@ -16,11 +16,11 @@ export function DurationByDay(props: {
   const height = 200
   const padBottom = 4
   const innerHeight = height - padBottom
-  const max = Math.max(1, ...series.map((point) => point.averageDurationMs))
+  const max = Math.max(1, ...series.map((point) => point.averageDurationSeconds))
   const slot = width / Math.max(series.length, 1)
   const points = series.map((point, index) => {
     const x = index * slot + slot / 2
-    const y = innerHeight - (point.averageDurationMs / max) * innerHeight
+    const y = innerHeight - (point.averageDurationSeconds / max) * innerHeight
     return { ...point, x, y }
   })
   const line = points.map((point) => `${String(point.x)},${String(point.y)}`).join(' ')
@@ -52,7 +52,7 @@ export function DurationByDay(props: {
             key={point.day}
             r="3"
           >
-            <title>{String(point.averageDurationMs)}</title>
+            <title>{String(point.averageDurationSeconds)}</title>
           </circle>
         ))}
       </svg>

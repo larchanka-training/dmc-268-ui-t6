@@ -36,6 +36,8 @@ describe('fetchRunDetail', () => {
       },
       actionCount: 12,
       errorCode: null,
+      triggeredBy: null,
+      usage: { tokensIn: 0, tokensOut: 0, costUsd: 0 },
       findings: [],
       summary: null,
       verdict: null,
@@ -72,6 +74,8 @@ describe('fetchRunDetail', () => {
       },
       actionCount: 12,
       errorCode: null,
+      triggeredBy: null,
+      usage: { tokensIn: 0, tokensOut: 0, costUsd: 0 },
       findings: [],
       summary: null,
       verdict: null,
@@ -107,6 +111,8 @@ describe('fetchRunDetail', () => {
       },
       actionCount: 1,
       errorCode: null,
+      triggeredBy: null,
+      usage: { tokensIn: 0, tokensOut: 0, costUsd: 0 },
       findings: [
         {
           id: '11111111-1111-4111-8111-111111111111',

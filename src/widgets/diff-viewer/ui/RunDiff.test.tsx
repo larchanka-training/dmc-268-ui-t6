@@ -55,6 +55,8 @@ const SUMMARY_ONLY_RUN_WIRE = {
   pullRequest: PULL_REQUEST,
   actionCount: 20,
   errorCode: null,
+  triggeredBy: null,
+  usage: { tokensIn: 0, tokensOut: 0, costUsd: 0 },
 }
 
 const SUMMARY_ONLY_DIFF_WIRE = [

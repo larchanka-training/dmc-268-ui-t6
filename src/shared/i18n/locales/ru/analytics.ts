@@ -42,7 +42,7 @@ export const analytics: Translation<typeof en> = {
   durationByDay: 'Средняя длительность по дням',
   dailyNumbers: 'Числа по дням',
   day: 'День',
-  durationMs: 'Длительность, мс',
+  durationSeconds: 'Длительность, с',
   budgetTitle: 'Бюджет на сегодня',
   spent: 'Потрачено за сутки UTC',
   limit: 'Дневной лимит',

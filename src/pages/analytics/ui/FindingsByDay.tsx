@@ -13,7 +13,12 @@ const CATEGORIES = [
 
 interface DayFindings {
   day: string
-  findings: { security: number; correctness: number; performance: number; readability: number }
+  findingsByCategory: {
+    security: number
+    correctness: number
+    performance: number
+    readability: number
+  }
 }
 
 export function FindingsByDay(props: {
@@ -29,7 +34,7 @@ export function FindingsByDay(props: {
   const max = Math.max(
     1,
     ...series.map((point) =>
-      CATEGORIES.reduce((sum, category) => sum + point.findings[category.key], 0),
+      CATEGORIES.reduce((sum, category) => sum + point.findingsByCategory[category.key], 0),
     ),
   )
   const slot = width / Math.max(series.length, 1)
@@ -57,7 +62,7 @@ export function FindingsByDay(props: {
           return (
             <g key={point.day}>
               {CATEGORIES.map((category) => {
-                const value = point.findings[category.key]
+                const value = point.findingsByCategory[category.key]
                 const barHeight = (value / max) * innerHeight
                 const y = innerHeight - stacked - barHeight
                 stacked += barHeight

@@ -27,30 +27,42 @@ const REPO = {
   ragIndex: disabledRagIndex,
 }
 
+const statusCounts = {
+  queued: 0,
+  running: 0,
+  publishing: 0,
+  succeeded: 2,
+  failed: 1,
+  cancelled: 0,
+  skipped: 1,
+}
+
 function summary(overrides: Partial<MetricsSummary> = {}): MetricsSummary {
   return {
     range: '7d',
-    runsByStatus: { succeeded: 2, failed: 1, cancelled: 0, skipped: 1 },
-    pullsByVerdict: { blocking: 1, attention: 0, clean: 3, noVerdict: 2 },
-    findingsBySeverity: { critical: 5, high: 4, medium: 3, low: 2, info: 1 },
-    findingsByCategory: { security: 1, correctness: 2, performance: 0, readability: 1 },
-    averageDurationMs: 125000,
-    tokensIn: 10,
-    tokensOut: 4,
-    costUsd: 1.5,
+    totals: {
+      runsByStatus: statusCounts,
+      pullsByVerdict: { blocking: 1, attention: 0, clean: 3, noVerdict: 2 },
+      findingsBySeverity: { critical: 5, high: 4, medium: 3, low: 2, info: 1 },
+      findingsByCategory: { security: 1, correctness: 2, performance: 0, readability: 1 },
+      succeededAverageDurationSeconds: 125,
+      tokensIn: 10,
+      tokensOut: 4,
+      costUsd: 1.5,
+    },
     series: [
       {
         day: '2026-10-26',
-        findings: { security: 2, correctness: 1, performance: 0, readability: 0 },
+        findingsByCategory: { security: 2, correctness: 1, performance: 0, readability: 0 },
         runCount: 1,
-        averageDurationMs: 4000,
+        averageDurationSeconds: 4,
         costUsd: 0.2,
       },
       {
         day: '2026-10-27',
-        findings: { security: 0, correctness: 3, performance: 1, readability: 1 },
+        findingsByCategory: { security: 0, correctness: 3, performance: 1, readability: 1 },
         runCount: 2,
-        averageDurationMs: 9000,
+        averageDurationSeconds: 9,
         costUsd: 0,
       },
     ],
@@ -64,9 +76,20 @@ function summary(overrides: Partial<MetricsSummary> = {}): MetricsSummary {
 
 function emptySummary(): MetricsSummary {
   return summary({
-    runsByStatus: { succeeded: 0, failed: 0, cancelled: 0, skipped: 0 },
+    totals: {
+      ...summary().totals,
+      runsByStatus: {
+        queued: 0,
+        running: 0,
+        publishing: 0,
+        succeeded: 0,
+        failed: 0,
+        cancelled: 0,
+        skipped: 0,
+      },
+      succeededAverageDurationSeconds: 0,
+    },
     series: [],
-    averageDurationMs: null,
   })
 }
 
@@ -138,7 +161,7 @@ describe('AnalyticsPage', () => {
     expect(screen.getByRole('table', { name: 'Числа по дням' })).toBeTruthy()
     const titles = [...container.querySelectorAll('title')].map((node) => node.textContent)
     expect(titles).toContain('Безопасность 2')
-    expect(titles).toContain('4000')
+    expect(titles).toContain('4')
     for (const name of ['Безопасность', 'Дефект', 'Производительность', 'Стиль']) {
       expect(screen.getAllByText(name).length).toBeGreaterThan(0)
     }

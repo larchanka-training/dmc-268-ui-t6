@@ -12,7 +12,7 @@ import { FindingsByDay } from './ui/FindingsByDay'
 import { TodayBudget } from './ui/TodayBudget'
 
 function finishedRuns(summary: MetricsSummary): number {
-  const counts = summary.runsByStatus
+  const counts = summary.totals.runsByStatus
   return counts.succeeded + counts.failed + counts.cancelled + counts.skipped
 }
 
@@ -104,65 +104,67 @@ export function AnalyticsPage(): JSX.Element {
           <dl className={styles.tiles}>
             <Tile
               label={`${t('analytics.runs')}: ${t('analytics.statusSucceeded')}`}
-              value={String(summary.runsByStatus.succeeded)}
+              value={String(summary.totals.runsByStatus.succeeded)}
             />
             <Tile
               label={`${t('analytics.runs')}: ${t('analytics.statusFailed')}`}
-              value={String(summary.runsByStatus.failed)}
+              value={String(summary.totals.runsByStatus.failed)}
             />
             <Tile
               label={`${t('analytics.runs')}: ${t('analytics.statusCancelled')}`}
-              value={String(summary.runsByStatus.cancelled)}
+              value={String(summary.totals.runsByStatus.cancelled)}
             />
             <Tile
               label={`${t('analytics.runs')}: ${t('analytics.statusSkipped')}`}
-              value={String(summary.runsByStatus.skipped)}
+              value={String(summary.totals.runsByStatus.skipped)}
             />
             <Tile
               label={`${t('analytics.pulls')}: ${t('analytics.verdictBlocking')}`}
-              value={String(summary.pullsByVerdict.blocking)}
+              value={String(summary.totals.pullsByVerdict.blocking)}
             />
             <Tile
               label={`${t('analytics.pulls')}: ${t('analytics.verdictAttention')}`}
-              value={String(summary.pullsByVerdict.attention)}
+              value={String(summary.totals.pullsByVerdict.attention)}
             />
             <Tile
               label={`${t('analytics.pulls')}: ${t('analytics.verdictClean')}`}
-              value={String(summary.pullsByVerdict.clean)}
+              value={String(summary.totals.pullsByVerdict.clean)}
             />
             <Tile
               label={`${t('analytics.pulls')}: ${t('analytics.noVerdict')}`}
-              value={String(summary.pullsByVerdict.noVerdict)}
+              value={String(summary.totals.pullsByVerdict.noVerdict)}
             />
             <Tile
               label={t('analytics.severityCritical')}
-              value={String(summary.findingsBySeverity.critical)}
+              value={String(summary.totals.findingsBySeverity.critical)}
             />
             <Tile
               label={t('analytics.severityHigh')}
-              value={String(summary.findingsBySeverity.high)}
+              value={String(summary.totals.findingsBySeverity.high)}
             />
             <Tile
               label={t('analytics.severityMedium')}
-              value={String(summary.findingsBySeverity.medium)}
+              value={String(summary.totals.findingsBySeverity.medium)}
             />
             <Tile
               label={t('analytics.severityLow')}
-              value={String(summary.findingsBySeverity.low)}
+              value={String(summary.totals.findingsBySeverity.low)}
             />
             <Tile
               label={t('analytics.severityInfo')}
-              value={String(summary.findingsBySeverity.info)}
+              value={String(summary.totals.findingsBySeverity.info)}
             />
             <Tile
               label={t('analytics.averageDuration')}
               value={
-                summary.averageDurationMs === null ? '—' : formatDuration(summary.averageDurationMs)
+                summary.totals.succeededAverageDurationSeconds === 0
+                  ? '—'
+                  : formatDuration(summary.totals.succeededAverageDurationSeconds * 1000)
               }
             />
-            <Tile label={t('analytics.tokensIn')} value={String(summary.tokensIn)} />
-            <Tile label={t('analytics.tokensOut')} value={String(summary.tokensOut)} />
-            <Tile label={t('analytics.cost')} value={formatUsd(summary.costUsd)} />
+            <Tile label={t('analytics.tokensIn')} value={String(summary.totals.tokensIn)} />
+            <Tile label={t('analytics.tokensOut')} value={String(summary.totals.tokensOut)} />
+            <Tile label={t('analytics.cost')} value={formatUsd(summary.totals.costUsd)} />
           </dl>
           <div className={styles.charts}>
             <FindingsByDay label={t('analytics.findingsByDay')} series={summary.series} />
@@ -177,7 +179,7 @@ export function AnalyticsPage(): JSX.Element {
                 <th>{t('analytics.categoryBug')}</th>
                 <th>{t('analytics.categoryPerformance')}</th>
                 <th>{t('analytics.categoryStyle')}</th>
-                <th>{t('analytics.durationMs')}</th>
+                <th>{t('analytics.durationSeconds')}</th>
                 <th>{t('analytics.cost')}</th>
               </tr>
             </thead>
@@ -185,11 +187,11 @@ export function AnalyticsPage(): JSX.Element {
               {summary.series.map((point) => (
                 <tr key={point.day}>
                   <td>{point.day}</td>
-                  <td>{point.findings.security}</td>
-                  <td>{point.findings.correctness}</td>
-                  <td>{point.findings.performance}</td>
-                  <td>{point.findings.readability}</td>
-                  <td>{point.averageDurationMs}</td>
+                  <td>{point.findingsByCategory.security}</td>
+                  <td>{point.findingsByCategory.correctness}</td>
+                  <td>{point.findingsByCategory.performance}</td>
+                  <td>{point.findingsByCategory.readability}</td>
+                  <td>{point.averageDurationSeconds}</td>
                   <td>{formatUsd(point.costUsd)}</td>
                 </tr>
               ))}

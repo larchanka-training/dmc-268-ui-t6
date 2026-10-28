@@ -1183,7 +1183,7 @@ RunStatusSchema = enum(queued|running|publishing|succeeded|failed|cancelled|skip
 RunSession = { id, engine: fast|deep, model, status, trigger: webhook|manual|rerun|dry_run,
   createdAt, startedAt, finishedAt, attempt, cancelRequested, summaryOnly,
   pullRequest: PullRequestRef, actionCount, errorCode,
-  usage?: { tokensIn, tokensOut, costUsd }, triggeredBy?: string|null }
+  usage: { tokensIn, tokensOut, costUsd }, triggeredBy: string|null }
 RunAction = { id, runId, index, tool, request: unknown, response: unknown|null,
   responseRef, startedAt, durationMs }
 RunListPage = { items: RunSession[], nextCursor }
@@ -1249,11 +1249,9 @@ RulesDiagnostic = { code, message, line: int|null, column: int|null, retryable,
   `diagnostics` непуст у `invalid` и `unavailable`. `pending` — без `sha` и `checkedAt` (оба `null`),
   больше членов у него нет.
 - `RunListQuery` (в снимок api не входит): `repo` — 1..512 символов, `limit` — целое 1..100.
-- `usage` и `triggeredBy` на `RunSession` необязательны, пока staging api#310 их не отдаёт.
-  `usage` — объект `{ tokensIn, tokensOut, costUsd }` (числа ≥ 0), не `null`: нет поля — сегодняшний
-  ответ. `triggeredBy` — логин GitHub или `null`, не объект. После staging, когда api#310 Ч.1 и Ч.2
-  уже отдают поля, они становятся обязательными по OpenAPI (`usage` обязателен и не nullable,
-  `triggeredBy` обязателен и nullable). До этого абзаца они не обязательны. `Me` и `Workspace` полей
+- `usage` и `triggeredBy` на `RunSession` обязательны, как в api#310 (PR #363).
+  `usage` — объект `{ tokensIn, tokensOut, costUsd }` (числа ≥ 0), не `null`: записей нет — нули.
+  `triggeredBy` — логин GitHub или `null`, не объект. `Me` и `Workspace` полей
   бюджета не получают.
 
 Summary-only прогон (дифф больше 3 000 строк, Р-15 в [SD §1][sd-1], контракт — [SD §12][sd-12],
@@ -1530,21 +1528,22 @@ PATCH с переключателя, ничем другим не дополня
 
 ---
 
-### Предложение api#310 (ui#186)
+### Сводка метрик api#310 (ui#186)
 
-Пока части api#310 не влиты, это предложение UI, а не действующий провод. `usage` на прогоне — сумма
-`usage_events` по всем попыткам и совпадает с расходной частью `budget`; записей нет — нули, не
-`null`. `triggeredBy` — логин того, чьё действие сделало head пригодным к ревью, либо логин портала
-при повторном запуске; старый прогон и неизвестный инициатор — `null`. Объекта `{ login, name }` нет.
-`Me` обязательных полей не получает.
+`usage` на прогоне — сумма `usage_events` по всем попыткам и совпадает с расходной частью `budget`;
+записей нет — нули, не `null`. `triggeredBy` — логин того, чьё действие сделало head пригодным к ревью,
+либо логин портала при повторном запуске; старый прогон и неизвестный инициатор — `null`. Объекта
+`{ login, name }` нет. `Me` обязательных полей не получает.
 
-`GET /api/metrics/summary?range&repo`. `range` — `24h | 7d | 30d`, `repo` необязателен (full name,
-1..512). Страница шлёт только `7d` и `30d`; нет `range` в адресе — это `7d`. Тело — предложение
-`MetricsSummary` (`entities/metrics`): итоги по четырём терминальным статусам, вердикты PR
-(`noVerdict` отдельно от `clean`), severity, категории, `averageDurationMs | null`, токены, стоимость,
-ряд по календарным дням UTC и `workspaces` (`dailyBudgetUsd`, `spentTodayUsd`, `paused`). Ориентировочные
-`tiles` и `bucketStart` контрактом дашборда не являются. UI не считает `paused`, вердикт и среднюю
-длительность: это числа и флаг API. UI не сравнивает остаток бюджета с порогом воркера.
+`GET /api/metrics/summary?range&repo` — действующий провод api#310. `range` — `24h | 7d | 30d`, `repo`
+необязателен (full name, 1..512). Страница шлёт только `7d` и `30d`; нет `range` в адресе — это `7d`.
+Тело — `MetricsSummary` (`entities/metrics`): `totals` (статусы прогона, включая активные, вердикты PR
+с `noVerdict` отдельно от `clean`, severity, категории, `succeededAverageDurationSeconds`, токены,
+стоимость), `series` по календарным дням UTC (`findingsByCategory`, `averageDurationSeconds`) и
+`workspaces` (`dailyBudgetUsd`, `spentTodayUsd`, `paused`). Плитки дашборда показывают четыре итоговых
+статуса. Ориентировочные `tiles` и `bucketStart` контрактом не являются. UI не считает `paused`,
+вердикт и среднюю длительность: это числа и флаг API. UI не сравнивает остаток бюджета с порогом воркера.
+Мок этот путь не обслуживает.
 
 ## 6. Просмотрщик диффа
 
@@ -2169,10 +2168,9 @@ checkpoint или ошибка до входа в `traced_step` могут ос�
 - `mockRepositories` — 4 репозитория с полями настроек api#149 и RAG api#145 (ниже, «Репозитории,
   правила и история»).
 
-`GET /runs` применяет `status` (неизвестное значение — 422). В наборе есть прогон без `usage` и
-`triggeredBy`, прогон с `triggeredBy: null` и нулевым `usage`, и прогон с логином и ненулевым расходом.
-`GET /metrics/summary` отвечает фикстурой `src/app/mocks/mockMetrics.ts`: чужой `repo` даёт нулевые итоги
-и пустой `series`. Страницы и `entities/metrics` эту фикстуру не импортируют.
+`GET /runs` применяет `status` (неизвестное значение — 422). У каждого прогона есть `usage` и
+`triggeredBy`, как на проводе: нули и `null`, либо логин и ненулевой расход. `GET /metrics/summary`
+мок не отвечает — страница ходит в API.
 
 Фрагмент одного `RunSession`:
 

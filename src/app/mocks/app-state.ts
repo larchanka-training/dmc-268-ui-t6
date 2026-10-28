@@ -15,6 +15,12 @@ function pullRequestUrl(number: number): string {
   return `https://github.com/${REPO}/pull/${String(number)}`
 }
 
+/** A run the API always returns: no known actor, no usage events. */
+const noActor = {
+  triggeredBy: null as string | null,
+  usage: { tokensIn: 0, tokensOut: 0, costUsd: 0 },
+}
+
 const QUEUED_ID = '11111111-1111-4111-8111-000000000001'
 const RUNNING_ID = '11111111-1111-4111-8111-000000000002'
 const PUBLISHING_ID = '11111111-1111-4111-8111-000000000003'
@@ -46,6 +52,7 @@ export const mockRunSessions: RunSession[] = [
     },
     actionCount: 0,
     errorCode: null,
+    ...noActor,
   },
   {
     id: RUNNING_ID,
@@ -68,6 +75,7 @@ export const mockRunSessions: RunSession[] = [
     },
     actionCount: 12,
     errorCode: null,
+    ...noActor,
   },
   {
     id: PUBLISHING_ID,
@@ -90,6 +98,7 @@ export const mockRunSessions: RunSession[] = [
     },
     actionCount: 33,
     errorCode: null,
+    ...noActor,
   },
   {
     id: COMPLETED_ID,
@@ -139,6 +148,7 @@ export const mockRunSessions: RunSession[] = [
     },
     actionCount: 8,
     errorCode: 'llm_timeout',
+    ...noActor,
   },
   {
     id: CANCELLED_ID,
@@ -185,6 +195,7 @@ export const mockRunSessions: RunSession[] = [
     },
     actionCount: 1,
     errorCode: 'no_changes',
+    ...noActor,
   },
 ]
 
@@ -209,6 +220,7 @@ export const mockSummaryOnlyRun: RunSession = {
   },
   actionCount: 20,
   errorCode: null,
+  ...noActor,
 }
 
 export const mockSummaryOnlyDiff: RawFileDiff[] = [

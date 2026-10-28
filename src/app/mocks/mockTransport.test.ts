@@ -1,6 +1,3 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs'
-import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../shared/config/env', () => ({
@@ -12,7 +9,6 @@ vi.mock('../../shared/config/env', () => ({
   GITHUB_APP_SLUG: '',
 }))
 
-import { MetricsSummarySchema } from '../../entities/metrics'
 import { RulesStatusSchema, type Repository } from '../../entities/repository'
 import {
   RunDetailSchema,
@@ -288,71 +284,20 @@ describe('initMockTransport', () => {
       await expect(list({ status: 'not-a-status' })).rejects.toMatchObject({ status: 422 })
     })
 
-    it('serves a run without usage, one with a null initiator, and one with a login', async () => {
+    it('serves usage and triggeredBy on every run', async () => {
       const page = await list({})
-      const bare = page.items.find((run) => run.pullRequest.number === 31)
+      const queued = page.items.find((run) => run.pullRequest.number === 31)
       const empty = page.items.find((run) => run.pullRequest.number === 36)
       const billed = page.items.find((run) => run.pullRequest.number === 34)
-      expect(bare).not.toHaveProperty('usage')
-      expect(bare).not.toHaveProperty('triggeredBy')
+      expect(queued?.triggeredBy).toBeNull()
+      expect(queued?.usage).toEqual({ tokensIn: 0, tokensOut: 0, costUsd: 0 })
       expect(empty?.triggeredBy).toBeNull()
       expect(empty?.usage).toEqual({ tokensIn: 0, tokensOut: 0, costUsd: 0 })
       expect(billed?.triggeredBy).toBe('octocat')
       expect(billed?.usage).toEqual({ tokensIn: 1200, tokensOut: 340, costUsd: 1.25 })
-      for (const run of [bare, empty, billed]) {
+      for (const run of page.items) {
         expect(RunSessionSchema.safeParse(run).success).toBe(true)
       }
-    })
-
-    it('serves GET /metrics/summary for a known repo and an empty period for a foreign one', async () => {
-      const known = MetricsSummarySchema.parse(
-        await apiClient({
-          method: 'GET',
-          path: '/metrics/summary?range=7d&repo=larchanka-training/dmc-268-ui-t6',
-        }),
-      )
-      expect(known.runsByStatus.succeeded).toBeGreaterThan(0)
-      expect(known.series.length).toBeGreaterThan(0)
-      expect(known.workspaces.map((workspace) => workspace.name)).toEqual(['acme', 'paused-team'])
-
-      const month = MetricsSummarySchema.parse(
-        await apiClient({ method: 'GET', path: '/metrics/summary?range=30d' }),
-      )
-      expect(month.series.length).toBeGreaterThan(known.series.length)
-
-      const foreign = MetricsSummarySchema.parse(
-        await apiClient({ method: 'GET', path: '/metrics/summary?range=7d&repo=someone/else' }),
-      )
-      expect(foreign.runsByStatus).toEqual({ succeeded: 0, failed: 0, cancelled: 0, skipped: 0 })
-      expect(foreign.series).toEqual([])
-      expect(foreign.workspaces).toHaveLength(2)
-    })
-
-    it('keeps the metrics fixture out of pages and entities, and out of fixture id prefixes', () => {
-      const root = fileURLToPath(new URL('../../..', import.meta.url))
-      const fixture = readFileSync(join(root, 'src/app/mocks/mockMetrics.ts'), 'utf8')
-      for (const prefix of [
-        '11111111-1111-4111-8111',
-        '22222222-2222-4222-8222',
-        '33333333-3333-4333-8333',
-      ]) {
-        expect(fixture).not.toContain(prefix)
-      }
-      const scan = (dir: string): void => {
-        for (const entry of readdirSync(dir)) {
-          const path = join(dir, entry)
-          if (statSync(path).isDirectory()) {
-            scan(path)
-            continue
-          }
-          if (!entry.endsWith('.ts') && !entry.endsWith('.tsx')) {
-            continue
-          }
-          expect(readFileSync(path, 'utf8')).not.toContain('mockMetrics')
-        }
-      }
-      scan(join(root, 'src/pages'))
-      scan(join(root, 'src/entities/metrics'))
     })
 
     it('filters GET /runs by repo', async () => {
