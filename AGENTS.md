@@ -9,7 +9,8 @@ client for the code-review product; consumes the FastAPI backend
 ## Stack
 
 Vite 8, React 19, TypeScript 7 strict (typescript-eslint runs on TS 6.0
-side-by-side), Zod 4, Zustand 5, TanStack Query 5, antd 6, Vitest 5.
+side-by-side), Zod 4, Zustand 5, TanStack Query 5, antd 6, i18next 26 with
+react-i18next 17 (EN default, RU; dictionaries in `src/shared/i18n`), Vitest 5.
 Workspace packages: `landing/` (Vite, the public landing) and `docs-site/`
 (Next.js 16, Fumadocs, Tailwind CSS 4, the public user docs).
 
