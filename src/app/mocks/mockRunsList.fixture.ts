@@ -59,8 +59,7 @@ function apiRepoRun(i: number): RunSession {
       headSha: i.toString(16).padStart(2, '0').repeat(20),
     },
     actionCount: outcome === 'skipped' ? 1 : 12 + i,
-    errorCode:
-      outcome === 'failed' ? 'llm_timeout' : outcome === 'skipped' ? 'no_reviewable_changes' : null,
+    errorCode: outcome === 'failed' ? 'llm_timeout' : outcome === 'skipped' ? 'no_changes' : null,
   }
 }
 
