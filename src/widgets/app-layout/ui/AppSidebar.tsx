@@ -13,7 +13,7 @@ import { useLanguageStore } from '../../../features/language'
 import { useThemeStore, type ThemePreference } from '../../../features/theme'
 import { mocksEnabledAtRuntime } from '../../../shared/config/buildFlags'
 import { DOCS_URL, isMockMode } from '../../../shared/config/env'
-import { useTranslation, type Language } from '../../../shared/i18n'
+import { LANGUAGE_NAMES, LANGUAGES, useTranslation } from '../../../shared/i18n'
 import {
   IconRepositories,
   IconReview,
@@ -33,13 +33,11 @@ type MenuItem = NonNullable<MenuProps['items']>[number]
 
 /**
  * The language choice is written the same way in every language, so a user who cannot read the
- * current one still finds it. These labels are not translated on purpose.
+ * current one still finds it: the group title is not translated, and each option is the name of
+ * the language in itself.
  */
 const LANGUAGE_GROUP_TITLE = 'Language'
-const LANGUAGE_OPTIONS: readonly { key: Language; label: string }[] = [
-  { key: 'en', label: 'EN' },
-  { key: 'ru', label: 'RU' },
-]
+const LANGUAGE_OPTIONS = LANGUAGES.map((key) => ({ key, label: LANGUAGE_NAMES[key] }))
 
 export interface AppSidebarProps {
   currentPath?: string
