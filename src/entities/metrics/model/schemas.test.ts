@@ -2,22 +2,34 @@ import { describe, expect, it } from 'vitest'
 
 import { MetricsSummaryQuerySchema, MetricsSummarySchema } from './schemas'
 
+const statusCounts = {
+  queued: 0,
+  running: 0,
+  publishing: 0,
+  succeeded: 2,
+  failed: 1,
+  cancelled: 0,
+  skipped: 1,
+}
+
 const summary = {
   range: '7d',
-  runsByStatus: { succeeded: 2, failed: 1, cancelled: 0, skipped: 1 },
-  pullsByVerdict: { blocking: 1, attention: 0, clean: 3, noVerdict: 2 },
-  findingsBySeverity: { critical: 1, high: 4, medium: 0, low: 0, info: 0 },
-  findingsByCategory: { security: 1, correctness: 2, performance: 0, readability: 1 },
-  averageDurationMs: 125000,
-  tokensIn: 10,
-  tokensOut: 4,
-  costUsd: 1.5,
+  totals: {
+    runsByStatus: statusCounts,
+    pullsByVerdict: { blocking: 1, attention: 0, clean: 3, noVerdict: 2 },
+    findingsBySeverity: { critical: 1, high: 4, medium: 0, low: 0, info: 0 },
+    findingsByCategory: { security: 1, correctness: 2, performance: 0, readability: 1 },
+    succeededAverageDurationSeconds: 125,
+    tokensIn: 10,
+    tokensOut: 4,
+    costUsd: 1.5,
+  },
   series: [
     {
       day: '2026-10-27',
-      findings: { security: 1, correctness: 0, performance: 0, readability: 0 },
+      findingsByCategory: { security: 1, correctness: 0, performance: 0, readability: 0 },
       runCount: 2,
-      averageDurationMs: 0,
+      averageDurationSeconds: 0,
       costUsd: 0.25,
     },
   ],
@@ -28,12 +40,13 @@ const summary = {
 }
 
 describe('MetricsSummarySchema', () => {
-  it('parses the proposed summary and keeps noVerdict apart from clean', () => {
+  it('parses the summary and keeps noVerdict apart from clean', () => {
     const parsed = MetricsSummarySchema.parse(summary)
-    expect(parsed.pullsByVerdict.clean).toBe(3)
-    expect(parsed.pullsByVerdict.noVerdict).toBe(2)
-    expect(parsed.findingsBySeverity.critical).toBe(1)
-    expect(parsed.findingsBySeverity.high).toBe(4)
+    expect(parsed.totals.pullsByVerdict.clean).toBe(3)
+    expect(parsed.totals.pullsByVerdict.noVerdict).toBe(2)
+    expect(parsed.totals.findingsBySeverity.critical).toBe(1)
+    expect(parsed.totals.findingsBySeverity.high).toBe(4)
+    expect(parsed.totals.runsByStatus.queued).toBe(0)
   })
 
   it('accepts range 24h and strips tiles and bucketStart', () => {
@@ -48,8 +61,9 @@ describe('MetricsSummarySchema', () => {
     expect(parsed).not.toHaveProperty('bucketStart')
   })
 
-  it('rejects an unknown range', () => {
+  it('rejects an unknown range and a summary without totals', () => {
     expect(MetricsSummarySchema.safeParse({ ...summary, range: '1h' }).success).toBe(false)
+    expect(MetricsSummarySchema.safeParse({ ...summary, totals: undefined }).success).toBe(false)
   })
 })
 

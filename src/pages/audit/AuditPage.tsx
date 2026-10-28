@@ -208,17 +208,17 @@ export const AuditPage: FC = () => {
     {
       title: t('audit.columns.tokensIn'),
       key: 'tokensIn',
-      render: (_, run) => String(run.usage?.tokensIn ?? 0),
+      render: (_, run) => String(run.usage.tokensIn),
     },
     {
       title: t('audit.columns.tokensOut'),
       key: 'tokensOut',
-      render: (_, run) => String(run.usage?.tokensOut ?? 0),
+      render: (_, run) => String(run.usage.tokensOut),
     },
     {
       title: t('audit.columns.cost'),
       key: 'cost',
-      render: (_, run) => formatUsd(run.usage?.costUsd ?? 0),
+      render: (_, run) => formatUsd(run.usage.costUsd),
     },
   ]
 

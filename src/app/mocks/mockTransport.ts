@@ -37,7 +37,6 @@ import {
   MOCK_NOW,
 } from './app-state'
 import { mockRulesStatuses } from './mockRulesStatus'
-import { mockMetricsSummary } from './mockMetrics'
 import { mockRunsListPage } from './mockRunsList.fixture'
 import { buildMockRunDetail, mockRawDiffForRun, REVIEW_DEMO_RUN_ID } from './mockRunReview'
 import {
@@ -521,10 +520,6 @@ function handleMockTransport(
     return listMockRuns(queryStart === -1 ? '' : endpoint.path.slice(queryStart + 1))
   }
 
-  if (pathname === '/metrics/summary' && endpoint.method === 'GET') {
-    return mockMetricsSummary(queryStart === -1 ? '' : endpoint.path.slice(queryStart + 1))
-  }
-
   // Before the repository itself: `/repos/{id}/rules-status` must not be read as an id.
   const rulesStatusMatch = /^\/repos\/([^/]+)\/rules-status$/.exec(endpoint.path)
   if (rulesStatusMatch && endpoint.method === 'GET') {
@@ -769,6 +764,8 @@ function handleMockTransport(
       createdAt: new Date().toISOString(),
       actionCount: 0,
       errorCode: null,
+      triggeredBy: mockCurrentUser.login,
+      usage: { tokensIn: 0, tokensOut: 0, costUsd: 0 },
     }
     runSessions.unshift(rerun)
     createdRunIds.add(rerun.id)

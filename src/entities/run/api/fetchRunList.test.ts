@@ -36,6 +36,8 @@ describe('fetchRunList', () => {
           },
           actionCount: 10,
           errorCode: null,
+          triggeredBy: null,
+          usage: { tokensIn: 0, tokensOut: 0, costUsd: 0 },
         },
       ],
       nextCursor: null,

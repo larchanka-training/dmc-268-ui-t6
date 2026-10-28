@@ -43,6 +43,8 @@ function run(
     },
     actionCount: 1,
     errorCode: null,
+    triggeredBy: null,
+    usage: { tokensIn: 0, tokensOut: 0, costUsd: 0 },
   }
 }
 
