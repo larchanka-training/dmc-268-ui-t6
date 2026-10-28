@@ -20,7 +20,7 @@ const withDesignSystem: Decorator = (Story, context) => {
   const mode = context.globals.theme === 'light' ? 'light' : 'dark'
   const fullscreen = context.parameters.layout === 'fullscreen'
   return (
-    <DesignSystemProvider mode={mode}>
+    <DesignSystemProvider language="en" mode={mode}>
       <div
         style={{
           minHeight: fullscreen ? '100vh' : undefined,

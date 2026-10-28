@@ -28,7 +28,7 @@ const NAV = [
 
 export function AppShell({ active, children }: { active: string; children: ReactNode }) {
   return (
-    <DesignSystemProvider mode="dark">
+    <DesignSystemProvider language="en" mode="dark">
       <AntApp>
         <Layout className={layoutStyles.layout} hasSider>
           <Sider className={layoutStyles.sidebar} trigger={null} width={232}>

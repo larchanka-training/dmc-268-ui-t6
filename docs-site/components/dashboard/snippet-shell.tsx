@@ -10,7 +10,7 @@ import { DesignSystemProvider } from '../../../src/shared/ui'
 
 export function SnippetShell({ children }: { children: ReactNode }) {
   return (
-    <DesignSystemProvider mode="dark">
+    <DesignSystemProvider language="en" mode="dark">
       <AntApp>
         <div style={{ padding: 16, overflow: 'hidden' }}>{children}</div>
       </AntApp>

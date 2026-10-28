@@ -13,8 +13,11 @@ import type { RvThemeMode } from './palette'
 
 export interface DesignSystemProviderProps {
   mode: RvThemeMode
-  /** Language of the texts built into Ant Design (pagination, empty states, date picker). */
-  language?: Language
+  /**
+   * Language of the texts built into Ant Design (pagination, empty states, date picker). Required:
+   * a default would silently put antd into another language than the app.
+   */
+  language: Language
   children: ReactNode
 }
 
@@ -41,7 +44,7 @@ function readReducedMotion(): boolean {
  * and Ant Design animations stop while the system asks to reduce motion.
  */
 export function DesignSystemProvider(props: DesignSystemProviderProps): JSX.Element {
-  const { mode, language = 'en', children } = props
+  const { mode, language, children } = props
   const reducedMotion = useSyncExternalStore(subscribeReducedMotion, readReducedMotion, () => false)
   const theme = useMemo(() => buildTheme(mode, { reducedMotion }), [mode, reducedMotion])
   useEffect(() => {
