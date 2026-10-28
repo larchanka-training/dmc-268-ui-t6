@@ -2,12 +2,11 @@ import { z } from 'zod'
 
 const UuidSchema = z.uuid()
 const BitbucketStatusSchema = z.enum(['awaiting_webhook', 'active'])
-// JavaScript `$` also matches before a final newline; this lookahead requires the true end.
-const BitbucketApiTokenSchema = z
+export const BitbucketApiTokenSchema = z
   .string()
   .min(1)
   .max(4096)
-  .regex(/^[\x21-\x7E]+(?![\s\S])/)
+  .regex(/^[\x21-\x7E]+$/)
 
 export const BitbucketDiscoveryRequestSchema = z.object({
   bitbucketWorkspace: z.string().min(1).max(128),

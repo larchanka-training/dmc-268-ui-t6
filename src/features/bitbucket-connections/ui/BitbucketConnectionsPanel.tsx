@@ -16,10 +16,15 @@ import {
 } from '../api'
 import { bitbucketErrorMessage } from '../lib/bitbucketErrorMessage'
 import { useFocusHandoff, type FocusTarget } from '../lib/useFocusHandoff'
-import type { BitbucketDiscoveredRepository, BitbucketWebhookSetup } from '../model/schemas'
+import {
+  BitbucketApiTokenSchema,
+  type BitbucketDiscoveredRepository,
+  type BitbucketWebhookSetup,
+} from '../model/schemas'
 import styles from './BitbucketConnectionsPanel.module.css'
 
 const { Text, Title } = Typography
+const invalidTokenMessage = 'API token Bitbucket содержит недопустимые символы или слишком длинный.'
 
 export interface BitbucketConnectionsPanelProps {
   workspaces: Workspace[]
@@ -137,10 +142,14 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
     if (!workspaceId) return
     const criteria = cursor
       ? discoveryCriteria.current
-      : { bitbucketWorkspace: bitbucketWorkspace.trim(), apiToken }
+      : { bitbucketWorkspace: bitbucketWorkspace.trim(), apiToken: apiToken.trim() }
     if (!criteria?.bitbucketWorkspace || !criteria.apiToken) return
     if (criteria.bitbucketWorkspace.length > 128) {
       void message.error('Bitbucket workspace не может быть длиннее 128 символов.')
+      return
+    }
+    if (!BitbucketApiTokenSchema.safeParse(criteria.apiToken).success) {
+      void message.error(invalidTokenMessage)
       return
     }
     if (!cursor) {
@@ -150,6 +159,7 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
       setNextCursor(null)
     }
     const epoch = workspaceEpoch.current
+    const hadFocus = trigger !== undefined && document.activeElement === trigger
     setBusy(true)
     try {
       const result = await discoverBitbucketRepositories(workspaceId, {
@@ -159,7 +169,7 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
       if (epoch !== workspaceEpoch.current) return
       setDiscovered(cursor ? (old) => [...old, ...result.repositories] : result.repositories)
       setNextCursor(result.nextCursor)
-      if (cursor && !result.nextCursor && trigger && document.activeElement === trigger) {
+      if (trigger && hadFocus) {
         const first = result.repositories[0]
         requestFocus(
           epoch,
@@ -178,8 +188,13 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
 
   const connect = async (repository: BitbucketDiscoveredRepository, trigger: HTMLElement) => {
     if (!workspaceId) return
-    if (!apiToken.trim()) {
+    const token = apiToken.trim()
+    if (!token) {
       void message.error('Введите API token Bitbucket для подключения.')
+      return
+    }
+    if (!BitbucketApiTokenSchema.safeParse(token).success) {
+      void message.error(invalidTokenMessage)
       return
     }
     const affectedWorkspaceId = workspaceId
@@ -191,7 +206,7 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
         bitbucketWorkspace: repository.workspaceSlug,
         repositorySlug: repository.slug,
         repositoryUuid: repository.uuid,
-        apiToken,
+        apiToken: token,
       })
       if (epoch === workspaceEpoch.current) {
         if (result.webhook) {
@@ -293,13 +308,18 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
 
   const rotateCredential = async (trigger: HTMLElement) => {
     if (!workspaceId || !rotationInstallation) return
+    const token = replacementToken.trim()
+    if (!BitbucketApiTokenSchema.safeParse(token).success) {
+      void message.error(invalidTokenMessage)
+      return
+    }
     const affectedWorkspaceId = workspaceId
     const epoch = workspaceEpoch.current
     const hadFocus = document.activeElement === trigger
     const origin = credentialOrigin.current
     setBusy(true)
     try {
-      await rotateBitbucketCredential(affectedWorkspaceId, rotationInstallation, replacementToken)
+      await rotateBitbucketCredential(affectedWorkspaceId, rotationInstallation, token)
       if (epoch === workspaceEpoch.current) {
         setReplacementToken('')
         setRotationInstallation(null)
@@ -450,7 +470,7 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
                 value={replacementToken}
               />
               <Button
-                disabled={!replacementToken || busy}
+                disabled={!replacementToken.trim() || busy}
                 onClick={(event) => void rotateCredential(event.currentTarget)}
                 ref={credentialSubmitRef}
               >
@@ -535,8 +555,8 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
               value={apiToken}
             />
             <Button
-              disabled={!bitbucketWorkspace.trim() || !apiToken || busy}
-              onClick={() => void discover()}
+              disabled={!bitbucketWorkspace.trim() || !apiToken.trim() || busy}
+              onClick={(event) => void discover(null, event.currentTarget)}
               ref={discoverySubmitRef}
             >
               Найти репозитории

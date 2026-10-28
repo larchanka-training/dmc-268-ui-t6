@@ -572,7 +572,7 @@ describe('initMockTransport', () => {
         RulesStatusSchema.parse(
           await apiClient<unknown>(endpoints.repos.rulesStatus(connected.repositoryId)),
         ).status,
-      ).toBe('pending')
+      ).toBe('missing')
     })
 
     it('serves the rules status of each mock repository', async () => {

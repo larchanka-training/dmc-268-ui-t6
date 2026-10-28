@@ -506,7 +506,6 @@ function handleMockTransport(
           (entry) => entry.repositoryId !== repositoryId,
         )
         repositories = repositories.filter((entry) => entry.id !== repositoryId)
-        if (repositoryId) rulesStatusAsked.delete(repositoryId)
         if (!bitbucketConnections.length) bitbucketToken = null
         return null
       }
