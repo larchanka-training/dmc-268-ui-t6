@@ -14,7 +14,7 @@ import {
   type RunStatus,
 } from '../../entities/run'
 import { useAuditFilterParams } from '../../features/audit-filter'
-import { useTranslation } from '../../shared/i18n'
+import { formatUsd, useTranslation } from '../../shared/i18n'
 import { DataTable, PageHeader, Tag } from '../../shared/ui'
 import styles from './AuditPage.module.css'
 
@@ -32,13 +32,6 @@ function uniqueRuns(pages: readonly RunListPage[]): RunSession[] {
     }
   }
   return runs
-}
-
-function formatCost(value: number): string {
-  if (value === 0) {
-    return '$0'
-  }
-  return `$${value.toFixed(2)}`
 }
 
 function reasonTextOf(run: RunSession): string {
@@ -225,7 +218,7 @@ export const AuditPage: FC = () => {
     {
       title: t('audit.columns.cost'),
       key: 'cost',
-      render: (_, run) => formatCost(run.usage?.costUsd ?? 0),
+      render: (_, run) => formatUsd(run.usage?.costUsd ?? 0),
     },
   ]
 

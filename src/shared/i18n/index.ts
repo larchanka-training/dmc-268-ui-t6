@@ -3,7 +3,7 @@
 // `errorReason` is the exception that stays Russian in both languages: the nine limit phrases.
 export { useTranslation } from 'react-i18next'
 export { errorReason } from './locales/ru/limitReasons'
-export { formatDateTime, formatDuration, formatNumber } from './format'
+export { formatDateTime, formatDuration, formatNumber, formatUsd } from './format'
 export { i18n } from './i18n'
 export {
   DEFAULT_LANGUAGE,

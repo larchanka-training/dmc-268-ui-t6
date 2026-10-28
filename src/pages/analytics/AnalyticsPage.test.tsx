@@ -128,20 +128,23 @@ describe('AnalyticsPage', () => {
         : { status: 200, body: summary() },
     )
     const { container } = renderPage()
-    expect(await screen.findByText('critical')).toBeTruthy()
-    expect(screen.getByText('critical').closest('div')?.textContent).toContain('5')
-    expect(screen.getByText('high').closest('div')?.textContent).toContain('4')
+    expect(await screen.findByText('Критические')).toBeTruthy()
+    expect(screen.getByText('Критические').closest('div')?.textContent).toContain('5')
+    expect(screen.getByText('Высокие').closest('div')?.textContent).toContain('4')
     expect(screen.getByText('2 мин 5 с')).toBeTruthy()
     expect(screen.getByText('$1.50')).toBeTruthy()
+    expect(screen.getByText('$0')).toBeTruthy()
     expect(screen.getByText('10')).toBeTruthy()
     expect(screen.getByRole('table', { name: 'Числа по дням' })).toBeTruthy()
     const titles = [...container.querySelectorAll('title')].map((node) => node.textContent)
-    expect(titles).toContain('Security 2')
+    expect(titles).toContain('Безопасность 2')
     expect(titles).toContain('4000')
-    expect(screen.getAllByText('Security').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Bug').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Performance').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Style').length).toBeGreaterThan(0)
+    for (const name of ['Безопасность', 'Дефект', 'Производительность', 'Стиль']) {
+      expect(screen.getAllByText(name).length).toBeGreaterThan(0)
+    }
+    const legend = container.querySelector('ul')
+    const dots = legend?.querySelectorAll('li span')
+    expect(dots?.length).toBe(4)
   })
 
   it('requests 7d when the address says 24h, and 30d after the period changes', async () => {
@@ -173,7 +176,7 @@ describe('AnalyticsPage', () => {
         : { status: 200, body: summary() },
     )
     const { router } = renderPage('/analytics?range=30d')
-    await screen.findByText('critical')
+    await screen.findByText('Критические')
     fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Репозиторий' }))
     await waitFor(() => {
       expect(document.querySelectorAll('.ant-select-item-option').length).toBeGreaterThan(1)
@@ -208,7 +211,7 @@ describe('AnalyticsPage', () => {
     expect(await screen.findByText('В этом периоде нет завершённых прогонов')).toBeTruthy()
     expect(container.querySelector('svg[role="img"]')).toBeNull()
     expect(screen.queryByRole('table', { name: 'Числа по дням' })).toBeNull()
-    expect(screen.queryByText('critical')).toBeNull()
+    expect(screen.queryByText('Критические')).toBeNull()
     expect(screen.getByText('acme')).toBeTruthy()
     expect(screen.getByText('paused-team')).toBeTruthy()
   })
@@ -229,7 +232,7 @@ describe('AnalyticsPage', () => {
     expect(screen.queryByText('В этом периоде нет завершённых прогонов')).toBeNull()
     fail = false
     fireEvent.click(screen.getByRole('button', { name: 'Повторить' }))
-    expect(await screen.findByText('critical')).toBeTruthy()
+    expect(await screen.findByText('Критические')).toBeTruthy()
   })
 
   it('shows the pause alert from the flag and "limit not set" for a zero limit', async () => {

@@ -2,11 +2,7 @@ import { Alert } from 'antd'
 import type { JSX } from 'react'
 
 import type { MetricsSummary } from '../../../entities/metrics'
-import { useTranslation } from '../../../shared/i18n'
-
-function formatUsd(value: number): string {
-  return `$${value.toFixed(2)}`
-}
+import { formatUsd, useTranslation } from '../../../shared/i18n'
 
 /** Today's workspace budgets. `paused` is the flag from the API, not a comparison of the amounts. */
 export function TodayBudget(props: { workspaces: MetricsSummary['workspaces'] }): JSX.Element {

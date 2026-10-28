@@ -10,7 +10,7 @@ import {
   reasonText,
   statusTone,
 } from '../../../entities/run'
-import { useTranslation } from '../../../shared/i18n'
+import { formatUsd, useTranslation } from '../../../shared/i18n'
 import { safeHttpUrl } from '../../../shared/lib/safeHttpUrl'
 import { cx, Tag } from '../../../shared/ui'
 import { formatDateTime, formatDuration, runDuration } from '../lib/format'
@@ -68,10 +68,6 @@ const VERDICT_TAG: Record<
   blocking: { tone: 'danger', variant: 'solid' },
   attention: { tone: 'warning', variant: 'dot' },
   clean: { tone: 'success', variant: 'dot' },
-}
-
-function formatUsd(value: number): string {
-  return `$${value.toFixed(2)}`
 }
 
 function budgetText(value: string | null): string {

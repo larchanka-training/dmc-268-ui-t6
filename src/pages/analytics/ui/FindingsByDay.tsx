@@ -1,12 +1,14 @@
 import type { JSX } from 'react'
 
+import { useTranslation } from '../../../shared/i18n'
+import { cx } from '../../../shared/ui'
 import styles from './FindingsByDay.module.css'
 
 const CATEGORIES = [
-  { key: 'security', label: 'Security', className: styles.security },
-  { key: 'correctness', label: 'Bug', className: styles.correctness },
-  { key: 'performance', label: 'Performance', className: styles.performance },
-  { key: 'readability', label: 'Style', className: styles.readability },
+  { key: 'security', labelKey: 'analytics.categorySecurity', className: styles.security },
+  { key: 'correctness', labelKey: 'analytics.categoryBug', className: styles.correctness },
+  { key: 'performance', labelKey: 'analytics.categoryPerformance', className: styles.performance },
+  { key: 'readability', labelKey: 'analytics.categoryStyle', className: styles.readability },
 ] as const
 
 interface DayFindings {
@@ -19,6 +21,7 @@ export function FindingsByDay(props: {
   label: string
 }): JSX.Element {
   const { series, label } = props
+  const { t } = useTranslation()
   const width = 640
   const height = 200
   const padBottom = 4
@@ -67,7 +70,7 @@ export function FindingsByDay(props: {
                     x={String(x)}
                     y={String(y)}
                   >
-                    <title>{`${category.label} ${String(value)}`}</title>
+                    <title>{`${t(category.labelKey)} ${String(value)}`}</title>
                   </rect>
                 )
               })}
@@ -75,9 +78,12 @@ export function FindingsByDay(props: {
           )
         })}
       </svg>
-      <ul>
+      <ul className={styles.legend}>
         {CATEGORIES.map((category) => (
-          <li key={category.key}>{category.label}</li>
+          <li key={category.key}>
+            <span aria-hidden="true" className={cx(styles.dot, category.className)} />
+            {t(category.labelKey)}
+          </li>
         ))}
       </ul>
     </figure>

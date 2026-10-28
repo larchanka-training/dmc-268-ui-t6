@@ -4,19 +4,12 @@ import type { JSX } from 'react'
 import { useMetricsSummary, type MetricsSummary } from '../../entities/metrics'
 import { useRepositories } from '../../entities/repository'
 import { useAnalyticsFilterParams } from '../../features/analytics-filter'
-import { formatDuration, useTranslation } from '../../shared/i18n'
+import { formatDuration, formatUsd, useTranslation } from '../../shared/i18n'
 import { PageHeader, Segmented } from '../../shared/ui'
 import styles from './AnalyticsPage.module.css'
 import { DurationByDay } from './ui/DurationByDay'
 import { FindingsByDay } from './ui/FindingsByDay'
 import { TodayBudget } from './ui/TodayBudget'
-
-function formatUsd(value: number): string {
-  if (value === 0) {
-    return '$0'
-  }
-  return `$${value.toFixed(2)}`
-}
 
 function finishedRuns(summary: MetricsSummary): number {
   const counts = summary.runsByStatus
@@ -110,42 +103,57 @@ export function AnalyticsPage(): JSX.Element {
         <>
           <dl className={styles.tiles}>
             <Tile
-              label={`${t('analytics.runs')}: succeeded`}
+              label={`${t('analytics.runs')}: ${t('analytics.statusSucceeded')}`}
               value={String(summary.runsByStatus.succeeded)}
             />
             <Tile
-              label={`${t('analytics.runs')}: failed`}
+              label={`${t('analytics.runs')}: ${t('analytics.statusFailed')}`}
               value={String(summary.runsByStatus.failed)}
             />
             <Tile
-              label={`${t('analytics.runs')}: cancelled`}
+              label={`${t('analytics.runs')}: ${t('analytics.statusCancelled')}`}
               value={String(summary.runsByStatus.cancelled)}
             />
             <Tile
-              label={`${t('analytics.runs')}: skipped`}
+              label={`${t('analytics.runs')}: ${t('analytics.statusSkipped')}`}
               value={String(summary.runsByStatus.skipped)}
             />
             <Tile
-              label={`${t('analytics.pulls')}: blocking`}
+              label={`${t('analytics.pulls')}: ${t('analytics.verdictBlocking')}`}
               value={String(summary.pullsByVerdict.blocking)}
             />
             <Tile
-              label={`${t('analytics.pulls')}: attention`}
+              label={`${t('analytics.pulls')}: ${t('analytics.verdictAttention')}`}
               value={String(summary.pullsByVerdict.attention)}
             />
             <Tile
-              label={`${t('analytics.pulls')}: clean`}
+              label={`${t('analytics.pulls')}: ${t('analytics.verdictClean')}`}
               value={String(summary.pullsByVerdict.clean)}
             />
             <Tile
               label={`${t('analytics.pulls')}: ${t('analytics.noVerdict')}`}
               value={String(summary.pullsByVerdict.noVerdict)}
             />
-            <Tile label="critical" value={String(summary.findingsBySeverity.critical)} />
-            <Tile label="high" value={String(summary.findingsBySeverity.high)} />
-            <Tile label="medium" value={String(summary.findingsBySeverity.medium)} />
-            <Tile label="low" value={String(summary.findingsBySeverity.low)} />
-            <Tile label="info" value={String(summary.findingsBySeverity.info)} />
+            <Tile
+              label={t('analytics.severityCritical')}
+              value={String(summary.findingsBySeverity.critical)}
+            />
+            <Tile
+              label={t('analytics.severityHigh')}
+              value={String(summary.findingsBySeverity.high)}
+            />
+            <Tile
+              label={t('analytics.severityMedium')}
+              value={String(summary.findingsBySeverity.medium)}
+            />
+            <Tile
+              label={t('analytics.severityLow')}
+              value={String(summary.findingsBySeverity.low)}
+            />
+            <Tile
+              label={t('analytics.severityInfo')}
+              value={String(summary.findingsBySeverity.info)}
+            />
             <Tile
               label={t('analytics.averageDuration')}
               value={
@@ -165,10 +173,10 @@ export function AnalyticsPage(): JSX.Element {
             <thead>
               <tr>
                 <th>{t('analytics.day')}</th>
-                <th>Security</th>
-                <th>Bug</th>
-                <th>Performance</th>
-                <th>Style</th>
+                <th>{t('analytics.categorySecurity')}</th>
+                <th>{t('analytics.categoryBug')}</th>
+                <th>{t('analytics.categoryPerformance')}</th>
+                <th>{t('analytics.categoryStyle')}</th>
                 <th>{t('analytics.durationMs')}</th>
                 <th>{t('analytics.cost')}</th>
               </tr>
