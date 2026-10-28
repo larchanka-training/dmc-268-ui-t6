@@ -3,20 +3,42 @@
   height: auto;
 }
 
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 8px;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+
 .security {
   fill: var(--rv-critical);
+  background-color: var(--rv-critical);
 }
 
 .correctness {
   fill: var(--rv-high);
+  background-color: var(--rv-high);
 }
 
 .performance {
   fill: var(--rv-warning);
+  background-color: var(--rv-warning);
 }
 
 .readability {
   fill: var(--rv-link);
+  background-color: var(--rv-link);
 }
 
 .axis {
