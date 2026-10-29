@@ -29,6 +29,9 @@ repository. Access ends when the repository leaves the installation.
 ### What is sent to the AI model?
 
 - The diff of the pull request.
+- Code around the changes, read from the pull request branch: nearby lines, the whole changed file
+  when it is small, and the signatures and doc comments of what the changed code imports from your
+  repository (Python, TypeScript, JavaScript and Go).
 - Its title, description, author, source and target branch, labels and commit messages.
 - The text of `.review/rules.md` and the root `AGENTS.md`, if there are any.
 - A summary of your project's conventions. To write it, Reviewer also sends the file tree and up
@@ -72,8 +75,8 @@ out, so treat the review as advice from a teammate.
 
 There is no pricing or billing in the product yet. Each run has a fixed spending limit for the
 model; a run that would go over it stops with `budget_exceeded` or
-`verification_budget_exceeded`. With RAG on, a review also sends code excerpts to the model, so
-it may cost more.
+`verification_budget_exceeded`. With RAG on, a review also sends parts of unchanged files that use
+the changed code, so it may cost more.
 
 ## Support
 
