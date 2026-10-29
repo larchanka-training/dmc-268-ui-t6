@@ -8,6 +8,8 @@ pnpm-lock.yaml
 .agents/skills/issue-graph/tests/fixtures/
 .agents/skills/accept-issue/tests/golden/
 .agents/skills/accept-issue/tests/fixtures/
+.agents/skills/implement-issue/tests/fixtures/
+.agents/skills/implement-issue/examples/
 .agents/skills/create-issue/examples/
 
 # docs-site: build output, generated types, MDX content (prettier can reflow MDX JSX)
