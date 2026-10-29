@@ -34,6 +34,8 @@ repository. Access ends when the repository leaves the installation.
 - A summary of your project's conventions. To write it, Reviewer also sends the file tree and up
   to 10 files of the branch your pull request targets.
 - Built-in review guidelines.
+- If RAG is on, parts of unchanged files that use the code the pull request changed, see
+  [Code index (RAG)](/features#code-index-rag).
 
 Lock files, build output, binaries and files that match `review-ignore` are not sent, see
 [Rules file](/rules-file).
@@ -69,7 +71,8 @@ out, so treat the review as advice from a teammate.
 ### How much does it cost?
 
 There is no pricing or billing in the product yet. Each run has a fixed spending limit for the
-model; a run that would go over it stops with `budget_exceeded`. RAG adds no cost today.
+model; a run that would go over it stops with `budget_exceeded`. With RAG on, a review also
+sends code excerpts to the model, so it may cost more.
 
 ## Support
 

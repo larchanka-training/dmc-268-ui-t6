@@ -39,7 +39,7 @@ export function RagSnippet() {
       caption="The RAG switch with the index status."
       name="settings-rag"
       alt="Screenshot of the RAG section in repository settings: the switch and the index status."
-      note="The hint under the switch is the app's own wording. Today the index does not change the review and adds no model cost, see above."
+      note="The hint under the switch is the app's own wording."
     />
   )
 }
