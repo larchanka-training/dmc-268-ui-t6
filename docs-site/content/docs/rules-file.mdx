@@ -1,10 +1,8 @@
 ---
 title: Rules file
-description: Keep files out of reviews with .review/rules.md.
+description: Give the model your review rules and keep files out of reviews with .review/rules.md.
 icon: FileText
 ---
-
-import { StatusBadge } from '@/components/status-badge'
 
 Add `.review/rules.md` at the root of your repository. It is optional and read from the commit
 your pull request is based on, so a change counts only after it is merged. The other review
@@ -14,8 +12,8 @@ options are in the dashboard, see [Repository settings](/features#repository-set
 
 ## Ignore files
 
-Today the part that works is one `review-ignore` block: path masks, one per line. Matching files
-are never sent to the model.
+A `review-ignore` block lists path masks, one per line. Matching files are never sent to the
+model and are not reviewed.
 
 ````markdown title=".review/rules.md"
 ```review-ignore
@@ -58,7 +56,7 @@ dist/**
 
 Reviewer checks `.review/rules.md` and the root `AGENTS.md` on every run, as they are in the
 commit the pull request is based on. If one is broken, the run fails with a `policy_` code and
-the `AI Review` check names the file, line and problem.
+the `AI Review` check names the problem, and the file and line when one file is at fault.
 
 **Review rules** in the repository settings shows only `.review/rules.md`, as it is on the
 latest commit of the default branch. It does not show problems in `AGENTS.md`, or in the rules
@@ -79,14 +77,18 @@ of a pull request into another branch; the check does.
 | `policy_ignore_info_invalid` | A space and a parameter follow `review-ignore` on the opening line. |
 | `policy_ignore_limit_exceeded` | Over 256 lines, or a mask over 256 bytes or 32 parts. |
 | `policy_document_control_character` | The file has a control character that is not allowed. |
+| `policy_prompt_budget_exceeded` | `.review/rules.md` and `AGENTS.md` together are over 12,000 tokens, counted as the model sees them, or too large to fit the review. Shorten either file. |
 
 </Accordion>
 </Accordions>
 
-## Your rules for the model <StatusBadge />
+## Your rules for the model
 
 The rest of the file is for rules in plain words, under headings like `# Security` or
-`# Style`. Today this text is checked but not sent to the model, so it has no effect yet.
+`# Style`. Reviewer sends the whole file to the model, together with the root `AGENTS.md`. Where
+they disagree, `.review/rules.md` wins over `AGENTS.md`, and both win over the built-in
+guidelines; rules cannot change the format of the review. The `review-ignore` block still keeps
+the matching files out of the review.
 
 <Accordions>
 <Accordion title="Example, shortened from the format spec">

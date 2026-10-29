@@ -30,13 +30,13 @@ repository. Access ends when the repository leaves the installation.
 
 - The diff of the pull request.
 - Its title, description, author, source and target branch, labels and commit messages.
-- The root `AGENTS.md`, if there is one.
+- The text of `.review/rules.md` and the root `AGENTS.md`, if there are any.
 - A summary of your project's conventions. To write it, Reviewer also sends the file tree and up
   to 10 files of the branch your pull request targets.
 - Built-in review guidelines.
 
-Lock files, build output, binaries and files that match `review-ignore` are not sent. The text
-of `.review/rules.md` is not sent yet, see [Rules file](/rules-file).
+Lock files, build output, binaries and files that match `review-ignore` are not sent, see
+[Rules file](/rules-file).
 
 ### What does Reviewer store?
 
@@ -109,7 +109,7 @@ Check these in order:
 | Code | What to do |
 | --- | --- |
 | `policy_access_denied`, `policy_revision_unavailable`, `policy_fetch_transient`, `policy_rate_limited` | Reviewer could not read the rules from GitHub; the file itself may be fine. `policy_fetch_transient` and `policy_rate_limited` are retried automatically. Otherwise check the installation, then restart the run. |
-| `policy_...` | The rules file or `AGENTS.md` has a problem. The check shows the file, line and fix, see [Rules file](/rules-file#errors-fail-the-run). |
+| `policy_...` | The rules file or `AGENTS.md` has a problem. The check shows the problem, and the file and line when one file is at fault, see [Rules file](/rules-file#errors-fail-the-run). |
 | `llm_context_overflow` | The change does not fit in the model context. Split the pull request. |
 | `budget_exceeded` | The run hit its spending limit. Split the pull request. |
 | `deadline_exceeded` | The run took too long. Restart it. |
@@ -125,6 +125,5 @@ the findings could not be tied to changed lines; then they are in the review bod
 
 ### My rules change did nothing
 
-Rules are read from the base commit, so merge the change first. Also note that today only the
-`review-ignore` block affects reviews; the rest of the file is checked but not yet sent to the
-model.
+Rules are read from the base commit, so merge the change first. Rules in plain words guide the
+model; they do not guarantee a finding wherever they apply.
