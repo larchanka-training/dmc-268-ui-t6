@@ -14,7 +14,7 @@ export const bitbucket = {
     copied: 'Copied',
     copyFailed: 'Could not copy. Copy the value manually.',
     secretAlreadyIssued:
-      'A secret was already issued for this repository. Rotate the webhook secret to get a new one.',
+      'A secret was already issued for this repository. Use "New webhook secret" to get a new one.',
     connected: 'Repository connected',
     disconnected: 'Repository disconnected',
     tokenUpdated: 'Shared API token updated',

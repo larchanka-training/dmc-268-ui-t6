@@ -1367,6 +1367,20 @@ describe('Bitbucket connections panel', () => {
 
     await search('third-repo', 'secret-second-repo')
     expect(await screen.findByText(/секрет уже выдавался.*обновите webhook secret/i)).toBeTruthy()
+    try {
+      await act(async () => {
+        await i18n.changeLanguage('en')
+      })
+      expect(
+        screen.getByText(
+          'A secret was already issued for this repository. Use "New webhook secret" to get a new one.',
+        ),
+      ).toBeTruthy()
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage('ru')
+      })
+    }
     expect(screen.getByText('secret-first-repo')).toBeTruthy()
     expect(screen.getByText('secret-second-repo')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /закрыть настройку webhook.*first-repo/i }))

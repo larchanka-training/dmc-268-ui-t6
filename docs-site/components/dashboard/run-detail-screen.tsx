@@ -208,7 +208,7 @@ export function RunDetailScreen() {
             <Meta
               items={[
                 { label: 'Repository', value: 'acme/api' },
-                { label: 'Source', value: 'GitHub' },
+                { label: 'Provider', value: 'GitHub' },
                 { label: 'PR', value: <a href="#">#142 feat: add user lookup endpoint</a> },
                 { label: 'Commit', value: <code className={headerStyles.commit}>5d6e7f8</code> },
                 { label: 'Author', value: 'maria' },

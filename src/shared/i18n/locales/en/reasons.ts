@@ -39,6 +39,15 @@ export const reasons = {
   bitbucket_forbidden:
     'The Bitbucket integration has no access to the repository or the pull request.',
   bitbucket_publish_failed: 'Bitbucket did not accept the review.',
+  bitbucket_fetch_failed: 'Could not get review data from Bitbucket.',
+  bitbucket_commit_messages_fetch_failed:
+    'Could not get the pull request commit messages from Bitbucket.',
+  bitbucket_source_unavailable: 'The Bitbucket source fork is unavailable.',
+  bitbucket_review_limit_exceeded: 'The Bitbucket pull request has too many files for review.',
+  bitbucket_request_budget_exceeded: 'The Bitbucket request limit for this review was reached.',
+  bitbucket_invalid_response: 'Bitbucket returned invalid review data.',
+  bitbucket_response_budget_exceeded: 'The Bitbucket response budget for this run was exhausted.',
+  bitbucket_engine_unsupported: 'The selected review engine is not supported for Bitbucket.',
   publication_payload_too_large: 'The result is over the publication limit of the code host.',
   publication_outcome_unknown:
     'Could not confirm whether the review was published. It needs a check.',

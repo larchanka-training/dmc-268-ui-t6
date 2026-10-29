@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 
 import type { VcsProvider } from '../../../shared/model/provider'
+import { i18n } from '../../../shared/i18n'
 
 import { AutoReviewSwitch, type AutoReviewSwitchProps } from './AutoReviewSwitch'
 
@@ -79,6 +80,27 @@ afterEach(() => {
 })
 
 describe('AutoReviewSwitch: GitHub App has no access', () => {
+  it.each([
+    ['github', 'GitHub App'],
+    ['bitbucket', 'Bitbucket Cloud'],
+  ] as const)('uses grammatical English access text for %s', async (provider, accessName) => {
+    try {
+      await act(async () => {
+        await i18n.changeLanguage('en')
+      })
+      renderSwitch({ provider })
+      expect(
+        screen.getByText(
+          `${accessName} has no access to this repository, so automatic review will not run. Choose what to do once ${accessName} access is back: the saved choice is not shown here while there is no access.`,
+        ),
+      ).toBeTruthy()
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage('ru')
+      })
+    }
+  })
+
   it('requires the repository provider', () => {
     expectTypeOf<AutoReviewSwitchProps>().toExtend<{ provider: VcsProvider }>()
   })

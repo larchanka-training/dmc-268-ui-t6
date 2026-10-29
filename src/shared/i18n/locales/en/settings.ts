@@ -26,7 +26,7 @@ export const settings = {
     off: 'Automatic review is off',
     unavailableTitle: 'Automatic review is unavailable',
     unavailableText:
-      'The {{accessName}} has no access to this repository, so automatic review will not run. Choose what to do once {{accessName}} access is back: the saved choice is not shown here while there is no access.',
+      '{{accessName}} has no access to this repository, so automatic review will not run. Choose what to do once {{accessName}} access is back: the saved choice is not shown here while there is no access.',
     enable: 'Turn on auto-review',
     keepOff: 'Keep it off',
     savedOn: 'Choice saved. Auto-review turns on once {{accessName}} access is back.',
@@ -35,7 +35,7 @@ export const settings = {
   },
   rag: {
     hint: 'Takes the links between the repository files into account, which makes the review more precise. May increase the cost. Only the code structure is stored, not its text.',
-    noAccess: 'The {{accessName}} has no access, so RAG is unavailable',
+    noAccess: '{{accessName}} has no access, so RAG is unavailable',
     changeFailed: 'Could not change the RAG setting',
     pollTimedOut: 'Auto-refresh stopped: reload the page',
     staleDetail: 'the index is behind the default branch, still in use',
