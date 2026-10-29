@@ -39,6 +39,14 @@ repository. Access ends when the repository leaves the installation.
 - Built-in review guidelines.
 - If RAG is on, parts of unchanged files that use the code the pull request changed, see
   [Code index (RAG)](/features#code-index-rag).
+- The second check of the findings is a separate request. It does not get the title, description
+  or commit messages, only:
+  - The findings and the diff. A long diff is cut to fit, and the lines the findings point at are
+    kept first.
+  - The code around the changes, but only the parts a finding cites. With RAG on, also the parts
+    of unchanged files that a finding cites, with the code they use.
+  - The text of `.review/rules.md` and the root `AGENTS.md`, the built-in review guidelines and the
+    summary of your project's conventions.
 
 Lock files, build output, binaries and files that match `review-ignore` are not sent, see
 [Rules file](/rules-file).
@@ -75,8 +83,11 @@ out, so treat the review as advice from a teammate.
 
 There is no pricing or billing in the product yet. Each run has a fixed spending limit for the
 model; a run that would go over it stops with `budget_exceeded` or
-`verification_budget_exceeded`. With RAG on, a review also sends parts of unchanged files that use
-the changed code, so it may cost more.
+`verification_budget_exceeded`. A run that has findings to check also makes a second model call
+that checks them all together, with RAG on or off; a run with nothing to check makes none. If that
+call fails or its answer is unusable, Reviewer may retry the check, also with another model, so
+one attempt can make up to 3 calls for the check. With RAG on, a review also sends parts of
+unchanged files that use the changed code, so it may cost more.
 
 ## Support
 
