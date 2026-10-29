@@ -102,10 +102,10 @@ the dashboard shows no verdict. Such a run has the `summary-only` tag in **Runs*
 no file diff went to the model.
 
 Up to that size, if nothing is left to review except changes Reviewer cannot read, for example
-files over 1 MiB with no diff or with a path it does not support, the model is not called. The
-review is posted with no findings and no verdict, and its `AI Review` check is neutral and says
-so in the title. If every changed file is ignored or binary, the run is skipped instead, see the
-[FAQ](/faq#a-run-was-skipped).
+a file over 1 MiB that has no diff, or a file whose path it does not support, the model is not
+called. The review is posted with no findings and no verdict, and its `AI Review` check is
+neutral and says so in the title. If every changed file is ignored, build output or binary, the
+run is skipped instead, see the [FAQ](/faq#a-run-was-skipped).
 
 </Accordion>
 </Accordions>
