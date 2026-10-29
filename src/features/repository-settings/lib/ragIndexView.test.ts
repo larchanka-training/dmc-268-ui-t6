@@ -1,6 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
 
 import { disabledRagIndex, type RagIndex } from '../../../entities/repository'
+import { i18n } from '../../../shared/i18n'
 import type { VcsProvider } from '../../../shared/model/provider'
 import {
   ragStaleDetail,
@@ -247,6 +248,21 @@ describe('ragIndexView: the reason of the last build', () => {
       ragIndexView(index({ status: 'failed', lastErrorCode: 'vcs_rate_limited' }), true, provider)
         .reason?.text,
     ).toBe(`${name} ограничил число запросов`)
+  })
+
+  it('describes a Bitbucket outage in the current language', async () => {
+    const failed = index({ status: 'failed', lastErrorCode: 'vcs_unavailable' })
+    expect(ragIndexView(failed, true, 'bitbucket').reason?.text).toBe(
+      'Bitbucket Cloud временно недоступен',
+    )
+    try {
+      await i18n.changeLanguage('en')
+      expect(ragIndexView(failed, true, 'bitbucket').reason?.text).toBe(
+        'Bitbucket Cloud is temporarily unavailable',
+      )
+    } finally {
+      await i18n.changeLanguage('ru')
+    }
   })
 
   it.each([

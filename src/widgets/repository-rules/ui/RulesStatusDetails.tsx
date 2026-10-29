@@ -210,7 +210,7 @@ export const RulesStatusDetails: FC<RulesStatusDetailsProps> = ({
               <ul className={styles.list}>
                 {status.diagnostics.map((diagnostic, index) => (
                   <li key={`${diagnostic.code}-${String(index)}`}>
-                    <span>{unavailableReason(diagnostic.code, diagnostic.message, provider)}</span>
+                    <span>{unavailableReason(diagnostic.code, provider, diagnostic.message)}</span>
                     {isKnownUnavailableCode(diagnostic.code) ? null : (
                       <>
                         {' '}

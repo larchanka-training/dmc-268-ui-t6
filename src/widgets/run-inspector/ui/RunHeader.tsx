@@ -95,7 +95,11 @@ export function RunHeader(props: RunHeaderProps): JSX.Element {
 
   const items: MetadataItem[] = [
     { key: 'repo', label: t('runs.header.repository'), children: pr.repo },
-    { key: 'provider', label: t('runs.header.provider'), children: VCS_PROVIDER_LABEL[run.provider] },
+    {
+      key: 'provider',
+      label: t('runs.header.provider'),
+      children: VCS_PROVIDER_LABEL[run.provider],
+    },
     {
       key: 'pullRequest',
       label: t('runs.header.pullRequest'),

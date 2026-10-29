@@ -1,6 +1,7 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, expectTypeOf, it } from 'vitest'
 
 import type { RulesDiagnostic } from '../../../entities/repository'
+import type { VcsProvider } from '../../../shared/model/provider'
 import { i18n } from '../../../shared/i18n'
 import {
   describeDiagnosticLimit,
@@ -78,7 +79,9 @@ describe('describeDiagnosticLimit', () => {
 
 describe('unavailableReason', () => {
   it('requires an explicit provider at the helper boundary', () => {
-    expectTypeOf<Parameters<typeof unavailableReason>>().toEqualTypeOf<[string, VcsProvider]>()
+    expectTypeOf<Parameters<typeof unavailableReason>>().toEqualTypeOf<
+      [string, VcsProvider, string?]
+    >()
   })
 
   it('names Bitbucket for provider access and transient failures', () => {
@@ -94,6 +97,20 @@ describe('unavailableReason', () => {
     expect(unavailableReason('policy_revision_unavailable', 'bitbucket')).toBe(
       'Ревизия default branch недоступна: Bitbucket Cloud не подтвердил, есть ли файл правил.',
     )
+  })
+
+  it('describes Bitbucket access errors in the current language', async () => {
+    expect(unavailableReason('policy_access_denied', 'bitbucket')).toBe(
+      'У Bitbucket Cloud нет доступа к репозиторию',
+    )
+    try {
+      await i18n.changeLanguage('en')
+      expect(unavailableReason('policy_access_denied', 'bitbucket')).toBe(
+        'Bitbucket Cloud has no access to the repository',
+      )
+    } finally {
+      await i18n.changeLanguage('ru')
+    }
   })
 
   it('keeps GitLab wording for the same unavailable reasons', () => {
@@ -129,11 +146,11 @@ describe('unavailableReason', () => {
   })
 
   it('shows the server message for a code it does not know', () => {
-    expect(unavailableReason('something_new', 'GitHub is down.')).toBe('GitHub is down.')
+    expect(unavailableReason('something_new', 'github', 'GitHub is down.')).toBe('GitHub is down.')
   })
 
   it('reads a known code from the dictionary, not from the server message', () => {
-    expect(unavailableReason('policy_fetch_transient', 'Could not read.')).toBe(
+    expect(unavailableReason('policy_fetch_transient', 'github', 'Could not read.')).toBe(
       'GitHub временно не отвечает',
     )
   })

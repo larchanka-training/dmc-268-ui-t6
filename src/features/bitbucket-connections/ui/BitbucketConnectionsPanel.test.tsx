@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { Workspace } from '../../../entities/user'
 import { ApiError, setMockTransport } from '../../../shared/api/client'
+import { i18n } from '../../../shared/i18n'
 import { BitbucketConnectionsPanel } from './BitbucketConnectionsPanel'
 
 const FIRST = '11111111-1111-4111-8111-111111111111'
@@ -49,6 +50,28 @@ function renderPanel(availableWorkspaces: Workspace[] = workspaces) {
 }
 
 describe('Bitbucket connections panel', () => {
+  it('switches visible controls between English and Russian without remounting', async () => {
+    setMockTransport(() => ({ connections: [], nextCursor: null }))
+    renderPanel()
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: /portal workspace/i }))
+    fireEvent.click(screen.getByText('First team'))
+    expect(screen.getByRole('button', { name: 'Найти репозитории' })).toBeTruthy()
+    try {
+      await act(async () => {
+        await i18n.changeLanguage('en')
+      })
+      expect(screen.getByRole('button', { name: 'Find repositories' })).toBeTruthy()
+      expect(
+        screen.getByText('Choose a portal workspace to connect a private or public repository.'),
+      ).toBeTruthy()
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage('ru')
+      })
+    }
+    expect(screen.getByRole('button', { name: 'Найти репозитории' })).toBeTruthy()
+  })
+
   it('disables discovery and credential rotation for whitespace-only tokens', async () => {
     const requests: string[] = []
     setMockTransport((endpoint) => {
@@ -732,6 +755,45 @@ describe('Bitbucket connections panel', () => {
       expect(document.activeElement).toBe(
         screen.getByRole('button', { name: 'Подключить private-repo' }),
       )
+    })
+  })
+
+  it('returns focus to Find repositories after a delayed discovery error', async () => {
+    let rejectDiscovery: ((reason: unknown) => void) | undefined
+    setMockTransport((endpoint) => {
+      if (endpoint.path.endsWith('/discovery')) {
+        return new Promise((_, reject) => {
+          rejectDiscovery = reject
+        })
+      }
+      return { connections: [], nextCursor: null }
+    })
+    renderPanel()
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: /portal workspace/i }))
+    fireEvent.click(screen.getByText('First team'))
+    fireEvent.change(screen.getByRole('textbox', { name: /bitbucket workspace/i }), {
+      target: { value: 'private-space' },
+    })
+    fireEvent.change(screen.getByLabelText('API token'), { target: { value: 'valid-token' } })
+    const discover = screen.getByRole('button', { name: 'Найти репозитории' })
+    discover.focus()
+    fireEvent.click(discover)
+    await waitFor(() => {
+      expect(discover.hasAttribute('disabled')).toBe(true)
+    })
+    const workspaceInput = screen.getByRole('textbox', { name: 'Bitbucket workspace' })
+    workspaceInput.focus()
+    workspaceInput.blur()
+    expect(document.activeElement).toBe(document.body)
+    await act(async () => {
+      rejectDiscovery?.(new ApiError(422, 'unsafe detail', { detail: 'invalid_credential' }))
+      await Promise.resolve()
+    })
+    expect(
+      await screen.findByText('Проверьте данные подключения Bitbucket и повторите попытку.'),
+    ).toBeTruthy()
+    await waitFor(() => {
+      expect(document.activeElement).toBe(discover)
     })
   })
 

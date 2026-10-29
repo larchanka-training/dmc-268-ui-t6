@@ -24,7 +24,7 @@ export interface RulesStatusPanelProps {
  * has one now (the retry of an `unavailable` status failed with an HTTP error), else to the
  * heading of the block, not to `<body>`.
  */
-export const RulesStatusPanel: FC<RulesStatusPanelProps> = ({ repoId, provider = 'github' }) => {
+export const RulesStatusPanel: FC<RulesStatusPanelProps> = ({ repoId, provider }) => {
   const { t } = useTranslation()
   const query = useRepositoryRulesStatus(repoId)
 

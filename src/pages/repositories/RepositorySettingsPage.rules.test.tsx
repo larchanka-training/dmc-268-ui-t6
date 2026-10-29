@@ -15,7 +15,7 @@ vi.mock('../../shared/config/env', async (importOriginal) => {
 import { mockRepositories } from '../../app/mocks/app-state'
 import { mockRulesStatuses } from '../../app/mocks/mockRulesStatus'
 import { initMockTransport, withMockTransportOverlay } from '../../app/mocks/mockTransport'
-import { connectBitbucketRepository } from '../../features/bitbucket-connections/api'
+import { connectBitbucketRepository } from '../../features/bitbucket-connections'
 import { setMockTransport } from '../../shared/api/client'
 import { RepositorySettingsPage } from './RepositorySettingsPage'
 

@@ -183,7 +183,7 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
       // setFieldsValue does not fire onValuesChange.
       setValues(next)
       setBaseline(toFormValues(saved))
-      // «Сохранить» is disabled again now: keep the keyboard user in the form.
+      // Save is disabled again now: keep the keyboard user in the form.
       form.focusField(firstField)
     } catch (error) {
       // The entered values stay in the fields; only messages appear: under the fields the
@@ -249,24 +249,24 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
             <Input type="hidden" />
           </Form.Item>
           <Form.Item
-            extra="Bitbucket Cloud запускает ревью без ожидания CI. Результат публикуется отдельным статусом коммита."
-            label="Ожидание CI"
+            extra={t('settings.form.bitbucketCiExtra')}
+            label={t('settings.form.waitForCi')}
           >
-            <Text>Никогда (запускать ревью без ожидания CI)</Text>
+            <Text>{t('settings.form.waitForCiNever')}</Text>
           </Form.Item>
         </>
       ) : (
         <Form.Item
-          label="Ожидание CI"
+          label={t('settings.form.waitForCi')}
           name="waitForCi"
           rules={[{ required: true }]}
-          {...serverErrorProps(serverErrors, 'waitForCi')}
+          {...serverErrorProps(serverErrors, 'waitForCi', t)}
         >
           <Select
             options={[
-              { value: 'auto', label: 'Авто (ожидать CI при наличии проверок)' },
-              { value: 'always', label: 'Всегда (всегда ждать успешного CI)' },
-              { value: 'never', label: 'Никогда (запускать ревью без ожидания CI)' },
+              { value: 'auto', label: t('settings.form.waitForCiAuto') },
+              { value: 'always', label: t('settings.form.waitForCiAlways') },
+              { value: 'never', label: t('settings.form.waitForCiNever') },
             ]}
           />
         </Form.Item>
@@ -290,23 +290,23 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
             <Input type="hidden" />
           </Form.Item>
           <Form.Item
-            extra="Bitbucket Cloud публикует результат комментариями и статусом коммита; запрос изменений недоступен."
-            label="Публикация вердикта"
+            extra={t('settings.form.bitbucketReviewExtra')}
+            label={t('settings.form.reviewEvent')}
           >
-            <Text>Комментарии и статус коммита</Text>
+            <Text>{t('settings.form.bitbucketReviewValue')}</Text>
           </Form.Item>
         </>
       ) : (
         <Form.Item
-          label="Публикация вердикта"
+          label={t('settings.form.reviewEvent')}
           name="reviewEvent"
           rules={[{ required: true }]}
-          {...serverErrorProps(serverErrors, 'reviewEvent')}
+          {...serverErrorProps(serverErrors, 'reviewEvent', t)}
         >
           <Select
             options={[
-              { value: 'COMMENT', label: 'Комментарий (при любых замечаниях)' },
-              { value: 'REQUEST_CHANGES', label: 'Запрос изменений (при блокирующих)' },
+              { value: 'COMMENT', label: t('settings.form.reviewEventComment') },
+              { value: 'REQUEST_CHANGES', label: t('settings.form.reviewEventRequestChanges') },
             ]}
           />
         </Form.Item>

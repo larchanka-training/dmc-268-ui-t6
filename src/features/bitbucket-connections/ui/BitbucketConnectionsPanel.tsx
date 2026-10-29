@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 
 import type { Workspace } from '../../../entities/user'
 import { REPOSITORIES_QUERY_KEY } from '../../../entities/repository'
+import { useTranslation } from '../../../shared/i18n'
 import { safeHttpUrl } from '../../../shared/lib/safeHttpUrl'
 import {
   BITBUCKET_CONNECTIONS_QUERY_KEY,
@@ -24,7 +25,6 @@ import {
 import styles from './BitbucketConnectionsPanel.module.css'
 
 const { Text, Title } = Typography
-const invalidTokenMessage = 'API token Bitbucket содержит недопустимые символы или слишком длинный.'
 
 export interface BitbucketConnectionsPanelProps {
   workspaces: Workspace[]
@@ -40,6 +40,7 @@ interface WebhookSetupEntry {
 }
 
 export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ workspaces }) => {
+  const { t } = useTranslation()
   const { message, modal } = App.useApp()
   const queryClient = useQueryClient()
   const [workspaceId, setWorkspaceId] = useState<string | null>(null)
@@ -48,7 +49,7 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
   const [discovered, setDiscovered] = useState<BitbucketDiscoveredRepository[]>([])
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [setups, setSetups] = useState<WebhookSetupEntry[]>([])
-  const [setupHelp, setSetupHelp] = useState<string | null>(null)
+  const [setupHelp, setSetupHelp] = useState(false)
   const [busy, setBusy] = useState(false)
   const [rotationInstallation, setRotationInstallation] = useState<string | null>(null)
   const [replacementToken, setReplacementToken] = useState('')
@@ -91,16 +92,16 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
       ),
       entry,
     ])
-    setSetupHelp(null)
+    setSetupHelp(false)
     return entry.id
   }
 
   const copySetupValue = async (value: string) => {
     try {
       await navigator.clipboard.writeText(value)
-      void message.success('Скопировано')
+      void message.success(t('bitbucket.panel.copied'))
     } catch {
-      void message.error('Не удалось скопировать. Скопируйте значение вручную.')
+      void message.error(t('bitbucket.panel.copyFailed'))
     }
   }
 
@@ -129,7 +130,7 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
     setDiscovered([])
     setNextCursor(null)
     setSetups([])
-    setSetupHelp(null)
+    setSetupHelp(false)
     setApiToken('')
     setReplacementToken('')
     setRotationInstallation(null)
@@ -145,11 +146,11 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
       : { bitbucketWorkspace: bitbucketWorkspace.trim(), apiToken: apiToken.trim() }
     if (!criteria?.bitbucketWorkspace || !criteria.apiToken) return
     if (criteria.bitbucketWorkspace.length > 128) {
-      void message.error('Bitbucket workspace не может быть длиннее 128 символов.')
+      void message.error(t('bitbucket.panel.workspaceTooLong'))
       return
     }
     if (!BitbucketApiTokenSchema.safeParse(criteria.apiToken).success) {
-      void message.error(invalidTokenMessage)
+      void message.error(t('bitbucket.panel.invalidToken'))
       return
     }
     if (!cursor) {
@@ -180,7 +181,10 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
         )
       }
     } catch (error) {
-      if (epoch === workspaceEpoch.current) void message.error(bitbucketErrorMessage(error))
+      if (epoch === workspaceEpoch.current) {
+        void message.error(bitbucketErrorMessage(error))
+        if (trigger && hadFocus) requestFocus(epoch, trigger, { kind: 'discover-submit' })
+      }
     } finally {
       if (epoch === workspaceEpoch.current) setBusy(false)
     }
@@ -190,11 +194,11 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
     if (!workspaceId) return
     const token = apiToken.trim()
     if (!token) {
-      void message.error('Введите API token Bitbucket для подключения.')
+      void message.error(t('bitbucket.panel.tokenRequired'))
       return
     }
     if (!BitbucketApiTokenSchema.safeParse(token).success) {
-      void message.error(invalidTokenMessage)
+      void message.error(t('bitbucket.panel.invalidToken'))
       return
     }
     const affectedWorkspaceId = workspaceId
@@ -217,9 +221,7 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
           )
           if (hadFocus) requestFocus(epoch, trigger, { kind: 'setup', setupId })
         } else {
-          setSetupHelp(
-            'Секрет уже выдавался для этого репозитория. Обновите webhook secret, чтобы получить новый.',
-          )
+          setSetupHelp(true)
           if (hadFocus) requestFocus(epoch, trigger, { kind: 'workspace' })
         }
         setApiToken('')
@@ -229,7 +231,7 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
       }
       await refresh(affectedWorkspaceId)
       if (epoch !== workspaceEpoch.current) return
-      void message.success('Репозиторий подключён')
+      void message.success(t('bitbucket.panel.connected'))
     } catch (error) {
       if (epoch === workspaceEpoch.current) {
         void message.error(bitbucketErrorMessage(error))
@@ -260,7 +262,7 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
           entry.repositoryId === repositoryId ? { ...entry, disconnected: true } : entry,
         ),
       )
-      void message.success('Репозиторий отключён')
+      void message.success(t('bitbucket.panel.disconnected'))
       return true
     } catch (error) {
       if (epoch === workspaceEpoch.current) void message.error(bitbucketErrorMessage(error))
@@ -282,11 +284,14 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
     const workspaceName = workspaces.find((workspace) => workspace.id === workspaceId)?.name
     let focusAfterClose: FocusTarget | null = null
     modal.confirm({
-      title: 'Отключить репозиторий Bitbucket?',
-      content: `Portal workspace: ${workspaceName ?? affectedWorkspaceId}. Репозиторий: ${repositoryName}.`,
-      okText: 'Отключить',
+      title: t('bitbucket.panel.confirmDisconnectTitle'),
+      content: t('bitbucket.panel.confirmDisconnectContent', {
+        workspace: workspaceName ?? affectedWorkspaceId,
+        repository: repositoryName,
+      }),
+      okText: t('bitbucket.panel.disconnect'),
       okButtonProps: { danger: true },
-      cancelText: 'Отмена',
+      cancelText: t('bitbucket.panel.cancel'),
       onOk: async () => {
         const confirmButton =
           document.activeElement instanceof HTMLElement ? document.activeElement : trigger
@@ -310,7 +315,7 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
     if (!workspaceId || !rotationInstallation) return
     const token = replacementToken.trim()
     if (!BitbucketApiTokenSchema.safeParse(token).success) {
-      void message.error(invalidTokenMessage)
+      void message.error(t('bitbucket.panel.invalidToken'))
       return
     }
     const affectedWorkspaceId = workspaceId
@@ -329,7 +334,7 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
       }
       await refresh(affectedWorkspaceId)
       if (epoch !== workspaceEpoch.current) return
-      void message.success('Общий API token обновлён')
+      void message.success(t('bitbucket.panel.tokenUpdated'))
     } catch (error) {
       if (epoch === workspaceEpoch.current) {
         void message.error(bitbucketErrorMessage(error))
@@ -374,29 +379,29 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
   }
 
   return (
-    <section aria-label="Подключения Bitbucket">
+    <section aria-label={t('bitbucket.panel.ariaLabel')}>
       <Title level={3}>Bitbucket Cloud</Title>
-      <Text>Выберите portal workspace для подключения приватного или публичного репозитория.</Text>
+      <Text>{t('bitbucket.panel.intro')}</Text>
       <div className={styles.workspaceSelect}>
         <Select
-          aria-label="Portal workspace"
+          aria-label={t('bitbucket.panel.portalWorkspace')}
           className={styles.workspaceSelectControl}
           disabled={workspaces.length === 0}
           onChange={chooseWorkspace}
           options={workspaces.map((workspace) => ({ label: workspace.name, value: workspace.id }))}
-          placeholder="Выберите workspace"
+          placeholder={t('bitbucket.panel.workspacePlaceholder')}
           value={workspaceId}
         />
       </div>
       {workspaceId === null ? (
         workspaces.length === 0 ? (
           <Alert
-            description="Войдите через GitHub и получите доступ к portal workspace, затем обновите страницу."
-            title="Нет доступных portal workspace"
+            description={t('bitbucket.panel.noWorkspacesDescription')}
+            title={t('bitbucket.panel.noWorkspacesTitle')}
             type="info"
           />
         ) : (
-          <Text type="secondary">Выберите workspace перед просмотром подключений.</Text>
+          <Text type="secondary">{t('bitbucket.panel.chooseWorkspace')}</Text>
         )
       ) : (
         <Flex gap="middle" vertical>
@@ -407,10 +412,14 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
             <Flex align="center" gap="small" key={connection.repositoryId} wrap>
               <Text>{`${connection.workspaceSlug}/${connection.repositorySlug}`}</Text>
               <Text type="secondary">
-                {connection.status === 'active' ? 'Webhook активен' : 'Ожидает webhook'}
+                {connection.status === 'active'
+                  ? t('bitbucket.panel.webhookActive')
+                  : t('bitbucket.panel.webhookPending')}
               </Text>
               <Button
-                aria-label={`Новый webhook secret для ${connection.workspaceSlug}/${connection.repositorySlug}`}
+                aria-label={t('bitbucket.panel.newWebhookSecretFor', {
+                  repository: `${connection.workspaceSlug}/${connection.repositorySlug}`,
+                })}
                 disabled={busy}
                 ref={(node) => {
                   trackBindingAction('hook', connection.repositoryId, node)
@@ -424,10 +433,12 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
                   )
                 }
               >
-                Новый webhook secret
+                {t('bitbucket.panel.newWebhookSecret')}
               </Button>
               <Button
-                aria-label={`Обновить API token для ${connection.workspaceSlug}/${connection.repositorySlug}`}
+                aria-label={t('bitbucket.panel.updateTokenFor', {
+                  repository: `${connection.workspaceSlug}/${connection.repositorySlug}`,
+                })}
                 disabled={busy}
                 ref={(node) => {
                   trackBindingAction('credential', connection.repositoryId, node)
@@ -438,7 +449,7 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
                   setReplacementToken('')
                 }}
               >
-                Обновить API token
+                {t('bitbucket.panel.updateToken')}
               </Button>
               <Button
                 danger
@@ -455,14 +466,16 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
                   )
                 }}
               >
-                Отключить {connection.workspaceSlug}/{connection.repositorySlug}
+                {t('bitbucket.panel.disconnectRepository', {
+                  repository: `${connection.workspaceSlug}/${connection.repositorySlug}`,
+                })}
               </Button>
             </Flex>
           ))}
           {rotationInstallation ? (
             <Flex gap="small" wrap>
               <Input.Password
-                aria-label="Новый API token"
+                aria-label={t('bitbucket.panel.newToken')}
                 autoComplete="new-password"
                 onChange={(event) => {
                   setReplacementToken(event.target.value)
@@ -474,84 +487,94 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
                 onClick={(event) => void rotateCredential(event.currentTarget)}
                 ref={credentialSubmitRef}
               >
-                Подтвердить обновление token
+                {t('bitbucket.panel.confirmTokenUpdate')}
               </Button>
             </Flex>
           ) : null}
-          {setupHelp ? <Alert description={setupHelp} showIcon type="info" /> : null}
+          {setupHelp ? (
+            <Alert description={t('bitbucket.panel.secretAlreadyIssued')} showIcon type="info" />
+          ) : null}
           {setups.map((entry) => (
             <Alert
               description={
                 <Flex gap="small" vertical>
-                  <Text>Сохраните секрет сейчас: он показан только один раз.</Text>
+                  <Text>{t('bitbucket.panel.saveSecret')}</Text>
                   {entry.superseded ? (
-                    <Text type="warning">Предыдущий секрет теперь недействителен.</Text>
+                    <Text type="warning">{t('bitbucket.panel.previousSecretInvalid')}</Text>
                   ) : null}
                   {entry.disconnected ? (
-                    <Text type="warning">Репозиторий отключён. Webhook secret недействителен.</Text>
+                    <Text type="warning">{t('bitbucket.panel.disconnectedSecretInvalid')}</Text>
                   ) : null}
-                  <Text strong>Webhook URL</Text>
+                  <Text strong>{t('bitbucket.panel.webhookUrl')}</Text>
                   <Text>{entry.setup.url}</Text>
                   <Button
-                    aria-label={`Скопировать URL для ${entry.repositoryName}`}
+                    aria-label={t('bitbucket.panel.copyUrlFor', {
+                      repository: entry.repositoryName,
+                    })}
                     onClick={() => void copySetupValue(entry.setup.url)}
                     ref={(node) => {
                       trackSetupAction(entry.id, node)
                     }}
                   >
-                    Скопировать URL
+                    {t('bitbucket.panel.copyUrl')}
                   </Button>
-                  <Text strong>События</Text>
+                  <Text strong>{t('bitbucket.panel.events')}</Text>
                   <Text>{entry.setup.events.join(', ')}</Text>
                   <Button
-                    aria-label={`Скопировать события для ${entry.repositoryName}`}
+                    aria-label={t('bitbucket.panel.copyEventsFor', {
+                      repository: entry.repositoryName,
+                    })}
                     onClick={() => void copySetupValue(entry.setup.events.join(', '))}
                   >
-                    Скопировать события
+                    {t('bitbucket.panel.copyEvents')}
                   </Button>
-                  <Text strong>Webhook secret</Text>
+                  <Text strong>{t('bitbucket.panel.webhookSecret')}</Text>
                   <Text>{entry.setup.secret}</Text>
                   <Button
-                    aria-label={`Скопировать секрет для ${entry.repositoryName}`}
+                    aria-label={t('bitbucket.panel.copySecretFor', {
+                      repository: entry.repositoryName,
+                    })}
                     disabled={entry.superseded || entry.disconnected}
                     onClick={() => void copySetupValue(entry.setup.secret)}
                   >
-                    Скопировать секрет
+                    {t('bitbucket.panel.copySecret')}
                   </Button>
                   <Button
-                    aria-label={`Закрыть настройку webhook для ${entry.repositoryName}`}
+                    aria-label={t('bitbucket.panel.closeSetupFor', {
+                      repository: entry.repositoryName,
+                    })}
                     onClick={(event) => {
                       dismissSetup(entry.id, event.currentTarget)
                     }}
                   >
-                    Закрыть
+                    {t('bitbucket.panel.close')}
                   </Button>
                 </Flex>
               }
               key={entry.id}
-              title={`Настройте webhook для ${entry.repositoryName}`}
+              title={t('bitbucket.panel.setupWebhookFor', { repository: entry.repositoryName })}
               type="info"
             />
           ))}
           <Flex gap="small" wrap>
             <Input
-              aria-label="Bitbucket workspace"
+              aria-label={t('bitbucket.panel.workspace')}
               ref={(node) => {
                 workspaceInputRef.current = node?.input ?? null
               }}
               onChange={(event) => {
                 setBitbucketWorkspace(event.target.value)
               }}
-              placeholder="Bitbucket workspace"
+              placeholder={t('bitbucket.panel.workspace')}
               value={bitbucketWorkspace}
             />
             <Input.Password
-              aria-label="API token"
+              aria-label={t('bitbucket.panel.apiToken')}
               autoComplete="new-password"
               onChange={(event) => {
                 setApiToken(event.target.value)
               }}
-              placeholder="API token"
+              placeholder={t('bitbucket.panel.apiToken')}
               value={apiToken}
             />
             <Button
@@ -559,14 +582,14 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
               onClick={(event) => void discover(null, event.currentTarget)}
               ref={discoverySubmitRef}
             >
-              Найти репозитории
+              {t('bitbucket.panel.findRepositories')}
             </Button>
           </Flex>
           {discovered.map((repository) => (
             <Flex align="center" gap="small" key={repository.uuid} wrap>
               {safeHttpUrl(repository.htmlUrl) ? (
                 <a href={repository.htmlUrl} rel="noreferrer" target="_blank">
-                  {`${repository.slug}${repository.isPrivate ? ' · приватный' : ''}`}
+                  {`${repository.slug}${repository.isPrivate ? ` · ${t('bitbucket.panel.privateSuffix')}` : ''}`}
                 </a>
               ) : (
                 <Text>{repository.slug}</Text>
@@ -578,7 +601,7 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
                   trackConnectAction(repository.uuid, node)
                 }}
               >
-                Подключить {repository.slug}
+                {t('bitbucket.panel.connectRepository', { repository: repository.slug })}
               </Button>
             </Flex>
           ))}
@@ -587,7 +610,7 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
               disabled={busy}
               onClick={(event) => void discover(nextCursor, event.currentTarget)}
             >
-              Показать ещё
+              {t('bitbucket.panel.showMore')}
             </Button>
           ) : null}
         </Flex>

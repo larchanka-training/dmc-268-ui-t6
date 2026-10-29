@@ -3,11 +3,7 @@ import type { ParseKeys } from 'i18next'
 import type { RulesDiagnostic } from '../../../entities/repository'
 import { isKnownReasonCode } from '../../../entities/run'
 import { formatDateTime, formatNumber, i18n } from '../../../shared/i18n'
-import {
-  VCS_ACCESS_NAME,
-  VCS_PROVIDER_LABEL,
-  type VcsProvider,
-} from '../../../shared/model/provider'
+import { VCS_ACCESS_NAME, type VcsProvider } from '../../../shared/model/provider'
 
 /** The seven characters git itself shows; the full sha stays in a tooltip. */
 export function shortSha(sha: string): string {
@@ -65,9 +61,9 @@ export function isKnownUnavailableCode(code: string): code is keyof typeof UNAVA
  * for a code this build does not know yet, and the general reason when there is none. A code is
  * looked up only where `isKnownUnavailableCode` says it is a key, so `constructor` is not.
  */
-export function unavailableReason(code: string, message = '', provider: VcsProvider = 'github'): string {
+export function unavailableReason(code: string, provider: VcsProvider, message = ''): string {
   if (provider !== 'github') {
-    const name = VCS_PROVIDER_LABEL[provider]
+    const name = VCS_ACCESS_NAME[provider]
     const accessName = VCS_ACCESS_NAME[provider]
     switch (code) {
       case 'policy_access_denied':

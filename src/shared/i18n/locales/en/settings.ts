@@ -26,16 +26,16 @@ export const settings = {
     off: 'Automatic review is off',
     unavailableTitle: 'Automatic review is unavailable',
     unavailableText:
-      'The GitHub App has no access to this repository, so automatic review will not run. Choose what to do once GitHub App access is back: the saved choice is not shown here while there is no access.',
+      'The {{accessName}} has no access to this repository, so automatic review will not run. Choose what to do once {{accessName}} access is back: the saved choice is not shown here while there is no access.',
     enable: 'Turn on auto-review',
     keepOff: 'Keep it off',
-    savedOn: 'Choice saved. Auto-review turns on once GitHub App access is back.',
-    savedOff: 'Choice saved. Auto-review stays off once GitHub App access is back.',
+    savedOn: 'Choice saved. Auto-review turns on once {{accessName}} access is back.',
+    savedOff: 'Choice saved. Auto-review stays off once {{accessName}} access is back.',
     changeFailed: 'Could not change automatic review',
   },
   rag: {
     hint: 'Takes the links between the repository files into account, which makes the review more precise. May increase the cost. Only the code structure is stored, not its text.',
-    noAccess: 'The GitHub App has no access, so RAG is unavailable',
+    noAccess: 'The {{accessName}} has no access, so RAG is unavailable',
     changeFailed: 'Could not change the RAG setting',
     pollTimedOut: 'Auto-refresh stopped: reload the page',
     staleDetail: 'the index is behind the default branch, still in use',
@@ -78,6 +78,16 @@ export const settings = {
       policy_document_too_large: 'the .review/rules.md file is over the limit',
       policy_document_type_unsupported: 'unsupported file type of .review/rules.md',
     },
+    providerReasons: {
+      vcs_unavailable: '{{name}} is temporarily unavailable',
+      vcs_rate_limited: '{{name}} limited the number of requests',
+      access_denied: '{{accessName}} has no access to the repository',
+      policy_revision_unavailable:
+        'the default branch revision is unavailable: {{name}} did not confirm whether the rules file exists',
+      policy_fetch_transient: '{{name}} is not responding while reading .review/rules.md',
+      policy_rate_limited:
+        '{{accessName}} limited the number of requests while reading .review/rules.md',
+    },
   },
   form: {
     engine: 'Analysis engine',
@@ -87,12 +97,17 @@ export const settings = {
     waitForCiAuto: 'Auto (wait for CI when the commit has checks)',
     waitForCiAlways: 'Always (always wait for a passing CI)',
     waitForCiNever: 'Never (run the review without waiting for CI)',
+    bitbucketCiExtra:
+      'Bitbucket Cloud runs reviews without waiting for CI. It publishes a separate commit status.',
     maxComments: 'Comment limit (1..10)',
     maxCommentsRequired: 'Enter the limit',
     maxCommentsRange: 'A number from 1 to 10',
     reviewEvent: 'Verdict',
     reviewEventComment: 'Comment (on any findings)',
     reviewEventRequestChanges: 'Request changes (when blocking)',
+    bitbucketReviewExtra:
+      'Bitbucket Cloud publishes the result in comments and a commit status; requesting changes is unavailable.',
+    bitbucketReviewValue: 'Comments and commit status',
     branchFilter: 'Branch filter',
     branchFilterExtra:
       'Masks of the pull request target branch, one per line (for example, main or release/*). Empty means all branches.',

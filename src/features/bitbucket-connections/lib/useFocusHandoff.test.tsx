@@ -17,8 +17,14 @@ function FocusHarness({
   const epoch = useRef(0)
   const otherRef = useRef<HTMLButtonElement | null>(null)
   const [originVisible, setOriginVisible] = useState(true)
-  const { workspaceInputRef, requestFocus, trackConnectAction, trackBindingAction } =
-    useFocusHandoff({ busy: false, epoch, latestSetupId: null })
+  const [busy, setBusy] = useState(false)
+  const {
+    workspaceInputRef,
+    credentialSubmitRef,
+    requestFocus,
+    trackConnectAction,
+    trackBindingAction,
+  } = useFocusHandoff({ busy, epoch, latestSetupId: null })
   return (
     <div>
       <input aria-label="Workspace fallback" ref={workspaceInputRef} />
@@ -47,6 +53,44 @@ function FocusHarness({
         </button>
       ) : null}
       <button ref={otherRef}>Other control</button>
+      <button
+        ref={(node) => {
+          credentialSubmitRef.current = node
+        }}
+      >
+        Credential submit
+      </button>
+      <button
+        onClick={(event) => {
+          requestFocus(epoch.current, event.currentTarget, { kind: 'credential-submit' })
+        }}
+      >
+        Request credential focus
+      </button>
+      <button
+        onClick={(event) => {
+          epoch.current += 1
+          requestFocus(0, event.currentTarget, { kind: 'workspace' })
+        }}
+      >
+        Request stale epoch
+      </button>
+      <button
+        onClick={(event) => {
+          setBusy(true)
+          requestFocus(epoch.current, event.currentTarget, { kind: 'workspace' })
+        }}
+      >
+        Queue focus during busy
+      </button>
+      <button
+        onClick={() => {
+          epoch.current += 1
+          setBusy(false)
+        }}
+      >
+        Change workspace
+      </button>
       <button
         onClick={(event) => {
           requestFocus(0, event.currentTarget, {
@@ -107,5 +151,38 @@ describe('useFocusHandoff', () => {
     open.focus()
     fireEvent.click(open)
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Other control' }))
+  })
+
+  it('does not steal focus for a missing target after the user moves to another control', () => {
+    render(<FocusHarness moveFocus targetMode="missing" />)
+    const open = screen.getByRole('button', { name: 'Open repository' })
+    open.focus()
+    fireEvent.click(open)
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Other control' }))
+  })
+
+  it('moves focus to the credential submit target for a request without another render change', () => {
+    render(<FocusHarness />)
+    const request = screen.getByRole('button', { name: 'Request credential focus' })
+    request.focus()
+    fireEvent.click(request)
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Credential submit' }))
+  })
+
+  it('ignores a focus request made with a stale workspace epoch', () => {
+    render(<FocusHarness />)
+    const request = screen.getByRole('button', { name: 'Request stale epoch' })
+    request.focus()
+    fireEvent.click(request)
+    expect(document.activeElement).toBe(request)
+  })
+
+  it('drops a queued focus request when the workspace changes before busy ends', () => {
+    render(<FocusHarness />)
+    const queue = screen.getByRole('button', { name: 'Queue focus during busy' })
+    queue.focus()
+    fireEvent.click(queue)
+    fireEvent.click(screen.getByRole('button', { name: 'Change workspace' }))
+    expect(document.activeElement).toBe(queue)
   })
 })

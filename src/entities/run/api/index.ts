@@ -63,7 +63,11 @@ export function runMutationErrorMessage(
         return i18n.t('runs.errors.mutationNotFound')
       case 409:
         if (action === 'rerun') {
-          return i18n.t('runs.errors.rerunConflict')
+          return provider === 'github'
+            ? i18n.t('runs.errors.rerunConflict')
+            : i18n.t('runs.errors.rerunConflictProvider', {
+                accessName: VCS_ACCESS_NAME[provider],
+              })
         }
         break
       case 422:
