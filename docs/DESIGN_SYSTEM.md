@@ -150,7 +150,7 @@ Ant Design пересчитывает исходные цвета своим а�
 `--rv-text`, без прозрачности; исключение — `critical solid`: 70% `tone` и 30% `--rv-text`,
 чтобы текст оставался доступным и на warning Alert при наведении на карточку.
 Насыщенность всех тегов, включая `critical solid`, — 500. Вычисленные цвета, alpha-композиция
-и контраст обеих тем сохранены в [browser proof #127](plans/127-browser-proof.md).
+и контраст обеих тем сохранены в [browser proof #127](https://github.com/larchanka-training/dmc-268-ui-t6/blob/008ee59afbe1d1e0598c9a44dea0e4c32d48ced2/docs/plans/127-browser-proof.md).
 
 Подсветка синтаксиса диффа получает восемь слотов из `theme.getDesignToken(buildTheme(mode))`.
 Mapper живёт в `src/widgets/diff-viewer/lib/diffTheme.ts`, CSS-классы — в

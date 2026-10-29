@@ -9,3 +9,4 @@ __pycache__/
 .pytest_cache/
 storybook-static/
 .vercel/
+docs/plans/
