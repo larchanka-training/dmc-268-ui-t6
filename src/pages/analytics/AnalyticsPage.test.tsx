@@ -31,10 +31,10 @@ const statusCounts = {
   queued: 0,
   running: 0,
   publishing: 0,
-  succeeded: 2,
-  failed: 1,
-  cancelled: 0,
-  skipped: 1,
+  succeeded: 11,
+  failed: 12,
+  cancelled: 13,
+  skipped: 14,
 }
 
 function summary(overrides: Partial<MetricsSummary> = {}): MetricsSummary {
@@ -42,8 +42,8 @@ function summary(overrides: Partial<MetricsSummary> = {}): MetricsSummary {
     range: '7d',
     totals: {
       runsByStatus: statusCounts,
-      pullsByVerdict: { blocking: 1, attention: 0, clean: 3, noVerdict: 2 },
-      findingsBySeverity: { critical: 5, high: 4, medium: 3, low: 2, info: 1 },
+      pullsByVerdict: { blocking: 21, attention: 22, clean: 23, noVerdict: 24 },
+      findingsBySeverity: { critical: 31, high: 32, medium: 33, low: 34, info: 35 },
       findingsByCategory: { security: 1, correctness: 2, performance: 0, readability: 1 },
       succeededAverageDurationSeconds: 125,
       tokensIn: 10,
@@ -53,7 +53,7 @@ function summary(overrides: Partial<MetricsSummary> = {}): MetricsSummary {
     series: [
       {
         day: '2026-10-26',
-        findingsByCategory: { security: 2, correctness: 1, performance: 0, readability: 0 },
+        findingsByCategory: { security: 2, correctness: 7, performance: 0, readability: 8 },
         runCount: 1,
         averageDurationSeconds: 4,
         costUsd: 0.2,
@@ -152,15 +152,32 @@ describe('AnalyticsPage', () => {
     )
     const { container } = renderPage()
     expect(await screen.findByText('Критические')).toBeTruthy()
-    expect(screen.getByText('Критические').closest('div')?.textContent).toContain('5')
-    expect(screen.getByText('Высокие').closest('div')?.textContent).toContain('4')
+    const tile = (label: string): string =>
+      screen.getByText(label).closest('div')?.querySelector('dd')?.textContent ?? ''
+    expect(tile('Прогоны: Успешные')).toBe('11')
+    expect(tile('Прогоны: С ошибкой')).toBe('12')
+    expect(tile('Прогоны: Отменённые')).toBe('13')
+    expect(tile('Прогоны: Пропущенные')).toBe('14')
+    expect(tile('Pull request: Блокирующие')).toBe('21')
+    expect(tile('Pull request: Требуют внимания')).toBe('22')
+    expect(tile('Pull request: Чистые')).toBe('23')
+    expect(tile('Pull request: Без вердикта')).toBe('24')
+    expect(tile('Критические')).toBe('31')
+    expect(tile('Высокие')).toBe('32')
+    expect(tile('Средние')).toBe('33')
+    expect(tile('Низкие')).toBe('34')
+    expect(tile('Информационные')).toBe('35')
     expect(screen.getByText('2 мин 5 с')).toBeTruthy()
     expect(screen.getByText('$1.50')).toBeTruthy()
     expect(screen.getByText('$0')).toBeTruthy()
-    expect(screen.getByText('10')).toBeTruthy()
-    expect(screen.getByRole('table', { name: 'Числа по дням' })).toBeTruthy()
+    expect(tile('Токены на входе')).toBe('10')
+    expect(tile('Токены на выходе')).toBe('4')
+    expect(screen.getByRole('heading', { name: 'Числа по дням' })).toBeTruthy()
+    expect(screen.getByRole('table')).toBeTruthy()
     const titles = [...container.querySelectorAll('title')].map((node) => node.textContent)
     expect(titles).toContain('Безопасность 2')
+    expect(titles).toContain('Дефект 7')
+    expect(titles).toContain('Стиль 8')
     expect(titles).toContain('4')
     for (const name of ['Безопасность', 'Дефект', 'Производительность', 'Стиль']) {
       expect(screen.getAllByText(name).length).toBeGreaterThan(0)
@@ -233,7 +250,8 @@ describe('AnalyticsPage', () => {
     const { container } = renderPage()
     expect(await screen.findByText('В этом периоде нет завершённых прогонов')).toBeTruthy()
     expect(container.querySelector('svg[role="img"]')).toBeNull()
-    expect(screen.queryByRole('table', { name: 'Числа по дням' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Числа по дням' })).toBeNull()
+    expect(screen.queryByRole('table')).toBeNull()
     expect(screen.queryByText('Критические')).toBeNull()
     expect(screen.getByText('acme')).toBeTruthy()
     expect(screen.getByText('paused-team')).toBeTruthy()
@@ -272,6 +290,70 @@ describe('AnalyticsPage', () => {
     const budget = screen.getByRole('region', { name: 'Бюджет на сегодня' })
     expect(budget.querySelector('input, textarea')).toBeNull()
     expect(screen.getAllByRole('alert')).toHaveLength(1)
+  })
+
+  it('breaks the duration line on an empty day and shows a dash for a zero average', async () => {
+    stubFetch((url) =>
+      url.pathname.endsWith('/repos')
+        ? { status: 200, body: [REPO] }
+        : {
+            status: 200,
+            body: summary({
+              totals: { ...summary().totals, succeededAverageDurationSeconds: 0 },
+              series: [
+                {
+                  day: '2026-10-25',
+                  findingsByCategory: {
+                    security: 0,
+                    correctness: 0,
+                    performance: 0,
+                    readability: 0,
+                  },
+                  runCount: 2,
+                  averageDurationSeconds: 10,
+                  costUsd: 0,
+                },
+                {
+                  day: '2026-10-26',
+                  findingsByCategory: {
+                    security: 0,
+                    correctness: 0,
+                    performance: 0,
+                    readability: 0,
+                  },
+                  runCount: 0,
+                  averageDurationSeconds: 0,
+                  costUsd: 0,
+                },
+                {
+                  day: '2026-10-27',
+                  findingsByCategory: {
+                    security: 0,
+                    correctness: 0,
+                    performance: 0,
+                    readability: 0,
+                  },
+                  runCount: 1,
+                  averageDurationSeconds: 4,
+                  costUsd: 0,
+                },
+              ],
+            }),
+          },
+    )
+    const { container } = renderPage()
+    expect(await screen.findByText('Критические')).toBeTruthy()
+    const duration = [...container.querySelectorAll('figure')].find((figure) =>
+      figure.textContent.includes('Средняя длительность по дням'),
+    )
+    expect(duration?.querySelectorAll('polyline')).toHaveLength(2)
+    const circles = [...(duration?.querySelectorAll('circle') ?? [])]
+    expect(circles).toHaveLength(2)
+    const cys = circles.map((node) => node.getAttribute('cy'))
+    expect(new Set(cys).size).toBe(2)
+    expect(cys.every((cy) => Number(cy) < 196)).toBe(true)
+    const average = screen.getByText('Средняя длительность').closest('div')?.querySelector('dd')
+    expect(average?.textContent).toBe('—')
   })
 
   it('paints series with theme tokens and no hex', () => {

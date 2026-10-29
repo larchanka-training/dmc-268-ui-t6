@@ -4,8 +4,8 @@ import type { JSX } from 'react'
 import { useMetricsSummary, type MetricsSummary } from '../../entities/metrics'
 import { useRepositories } from '../../entities/repository'
 import { useAnalyticsFilterParams } from '../../features/analytics-filter'
-import { formatDuration, formatUsd, useTranslation } from '../../shared/i18n'
-import { PageHeader, Segmented } from '../../shared/ui'
+import { formatDuration, formatNumber, formatUsd, useTranslation } from '../../shared/i18n'
+import { DataTable, PageHeader, Segmented } from '../../shared/ui'
 import styles from './AnalyticsPage.module.css'
 import { DurationByDay } from './ui/DurationByDay'
 import { FindingsByDay } from './ui/FindingsByDay'
@@ -162,41 +162,52 @@ export function AnalyticsPage(): JSX.Element {
                   : formatDuration(summary.totals.succeededAverageDurationSeconds * 1000)
               }
             />
-            <Tile label={t('analytics.tokensIn')} value={String(summary.totals.tokensIn)} />
-            <Tile label={t('analytics.tokensOut')} value={String(summary.totals.tokensOut)} />
+            <Tile label={t('analytics.tokensIn')} value={formatNumber(summary.totals.tokensIn)} />
+            <Tile label={t('analytics.tokensOut')} value={formatNumber(summary.totals.tokensOut)} />
             <Tile label={t('analytics.cost')} value={formatUsd(summary.totals.costUsd)} />
           </dl>
           <div className={styles.charts}>
             <FindingsByDay label={t('analytics.findingsByDay')} series={summary.series} />
             <DurationByDay label={t('analytics.durationByDay')} series={summary.series} />
           </div>
-          <table className={styles.numbers}>
-            <caption>{t('analytics.dailyNumbers')}</caption>
-            <thead>
-              <tr>
-                <th>{t('analytics.day')}</th>
-                <th>{t('analytics.categorySecurity')}</th>
-                <th>{t('analytics.categoryBug')}</th>
-                <th>{t('analytics.categoryPerformance')}</th>
-                <th>{t('analytics.categoryStyle')}</th>
-                <th>{t('analytics.durationSeconds')}</th>
-                <th>{t('analytics.cost')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {summary.series.map((point) => (
-                <tr key={point.day}>
-                  <td>{point.day}</td>
-                  <td>{point.findingsByCategory.security}</td>
-                  <td>{point.findingsByCategory.correctness}</td>
-                  <td>{point.findingsByCategory.performance}</td>
-                  <td>{point.findingsByCategory.readability}</td>
-                  <td>{point.averageDurationSeconds}</td>
-                  <td>{formatUsd(point.costUsd)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <h2 id="analytics-daily-numbers">{t('analytics.dailyNumbers')}</h2>
+          <DataTable
+            aria-labelledby="analytics-daily-numbers"
+            columns={[
+              { title: t('analytics.day'), dataIndex: 'day', key: 'day' },
+              {
+                title: t('analytics.categorySecurity'),
+                dataIndex: 'security',
+                key: 'security',
+              },
+              { title: t('analytics.categoryBug'), dataIndex: 'bug', key: 'bug' },
+              {
+                title: t('analytics.categoryPerformance'),
+                dataIndex: 'performance',
+                key: 'performance',
+              },
+              { title: t('analytics.categoryStyle'), dataIndex: 'style', key: 'style' },
+              {
+                title: t('analytics.durationSeconds'),
+                dataIndex: 'duration',
+                key: 'duration',
+              },
+              { title: t('analytics.cost'), dataIndex: 'cost', key: 'cost' },
+            ]}
+            dataSource={summary.series.map((point) => ({
+              key: point.day,
+              day: point.day,
+              security: point.findingsByCategory.security,
+              bug: point.findingsByCategory.correctness,
+              performance: point.findingsByCategory.performance,
+              style: point.findingsByCategory.readability,
+              duration:
+                point.runCount === 0 ? '—' : formatDuration(point.averageDurationSeconds * 1000),
+              cost: formatUsd(point.costUsd),
+            }))}
+            pagination={false}
+            rowKey="key"
+          />
         </>
       ) : null}
 

@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { RawFileDiffSchema } from '../../entities/diff'
+import { MetricsSummarySchema } from '../../entities/metrics'
 import {
   ACTIVE_RUN_STATUSES,
   RunListQuerySchema,
@@ -551,7 +552,88 @@ function handleMockTransport(
     return structuredClone(rerun)
   }
 
+  if (pathname === '/metrics/summary' && endpoint.method === 'GET') {
+    return mockMetricsSummary(queryStart === -1 ? '' : endpoint.path.slice(queryStart + 1))
+  }
+
   return undefined
+}
+
+const EMPTY_CATEGORY = { security: 0, correctness: 0, performance: 0, readability: 0 }
+
+const MOCK_WORKSPACES = [
+  { name: 'larchanka-training', dailyBudgetUsd: 25, spentTodayUsd: 3.5, paused: false },
+  { name: 'unset-limit', dailyBudgetUsd: 0, spentTodayUsd: 0, paused: false },
+  { name: 'paused-team', dailyBudgetUsd: 10, spentTodayUsd: 10, paused: true },
+]
+
+/** `GET /metrics/summary` in the api#310 shape. `30d` is an empty selection; `7d` and `24h` include zero days. */
+function mockMetricsSummary(search: string) {
+  const range = new URLSearchParams(search).get('range')
+  if (range !== '24h' && range !== '7d' && range !== '30d') {
+    throw new ApiError(422, 'Unprocessable Entity', { message: 'Unknown range' })
+  }
+  const zeros = {
+    runsByStatus: {
+      queued: 0,
+      running: 0,
+      publishing: 0,
+      succeeded: 0,
+      failed: 0,
+      cancelled: 0,
+      skipped: 0,
+    },
+    pullsByVerdict: { blocking: 0, attention: 0, clean: 0, noVerdict: 0 },
+    findingsBySeverity: { critical: 0, high: 0, medium: 0, low: 0, info: 0 },
+    findingsByCategory: EMPTY_CATEGORY,
+    succeededAverageDurationSeconds: 0,
+    tokensIn: 0,
+    tokensOut: 0,
+    costUsd: 0,
+  }
+  if (range === '30d') {
+    return MetricsSummarySchema.parse({
+      range,
+      totals: zeros,
+      series: [],
+      workspaces: MOCK_WORKSPACES,
+    })
+  }
+  const days = [
+    '2026-10-21',
+    '2026-10-22',
+    '2026-10-23',
+    '2026-10-24',
+    '2026-10-25',
+    '2026-10-26',
+    '2026-10-27',
+  ]
+  return MetricsSummarySchema.parse({
+    range,
+    totals: {
+      ...zeros,
+      runsByStatus: { ...zeros.runsByStatus, succeeded: 2, failed: 1 },
+      pullsByVerdict: { blocking: 1, attention: 0, clean: 1, noVerdict: 1 },
+      findingsBySeverity: { critical: 1, high: 0, medium: 0, low: 0, info: 0 },
+      succeededAverageDurationSeconds: 90,
+      tokensIn: 100,
+      tokensOut: 40,
+      costUsd: 0.5,
+    },
+    series: days.map((day, index) => {
+      const hasRuns = index === 1 || index === 4
+      return {
+        day,
+        findingsByCategory: hasRuns
+          ? { security: 1, correctness: index, performance: 0, readability: 0 }
+          : EMPTY_CATEGORY,
+        runCount: hasRuns ? 1 : 0,
+        averageDurationSeconds: hasRuns ? 90 : 0,
+        costUsd: hasRuns ? 0.25 : 0,
+      }
+    }),
+    workspaces: MOCK_WORKSPACES,
+  })
 }
 
 export function initMockTransport(): void {

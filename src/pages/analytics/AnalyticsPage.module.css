@@ -30,15 +30,3 @@
   display: grid;
   gap: 16px;
 }
-
-.numbers {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 16px;
-}
-
-.numbers th,
-.numbers td {
-  padding: 8px;
-  text-align: left;
-}

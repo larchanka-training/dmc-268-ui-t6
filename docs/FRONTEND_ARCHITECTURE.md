@@ -156,7 +156,8 @@ flowchart TD
 | Аутентификация и App Shell                       | `entities/user`, `features/auth`, `features/theme`, `widgets/app-layout`, `pages/{login,auth}`          |
 | Репозитории и их настройки                       | `entities/repository`, `features/repository-settings`, `widgets/repository-list`, `pages/repositories`  |
 | Правила: статус `.review/rules.md` (мок)         | `entities/repository`, `widgets/repository-rules`, `pages/repositories/RepositorySettingsPage`          |
-| Метрики                                          | не заведено — вне спринта (non-goal)                                                                    |
+| Журнал прогонов (`/audit`)                       | `entities/run`, `features/audit-filter`, `pages/audit`                                                  |
+| Дашборд качества (`/analytics`)                  | `entities/metrics`, `features/analytics-filter`, `pages/analytics`                                      |
 
 Границы срезов ui#93:
 
@@ -543,6 +544,8 @@ src/widgets/run-inspector/ui/RunProgressBar.tsx
 | `expandedKeys`, `selectedActionIndex` | Zustand, `widgets/run-inspector/model/store.ts`                                                                            | —                                                                                                                                                                                                                                                                                                                                 |
 | Фильтры замечаний                     | URL search params `file`, `severity` (повторяются), `q`; хук `useFindingFiltersParams` (`features/finding-filters`)        | — (источник — URL; другой прогон начинает чисто)                                                                                                                                                                                                                                                                                  |
 | Фильтр истории прогонов               | URL search param `repo` (одно значение); хук `useRunListFilterParams` (`features/run-list-filter`)                         | — (источник — URL)                                                                                                                                                                                                                                                                                                                |
+| Фильтр журнала (`/audit`)             | URL `repo` и `status`; хук `useAuditFilterParams` (`features/audit-filter`)                                                | — (источник — URL)                                                                                                                                                                                                                                                                                                                |
+| Фильтр дашборда (`/analytics`)        | URL `range` (`7d` или `30d`) и `repo`; хук `useAnalyticsFilterParams` (`features/analytics-filter`)                        | — (источник — URL)                                                                                                                                                                                                                                                                                                                |
 | Статус `.review/rules.md`             | TanStack Query, ключ `['repoRulesStatus', id]` — вне `['repos']` (ниже)                                                    | открытие (`'always'`), `gcTime: 0`, опрос раз в 3 с, пока ответ `pending`                                                                                                                                                                                                                                                         |
 | Черновик настроек репозитория         | `useState` в `RepositorySettingsForm`: снимок на открытии (baseline) и правки пользователя, не копия кэша                  | — (живёт с формой; `key={repoId}`, `resetTo`)                                                                                                                                                                                                                                                                                     |
 | Черновики комментариев                | —                                                                                                                          | future (не реализовано в этом спринте)                                                                                                                                                                                                                                                                                            |
@@ -1173,7 +1176,7 @@ sequenceDiagram
 
 Источник истины для путей и форм HTTP — [`contracts/openapi.yaml`][openapi] в api (Ф-10, уточнено
 2026-09-28). На клиенте тот же контракт проверяют Zod-схемы в
-`src/entities/{run,diff,review,repository}/model/schemas.ts`; совпадение ответов API с ними проверяет
+`src/entities/{run,diff,review,repository,metrics}/model/schemas.ts`; совпадение ответов API с ними проверяет
 `tests/test_ui_zod_contracts.py` в api. Ниже — состав полей Zod (не полный код); объекты не
 strict — `z.object` в Zod 4 по умолчанию отбрасывает неизвестные ключи, а не падает на них.
 
@@ -1215,6 +1218,12 @@ RepositoryUpdate = { enabled?, defaultEngine?, waitForCi?, maxComments?, reviewE
 RulesStatus = present | missing | invalid | unavailable | pending   // discriminatedUnion('status')
 RulesDiagnostic = { code, message, line: int|null, column: int|null, retryable,
   limit?, actual?, actualIsLowerBound?, patternIndex? }
+
+// entities/metrics — MetricsSummary (GET /api/metrics/summary, api#310)
+MetricsSummary = { range: 24h|7d|30d, totals, series: MetricsDay[], workspaces: WorkspaceBudget[] }
+MetricsDay = { day: calendar date, findingsByCategory, runCount: int>=0,
+  averageDurationSeconds: number>=0, costUsd: number>=0 }
+WorkspaceBudget = { name: string, dailyBudgetUsd: number>=0, spentTodayUsd: number>=0, paused: boolean }
 ```
 
 Инварианты (проверены тестами схем):
@@ -1253,6 +1262,10 @@ RulesDiagnostic = { code, message, line: int|null, column: int|null, retryable,
   `usage` — объект `{ tokensIn, tokensOut, costUsd }` (числа ≥ 0), не `null`: записей нет — нули.
   `triggeredBy` — логин GitHub или `null`, не объект. `Me` и `Workspace` полей
   бюджета не получают.
+- `MetricsSummary` (api#310): `range`, `totals`, `series` и `workspaces` обязательны. `paused` —
+  обязательный `boolean`, не пропуск. `pullsByVerdict.noVerdict` — обязательное целое ≥ 0, не `null`
+  и не сумма с `clean`. `day` — календарная дата (`z.iso.date()`), не date-time.
+  `averageDurationSeconds` — секунды. `name` workspace — строка без минимальной длины.
 
 Summary-only прогон (дифф больше 3 000 строк, Р-15 в [SD §1][sd-1], контракт — [SD §12][sd-12],
 решение 10 техлида [от 2026-09-24][tl-2026-09-24-10]): снимок диффа хранит только список файлов,
@@ -1543,7 +1556,8 @@ PATCH с переключателя, ничем другим не дополня
 `workspaces` (`dailyBudgetUsd`, `spentTodayUsd`, `paused`). Плитки дашборда показывают четыре итоговых
 статуса. Ориентировочные `tiles` и `bucketStart` контрактом не являются. UI не считает `paused`,
 вердикт и среднюю длительность: это числа и флаг API. UI не сравнивает остаток бюджета с порогом воркера.
-Мок этот путь не обслуживает.
+День ряда с `runCount = 0` на графике длительности не рисуется: ноль секунд у пустого дня — это
+отсутствие прогонов, а не мгновенное ревью. Мок отвечает на этот путь (§8).
 
 ## 6. Просмотрщик диффа
 
@@ -1906,11 +1920,13 @@ React, без `innerHTML`.
 причины из словарей по коду (`reasonText`) и сам код рядом; для кода, которого сборка не знает,
 только «Unknown reason: `<code>`» / «Неизвестная причина: `<code>`».
 
-`errorReason` (фразы в `src/shared/i18n/locales/ru/limitReasons.ts`, реэкспорт из `src/entities/run/lib/errorReason.ts`) — отдельная карта девяти кодов лимита. Восемь фраз
-совпадают с `_ERROR_TEXTS` (`app/modules/reviews/application/check_runs.py`), фраза
+`errorReason` (`src/entities/run/lib/errorReason.ts`) читает девять фраз лимита из словарей
+`limitReasons` (`en` и `ru`) через `i18n.t` и только по собственным ключам, как `ragIndexView`:
+неизвестный код, пустая строка и `constructor` дают `null`, исключение не бросается. Русские фразы
+совпадают с `_ERROR_TEXTS` (`app/modules/reviews/application/check_runs.py`);
 `publication_payload_too_large` — с PIPELINE_SPEC §6: «Результат превышает лимит публикации VCS.»
-Поиск только по собственным ключам карты, как в `ragIndexView`: неизвестный код, пустая строка и
-`constructor` дают `null`, исключение не бросается. `policy_*` в карту не входят (api#204); их тексты
+Английские — по смыслу словаря `reasons`. В английском интерфейсе Alert, список `/runs` и причина
+в `/audit` показывают английскую фразу. `policy_*` в карту не входят (api#204); их тексты
 уже есть в словаре `reasonText` и этой картой не заменяются. Ч.4 добавляет строки в ту же карту, а не
 новый рендер.
 
@@ -2170,7 +2186,9 @@ checkpoint или ошибка до входа в `traced_step` могут ос�
 
 `GET /runs` применяет `status` (неизвестное значение — 422). У каждого прогона есть `usage` и
 `triggeredBy`, как на проводе: нули и `null`, либо логин и ненулевой расход. `GET /metrics/summary`
-мок не отвечает — страница ходит в API.
+отвечает формой api#310: `7d` и `24h` — ряд из семи календарных дней, часть с `runCount: 0` и
+`averageDurationSeconds: 0`; `30d` — пустая выборка (завершённых прогонов нет, `series: []`).
+`workspaces` — обычный бюджет, лимит 0 и `paused: true`. Неизвестный `range` — 422.
 
 Фрагмент одного `RunSession`:
 
@@ -2498,9 +2516,10 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
   перепроверить на staging (включить RAG, дождаться `ready`); если сборка окажется дольше 120 с, длину окна
   (`RAG_POLL_WINDOW_MS`) придётся пересмотреть.
 - **Экраны 4–5** (правила, метрики) — области [SD §2][sd-2]. Правила — частично (ui#93): статус
-  `.review/rules.md` на странице настроек репозитория (§2, §5); редактора
-  правил и экрана метрик нет. `src/pages/` содержит экраны для реализованных областей (вход, коллбэк,
-  репозитории и их настройки, прогоны), а также redirect с `/review` на прогоны.
+  `.review/rules.md` на странице настроек репозитория (§2, §5); редактора правил нет.
+  Экран метрик есть: `/analytics` читает `GET /api/metrics/summary` (`entities/metrics`, §4, §5, §9).
+  Журнал прогонов — `/audit`. `src/pages/` содержит экраны для реализованных областей (вход, коллбэк,
+  репозитории и их настройки, прогоны, аудит, аналитика), а также redirect с `/review` на прогоны.
 - **Summary-only прогоны** (diff > 3000 строк, [SD §12][sd-12]) — схемы, адаптер и `RunDiff` поддерживают
   с #42 (§4, §6); страница `/runs/:runId` (`RunDetailPage`) передаёт `run.summaryOnly` и findings в `RunDiff`.
 - **Фильтры замечаний** (ui#84, часть про фильтры) — реализованы: файлы, критичность D3 и поиск над

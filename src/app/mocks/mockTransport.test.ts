@@ -9,6 +9,7 @@ vi.mock('../../shared/config/env', () => ({
   GITHUB_APP_SLUG: '',
 }))
 
+import { MetricsSummarySchema, metricsSummaryEndpoint } from '../../entities/metrics'
 import { RulesStatusSchema, type Repository } from '../../entities/repository'
 import {
   RunDetailSchema,
@@ -1135,6 +1136,36 @@ describe('initMockTransport', () => {
         expect(one.branchFilter).toEqual(repo.branchFilter)
         expect(one.maxComments).toBe(repo.maxComments)
       })
+    })
+  })
+
+  describe('GET /metrics/summary', () => {
+    beforeEach(() => {
+      initMockTransport()
+    })
+
+    it('serves a 7d series with zero days and the three workspace budgets', async () => {
+      const summary = MetricsSummarySchema.parse(
+        await apiClient<unknown>(metricsSummaryEndpoint({ range: '7d' })),
+      )
+      expect(summary.range).toBe('7d')
+      expect(summary.series).toHaveLength(7)
+      expect(
+        summary.series.some((day) => day.runCount === 0 && day.averageDurationSeconds === 0),
+      ).toBe(true)
+      expect(summary.series.some((day) => day.runCount > 0)).toBe(true)
+      expect(summary.workspaces.map((workspace) => workspace.dailyBudgetUsd)).toEqual([25, 0, 10])
+      expect(summary.workspaces.map((workspace) => workspace.paused)).toEqual([false, false, true])
+    })
+
+    it('serves an empty selection for 30d', async () => {
+      const summary = MetricsSummarySchema.parse(
+        await apiClient<unknown>(metricsSummaryEndpoint({ range: '30d' })),
+      )
+      const counts = summary.totals.runsByStatus
+      expect(counts.succeeded + counts.failed + counts.cancelled + counts.skipped).toBe(0)
+      expect(summary.series).toEqual([])
+      expect(summary.workspaces).toHaveLength(3)
     })
   })
 })
