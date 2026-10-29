@@ -8,6 +8,7 @@ import { disabledRagIndex } from '../model/schemas'
 import { REPOSITORIES_QUERY_KEY, useRepositories, useRepository } from './index'
 
 const FIRST = {
+  provider: 'github',
   id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
   fullName: 'org/first',
   url: 'https://github.com/org/first',

@@ -16,6 +16,7 @@ afterEach(() => {
 describe('fetchRunDetail', () => {
   it('parses a running run detail wire payload', async () => {
     vi.mocked(apiClient).mockResolvedValueOnce({
+      provider: 'github',
       id: '11111111-1111-4111-8111-000000000002',
       engine: 'deep',
       model: 'claude-sonnet-5',
@@ -28,6 +29,7 @@ describe('fetchRunDetail', () => {
       createdAt: '2026-09-18T11:00:00.000Z',
       summaryOnly: false,
       pullRequest: {
+        provider: 'github',
         repo: 'org/repo',
         number: 32,
         title: 'Title',
@@ -52,6 +54,7 @@ describe('fetchRunDetail', () => {
   it('reports zero dropped findings and stays silent when nothing is dropped', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     vi.mocked(apiClient).mockResolvedValueOnce({
+      provider: 'github',
       id: '11111111-1111-4111-8111-000000000002',
       engine: 'deep',
       model: 'claude-sonnet-5',
@@ -64,6 +67,7 @@ describe('fetchRunDetail', () => {
       createdAt: '2026-09-18T11:00:00.000Z',
       summaryOnly: false,
       pullRequest: {
+        provider: 'github',
         repo: 'org/repo',
         number: 32,
         title: 'Title',
@@ -87,6 +91,7 @@ describe('fetchRunDetail', () => {
   it('drops invalid findings entries instead of failing the whole payload', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     vi.mocked(apiClient).mockResolvedValueOnce({
+      provider: 'github',
       id: '11111111-1111-4111-8111-000000000002',
       engine: 'deep',
       model: 'claude-sonnet-5',
@@ -99,6 +104,7 @@ describe('fetchRunDetail', () => {
       createdAt: '2026-09-18T11:00:00.000Z',
       summaryOnly: false,
       pullRequest: {
+        provider: 'github',
         repo: 'org/repo',
         number: 32,
         title: 'Title',

@@ -39,6 +39,7 @@ function apiRepoRun(i: number): RunSession {
   const startedAt = createdAt + MINUTE_MS
   const finishedAt = outcome === 'skipped' ? startedAt : startedAt + 5 * MINUTE_MS
   return {
+    provider: 'github',
     // `…0100` and up: the ids below it belong to the other fixture runs.
     id: `11111111-1111-4111-8111-${String(100 + i).padStart(12, '0')}`,
     engine: 'fast',
@@ -52,6 +53,7 @@ function apiRepoRun(i: number): RunSession {
     createdAt: new Date(createdAt).toISOString(),
     summaryOnly: false,
     pullRequest: {
+      provider: 'github',
       repo: API_REPO,
       number,
       title: `${API_RUN_TOPICS[i % API_RUN_TOPICS.length] ?? 'chore: housekeeping'} (#${String(number)})`,

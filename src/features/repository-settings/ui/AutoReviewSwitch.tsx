@@ -1,6 +1,7 @@
 import { Alert, Button, Flex, Switch, Typography } from 'antd'
 import { useCallback, useEffect, useId, useRef, useState, type FC } from 'react'
 import { flushSync } from 'react-dom'
+import { VCS_ACCESS_NAME, type VcsProvider } from '../../../shared/model/provider'
 
 import { useTranslation } from '../../../shared/i18n'
 import { enableAutoReviewLabel, keepAutoReviewOffLabel } from '../lib/autoReviewChoice'
@@ -9,14 +10,15 @@ import styles from './AutoReviewSwitch.module.css'
 const { Text } = Typography
 
 export interface AutoReviewSwitchProps {
+  provider: VcsProvider
   /**
    * What the server says: `enabled AND installationAvailable` (api PR #156, SD §6.9). The switch
-   * only shows it: the page owns the data. While the GitHub App cannot reach the repository it
+   * only shows it: the page owns the data. While the provider cannot reach the repository it
    * reads `false` whatever the user chose, and the choice is write-only.
    */
   enabled: boolean
   /**
-   * `false`: the GitHub App cannot reach the repository. The switch is disabled then and reads
+   * `false`: the provider cannot reach the repository. The switch is disabled then and reads
    * off, whatever `enabled` says (the optimistic update of `useUpdateRepository` keeps it off
    * too, this is the second guard); the warning carries the two choices instead (D9): the stored
    * preference cannot be read, so it is never shown.
@@ -62,6 +64,7 @@ function trackChoiceButton(
  * of the warning, which both turn disabled while one of them saves.
  */
 export const AutoReviewSwitch: FC<AutoReviewSwitchProps> = ({
+  provider,
   enabled,
   installationAvailable,
   onChange,
@@ -139,7 +142,11 @@ export const AutoReviewSwitch: FC<AutoReviewSwitchProps> = ({
           // letter per line). Under the text they wrap and take the width they need.
           description={
             <Flex gap={8} vertical>
-              <span>{t('settings.autoReview.unavailableText')}</span>
+              <span>
+                {t('settings.autoReview.unavailableText', {
+                  accessName: VCS_ACCESS_NAME[provider],
+                })}
+              </span>
               <Flex gap={8} wrap>
                 <Button
                   disabled={pending !== null}

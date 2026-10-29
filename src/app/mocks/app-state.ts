@@ -26,6 +26,7 @@ const SUMMARY_ONLY_ID = '11111111-1111-4111-8111-000000000008'
 
 export const mockRunSessions: RunSession[] = [
   {
+    provider: 'github',
     id: QUEUED_ID,
     engine: 'fast',
     model: null,
@@ -38,6 +39,7 @@ export const mockRunSessions: RunSession[] = [
     createdAt: '2026-09-18T11:58:00.000Z',
     summaryOnly: false,
     pullRequest: {
+      provider: 'github',
       repo: REPO,
       number: 31,
       title: 'feat: add login flow',
@@ -48,6 +50,7 @@ export const mockRunSessions: RunSession[] = [
     errorCode: null,
   },
   {
+    provider: 'github',
     id: RUNNING_ID,
     engine: 'deep',
     model: 'claude-sonnet-5',
@@ -60,6 +63,7 @@ export const mockRunSessions: RunSession[] = [
     createdAt: '2026-09-18T11:19:00.000Z',
     summaryOnly: false,
     pullRequest: {
+      provider: 'github',
       repo: REPO,
       number: 32,
       title: 'feat: refactor diff viewer',
@@ -70,6 +74,7 @@ export const mockRunSessions: RunSession[] = [
     errorCode: null,
   },
   {
+    provider: 'github',
     id: PUBLISHING_ID,
     engine: 'deep',
     model: 'claude-sonnet-5',
@@ -82,6 +87,7 @@ export const mockRunSessions: RunSession[] = [
     createdAt: '2026-09-18T11:55:00.000Z',
     summaryOnly: false,
     pullRequest: {
+      provider: 'github',
       repo: REPO,
       number: 33,
       title: 'feat: publish review results',
@@ -92,6 +98,7 @@ export const mockRunSessions: RunSession[] = [
     errorCode: null,
   },
   {
+    provider: 'github',
     id: COMPLETED_ID,
     engine: 'deep',
     model: 'claude-sonnet-5',
@@ -104,6 +111,7 @@ export const mockRunSessions: RunSession[] = [
     createdAt: '2026-09-18T11:49:00.000Z',
     summaryOnly: false,
     pullRequest: {
+      provider: 'github',
       repo: REPO,
       number: 34,
       title: 'feat: frontend architecture skeleton',
@@ -117,6 +125,7 @@ export const mockRunSessions: RunSession[] = [
     errorCode: null,
   },
   {
+    provider: 'github',
     id: FAILED_ID,
     engine: 'deep',
     model: 'claude-sonnet-5',
@@ -129,6 +138,7 @@ export const mockRunSessions: RunSession[] = [
     createdAt: '2026-09-18T10:29:00.000Z',
     summaryOnly: false,
     pullRequest: {
+      provider: 'github',
       repo: REPO,
       number: 35,
       title: 'feat: add timeout handling',
@@ -139,6 +149,7 @@ export const mockRunSessions: RunSession[] = [
     errorCode: 'llm_timeout',
   },
   {
+    provider: 'github',
     id: CANCELLED_ID,
     engine: 'fast',
     model: 'claude-sonnet-5',
@@ -151,6 +162,7 @@ export const mockRunSessions: RunSession[] = [
     createdAt: '2026-09-18T08:59:00.000Z',
     summaryOnly: false,
     pullRequest: {
+      provider: 'github',
       repo: REPO,
       number: 36,
       title: 'feat: experimental caching layer',
@@ -161,6 +173,7 @@ export const mockRunSessions: RunSession[] = [
     errorCode: null,
   },
   {
+    provider: 'github',
     id: SKIPPED_ID,
     engine: 'fast',
     model: null,
@@ -173,6 +186,7 @@ export const mockRunSessions: RunSession[] = [
     createdAt: '2026-09-18T07:59:00.000Z',
     summaryOnly: false,
     pullRequest: {
+      provider: 'github',
       repo: REPO,
       number: 37,
       title: 'feat: housekeeping pass',
@@ -185,6 +199,7 @@ export const mockRunSessions: RunSession[] = [
 ]
 
 export const mockSummaryOnlyRun: RunSession = {
+  provider: 'github',
   id: SUMMARY_ONLY_ID,
   engine: 'deep',
   model: 'claude-sonnet-5',
@@ -197,6 +212,7 @@ export const mockSummaryOnlyRun: RunSession = {
   createdAt: '2026-09-18T06:59:00.000Z',
   summaryOnly: true,
   pullRequest: {
+    provider: 'github',
     repo: REPO,
     number: 38,
     title: 'feat: large cross-cutting refactor',
@@ -290,6 +306,7 @@ export const mockCurrentUser: User = {
 
 export const mockRepositories: Repository[] = [
   {
+    provider: 'github',
     id: '22222222-2222-4222-8222-000000000001',
     fullName: 'larchanka-training/dmc-268-ui-t6',
     url: 'https://github.com/larchanka-training/dmc-268-ui-t6',
@@ -313,6 +330,7 @@ export const mockRepositories: Repository[] = [
     },
   },
   {
+    provider: 'github',
     id: '22222222-2222-4222-8222-000000000002',
     fullName: 'larchanka-training/dmc-268-api-t6',
     url: 'https://github.com/larchanka-training/dmc-268-api-t6',
@@ -337,6 +355,7 @@ export const mockRepositories: Repository[] = [
     },
   },
   {
+    provider: 'github',
     // The App lost access while auto-review stays on: `enabled` is the stored preference, which the
     // mock transport serves as `enabled: false` (effective value, api #156), like the real api.
     id: '22222222-2222-4222-8222-000000000003',
@@ -364,6 +383,7 @@ export const mockRepositories: Repository[] = [
     },
   },
   {
+    provider: 'github',
     // No .review/rules.md here: the repository the `missing` rules status is shown for.
     id: '22222222-2222-4222-8222-000000000004',
     fullName: 'larchanka-training/dmc-268-docs-t6',

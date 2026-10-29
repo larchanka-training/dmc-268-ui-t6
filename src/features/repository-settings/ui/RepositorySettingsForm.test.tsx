@@ -12,6 +12,7 @@ import { i18n } from '../../../shared/i18n'
 import { RepositorySettingsForm } from './RepositorySettingsForm'
 
 const REPOSITORY: Repository = {
+  provider: 'github',
   id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
   fullName: 'larchanka-training/dmc-268-ui-t6',
   url: 'https://github.com/larchanka-training/dmc-268-ui-t6',
@@ -166,5 +167,65 @@ describe('RepositorySettingsForm: after a change of the interface language', () 
       expect(shownErrors('maxComments')).toEqual(['Укажите лимит'])
     })
     expect(shownErrors('waitForCi')).toEqual(['Сервер не принял значение'])
+  })
+})
+
+describe('RepositorySettingsForm: provider settings', () => {
+  it('shows supported Bitbucket options as read-only in both languages', async () => {
+    const repository: Repository = { ...REPOSITORY, provider: 'bitbucket', waitForCi: 'never' }
+    const onSave = vi.fn<OnSave>((patch) => Promise.resolve({ ...repository, ...patch }))
+    render(
+      <RepositorySettingsForm
+        describeError={() => 'error'}
+        onSave={onSave}
+        repository={repository}
+      />,
+    )
+    expect(screen.getByText('Никогда (запускать ревью без ожидания CI)')).toBeTruthy()
+    expect(screen.getByText('Комментарии и статус коммита')).toBeTruthy()
+    expect(
+      screen.getByText(
+        'Bitbucket Cloud запускает ревью без ожидания CI. Результат публикуется отдельным статусом коммита.',
+      ),
+    ).toBeTruthy()
+    expect(screen.queryByLabelText(CI_LABEL)).toBeNull()
+    expect(screen.queryByLabelText(VERDICT_LABEL)).toBeNull()
+    try {
+      await act(async () => {
+        await i18n.changeLanguage('en')
+      })
+      expect(screen.getByText('Never (run the review without waiting for CI)')).toBeTruthy()
+      expect(screen.getByText('Comments and commit status')).toBeTruthy()
+      expect(
+        screen.getByText(
+          'Bitbucket Cloud runs reviews without waiting for CI. It publishes a separate commit status.',
+        ),
+      ).toBeTruthy()
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage('ru')
+      })
+    }
+  })
+
+  it('keeps GitLab CI and verdict choices editable', async () => {
+    const repository: Repository = { ...REPOSITORY, provider: 'gitlab' }
+    const onSave = vi.fn<OnSave>((patch) => Promise.resolve({ ...repository, ...patch }))
+    render(
+      <RepositorySettingsForm
+        describeError={() => 'error'}
+        onSave={onSave}
+        repository={repository}
+      />,
+    )
+    await chooseOption(CI_LABEL, NEVER_OPTION)
+    await chooseOption(VERDICT_LABEL, REQUEST_CHANGES_OPTION)
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith({
+        waitForCi: 'never',
+        reviewEvent: 'REQUEST_CHANGES',
+      })
+    })
   })
 })

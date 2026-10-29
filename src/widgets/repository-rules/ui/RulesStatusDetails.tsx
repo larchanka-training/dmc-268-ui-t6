@@ -4,6 +4,7 @@ import type { FC, ReactNode, Ref } from 'react'
 
 import type { RulesDiagnostic, RulesStatus } from '../../../entities/repository'
 import { useTranslation } from '../../../shared/i18n'
+import type { VcsProvider } from '../../../shared/model/provider'
 import { CodeBlock, Spinner, Tag } from '../../../shared/ui'
 import {
   describeDiagnosticLimit,
@@ -111,6 +112,7 @@ const Meta: FC<{ status: Exclude<RulesStatus, { status: 'pending' }>; tag?: Reac
 
 export interface RulesStatusDetailsProps {
   status: RulesStatus
+  provider: VcsProvider
   /** Asks the server again; offered only where the server said a retry can help. */
   onRetry: () => void
   /** For the owner of the focus: the retry button reports here when it comes and goes. */
@@ -121,6 +123,7 @@ export interface RulesStatusDetailsProps {
 /** One of the five answers the server gives for `.review/rules.md`. */
 export const RulesStatusDetails: FC<RulesStatusDetailsProps> = ({
   status,
+  provider,
   onRetry,
   retryRef,
   retrying,
@@ -207,7 +210,7 @@ export const RulesStatusDetails: FC<RulesStatusDetailsProps> = ({
               <ul className={styles.list}>
                 {status.diagnostics.map((diagnostic, index) => (
                   <li key={`${diagnostic.code}-${String(index)}`}>
-                    <span>{unavailableReason(diagnostic.code, diagnostic.message)}</span>
+                    <span>{unavailableReason(diagnostic.code, provider, diagnostic.message)}</span>
                     {isKnownUnavailableCode(diagnostic.code) ? null : (
                       <>
                         {' '}

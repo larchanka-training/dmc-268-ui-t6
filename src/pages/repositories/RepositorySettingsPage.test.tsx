@@ -16,6 +16,7 @@ import { advance } from '../../test/advanceTimers'
 import { RepositorySettingsPage } from './RepositorySettingsPage'
 
 const UI_REPO: Repository = {
+  provider: 'github',
   id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
   fullName: 'larchanka-training/dmc-268-ui-t6',
   url: 'https://github.com/larchanka-training/dmc-268-ui-t6',
@@ -33,6 +34,7 @@ const UI_REPO: Repository = {
 }
 
 const API_REPO: Repository = {
+  provider: 'github',
   id: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
   fullName: 'larchanka-training/dmc-268-api-t6',
   url: 'https://github.com/larchanka-training/dmc-268-api-t6',
@@ -403,6 +405,48 @@ afterEach(() => {
 })
 
 describe('RepositorySettingsPage', () => {
+  it('uses the Bitbucket provider in settings and unavailable-access guidance', async () => {
+    const repository: Repository = {
+      ...UI_REPO,
+      provider: 'bitbucket',
+      fullName: 'private-space/private-repo',
+      url: 'https://bitbucket.org/private-space/private-repo',
+      enabled: false,
+      installationAvailable: false,
+    }
+    stubBackend([repository])
+    renderPage(settingsPath(repository.id))
+    expect(await screen.findByText('private-space/private-repo')).toBeTruthy()
+    expect(screen.getByText('Bitbucket')).toBeTruthy()
+    expect(screen.getByText(/У Bitbucket Cloud нет доступа к этому репозиторию/)).toBeTruthy()
+    expect(screen.getByText('Нет доступа Bitbucket Cloud — RAG недоступен')).toBeTruthy()
+    expect(screen.queryByText(/GitHub App/)).toBeNull()
+  })
+
+  it('sends only supported settings from a Bitbucket repository page', async () => {
+    const repository: Repository = {
+      ...UI_REPO,
+      provider: 'bitbucket',
+      fullName: 'private-space/private-repo',
+      url: 'https://bitbucket.org/private-space/private-repo',
+      waitForCi: 'never',
+    }
+    const backend = stubBackend([repository])
+    renderPage(settingsPath(repository.id))
+
+    expect(await screen.findByText(NEVER_OPTION)).toBeTruthy()
+    expect(screen.queryByLabelText(CI_LABEL)).toBeNull()
+    expect(screen.queryByLabelText(VERDICT_LABEL)).toBeNull()
+    expect(screen.getByText(/запрос изменений недоступен/)).toBeTruthy()
+
+    fireEvent.change(screen.getByLabelText(LIMIT_LABEL), { target: { value: '5' } })
+    fireEvent.click(saveButton())
+
+    await waitFor(() => {
+      expect(backend.patches).toEqual([{ id: repository.id, body: { maxComments: 5 } }])
+    })
+  })
+
   it('opens the settings of the repository from the URL', async () => {
     const backend = stubBackend([UI_REPO, API_REPO])
 

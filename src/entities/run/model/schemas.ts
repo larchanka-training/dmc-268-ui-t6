@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { VcsProviderSchema } from '../../../shared/model/provider'
+
 // File import, not the review barrel: api `tests/generate_ui_zod_contracts.mjs`
 // loads this module in Node ESM, which does not resolve directory imports.
 import { FindingViewSchema } from '../../review/model/schemas'
@@ -37,6 +39,7 @@ export const RunTriggerSchema = z.enum(['webhook', 'manual', 'rerun', 'dry_run']
 export type RunTrigger = z.infer<typeof RunTriggerSchema>
 
 export const PullRequestRefSchema = z.object({
+  provider: VcsProviderSchema,
   repo: z.string(),
   number: z.int().positive(),
   title: z.string(),
@@ -51,6 +54,7 @@ export type PullRequestRef = z.infer<typeof PullRequestRefSchema>
 export const RunSessionSchema = z
   .object({
     id: z.uuid(),
+    provider: VcsProviderSchema,
     engine: EngineSchema,
     model: z.string().nullable(),
     status: RunStatusSchema,
@@ -66,6 +70,13 @@ export const RunSessionSchema = z
     errorCode: z.string().nullable(),
   })
   .superRefine((value, ctx) => {
+    if (value.provider !== value.pullRequest.provider) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['pullRequest', 'provider'],
+        message: 'Pull request provider must match its run',
+      })
+    }
     const isTerminal = TERMINAL_RUN_STATUSES.some((status) => status === value.status)
     if (value.finishedAt !== null && !isTerminal) {
       ctx.addIssue({

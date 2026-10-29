@@ -120,6 +120,7 @@ describe('disabledRagIndex', () => {
 describe('RepositorySchema', () => {
   const validRepo = {
     id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+    provider: 'github',
     fullName: 'larchanka-training/dmc-268-ui-t6',
     url: 'https://github.com/larchanka-training/dmc-268-ui-t6',
     defaultBranch: 'main',
@@ -138,6 +139,16 @@ describe('RepositorySchema', () => {
   it('parses valid repository object', () => {
     const parsed = RepositorySchema.parse(validRepo)
     expect(parsed).toEqual(validRepo)
+  })
+
+  it('accepts Bitbucket identity and rejects missing or unknown providers', () => {
+    expect(RepositorySchema.parse({ ...validRepo, provider: 'bitbucket' }).provider).toBe(
+      'bitbucket',
+    )
+    const withoutProvider: Record<string, unknown> = { ...validRepo }
+    delete withoutProvider.provider
+    expect(RepositorySchema.safeParse(withoutProvider).success).toBe(false)
+    expect(RepositorySchema.safeParse({ ...validRepo, provider: 'unknown' }).success).toBe(false)
   })
 
   it('accepts the always CI mode and REQUEST_CHANGES reviewEvent', () => {

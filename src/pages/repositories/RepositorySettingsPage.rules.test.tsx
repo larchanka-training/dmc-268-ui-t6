@@ -15,6 +15,7 @@ vi.mock('../../shared/config/env', async (importOriginal) => {
 import { mockRepositories } from '../../app/mocks/app-state'
 import { mockRulesStatuses } from '../../app/mocks/mockRulesStatus'
 import { initMockTransport, withMockTransportOverlay } from '../../app/mocks/mockTransport'
+import { connectBitbucketRepository } from '../../features/bitbucket-connections'
 import { setMockTransport } from '../../shared/api/client'
 import { RepositorySettingsPage } from './RepositorySettingsPage'
 
@@ -67,6 +68,26 @@ afterEach(() => {
 })
 
 describe('RepositorySettingsPage: rules status on mocks', () => {
+  it('loads rules for a connected Bitbucket repository', async () => {
+    const requested: string[] = []
+    withMockTransportOverlay((endpoint) => {
+      if (endpoint.path.endsWith('/rules-status')) requested.push(endpoint.path)
+      return undefined
+    })
+    const connection = await connectBitbucketRepository('123e4567-e89b-12d3-a456-426614174000', {
+      bitbucketWorkspace: 'demo-bitbucket',
+      repositorySlug: 'private-repo',
+      repositoryUuid: '66666666-6666-4666-8666-666666666666',
+      apiToken: 'demo-token',
+    })
+    renderPage(settingsPath(connection.repositoryId))
+
+    const block = await rulesBlock()
+    expect(await within(block).findByText(PENDING_DOCS_TEXT)).toBeTruthy()
+    expect(within(block).queryByText('Не удалось загрузить статус правил')).toBeNull()
+    expect(requested).toContain(`/repos/${connection.repositoryId}/rules-status`)
+  })
+
   it.each([
     [UI_REPO.id, 'Файл найден'],
     [API_REPO.id, 'Файл правил содержит ошибки'],

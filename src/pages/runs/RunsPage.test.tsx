@@ -93,6 +93,22 @@ afterEach(() => {
 })
 
 describe('RunsPage', () => {
+  it('labels a Bitbucket run from the provider field', async () => {
+    const run: RunSession = {
+      ...listedRun(0),
+      provider: 'bitbucket',
+      pullRequest: {
+        ...listedRun(0).pullRequest,
+        provider: 'bitbucket',
+        url: 'https://bitbucket.org/team/private-repo/pull-requests/7',
+      },
+    }
+    stubFetch(() => ({ items: [run], nextCursor: null }))
+    renderPage()
+    expect(await screen.findByText(run.pullRequest.title)).toBeTruthy()
+    expect(screen.getByText('Bitbucket')).toBeTruthy()
+  })
+
   it('renders PR rows from the loaded page', async () => {
     stubFetch(() => mockRunsListPage)
 
