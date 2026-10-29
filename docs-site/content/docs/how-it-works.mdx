@@ -82,9 +82,11 @@ failed runs are in the [FAQ](/faq#a-run-was-skipped).
 
 Each finding has a severity (`critical`, `high`, `medium`, `low`, `info`), a category
 (`security`, `correctness`, `performance`, `readability`), a title and an explanation.
-Findings the model is less sure about, findings outside changed lines and findings over the
-comment limit go to the review body. Pure style nits are dropped unless serious. With the
-**Verdict** setting on "Request changes", blocking reviews are posted as Request changes.
+Before posting, a second model call checks each finding against the code and your rules;
+findings it cannot confirm are not posted. Findings the model is less sure about, findings
+outside changed lines and findings over the comment limit go to the review body. Pure style nits
+are dropped unless serious. With the **Verdict** setting on "Request changes", blocking reviews
+are posted as Request changes.
 
 </Accordion>
 <Accordion title="What is not reviewed">

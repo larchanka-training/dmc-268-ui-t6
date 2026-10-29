@@ -71,8 +71,9 @@ out, so treat the review as advice from a teammate.
 ### How much does it cost?
 
 There is no pricing or billing in the product yet. Each run has a fixed spending limit for the
-model; a run that would go over it stops with `budget_exceeded`. With RAG on, a review also
-sends code excerpts to the model, so it may cost more.
+model; a run that would go over it stops with `budget_exceeded` or
+`verification_budget_exceeded`. With RAG on, a review also sends code excerpts to the model, so
+it may cost more.
 
 ## Support
 
@@ -115,6 +116,7 @@ Check these in order:
 | `policy_...` | The rules file or `AGENTS.md` has a problem. The check shows the problem, and the file and line when one file is at fault, see [Rules file](/rules-file#errors-fail-the-run). |
 | `llm_context_overflow` | The change does not fit in the model context. Split the pull request. |
 | `budget_exceeded` | The run hit its spending limit. Split the pull request. |
+| `verification_context_overflow`, `verification_invalid_output`, `verification_unavailable`, `verification_budget_exceeded`, `verification_deadline_exceeded` | The second check of the findings failed, so no findings are posted. `verification_unavailable` is retried automatically, up to 3 attempts. Otherwise restart the run, or split the pull request if it fails again. |
 | `deadline_exceeded` | The run took too long. Restart it. |
 | `github_forbidden` | The GitHub App lost access to the repository. Check the installation. |
 
