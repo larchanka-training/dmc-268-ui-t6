@@ -16,7 +16,7 @@ const BENEFITS = [
   'Lives in your repository, next to your code',
   'Versioned and reviewed like any other change',
   'Your team owns the review standards',
-  'Applied by the AI on every review',
+  'Applied by the AI to your reviews',
 ]
 
 export function CustomRules() {
@@ -26,15 +26,13 @@ export function CustomRules() {
     <section className={styles.section} aria-labelledby="rules-title">
       <div className={cx('container', styles.layout)}>
         <Reveal className={styles.copy}>
-          <p className={styles.eyebrow}>
-            Custom rules <span className={styles.soon}>Coming soon</span>
-          </p>
+          <p className={styles.eyebrow}>Custom rules</p>
           <h2 id="rules-title" className={styles.title}>
             Your rules. Your codebase.
           </h2>
           <p className={styles.lead}>
             Define your team’s review standards directly in your repository. Versioned with your
-            code, applied to every review.
+            code, applied to your reviews.
           </p>
           <ul className={styles.benefits}>
             {BENEFITS.map((benefit) => (
