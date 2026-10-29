@@ -90,7 +90,7 @@ describe('AuditPage', () => {
       nextCursor: null,
     }))
     renderPage()
-    expect(await screen.findByText('18.09.2026, 11:50:00')).toBeTruthy()
+    expect(await screen.findByText('18.09.2026, 11:00:00')).toBeTruthy()
     for (const heading of [
       'Начат',
       'Репозиторий',
@@ -178,8 +178,22 @@ describe('AuditPage', () => {
     renderPage()
     await screen.findByText('zeros')
     expect(screen.getAllByText('—').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('0').length).toBeGreaterThanOrEqual(2)
+    const zeroRow = screen.getByText('zeros').closest('tr')
+    expect(zeroRow).toBeTruthy()
+    expect(within(zeroRow as HTMLElement).getAllByText('0')).toHaveLength(2)
     expect(screen.getAllByText('$0').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('opens the run when the row is clicked off the link', async () => {
+    stubFetch(() => ({ items: [session()], nextCursor: null }))
+    const { router } = renderPage()
+    const title = await screen.findByText('feat: audit row')
+    const row = title.closest('tr')
+    expect(row).toBeTruthy()
+    fireEvent.click(row as HTMLElement)
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/runs/11111111-1111-4111-8111-000000000301')
+    })
   })
 
   it('sends repo and status from the address and starts again when the status changes', async () => {

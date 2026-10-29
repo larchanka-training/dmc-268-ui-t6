@@ -5,6 +5,7 @@ import { Link, useNavigate } from 'react-router'
 import {
   errorReason,
   formatDateTime,
+  reasonText,
   formatDuration,
   runDuration,
   RunStatusSchema,
@@ -14,7 +15,7 @@ import {
   type RunStatus,
 } from '../../entities/run'
 import { useAuditFilterParams } from '../../features/audit-filter'
-import { formatUsd, useTranslation } from '../../shared/i18n'
+import { formatNumber, formatUsd, useTranslation } from '../../shared/i18n'
 import { DataTable, PageHeader, Tag } from '../../shared/ui'
 import styles from './AuditPage.module.css'
 
@@ -38,7 +39,7 @@ function reasonTextOf(run: RunSession): string {
   if (run.errorCode === null) {
     return '—'
   }
-  return errorReason(run.errorCode) ?? run.errorCode
+  return errorReason(run.errorCode) ?? reasonText(run.errorCode)
 }
 
 export const AuditPage: FC = () => {
@@ -149,7 +150,7 @@ export const AuditPage: FC = () => {
     {
       title: t('audit.columns.started'),
       key: 'started',
-      render: (_, run) => (run.startedAt ? formatDateTime(run.startedAt) : '—'),
+      render: (_, run) => formatDateTime(run.createdAt),
     },
     {
       title: t('audit.columns.repository'),
@@ -208,12 +209,12 @@ export const AuditPage: FC = () => {
     {
       title: t('audit.columns.tokensIn'),
       key: 'tokensIn',
-      render: (_, run) => String(run.usage.tokensIn),
+      render: (_, run) => formatNumber(run.usage.tokensIn),
     },
     {
       title: t('audit.columns.tokensOut'),
       key: 'tokensOut',
-      render: (_, run) => String(run.usage.tokensOut),
+      render: (_, run) => formatNumber(run.usage.tokensOut),
     },
     {
       title: t('audit.columns.cost'),

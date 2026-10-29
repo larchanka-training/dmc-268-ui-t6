@@ -71,6 +71,8 @@ describe('RunDetailPage', () => {
       expect(screen.getByTestId('run-detail-page')).toBeTruthy()
     })
     expect(screen.getByText('succeeded')).toBeTruthy()
+    expect(screen.getByText('12000')).toBeTruthy()
+    expect(screen.getByText('$0.42')).toBeTruthy()
     expect(screen.getByText('get_tree ×19')).toBeTruthy()
     expect(screen.getByText('src/a.ts')).toBeTruthy()
   })

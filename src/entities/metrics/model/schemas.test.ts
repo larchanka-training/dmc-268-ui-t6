@@ -65,6 +65,41 @@ describe('MetricsSummarySchema', () => {
     expect(MetricsSummarySchema.safeParse({ ...summary, range: '1h' }).success).toBe(false)
     expect(MetricsSummarySchema.safeParse({ ...summary, totals: undefined }).success).toBe(false)
   })
+
+  it('rejects a missing paused flag and a null noVerdict', () => {
+    const first = summary.workspaces[0]
+    if (first === undefined) {
+      throw new Error('fixture has a workspace')
+    }
+    const workspace = {
+      name: first.name,
+      dailyBudgetUsd: first.dailyBudgetUsd,
+      spentTodayUsd: first.spentTodayUsd,
+    }
+    expect(MetricsSummarySchema.safeParse({ ...summary, workspaces: [workspace] }).success).toBe(
+      false,
+    )
+    const verdicts = {
+      blocking: summary.totals.pullsByVerdict.blocking,
+      attention: summary.totals.pullsByVerdict.attention,
+      clean: summary.totals.pullsByVerdict.clean,
+    }
+    expect(
+      MetricsSummarySchema.safeParse({
+        ...summary,
+        totals: { ...summary.totals, pullsByVerdict: verdicts },
+      }).success,
+    ).toBe(false)
+    expect(
+      MetricsSummarySchema.safeParse({
+        ...summary,
+        totals: {
+          ...summary.totals,
+          pullsByVerdict: { ...summary.totals.pullsByVerdict, noVerdict: null },
+        },
+      }).success,
+    ).toBe(false)
+  })
 })
 
 describe('MetricsSummaryQuerySchema', () => {

@@ -6,6 +6,7 @@ import { auth } from './auth'
 import { bitbucket } from './bitbucket'
 import { common } from './common'
 import { layout } from './layout'
+import { limitReasons } from './limitReasons'
 import { reasons } from './reasons'
 import { repositories } from './repositories'
 import { rules } from './rules'
@@ -18,6 +19,7 @@ export const ru: Translation<typeof en> = {
   auth,
   bitbucket,
   layout,
+  limitReasons,
   analytics,
   audit,
   repositories,
