@@ -31,17 +31,6 @@
   text-transform: uppercase;
 }
 
-.soon {
-  padding: 2px 10px;
-  border: 1px solid var(--border-strong);
-  border-radius: 999px;
-  color: var(--text-2);
-  font-family: var(--font-sans);
-  font-size: 11px;
-  letter-spacing: 0.02em;
-  text-transform: none;
-}
-
 .title {
   margin-top: 14px;
   font-size: clamp(1.875rem, 1.4rem + 2vw, 2.75rem);
