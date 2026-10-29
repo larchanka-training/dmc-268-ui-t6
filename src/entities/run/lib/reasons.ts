@@ -2,8 +2,8 @@ import { i18n } from '../../../shared/i18n'
 
 /**
  * The `errorCode` values the dictionaries have a text for (`reasons.*`): every code the api writes
- * to a run as of api main f8b0981 (the check-run catalog in check_runs.py, the publication,
- * installation and GitLab codes, `repo_disabled`), the Bitbucket publication codes of api#340
+ * to a run (the check-run catalog in check_runs.py, the publication,
+ * installation and GitLab codes, `repo_disabled`), the Bitbucket codes of api#340
  * and the codes PIPELINE_SPEC §6 reserves for publication. A code the api adds later reads
  * "Unknown reason" until it is added here.
  */
@@ -40,6 +40,14 @@ export const REASON_CODES = [
   'gitlab_publish_failed',
   'bitbucket_forbidden',
   'bitbucket_publish_failed',
+  'bitbucket_fetch_failed',
+  'bitbucket_commit_messages_fetch_failed',
+  'bitbucket_source_unavailable',
+  'bitbucket_review_limit_exceeded',
+  'bitbucket_request_budget_exceeded',
+  'bitbucket_invalid_response',
+  'bitbucket_response_budget_exceeded',
+  'bitbucket_engine_unsupported',
   'publication_payload_too_large',
   'publication_outcome_unknown',
   'legacy_publication_unresolved',

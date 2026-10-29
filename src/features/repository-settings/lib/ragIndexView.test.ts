@@ -5,6 +5,7 @@ import { i18n } from '../../../shared/i18n'
 import type { VcsProvider } from '../../../shared/model/provider'
 import {
   ragStaleDetail,
+  ragNoAccessText,
   formatIndexedAt,
   ragIndexView,
   shortSha,
@@ -260,6 +261,18 @@ describe('ragIndexView: the reason of the last build', () => {
       expect(ragIndexView(failed, true, 'bitbucket').reason?.text).toBe(
         'Bitbucket Cloud is temporarily unavailable',
       )
+    } finally {
+      await i18n.changeLanguage('ru')
+    }
+  })
+
+  it.each([
+    ['github', 'GitHub App'],
+    ['bitbucket', 'Bitbucket Cloud'],
+  ] as const)('uses grammatical English RAG access text for %s', async (provider, accessName) => {
+    try {
+      await i18n.changeLanguage('en')
+      expect(ragNoAccessText(provider)).toBe(`${accessName} has no access, so RAG is unavailable`)
     } finally {
       await i18n.changeLanguage('ru')
     }

@@ -183,6 +183,11 @@ describe('RepositorySettingsForm: provider settings', () => {
     )
     expect(screen.getByText('Никогда (запускать ревью без ожидания CI)')).toBeTruthy()
     expect(screen.getByText('Комментарии и статус коммита')).toBeTruthy()
+    expect(
+      screen.getByText(
+        'Bitbucket Cloud запускает ревью без ожидания CI. Результат публикуется отдельным статусом коммита.',
+      ),
+    ).toBeTruthy()
     expect(screen.queryByLabelText(CI_LABEL)).toBeNull()
     expect(screen.queryByLabelText(VERDICT_LABEL)).toBeNull()
     try {
@@ -191,6 +196,11 @@ describe('RepositorySettingsForm: provider settings', () => {
       })
       expect(screen.getByText('Never (run the review without waiting for CI)')).toBeTruthy()
       expect(screen.getByText('Comments and commit status')).toBeTruthy()
+      expect(
+        screen.getByText(
+          'Bitbucket Cloud runs reviews without waiting for CI. It publishes a separate commit status.',
+        ),
+      ).toBeTruthy()
     } finally {
       await act(async () => {
         await i18n.changeLanguage('ru')

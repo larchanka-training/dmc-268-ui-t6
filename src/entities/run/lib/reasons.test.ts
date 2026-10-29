@@ -12,6 +12,54 @@ afterEach(async () => {
 })
 
 describe('reasonText', () => {
+  it.each([
+    [
+      'bitbucket_fetch_failed',
+      'Could not get review data from Bitbucket.',
+      'Не удалось получить данные ревью из Bitbucket.',
+    ],
+    [
+      'bitbucket_commit_messages_fetch_failed',
+      'Could not get the pull request commit messages from Bitbucket.',
+      'Не удалось получить сообщения коммитов PR из Bitbucket.',
+    ],
+    [
+      'bitbucket_source_unavailable',
+      'The Bitbucket source fork is unavailable.',
+      'Нет доступа к исходному fork-репозиторию Bitbucket.',
+    ],
+    [
+      'bitbucket_review_limit_exceeded',
+      'The Bitbucket pull request has too many files for review.',
+      'PR Bitbucket превышает лимит файлов для ревью.',
+    ],
+    [
+      'bitbucket_request_budget_exceeded',
+      'The Bitbucket request limit for this review was reached.',
+      'Лимит запросов к Bitbucket для ревью исчерпан.',
+    ],
+    [
+      'bitbucket_invalid_response',
+      'Bitbucket returned invalid review data.',
+      'Bitbucket вернул некорректные данные для ревью.',
+    ],
+    [
+      'bitbucket_response_budget_exceeded',
+      'The Bitbucket response budget for this run was exhausted.',
+      'Исчерпан бюджет ответов Bitbucket для одного прогона.',
+    ],
+    [
+      'bitbucket_engine_unsupported',
+      'The selected review engine is not supported for Bitbucket.',
+      'Выбранный движок ревью не поддерживается Bitbucket.',
+    ],
+  ])('explains %s in both languages', async (code, english, russian) => {
+    await i18n.changeLanguage('en')
+    expect(reasonText(code)).toBe(english)
+    await i18n.changeLanguage('ru')
+    expect(reasonText(code)).toBe(russian)
+  })
+
   it('reads the English text of a known code', async () => {
     await i18n.changeLanguage('en')
     expect(reasonText('llm_timeout')).toBe(
@@ -44,9 +92,9 @@ describe('reasonText', () => {
   })
 })
 
-// A hand-kept copy of the errorCode list the api writes to a run, as of api main f8b0981 (checked
-// against the api source in the review of ui#196), by where it comes from, plus the publication
-// codes PIPELINE_SPEC §6 reserves and the Bitbucket codes of api#340. None of them may read
+// A hand-kept copy of the errorCode list the api writes to a run, by where it comes from,
+// plus the publication codes PIPELINE_SPEC §6 reserves and the Bitbucket codes of api#340.
+// None of them may read
 // "Unknown reason". A code the api adds later is not caught here: update this list with it.
 const API_RUN_CODES = [
   // run_failures.py KNOWN_ERROR_CODES and the RunFailure codes raised directly
@@ -93,9 +141,18 @@ const API_RUN_CODES = [
   // publish_run_review.py with the gitlab route
   'gitlab_forbidden',
   'gitlab_publish_failed',
-  // publish_run_review.py with the bitbucket route (api#340, not on main f8b0981 yet)
+  // publish_run_review.py with the Bitbucket route (api#340)
   'bitbucket_forbidden',
   'bitbucket_publish_failed',
+  // run_failures.py and check_runs.py with the Bitbucket route (api#340)
+  'bitbucket_fetch_failed',
+  'bitbucket_commit_messages_fetch_failed',
+  'bitbucket_source_unavailable',
+  'bitbucket_review_limit_exceeded',
+  'bitbucket_request_budget_exceeded',
+  'bitbucket_invalid_response',
+  'bitbucket_response_budget_exceeded',
+  'bitbucket_engine_unsupported',
   // cancellations: run_failures.cancellation_reason, the run store, rebinding, GitLab connections
   'pr_closed',
   'superseded',
@@ -127,7 +184,7 @@ describe('reason dictionaries', () => {
     expect(reasonText(code)).not.toMatch(/^Неизвестная причина/)
   })
 
-  it('cover exactly the api code list as of main f8b0981', () => {
+  it('cover exactly the maintained api code list', () => {
     expect([...REASON_CODES].sort()).toEqual([...API_RUN_CODES].sort())
   })
 
