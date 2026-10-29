@@ -103,18 +103,6 @@
   "prs": [
     {
       "ci": "SUCCESS",
-      "head_sha": "eb878f99543c147bc0c3df9f8beb6fc96a70d336",
-      "merged_at": "2026-10-19T17:50:30Z",
-      "ref": "larchanka-training/dmc-268-api-t6#148",
-      "refs": false,
-      "state": "MERGED",
-      "title": "feat(webhooks): share installation tokens through Redis (#62)",
-      "unresolved_threads": 0,
-      "url": "https://github.com/larchanka-training/dmc-268-api-t6/pull/148",
-      "will_close": false
-    },
-    {
-      "ci": "SUCCESS",
       "head_sha": "c253b142d1189df3ce8d4e7312c514905e5af86e",
       "merged_at": "2026-10-05T11:54:07Z",
       "ref": "larchanka-training/dmc-268-api-t6#59",
@@ -171,6 +159,18 @@
       "title": "fix(api): api hardening and legacy artifacts decision (#54)",
       "unresolved_threads": 0,
       "url": "https://github.com/larchanka-training/dmc-268-api-t6/pull/69",
+      "will_close": false
+    },
+    {
+      "ci": "SUCCESS",
+      "head_sha": "eb878f99543c147bc0c3df9f8beb6fc96a70d336",
+      "merged_at": "2026-10-19T17:50:30Z",
+      "ref": "larchanka-training/dmc-268-api-t6#148",
+      "refs": false,
+      "state": "MERGED",
+      "title": "feat(webhooks): share installation tokens through Redis (#62)",
+      "unresolved_threads": 0,
+      "url": "https://github.com/larchanka-training/dmc-268-api-t6/pull/148",
       "will_close": false
     },
     {

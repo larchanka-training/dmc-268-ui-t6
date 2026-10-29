@@ -139,42 +139,6 @@
     },
     {
       "ci": "SUCCESS",
-      "head_sha": "eb878f99543c147bc0c3df9f8beb6fc96a70d336",
-      "merged_at": "2026-10-19T17:50:30Z",
-      "ref": "larchanka-training/dmc-268-api-t6#148",
-      "refs": false,
-      "state": "MERGED",
-      "title": "feat(webhooks): share installation tokens through Redis (#62)",
-      "unresolved_threads": 0,
-      "url": "https://github.com/larchanka-training/dmc-268-api-t6/pull/148",
-      "will_close": false
-    },
-    {
-      "ci": "SUCCESS",
-      "head_sha": "9df640596e07b98a7652289a4bc65c841ecefc54",
-      "merged_at": "2026-10-19T16:19:31Z",
-      "ref": "larchanka-training/dmc-268-api-t6#187",
-      "refs": false,
-      "state": "MERGED",
-      "title": "feat(monitoring): add Prometheus, Grafana and Alertmanager stack",
-      "unresolved_threads": 0,
-      "url": "https://github.com/larchanka-training/dmc-268-api-t6/pull/187",
-      "will_close": false
-    },
-    {
-      "ci": "SUCCESS",
-      "head_sha": "c94401043b6b93f03bfc43f426604d5901beafcc",
-      "merged_at": "2026-10-25T15:52:35Z",
-      "ref": "larchanka-training/dmc-268-api-t6#297",
-      "refs": false,
-      "state": "MERGED",
-      "title": "test(deploy): cover rollback boundary and align runbook (#215)",
-      "unresolved_threads": 0,
-      "url": "https://github.com/larchanka-training/dmc-268-api-t6/pull/297",
-      "will_close": false
-    },
-    {
-      "ci": "SUCCESS",
       "head_sha": "9dd0aeb8943b2322bce41dfbdb3115a54f73b288",
       "merged_at": "2026-09-29T11:58:38Z",
       "ref": "larchanka-training/dmc-268-api-t6#36",
@@ -279,6 +243,42 @@
       "title": "fix(llm): reassign OQ-2 models after the live run (#46)",
       "unresolved_threads": 0,
       "url": "https://github.com/larchanka-training/dmc-268-api-t6/pull/67",
+      "will_close": false
+    },
+    {
+      "ci": "SUCCESS",
+      "head_sha": "eb878f99543c147bc0c3df9f8beb6fc96a70d336",
+      "merged_at": "2026-10-19T17:50:30Z",
+      "ref": "larchanka-training/dmc-268-api-t6#148",
+      "refs": false,
+      "state": "MERGED",
+      "title": "feat(webhooks): share installation tokens through Redis (#62)",
+      "unresolved_threads": 0,
+      "url": "https://github.com/larchanka-training/dmc-268-api-t6/pull/148",
+      "will_close": false
+    },
+    {
+      "ci": "SUCCESS",
+      "head_sha": "9df640596e07b98a7652289a4bc65c841ecefc54",
+      "merged_at": "2026-10-19T16:19:31Z",
+      "ref": "larchanka-training/dmc-268-api-t6#187",
+      "refs": false,
+      "state": "MERGED",
+      "title": "feat(monitoring): add Prometheus, Grafana and Alertmanager stack",
+      "unresolved_threads": 0,
+      "url": "https://github.com/larchanka-training/dmc-268-api-t6/pull/187",
+      "will_close": false
+    },
+    {
+      "ci": "SUCCESS",
+      "head_sha": "c94401043b6b93f03bfc43f426604d5901beafcc",
+      "merged_at": "2026-10-25T15:52:35Z",
+      "ref": "larchanka-training/dmc-268-api-t6#297",
+      "refs": false,
+      "state": "MERGED",
+      "title": "test(deploy): cover rollback boundary and align runbook (#215)",
+      "unresolved_threads": 0,
+      "url": "https://github.com/larchanka-training/dmc-268-api-t6/pull/297",
       "will_close": false
     }
   ],

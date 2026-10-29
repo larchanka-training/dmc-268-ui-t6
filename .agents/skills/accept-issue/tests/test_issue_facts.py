@@ -115,6 +115,7 @@ CASES: list[tuple[str, str]] = [
     ("open-issue", "api#13"),
     ("refs-forms", "api#13"),
     ("checkboxes", "api#13"),
+    ("event-order", "api#13"),
 ]
 
 
@@ -133,7 +134,9 @@ def test_output_is_stable_json() -> None:
     assert "Staging-окружение" in r.stdout  # no \u escapes
     assert doc["schema"] == 1
     assert set(doc) == {"schema", "issue", "closing", "checkboxes", "prs"}
-    assert [p["ref"] for p in doc["prs"]] == sorted(p["ref"] for p in doc["prs"])
+    keys = [(p["ref"].split("#")[0], int(p["ref"].split("#")[1])) for p in doc["prs"]]
+    assert keys == sorted(keys)
+    assert keys[0][1] == 10 and keys[1][1] == 36  # numeric, not "#10" < "#148" < "#36"
 
 
 # ─── recorded issues: the facts the acceptance rules rest on ────────────────
@@ -201,6 +204,25 @@ def test_closers_commit_project_and_unknown() -> None:
     assert closing["last_closer"] == "mystery"
 
 
+def test_events_are_sorted_by_time_not_by_api_order() -> None:
+    # The fixture lists the 11:00 close first, then the 09:00 close, then the reopen.
+    # Without the sort last_closer would be the 09:00 merge.
+    closing = facts_of("event-order")["closing"]
+    assert [e["at"] for e in closing["events"]] == [
+        "2026-10-03T09:00:00Z",
+        "2026-10-03T10:00:00Z",
+        "2026-10-03T11:00:00Z",
+    ]
+    assert [e["kind"] for e in closing["events"]] == ["closed", "reopened", "closed"]
+    assert closing["last_closer"] == "manual"
+
+
+def test_closer_ref_carries_the_closing_prs_own_repo() -> None:
+    # api#13 closed by a ui PR: the ref names the ui repo, not the issue's.
+    first = facts_of("event-order")["closing"]["events"][0]
+    assert (first["closer"], first["closer_ref"]) == ("merge", f"{UI}#70")
+
+
 def test_open_issue_has_no_last_closer() -> None:
     doc = facts_of("open-issue")
     assert doc["issue"]["state"] == "OPEN"
@@ -232,7 +254,16 @@ def test_refs_forms() -> None:
         "ui#82": False,  # a bare `Refs #13` in a ui PR is ui#13
         "ui#83": True,  # the full form
         "ui#84": True,  # a bare and a full reference on one line
+        "ui#94": True,  # the repo name of a full reference is case-insensitive
         "someone/else-repo#9": False,  # names someone/else-repo#13
+        # Forms outside the team grammar: the PR stays listed, refs stays false.
+        "api#88": False,  # `**Refs** #13`
+        "api#89": False,  # `Refs: [#13](url)`
+        "api#90": False,  # `Refs <issue url>`
+        "api#91": False,  # `Refs` and `#13` on separate lines
+        # A Refs line in fenced code or in an HTML comment is not a Refs line.
+        "api#92": False,
+        "api#93": False,
     }
 
 
@@ -279,6 +310,72 @@ def test_checkboxes_edge_cases() -> None:
     # A heading inside a fence is text; a hash line without a space is not a heading.
     body = "## Acceptance Criteria\n```\n## Other\n```\n#nospace\n- [ ] a\n"
     assert facts.build_checkboxes(body)["ac"]["total"] == 1
+
+
+def ac_texts(body: str) -> list[str]:
+    ac = facts.build_checkboxes("## Acceptance Criteria\n" + body)["ac"]
+    return [i["text"] for i in ac["items"]]
+
+
+def test_fence_openers_and_closers() -> None:
+    # A one-line ```x``` is code span text, not a fence: nothing after it is swallowed.
+    assert ac_texts("```x```\n- [ ] a\n") == ["a"]
+    # A backtick fence's info string may not hold a backtick; a tilde fence's may.
+    assert ac_texts("``` a`b\n- [ ] a\n") == ["a"]
+    assert ac_texts("~~~ a`b\n- [ ] hidden\n~~~\n- [ ] b\n") == ["b"]
+    # An info string opens a fence but never closes one.
+    assert ac_texts("```py\n- [ ] hidden\n```py\n- [ ] still hidden\n```\n- [ ] b\n") == ["b"]
+    # A closer is bare: trailing blanks are fine, trailing text is not.
+    assert ac_texts("```\n- [ ] hidden\n``` \n- [ ] b\n") == ["b"]
+    assert ac_texts("```\n- [ ] hidden\n``` x\n- [ ] still hidden\n```\n- [ ] c\n") == ["c"]
+    # The other fence character does not close, a shorter run does not close.
+    assert ac_texts("~~~~\n- [ ] hidden\n```\n~~~\n- [ ] hidden\n~~~~\n- [ ] b\n") == ["b"]
+    # Up to 3 spaces of indent open and close a fence; 4 do not.
+    assert ac_texts("   ```\n- [ ] hidden\n   ```\n- [ ] b\n") == ["b"]
+    assert ac_texts("    ```\n- [ ] a\n") == ["a"]
+    assert ac_texts("```\n- [ ] hidden\n    ```\n- [ ] still hidden\n```\n- [ ] b\n") == ["b"]
+
+
+def test_html_comments_are_skipped() -> None:
+    assert ac_texts("<!-- - [ ] one line -->\n- [ ] a\n") == ["a"]
+    assert ac_texts("<!--\n- [ ] hidden\n## Other\n-->\n- [ ] a\n") == ["a"]
+    assert ac_texts("- [ ] a <!-- hint --> b\n") == ["a  b"]
+    assert ac_texts("before <!-- one\n- [ ] hidden\n--> after\n- [ ] a\n") == ["a"]
+    # Comment markers inside a fence are code, not comments.
+    assert ac_texts("```\n<!--\n```\n- [ ] a\n") == ["a"]
+    # A comment that never closes hides the rest.
+    assert ac_texts("- [ ] a\n<!-- never closed\n- [ ] hidden\n") == ["a"]
+    # A heading inside a comment does not end the section.
+    body = "## Acceptance Criteria\n<!--\n## Other\n-->\n- [ ] a\n"
+    assert facts.build_checkboxes(body)["ac"]["total"] == 1
+
+
+def pr_node(body: str | None, title: str = "t") -> dict[str, Any]:
+    return {"title": title, "body": body}
+
+
+def test_refs_search_skips_fences_and_comments() -> None:
+    def names(body: str | None, title: str = "t") -> bool:
+        return bool(facts.names_issue(pr_node(body, title), API, (API, 13)))
+
+    assert names("Refs #13")
+    assert not names("```\nRefs #13\n```")
+    assert not names("~~~md\nRefs #13\n~~~")
+    assert not names("<!--\nRefs #13\n-->")
+    assert not names("<!-- Refs #13 -->")
+    assert names("<!-- x -->\nRefs #13")
+    assert names("```\ncode\n```\nRefs #13")
+    # The title and the body are scanned apart: a fence in one never reaches the other.
+    assert names("Refs #13", title="```")
+    assert names(None, title="Refs #13")
+    # Blockquotes are skipped for checkboxes only; a quoted Refs line is simply not
+    # a line that starts with `Refs`.
+    assert not names("> Refs #13")
+
+
+def test_setext_headings_are_not_recognised() -> None:
+    body = "Acceptance Criteria\n===================\n- [ ] a\n"
+    assert facts.build_checkboxes(body)["outside"] == 1
 
 
 # ─── REF grammar and exit codes ─────────────────────────────────────────────
@@ -385,6 +482,21 @@ def test_missing_and_broken_fixtures_exit_3(tmp_path: Path) -> None:
     assert run("api#1", fixtures=tmp_path).returncode == 3
 
 
+def test_undecodable_fixture_exits_3(tmp_path: Path) -> None:
+    (tmp_path / "issue-p1.json").write_bytes(b'{"data": "\xff\xfe"}')
+    r = run("api#1", fixtures=tmp_path)
+    assert r.returncode == 3
+    assert "cannot read fixture" in error_of(r)
+
+
+def test_undecodable_gh_output_exits_3(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    body = "import sys\nsys.stdout.buffer.write(b'\\xff\\xfe not utf-8')\n"
+    prepend_path(monkeypatch, fake_gh(tmp_path / "bin", body))
+    r = run("api#1")
+    assert r.returncode == 3
+    assert "cannot read the output" in error_of(r)
+
+
 def test_empty_fixture_dir_variable_exits_3_without_gh(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ACCEPT_ISSUE_FIXTURE_DIR", "")
     r = subprocess.run(
@@ -488,11 +600,38 @@ def test_argv_and_paging_through_gh(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     for argv in calls:
         assert argv[:3] == ["api", "graphql", "-f"]
         assert "owner=larchanka-training" in argv
+        # String variables go with -f (never reinterpreted), the number with -F.
+        pairs = list(zip(argv, argv[1:], strict=False))
+        assert ("-f", "owner=larchanka-training") in pairs
+        assert any(flag == "-f" and v.startswith("name=") for flag, v in pairs)
+        assert any(flag == "-F" and v.startswith("number=") for flag, v in pairs)
     issue_call, p2, p3 = calls
     assert "name=dmc-268-ui-t6" in issue_call and "number=7" in issue_call
     assert not any(a.startswith("c=") for a in issue_call)  # first page: no cursor
     assert "name=dmc-268-api-t6" in p2 and "number=60" in p2 and "c=TC1" in p2
     assert "c=TC2" in p3
+    # The query text itself: dropping any of these silently loses a fact.
+    query = next(a for a in issue_call if a.startswith("query="))
+    for needle in (
+        "CLOSED_EVENT",
+        "REOPENED_EVENT",
+        "CROSS_REFERENCED_EVENT",
+        "timelineItems(first: 100, after: $c",
+        "closer {",
+        "stateReason",
+        "willCloseTarget",
+        "statusCheckRollup",
+        "reviewThreads(first: 100",
+        "headRefOid",
+        "mergedAt",
+        "commits(last: 1)",
+    ):
+        assert needle in query, needle
+    assert "timelineItems(last" not in query
+    assert query.count("last: 1") == 1  # only the PR's last commit
+    threads_query = next(a for a in p2 if a.startswith("query="))
+    assert "reviewThreads(first: 100, after: $c)" in threads_query
+    assert "isResolved" in threads_query
     # Read-only: queries only, never a mutation, never a REST write.
     for argv in calls:
         assert "mutation" not in " ".join(argv)

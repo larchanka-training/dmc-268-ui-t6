@@ -30,13 +30,27 @@ trailing newline), schema 1:
               ac / dod: {total, checked, items[{checked, text}]} for the
               `## Acceptance Criteria` / `## DoD Checklist` sections (a section
               ends at the next heading of the same or higher level); outside:
-              checkboxes anywhere else. Fenced code and blockquotes are skipped.
+              checkboxes anywhere else. Fenced code (``` and ~~~), HTML comments
+              and blockquotes are skipped. Headings are ATX (`## Name`) only;
+              setext headings (underlined with === or ---) are not recognised.
     prs       every pull request from the timeline's cross-references (any repo,
-              deduplicated, sorted by ref): {ref, title, url, state, merged_at,
-              head_sha, ci, unresolved_threads, refs, will_close}. refs: the
-              title or body has a `Refs` line naming THIS issue — `Refs #N`
-              only for a PR in the issue's own repo, `Refs OWNER/NAME#N` from
-              any repo; several refs on one line count.
+              deduplicated, sorted by (repo, number)): {ref, title, url, state,
+              merged_at, head_sha, ci, unresolved_threads, refs, will_close}.
+              refs: the title or body has a `Refs` line naming THIS issue. The
+              accepted grammar is the team's: a line starting with `Refs` (any
+              case, an optional list bullet, an optional colon) followed by
+              `#N` or `OWNER/NAME#N` references separated by commas, `;`, `&`,
+              `and` or blanks, e.g. `Refs #12, #13`; text after the list is
+              ignored. `#N` counts only for a PR in the issue's own repo, a full
+              `OWNER/NAME#N` from any repo (the repo name is case-insensitive).
+              Anything else is NOT recognised and leaves refs false, though the
+              PR is still listed: `**Refs** #N`, `Refs: [#N](url)`, an issue URL,
+              `Refs` and the reference on separate lines, `Refs` in running
+              text. Lines in fenced code or HTML comments do not count.
+              will_close is GitHub's `willCloseTarget` of the cross-reference:
+              it is false on a pull request that is already merged, even one
+              that closed the issue; that merge-close shows in
+              closing.events[].closer_ref instead.
 
 stderr carries one JSON line {"error": "..."} on failure and stdout stays empty.
 Exit 0 ok; 2 usage or bad REF; 3 gh / API error (non-zero gh exit, timeout, any
@@ -59,6 +73,7 @@ import os
 import re
 import subprocess
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, NoReturn
 
@@ -76,7 +91,10 @@ REF = re.compile(r"(api|ui|[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)#([1-9][0-9]*)")
 NUMBER = re.compile(r"[1-9][0-9]*")
 
 HEADING = re.compile(r"^ {0,3}(#{1,6})[ \t]+(.*?)[ \t]*#*[ \t]*$")
-FENCE = re.compile(r"^\s*(`{3,}|~{3,})")
+# CommonMark fences: at most 3 spaces of indent; a backtick opener's info string
+# has no backtick; a closer is the same character, at least as long, and bare.
+FENCE_OPEN = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
+FENCE_CLOSE = re.compile(r"^ {0,3}(`{3,}|~{3,})[ \t]*$")
 CHECKBOX = re.compile(r"^\s*[-*+] \[([ xX])\](.*)$")
 SECTIONS = {"acceptance criteria": "ac", "dod checklist": "dod"}
 
@@ -173,10 +191,12 @@ def request(name: str, query: str, repo: str, number: int, cursor: str | None) -
             raw = path.read_text(encoding="utf-8")
         except OSError as exc:
             fail(f"cannot read fixture {path}: {exc.strerror or exc}", 3)
+        except ValueError as exc:
+            fail(f"cannot read fixture {path}: {exc}", 3)
     else:
         owner, repo_name = repo.split("/", 1)
         argv = ["gh", "api", "graphql", "-f", f"query={query}"]
-        argv += ["-F", f"owner={owner}", "-F", f"name={repo_name}", "-F", f"number={number}"]
+        argv += ["-f", f"owner={owner}", "-f", f"name={repo_name}", "-F", f"number={number}"]
         if cursor is not None:
             argv += ["-f", f"c={cursor}"]
         try:
@@ -185,6 +205,8 @@ def request(name: str, query: str, repo: str, number: int, cursor: str | None) -
             fail(f"gh api graphql ({name}) timed out after {GH_TIMEOUT} s", 3)
         except OSError as exc:
             fail(f"cannot run gh: {exc}", 3)
+        except ValueError as exc:  # gh output that is not UTF-8
+            fail(f"gh api graphql ({name}): cannot read the output: {exc}", 3)
         if proc.returncode != 0:
             gh_failure = f"gh api graphql ({name}) exited {proc.returncode}: {proc.stderr.strip()}"
         raw = proc.stdout
@@ -335,25 +357,56 @@ def build_closing(timeline: list[dict[str, Any]], state: str) -> dict[str, Any]:
     }
 
 
-# ─── checkboxes ─────────────────────────────────────────────────────────────
+# ─── markdown scanning ──────────────────────────────────────────────────────
+def visible_lines(text: str, *, skip_quotes: bool) -> Iterator[str]:
+    """The lines of `text` that render as prose: outside fenced code and HTML
+    comments (single- and multi-line; the text around a comment stays) and, when
+    `skip_quotes`, outside blockquotes. Shared by the checkbox scan and the
+    `Refs` search so that both see the same text."""
+    fence: str | None = None  # the opening run of the open fenced block
+    in_comment = False
+    for raw in text.splitlines():
+        if fence is not None:
+            closer = FENCE_CLOSE.match(raw)
+            if closer and closer.group(1)[0] == fence[0] and len(closer.group(1)) >= len(fence):
+                fence = None
+            continue
+        line = raw
+        kept: list[str] = []
+        while line:
+            if in_comment:
+                end = line.find("-->")
+                if end < 0:
+                    line = ""
+                else:
+                    in_comment, line = False, line[end + 3 :]
+            else:
+                start = line.find("<!--")
+                if start < 0:
+                    kept.append(line)
+                    line = ""
+                else:
+                    kept.append(line[:start])
+                    in_comment, line = True, line[start + 4 :]
+        line = "".join(kept)
+        if line != raw and not line.strip():
+            continue  # nothing but comment on this line
+        opener = FENCE_OPEN.match(line)
+        if opener and not (opener.group(1)[0] == "`" and "`" in opener.group(2)):
+            fence = opener.group(1)
+            continue
+        if skip_quotes and line.lstrip().startswith(">"):
+            continue
+        yield line
+
+
 def build_checkboxes(body: str) -> dict[str, Any]:
     """AC / DoD checkboxes of the issue body, plus a count of the ones elsewhere."""
     sections: dict[str, list[dict[str, Any]]] = {"ac": [], "dod": []}
     outside = 0
     current: str | None = None  # "ac" | "dod" | None
     level = 0  # heading level of the open section
-    fence: str | None = None  # the opening run of the open fenced block
-    for line in body.splitlines():
-        marker = FENCE.match(line)
-        if fence is not None:
-            if marker and marker.group(1)[0] == fence[0] and len(marker.group(1)) >= len(fence):
-                fence = None
-            continue
-        if marker:
-            fence = marker.group(1)
-            continue
-        if line.lstrip().startswith(">"):
-            continue
+    for line in visible_lines(body, skip_quotes=True):
         heading = HEADING.match(line)
         if heading:
             depth = len(heading.group(1))
@@ -390,15 +443,15 @@ def names_issue(pr: dict[str, Any], pr_repo: str, issue: tuple[str, int]) -> boo
     """True when the PR title or body has a `Refs` line naming `issue`: a bare
     `#N` means the PR's own repo, so it counts only when that is the issue's repo."""
     repo, number = issue
-    text = f"{pr.get('title') or ''}\n{pr.get('body') or ''}"
-    for line in text.splitlines():
-        m = REFS_LINE.match(line)
-        if not m:
-            continue
-        for token in REFS_TOKEN.finditer(m.group(1)):
-            token_repo = (token.group(1) or pr_repo).lower()
-            if token_repo == repo.lower() and int(token.group(2)) == number:
-                return True
+    for part in (pr.get("title"), pr.get("body")):
+        for line in visible_lines(part or "", skip_quotes=False):
+            m = REFS_LINE.match(line)
+            if not m:
+                continue
+            for token in REFS_TOKEN.finditer(m.group(1)):
+                token_repo = (token.group(1) or pr_repo).lower()
+                if token_repo == repo.lower() and int(token.group(2)) == number:
+                    return True
     return False
 
 
@@ -443,7 +496,7 @@ def build_prs(timeline: list[dict[str, Any]], issue: tuple[str, int]) -> list[di
             "refs": names_issue(source, pr_repo, issue),
             "will_close": will_close,
         }
-    return sorted(found.values(), key=lambda p: p["ref"])
+    return [found[key] for key in sorted(found)]
 
 
 def rollup_state(pr: dict[str, Any], where: str) -> str | None:
