@@ -56,12 +56,22 @@ says how many were hidden.
 </Accordion>
 </Accordions>
 
-## Code index (RAG) <StatusBadge status="inactive" />
+## Code index (RAG)
 
 The **RAG** switch builds an index of the default branch: which symbols each file defines and
-which files import each other, without the code text. Reviews already read the index while they
-build their context, but its results are not sent to the model yet, so it does not change the
-review and adds no model cost today.
+which files import each other, without the code text. A review uses it to find unchanged code
+that depends on the pull request: files that import or use what it changed, and code that still
+imports something it removed. Reviewer reads them at the pull request's commit and sends them to
+the model with the diff, so the model can see code the change may break. Findings still go on
+changed lines.
+
+The excerpts take at most 4,000 tokens of the review input, so a review may cost more. Building
+the index calls no model.
+
+The switch is off by default and works only for GitHub repositories. If the index is not built
+yet, is being built or failed, the review runs without it and does not wait. An index that is
+behind the default branch is still used. A review of only the file list, over 3,000 changed
+lines, gets no excerpts.
 
 <RagSnippet />
 
