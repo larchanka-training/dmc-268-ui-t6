@@ -1,0 +1,373 @@
+// @vitest-environment jsdom
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { createMemoryRouter, RouterProvider } from 'react-router'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import { disabledRagIndex } from '../../entities/repository'
+import type { MetricsSummary } from '../../entities/metrics'
+import { AnalyticsPage } from './AnalyticsPage'
+
+const REPO = {
+  id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  fullName: 'org/repo',
+  url: 'https://github.com/org/repo',
+  defaultBranch: 'main',
+  enabled: true,
+  defaultEngine: 'fast' as const,
+  waitForCi: 'auto' as const,
+  maxComments: 5,
+  reviewEvent: 'COMMENT' as const,
+  branchFilter: [],
+  severityThreshold: 'all' as const,
+  installationAvailable: true,
+  ragEnabled: false,
+  ragIndex: disabledRagIndex,
+}
+
+const statusCounts = {
+  queued: 0,
+  running: 0,
+  publishing: 0,
+  succeeded: 11,
+  failed: 12,
+  cancelled: 13,
+  skipped: 14,
+}
+
+function summary(overrides: Partial<MetricsSummary> = {}): MetricsSummary {
+  return {
+    range: '7d',
+    totals: {
+      runsByStatus: statusCounts,
+      pullsByVerdict: { blocking: 21, attention: 22, clean: 23, noVerdict: 24 },
+      findingsBySeverity: { critical: 31, high: 32, medium: 33, low: 34, info: 35 },
+      findingsByCategory: { security: 1, correctness: 2, performance: 0, readability: 1 },
+      succeededAverageDurationSeconds: 125,
+      tokensIn: 10,
+      tokensOut: 4,
+      costUsd: 1.5,
+    },
+    series: [
+      {
+        day: '2026-10-26',
+        findingsByCategory: { security: 2, correctness: 7, performance: 0, readability: 8 },
+        runCount: 1,
+        averageDurationSeconds: 4,
+        costUsd: 0.2,
+      },
+      {
+        day: '2026-10-27',
+        findingsByCategory: { security: 0, correctness: 3, performance: 1, readability: 1 },
+        runCount: 2,
+        averageDurationSeconds: 9,
+        costUsd: 0,
+      },
+    ],
+    workspaces: [
+      { name: 'acme', dailyBudgetUsd: 0, spentTodayUsd: 1.5, paused: false },
+      { name: 'paused-team', dailyBudgetUsd: 10, spentTodayUsd: 1, paused: true },
+    ],
+    ...overrides,
+  }
+}
+
+function emptySummary(): MetricsSummary {
+  return summary({
+    totals: {
+      ...summary().totals,
+      runsByStatus: {
+        queued: 0,
+        running: 0,
+        publishing: 0,
+        succeeded: 0,
+        failed: 0,
+        cancelled: 0,
+        skipped: 0,
+      },
+      succeededAverageDurationSeconds: 0,
+    },
+    series: [],
+  })
+}
+
+interface Answer {
+  status: number
+  body: unknown
+}
+
+function stubFetch(handler: (url: URL) => Answer) {
+  const fetchMock = vi.fn<typeof fetch>((input) => {
+    const href = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+    const url = new URL(href, 'http://localhost')
+    const answer = handler(url)
+    return Promise.resolve(
+      new Response(JSON.stringify(answer.body), {
+        status: answer.status,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  return fetchMock
+}
+
+function renderPage(initialEntry = '/analytics') {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const router = createMemoryRouter([{ path: '/analytics', element: <AnalyticsPage /> }], {
+    initialEntries: [initialEntry],
+  })
+  return {
+    router,
+    ...render(
+      <QueryClientProvider client={client}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    ),
+  }
+}
+
+function summaryRequests(fetchMock: ReturnType<typeof stubFetch>): URL[] {
+  return fetchMock.mock.calls
+    .map(([input]) => {
+      const href = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      return new URL(href, 'http://localhost')
+    })
+    .filter((url) => url.pathname.endsWith('/metrics/summary'))
+}
+
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+})
+
+describe('AnalyticsPage', () => {
+  it('shows the tiles, including critical apart from high, and the day table', async () => {
+    stubFetch((url) =>
+      url.pathname.endsWith('/repos')
+        ? { status: 200, body: [REPO] }
+        : { status: 200, body: summary() },
+    )
+    const { container } = renderPage()
+    expect(await screen.findByText('Критические')).toBeTruthy()
+    const tile = (label: string): string =>
+      screen.getByText(label).closest('div')?.querySelector('dd')?.textContent ?? ''
+    expect(tile('Прогоны: Успешные')).toBe('11')
+    expect(tile('Прогоны: С ошибкой')).toBe('12')
+    expect(tile('Прогоны: Отменённые')).toBe('13')
+    expect(tile('Прогоны: Пропущенные')).toBe('14')
+    expect(tile('Pull request: Блокирующие')).toBe('21')
+    expect(tile('Pull request: Требуют внимания')).toBe('22')
+    expect(tile('Pull request: Чистые')).toBe('23')
+    expect(tile('Pull request: Без вердикта')).toBe('24')
+    expect(tile('Критические')).toBe('31')
+    expect(tile('Высокие')).toBe('32')
+    expect(tile('Средние')).toBe('33')
+    expect(tile('Низкие')).toBe('34')
+    expect(tile('Информационные')).toBe('35')
+    expect(screen.getByText('2 мин 5 с')).toBeTruthy()
+    expect(screen.getByText('$1.50')).toBeTruthy()
+    expect(screen.getByText('$0')).toBeTruthy()
+    expect(tile('Токены на входе')).toBe('10')
+    expect(tile('Токены на выходе')).toBe('4')
+    expect(screen.getByRole('heading', { name: 'Числа по дням' })).toBeTruthy()
+    expect(screen.getByRole('table')).toBeTruthy()
+    const titles = [...container.querySelectorAll('title')].map((node) => node.textContent)
+    expect(titles).toContain('Безопасность 2')
+    expect(titles).toContain('Дефект 7')
+    expect(titles).toContain('Стиль 8')
+    expect(titles).toContain('4')
+    for (const name of ['Безопасность', 'Дефект', 'Производительность', 'Стиль']) {
+      expect(screen.getAllByText(name).length).toBeGreaterThan(0)
+    }
+    const legend = container.querySelector('ul')
+    const dots = legend?.querySelectorAll('li span')
+    expect(dots?.length).toBe(4)
+  })
+
+  it('requests 7d when the address says 24h, and 30d after the period changes', async () => {
+    const fetchMock = stubFetch((url) =>
+      url.pathname.endsWith('/repos')
+        ? { status: 200, body: [REPO] }
+        : { status: 200, body: summary({ range: '30d' }) },
+    )
+    const { router } = renderPage('/analytics?range=24h&tab=keep')
+    await screen.findByRole('heading', { name: 'Аналитика' })
+    await waitFor(() => {
+      const first = summaryRequests(fetchMock)[0]
+      expect(first?.searchParams.get('range')).toBe('7d')
+      expect(first?.searchParams.get('range')).not.toBe('24h')
+    })
+    fireEvent.click(screen.getByRole('radio', { name: '30 дней' }))
+    await waitFor(() => {
+      expect(router.state.location.search).toContain('range=30d')
+      const requests = summaryRequests(fetchMock)
+      expect(requests[requests.length - 1]?.searchParams.get('range')).toBe('30d')
+    })
+    expect(router.state.location.search).toContain('tab=keep')
+  })
+
+  it('puts the repository in the address and keeps the period when it is reset', async () => {
+    const fetchMock = stubFetch((url) =>
+      url.pathname.endsWith('/repos')
+        ? { status: 200, body: [REPO] }
+        : { status: 200, body: summary() },
+    )
+    const { router } = renderPage('/analytics?range=30d')
+    await screen.findByText('Критические')
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Репозиторий' }))
+    await waitFor(() => {
+      expect(document.querySelectorAll('.ant-select-item-option').length).toBeGreaterThan(1)
+    })
+    const option = [...document.querySelectorAll('.ant-select-item-option')].find(
+      (candidate) => candidate.textContent === 'org/repo',
+    )
+    if (option === undefined) {
+      throw new Error('repository option is not rendered')
+    }
+    fireEvent.click(option)
+    await waitFor(() => {
+      expect(router.state.location.search).toContain('repo=org%2Frepo')
+      expect(router.state.location.search).toContain('range=30d')
+      const requests = summaryRequests(fetchMock)
+      expect(requests[requests.length - 1]?.searchParams.get('repo')).toBe('org/repo')
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Сбросить фильтр' }))
+    await waitFor(() => {
+      expect(router.state.location.search).not.toContain('repo=')
+      expect(router.state.location.search).toContain('range=30d')
+    })
+  })
+
+  it('shows an empty period without charts and keeps the budget', async () => {
+    stubFetch((url) =>
+      url.pathname.endsWith('/repos')
+        ? { status: 200, body: [] }
+        : { status: 200, body: emptySummary() },
+    )
+    const { container } = renderPage()
+    expect(await screen.findByText('В этом периоде нет завершённых прогонов')).toBeTruthy()
+    expect(container.querySelector('svg[role="img"]')).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Числа по дням' })).toBeNull()
+    expect(screen.queryByRole('table')).toBeNull()
+    expect(screen.queryByText('Критические')).toBeNull()
+    expect(screen.getByText('acme')).toBeTruthy()
+    expect(screen.getByText('paused-team')).toBeTruthy()
+  })
+
+  it('shows an error alert with retry instead of the empty state', async () => {
+    let fail = true
+    stubFetch((url) => {
+      if (url.pathname.endsWith('/repos')) {
+        return { status: 200, body: [] }
+      }
+      if (fail) {
+        return { status: 500, body: {} }
+      }
+      return { status: 200, body: summary() }
+    })
+    renderPage()
+    expect(await screen.findByText('Ошибка загрузки')).toBeTruthy()
+    expect(screen.queryByText('В этом периоде нет завершённых прогонов')).toBeNull()
+    fail = false
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить' }))
+    expect(await screen.findByText('Критические')).toBeTruthy()
+  })
+
+  it('shows the pause alert from the flag and "limit not set" for a zero limit', async () => {
+    stubFetch((url) =>
+      url.pathname.endsWith('/repos')
+        ? { status: 200, body: [REPO] }
+        : { status: 200, body: summary() },
+    )
+    renderPage('/analytics?repo=org/repo')
+    expect(
+      await screen.findByText('Дневной бюджет исчерпан, ревью на паузе до 00:00 UTC'),
+    ).toBeTruthy()
+    expect(screen.getByText(/Лимит не задан/)).toBeTruthy()
+    const budget = screen.getByRole('region', { name: 'Бюджет на сегодня' })
+    expect(budget.querySelector('input, textarea')).toBeNull()
+    expect(screen.getAllByRole('alert')).toHaveLength(1)
+  })
+
+  it('breaks the duration line on an empty day and shows a dash for a zero average', async () => {
+    stubFetch((url) =>
+      url.pathname.endsWith('/repos')
+        ? { status: 200, body: [REPO] }
+        : {
+            status: 200,
+            body: summary({
+              totals: { ...summary().totals, succeededAverageDurationSeconds: 0 },
+              series: [
+                {
+                  day: '2026-10-25',
+                  findingsByCategory: {
+                    security: 0,
+                    correctness: 0,
+                    performance: 0,
+                    readability: 0,
+                  },
+                  runCount: 2,
+                  averageDurationSeconds: 10,
+                  costUsd: 0,
+                },
+                {
+                  day: '2026-10-26',
+                  findingsByCategory: {
+                    security: 0,
+                    correctness: 0,
+                    performance: 0,
+                    readability: 0,
+                  },
+                  runCount: 0,
+                  averageDurationSeconds: 0,
+                  costUsd: 0,
+                },
+                {
+                  day: '2026-10-27',
+                  findingsByCategory: {
+                    security: 0,
+                    correctness: 0,
+                    performance: 0,
+                    readability: 0,
+                  },
+                  runCount: 1,
+                  averageDurationSeconds: 4,
+                  costUsd: 0,
+                },
+              ],
+            }),
+          },
+    )
+    const { container } = renderPage()
+    expect(await screen.findByText('Критические')).toBeTruthy()
+    const duration = [...container.querySelectorAll('figure')].find((figure) =>
+      figure.textContent.includes('Средняя длительность по дням'),
+    )
+    expect(duration?.querySelectorAll('polyline')).toHaveLength(2)
+    const circles = [...(duration?.querySelectorAll('circle') ?? [])]
+    expect(circles).toHaveLength(2)
+    const cys = circles.map((node) => node.getAttribute('cy'))
+    expect(new Set(cys).size).toBe(2)
+    expect(cys.every((cy) => Number(cy) < 196)).toBe(true)
+    const average = screen.getByText('Средняя длительность').closest('div')?.querySelector('dd')
+    expect(average?.textContent).toBe('—')
+  })
+
+  it('paints series with theme tokens and no hex', () => {
+    const root = join(process.cwd(), 'src/pages/analytics')
+    const css = [
+      readFileSync(join(root, 'ui/FindingsByDay.module.css'), 'utf8'),
+      readFileSync(join(root, 'ui/DurationByDay.module.css'), 'utf8'),
+      readFileSync(join(root, 'AnalyticsPage.module.css'), 'utf8'),
+    ].join('\n')
+    expect(css).toContain('var(--rv-critical)')
+    expect(css).toContain('var(--rv-high)')
+    expect(css).toContain('var(--rv-warning)')
+    expect(css).toContain('var(--rv-link)')
+    expect(css).toContain('var(--rv-accent)')
+    expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b/)
+  })
+})

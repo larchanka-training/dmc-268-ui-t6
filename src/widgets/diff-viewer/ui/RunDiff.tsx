@@ -46,6 +46,9 @@ interface RunDiffProps {
   subscribeToFiltersNavigation?: SubscribeFilterNavigation
 }
 
+/** Summary-only alert title. Part 4 replaces this key, not the alert layout. */
+const SUMMARY_ONLY_ALERT_TITLE = 'runs.diff.tooLargeTitle' as const
+
 function findingsOutsideVisibleDiff(files: FileDiff[], findings: FindingView[]): FindingView[] {
   const byFilename = new Map(files.map((file) => [file.filename, file]))
   return findings.filter((finding) => {
@@ -166,7 +169,7 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
         {filtersBar}
         <Alert
           description={t('runs.diff.tooLarge')}
-          title={t('runs.diff.tooLargeTitle')}
+          title={t(SUMMARY_ONLY_ALERT_TITLE)}
           type="info"
         />
         {visibleFiles.length > 0 || !filtering ? (

@@ -154,6 +154,8 @@ const runSession = {
   pullRequest,
   actionCount: 0,
   errorCode: null,
+  triggeredBy: null,
+  usage: { tokensIn: 0, tokensOut: 0, costUsd: 0 },
 }
 
 describe('RunStatusSchema', () => {
@@ -311,6 +313,43 @@ describe('RunSession origin', () => {
       expect(RunSessionSchema.safeParse({ ...runSession, createdAt }).success).toBe(false)
     },
   )
+
+  it('parses a session and strips an unknown key', () => {
+    const result = RunSessionSchema.parse({ ...runSession, futureField: true })
+    expect(result).not.toHaveProperty('futureField')
+    expect(result.usage).toEqual({ tokensIn: 0, tokensOut: 0, costUsd: 0 })
+    expect(result.triggeredBy).toBeNull()
+  })
+
+  it('rejects a session without usage or triggeredBy', () => {
+    expect(
+      RunSessionSchema.safeParse({ ...runSession, usage: undefined, triggeredBy: undefined })
+        .success,
+    ).toBe(false)
+  })
+
+  it('parses triggeredBy null and a filled usage', () => {
+    const result = RunSessionSchema.parse({
+      ...runSession,
+      triggeredBy: null,
+      usage: { tokensIn: 3, tokensOut: 4, costUsd: 0.5 },
+    })
+    expect(result.triggeredBy).toBeNull()
+    expect(result.usage).toEqual({ tokensIn: 3, tokensOut: 4, costUsd: 0.5 })
+  })
+
+  it('rejects triggeredBy as an object and usage null', () => {
+    expect(
+      RunSessionSchema.safeParse({ ...runSession, triggeredBy: { login: 'octocat' } }).success,
+    ).toBe(false)
+    expect(RunSessionSchema.safeParse({ ...runSession, usage: null }).success).toBe(false)
+  })
+
+  it('requires usage and triggeredBy in JSON Schema', () => {
+    const required = z.toJSONSchema(RunSessionSchema).required
+    expect(required).toContain('usage')
+    expect(required).toContain('triggeredBy')
+  })
 })
 
 describe('RunActionSchema', () => {

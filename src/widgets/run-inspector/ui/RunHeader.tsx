@@ -1,15 +1,16 @@
 import type { JSX, ReactNode } from 'react'
-import { Flex, Typography } from 'antd'
+import { Alert, Flex, Typography } from 'antd'
 
-import type { RunSession, SeverityCounts, Verdict } from '../../../entities/run'
+import type { RunBudget, RunSession, SeverityCounts, Verdict } from '../../../entities/run'
 import {
+  errorReason,
   isActive,
   isKnownReasonCode,
   isStaleRunning,
   reasonText,
   statusTone,
 } from '../../../entities/run'
-import { useTranslation } from '../../../shared/i18n'
+import { formatUsd, useTranslation } from '../../../shared/i18n'
 import { safeHttpUrl } from '../../../shared/lib/safeHttpUrl'
 import { cx, Tag } from '../../../shared/ui'
 import { formatDateTime, formatDuration, runDuration } from '../lib/format'
@@ -34,6 +35,11 @@ interface RunHeaderProps {
    * header shows the larger of the two.
    */
   loggedActions?: number
+  /**
+   * Spending and limits of the run detail. Omitted and `null` both read as "no budget object":
+   * the header shows dashes and does not invent zeros.
+   */
+  budget?: RunBudget | null
 }
 
 /** The text of a failure or stop code, then the code itself for the docs and support. */
@@ -64,6 +70,10 @@ const VERDICT_TAG: Record<
   clean: { tone: 'success', variant: 'dot' },
 }
 
+function budgetText(value: string | null): string {
+  return value ?? '—'
+}
+
 function shortSha(sha: string): string {
   return sha.slice(0, 7)
 }
@@ -85,8 +95,17 @@ function formatRefs(
 }
 
 export function RunHeader(props: RunHeaderProps): JSX.Element {
-  const { run, now, verdict = null, severityCounts, droppedFindings = 0, loggedActions = 0 } = props
+  const {
+    run,
+    now,
+    verdict = null,
+    severityCounts,
+    droppedFindings = 0,
+    loggedActions = 0,
+    budget = null,
+  } = props
   const { t } = useTranslation()
+  const limitPhrase = run.errorCode === null ? null : errorReason(run.errorCode)
   const duration = runDuration(run, now)
   const pr = run.pullRequest
   const refs = formatRefs(pr.headRef, pr.baseRef)
@@ -181,6 +200,36 @@ export function RunHeader(props: RunHeaderProps): JSX.Element {
       children: String(Math.max(run.actionCount, loggedActions)),
     },
     {
+      key: 'triggeredBy',
+      label: t('runs.header.startedBy'),
+      children: run.triggeredBy ?? '—',
+    },
+    {
+      key: 'tokensIn',
+      label: t('runs.header.tokensIn'),
+      children: budgetText(budget === null ? null : String(budget.tokensIn)),
+    },
+    {
+      key: 'tokensOut',
+      label: t('runs.header.tokensOut'),
+      children: budgetText(budget === null ? null : String(budget.tokensOut)),
+    },
+    {
+      key: 'costUsd',
+      label: t('runs.header.cost'),
+      children: budgetText(budget === null ? null : formatUsd(budget.costUsd)),
+    },
+    {
+      key: 'tokenLimit',
+      label: t('runs.header.tokenLimit'),
+      children: budgetText(budget === null ? null : String(budget.tokenLimit)),
+    },
+    {
+      key: 'costLimitUsd',
+      label: t('runs.header.costLimit'),
+      children: budgetText(budget === null ? null : formatUsd(budget.costLimitUsd)),
+    },
+    {
       key: 'errorCode',
       label: t('runs.header.reason'),
       children: run.errorCode === null ? '—' : <Reason code={run.errorCode} />,
@@ -198,6 +247,18 @@ export function RunHeader(props: RunHeaderProps): JSX.Element {
           </div>
         ))}
       </dl>
+      {limitPhrase !== null && run.errorCode !== null ? (
+        <Alert
+          className={styles.limitReason}
+          data-testid="run-limit-reason"
+          title={
+            <>
+              {limitPhrase} <code>{run.errorCode}</code>
+            </>
+          }
+          type={run.status === 'failed' ? 'error' : 'warning'}
+        />
+      ) : null}
       {run.summaryOnly ? (
         <Typography.Text type="secondary">{t('runs.header.summaryOnly')}</Typography.Text>
       ) : null}

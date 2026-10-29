@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 
-import { formatDateTime, formatDuration, formatNumber } from './format'
+import { formatDateTime, formatDuration, formatNumber, formatUsd } from './format'
 import { i18n } from './i18n'
 
 // A runner in UTC (CI) would pass the "in UTC" tests with no `timeZone` at all: the file runs in a
@@ -54,6 +54,12 @@ describe('formatting by language', () => {
     expect(formatDuration(400)).toBe('<1 с')
     expect(formatDuration(19_000)).toBe('19 с')
     expect(formatDuration(125_000)).toBe('2 мин 5 с')
+  })
+
+  it('writes zero dollars without cents and keeps two decimals otherwise', () => {
+    expect(formatUsd(0)).toBe('$0')
+    expect(formatUsd(1.5)).toBe('$1.50')
+    expect(formatUsd(0.2)).toBe('$0.20')
   })
 
   it('groups digits and writes the decimal mark of the language', () => {

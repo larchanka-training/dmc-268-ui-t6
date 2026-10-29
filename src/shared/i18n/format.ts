@@ -26,6 +26,14 @@ export function formatNumber(value: number): string {
   return new Intl.NumberFormat(locale()).format(value)
 }
 
+/** A USD amount. Exact zero is "$0"; every other value keeps two decimal places. */
+export function formatUsd(value: number): string {
+  if (value === 0) {
+    return '$0'
+  }
+  return `$${value.toFixed(2)}`
+}
+
 function unit(value: number, name: 'second' | 'minute'): string {
   return new Intl.NumberFormat(locale(), {
     style: 'unit',

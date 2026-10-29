@@ -33,6 +33,9 @@ export const endpoints = {
     rerun: (id: string): Endpoint => ({ method: 'POST', path: `/runs/${id}/rerun` }),
   },
   stream: (): Endpoint => ({ method: 'GET', path: '/stream' }),
+  metrics: {
+    summary: (): Endpoint => ({ method: 'GET', path: '/metrics/summary' }),
+  },
 } as const
 
 export function resolveUrl(base: string, endpoint: Endpoint): string {

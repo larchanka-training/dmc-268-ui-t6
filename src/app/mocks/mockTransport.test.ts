@@ -9,6 +9,7 @@ vi.mock('../../shared/config/env', () => ({
   GITHUB_APP_SLUG: '',
 }))
 
+import { MetricsSummarySchema, metricsSummaryEndpoint } from '../../entities/metrics'
 import { RulesStatusSchema, type Repository } from '../../entities/repository'
 import {
   RunDetailSchema,
@@ -274,6 +275,30 @@ describe('initMockTransport', () => {
 
     beforeEach(() => {
       initMockTransport()
+    })
+
+    it('filters GET /runs by status and rejects an unknown status', async () => {
+      const failed = await list({ status: 'failed' })
+      expect(failed.items.length).toBeGreaterThan(0)
+      expect(failed.items.every((run) => run.status === 'failed')).toBe(true)
+
+      await expect(list({ status: 'not-a-status' })).rejects.toMatchObject({ status: 422 })
+    })
+
+    it('serves usage and triggeredBy on every run', async () => {
+      const page = await list({})
+      const queued = page.items.find((run) => run.pullRequest.number === 31)
+      const empty = page.items.find((run) => run.pullRequest.number === 36)
+      const billed = page.items.find((run) => run.pullRequest.number === 34)
+      expect(queued?.triggeredBy).toBeNull()
+      expect(queued?.usage).toEqual({ tokensIn: 0, tokensOut: 0, costUsd: 0 })
+      expect(empty?.triggeredBy).toBeNull()
+      expect(empty?.usage).toEqual({ tokensIn: 0, tokensOut: 0, costUsd: 0 })
+      expect(billed?.triggeredBy).toBe('octocat')
+      expect(billed?.usage).toEqual({ tokensIn: 1200, tokensOut: 340, costUsd: 1.25 })
+      for (const run of page.items) {
+        expect(RunSessionSchema.safeParse(run).success).toBe(true)
+      }
     })
 
     it('filters GET /runs by repo', async () => {
@@ -1111,6 +1136,36 @@ describe('initMockTransport', () => {
         expect(one.branchFilter).toEqual(repo.branchFilter)
         expect(one.maxComments).toBe(repo.maxComments)
       })
+    })
+  })
+
+  describe('GET /metrics/summary', () => {
+    beforeEach(() => {
+      initMockTransport()
+    })
+
+    it('serves a 7d series with zero days and the three workspace budgets', async () => {
+      const summary = MetricsSummarySchema.parse(
+        await apiClient<unknown>(metricsSummaryEndpoint({ range: '7d' })),
+      )
+      expect(summary.range).toBe('7d')
+      expect(summary.series).toHaveLength(7)
+      expect(
+        summary.series.some((day) => day.runCount === 0 && day.averageDurationSeconds === 0),
+      ).toBe(true)
+      expect(summary.series.some((day) => day.runCount > 0)).toBe(true)
+      expect(summary.workspaces.map((workspace) => workspace.dailyBudgetUsd)).toEqual([25, 0, 10])
+      expect(summary.workspaces.map((workspace) => workspace.paused)).toEqual([false, false, true])
+    })
+
+    it('serves an empty selection for 30d', async () => {
+      const summary = MetricsSummarySchema.parse(
+        await apiClient<unknown>(metricsSummaryEndpoint({ range: '30d' })),
+      )
+      const counts = summary.totals.runsByStatus
+      expect(counts.succeeded + counts.failed + counts.cancelled + counts.skipped).toBe(0)
+      expect(summary.series).toEqual([])
+      expect(summary.workspaces).toHaveLength(3)
     })
   })
 })

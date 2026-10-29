@@ -36,6 +36,8 @@ function run(n: number): RunListPage['items'][number] {
     },
     actionCount: 1,
     errorCode: null,
+    triggeredBy: null,
+    usage: { tokensIn: 0, tokensOut: 0, costUsd: 0 },
   }
 }
 
@@ -76,6 +78,7 @@ describe('useRunList', () => {
     })
     expect(RUN_LIST_PAGE_SIZE).toBe(20)
     expect(requestedPaths()).toEqual(['/runs?repo=org%2Frepo&limit=20'])
+    expect(requestedPaths()[0]).not.toContain('status=')
     expect(client.getQueryState(runQueryKeys.listFiltered({ repo: 'org/repo' }))?.status).toBe(
       'success',
     )
@@ -107,6 +110,17 @@ describe('useRunList', () => {
     })
     // The cursor of the newest page is the one that goes out, not the first one.
     expect(requestedPaths()[2]).toBe('/runs?cursor=cursor-b&limit=20')
+  })
+
+  it('sends status when the list is filtered by it and omits it otherwise', async () => {
+    vi.mocked(apiClient).mockResolvedValueOnce({ items: [run(1)], nextCursor: null })
+    const { result } = renderHook(() => useRunListFields({ repo: 'org/repo', status: 'failed' }), {
+      wrapper,
+    })
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true)
+    })
+    expect(requestedPaths()).toEqual(['/runs?status=failed&repo=org%2Frepo&limit=20'])
   })
 
   it('stops paging when nextCursor is null', async () => {

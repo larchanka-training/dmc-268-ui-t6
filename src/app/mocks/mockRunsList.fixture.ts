@@ -60,6 +60,8 @@ function apiRepoRun(i: number): RunSession {
     },
     actionCount: outcome === 'skipped' ? 1 : 12 + i,
     errorCode: outcome === 'failed' ? 'llm_timeout' : outcome === 'skipped' ? 'no_changes' : null,
+    triggeredBy: null,
+    usage: { tokensIn: 0, tokensOut: 0, costUsd: 0 },
   }
 }
 

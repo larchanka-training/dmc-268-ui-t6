@@ -29,6 +29,8 @@ const verdictDemoBase = {
   summaryOnly: false,
   actionCount: 10,
   errorCode: null,
+  triggeredBy: null,
+  usage: { tokensIn: 0, tokensOut: 0, costUsd: 0 },
 }
 
 export const mockVerdictVariantRuns: RunSession[] = [

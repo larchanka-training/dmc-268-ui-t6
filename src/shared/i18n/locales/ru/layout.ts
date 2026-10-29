@@ -6,6 +6,8 @@ export const layout: Translation<typeof en> = {
     label: 'Разделы',
     repositories: 'Репозитории',
     runs: 'Прогоны',
+    audit: 'Аудит',
+    analytics: 'Аналитика',
     review: 'Ревью',
   },
   expandMenu: 'Развернуть меню',

@@ -1,0 +1,17 @@
+.chart {
+  width: 100%;
+  height: auto;
+}
+
+.line {
+  fill: none;
+  stroke: var(--rv-accent);
+}
+
+.point {
+  fill: var(--rv-accent);
+}
+
+.axis {
+  stroke: var(--rv-border-strong);
+}

@@ -15,6 +15,8 @@ import { mocksEnabledAtRuntime } from '../../../shared/config/buildFlags'
 import { DOCS_URL, isMockMode } from '../../../shared/config/env'
 import { LANGUAGE_NAMES, LANGUAGES, useTranslation } from '../../../shared/i18n'
 import {
+  IconAnalytics,
+  IconAudit,
   IconRepositories,
   IconReview,
   IconRuns,
@@ -72,12 +74,17 @@ export const AppSidebar: FC<AppSidebarProps> = ({ currentPath = HOME_PATH, onNav
   const navItems = [
     { path: '/repositories', icon: <IconRepositories />, label: t('layout.nav.repositories') },
     { path: '/runs', icon: <IconRuns />, label: t('layout.nav.runs') },
+    { path: '/audit', icon: <IconAudit />, label: t('layout.nav.audit') },
+    { path: '/analytics', icon: <IconAnalytics />, label: t('layout.nav.analytics') },
     ...(mocksEnabledAtRuntime(isMockMode)
       ? [{ path: '/review', icon: <IconReview />, label: t('layout.nav.review') }]
       : []),
   ]
 
-  const selectedPath = navItems.find((item) => currentPath.startsWith(item.path))?.path ?? HOME_PATH
+  // A slash boundary, so `/analytics` is not treated as `/audit`.
+  const selectedPath =
+    navItems.find((item) => currentPath === item.path || currentPath.startsWith(`${item.path}/`))
+      ?.path ?? HOME_PATH
 
   const goHome = (event: MouseEvent): void => {
     // A click with a modifier belongs to the browser: it opens the link in a new tab.

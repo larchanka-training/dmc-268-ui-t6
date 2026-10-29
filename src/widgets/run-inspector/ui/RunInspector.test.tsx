@@ -31,6 +31,8 @@ const RUN: RunSession = {
   },
   actionCount: 34,
   errorCode: null,
+  triggeredBy: null,
+  usage: { tokensIn: 0, tokensOut: 0, costUsd: 0 },
 }
 
 const ACTIONS = makeDuoActions(RUN.id)

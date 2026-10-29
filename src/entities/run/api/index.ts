@@ -29,7 +29,8 @@ import { FindingViewSchema } from '../../review'
 export const runQueryKeys = {
   /** Prefix of every runs list, filtered or not: `invalidateQueries` with it reaches them all. */
   list: () => ['runs', 'list'] as const,
-  listFiltered: ({ repo }: { repo?: string }) => ['runs', 'list', { repo: repo ?? null }] as const,
+  listFiltered: ({ repo, status }: { repo?: string; status?: RunStatus }) =>
+    ['runs', 'list', { repo: repo ?? null, status: status ?? null }] as const,
   detailDisabled: () => ['runs', 'detail', null] as const,
   detail: (id: string) => ['runs', id] as const,
   actions: (id: string) => ['runs', id, 'actions'] as const,
@@ -160,12 +161,17 @@ export function invalidateRunLists(queryClient: QueryClient): void {
 /** Runs per request of the list; sent explicitly, the api default is larger. */
 export const RUN_LIST_PAGE_SIZE = 20
 
-/** The runs list, one page per request. `repo` limits it to one repository. */
-export function useRunList({ repo }: { repo?: string } = {}) {
+/** The runs list, one page per request. `repo` and `status` each limit it when they are set. */
+export function useRunList({ repo, status }: { repo?: string; status?: RunStatus } = {}) {
   return useInfiniteQuery({
-    queryKey: runQueryKeys.listFiltered({ repo }),
+    queryKey: runQueryKeys.listFiltered({ repo, status }),
     queryFn: ({ pageParam }) =>
-      fetchRunList({ repo, cursor: pageParam ?? undefined, limit: RUN_LIST_PAGE_SIZE }),
+      fetchRunList({
+        repo,
+        ...(status !== undefined ? { status } : {}),
+        cursor: pageParam ?? undefined,
+        limit: RUN_LIST_PAGE_SIZE,
+      }),
     initialPageParam: null as string | null,
     getNextPageParam: (page) => page.nextCursor,
   })

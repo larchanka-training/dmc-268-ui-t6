@@ -1,7 +1,7 @@
 // Public API of the interface language. Every text a user reads comes from the dictionaries in
 // `locales/`; `pnpm lint` rejects Cyrillic text anywhere else in src/.
 export { useTranslation } from 'react-i18next'
-export { formatDateTime, formatDuration, formatNumber } from './format'
+export { formatDateTime, formatDuration, formatNumber, formatUsd } from './format'
 export { i18n } from './i18n'
 export {
   DEFAULT_LANGUAGE,
