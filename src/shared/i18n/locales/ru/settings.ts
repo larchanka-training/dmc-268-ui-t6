@@ -28,17 +28,17 @@ export const settings: Translation<typeof en> = {
     off: 'Автоматическое ревью выключено',
     unavailableTitle: 'Автоматическое ревью недоступно',
     unavailableText:
-      'У GitHub App нет доступа к этому репозиторию, поэтому автоматическое ревью не запустится. Выберите, что сделать, когда доступ к GitHub App будет восстановлен: сохранённый выбор здесь не показывается, пока доступа нет.',
+      'У {{accessName}} нет доступа к этому репозиторию, поэтому автоматическое ревью не запустится. Выберите, что сделать, когда доступ к {{accessName}} будет восстановлен: сохранённый выбор здесь не показывается, пока доступа нет.',
     enable: 'Включить авто-ревью',
     keepOff: 'Оставить выключенным',
-    savedOn: 'Выбор сохранён. Авто-ревью включится, когда доступ к GitHub App восстановится.',
+    savedOn: 'Выбор сохранён. Авто-ревью включится, когда доступ к {{accessName}} восстановится.',
     savedOff:
-      'Выбор сохранён. Авто-ревью останется выключенным, когда доступ к GitHub App восстановится.',
+      'Выбор сохранён. Авто-ревью останется выключенным, когда доступ к {{accessName}} восстановится.',
     changeFailed: 'Не удалось изменить автоматическое ревью',
   },
   rag: {
     hint: 'Учитывает связи между файлами репозитория, делая ревью точнее. Может увеличить стоимость. Хранится только структура кода, не его текст.',
-    noAccess: 'Нет доступа GitHub App — RAG недоступен',
+    noAccess: 'Нет доступа {{accessName}} — RAG недоступен',
     changeFailed: 'Не удалось изменить настройку RAG',
     pollTimedOut: 'Автообновление остановлено — обновите страницу',
     staleDetail: 'индекс отстаёт от default branch, используется',
@@ -81,6 +81,15 @@ export const settings: Translation<typeof en> = {
       policy_document_too_large: 'файл .review/rules.md больше лимита',
       policy_document_type_unsupported: 'неподдерживаемый тип файла .review/rules.md',
     },
+    providerReasons: {
+      vcs_unavailable: '{{name}} временно недоступен',
+      vcs_rate_limited: '{{name}} ограничил число запросов',
+      access_denied: 'у {{accessName}} нет доступа к репозиторию',
+      policy_revision_unavailable:
+        'ревизия default branch недоступна: {{name}} не подтвердил, есть ли файл правил',
+      policy_fetch_transient: '{{name}} временно не отвечает при чтении .review/rules.md',
+      policy_rate_limited: '{{accessName}} ограничил число запросов при чтении .review/rules.md',
+    },
   },
   form: {
     engine: 'Движок анализа',
@@ -90,12 +99,17 @@ export const settings: Translation<typeof en> = {
     waitForCiAuto: 'Авто (ожидать CI при наличии проверок)',
     waitForCiAlways: 'Всегда (всегда ждать успешного CI)',
     waitForCiNever: 'Никогда (запускать ревью без ожидания CI)',
+    bitbucketCiExtra:
+      'Bitbucket Cloud запускает ревью без ожидания CI. Результат публикуется отдельным статусом коммита.',
     maxComments: 'Лимит замечаний (1..10)',
     maxCommentsRequired: 'Укажите лимит',
     maxCommentsRange: 'Число от 1 до 10',
     reviewEvent: 'Публикация вердикта',
     reviewEventComment: 'Комментарий (при любых замечаниях)',
     reviewEventRequestChanges: 'Запрос изменений (при блокирующих)',
+    bitbucketReviewExtra:
+      'Bitbucket Cloud публикует результат комментариями и статусом коммита; запрос изменений недоступен.',
+    bitbucketReviewValue: 'Комментарии и статус коммита',
     branchFilter: 'Фильтр веток',
     branchFilterExtra:
       'Маски целевой ветки pull request, по одной в строке (например, main или release/*). Пусто — все ветки.',

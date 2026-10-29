@@ -143,7 +143,7 @@ describe('RepositoryList', () => {
     )
     expect(
       screen.getByRole('link', {
-        name: 'Нет доступа к Bitbucket для private-space/private-repo: открыть настройки',
+        name: 'Нет доступа у Bitbucket Cloud к private-space/private-repo: открыть настройки',
       }),
     ).toBeTruthy()
     expect(screen.queryByRole('link', { name: /GitHub App к private-space/i })).toBeNull()

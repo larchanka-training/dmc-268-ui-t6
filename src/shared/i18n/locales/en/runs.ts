@@ -7,6 +7,7 @@ export const runs = {
   resetFilter: 'Reset filter',
   columns: {
     repository: 'Repository',
+    provider: 'Provider',
     status: 'Review status',
     engine: 'Engine',
   },
@@ -53,12 +54,15 @@ export const runs = {
     mutationNotFound: 'Run not found: reload the page',
     rerunConflict:
       'Cannot restart the review: the PR already has an active run, the PR is closed, the repository review is paused or the GitHub App is unavailable',
+    rerunConflictProvider:
+      'Cannot restart the review: the PR already has an active run, the PR is closed, the repository review is paused or {{accessName}} is unavailable',
     rerunNoRule: 'Cannot restart: the repository has no active rule or prompt version',
     cancelRejected: 'The server rejected the cancel request',
     mutationFailed: 'Could not complete the operation',
   },
   header: {
     repository: 'Repository',
+    provider: 'Provider',
     pullRequest: 'PR',
     commit: 'Commit',
     author: 'Author',

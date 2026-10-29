@@ -2,9 +2,25 @@ import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
 import { ApiError } from '../../../shared/api/client'
+import { i18n } from '../../../shared/i18n'
 import { bitbucketErrorMessage } from './bitbucketErrorMessage'
 
 describe('bitbucketErrorMessage', () => {
+  it('uses the current language when mapping an error', async () => {
+    const error = new ApiError(400, 'secret detail', { detail: 'invalid_credential' })
+    expect(bitbucketErrorMessage(error)).toBe(
+      'API token Bitbucket недействителен. Проверьте token и его права.',
+    )
+    try {
+      await i18n.changeLanguage('en')
+      expect(bitbucketErrorMessage(error)).toBe(
+        'The Bitbucket API token is invalid. Check the token and its permissions.',
+      )
+    } finally {
+      await i18n.changeLanguage('ru')
+    }
+  })
+
   it.each([
     [
       409,

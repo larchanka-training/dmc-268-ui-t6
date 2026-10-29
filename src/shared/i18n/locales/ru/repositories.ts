@@ -11,13 +11,13 @@ export const repositories: Translation<typeof en> = {
   refreshAccessTooltip:
     'Повторная авторизация через GitHub обновит список ваших установок GitHub App. Откроется GitHub, затем вы вернётесь на эту страницу',
   refreshAccessUnavailable: 'Обновление доступа недоступно: не задан VITE_GITHUB_CLIENT_ID',
-  connect: 'Подключить репозиторий',
+  connect: 'Подключить GitHub-репозиторий',
   installApp: 'Установить GitHub App',
   installTooltip:
     'После установки GitHub App на новый аккаунт нажмите «Обновить доступ»: откроется GitHub, затем вы вернётесь сюда. Репозиторий может появиться с задержкой до нескольких минут',
   installUnavailable: 'Инсталляция недоступна: не задан VITE_GITHUB_APP_SLUG',
   empty:
-    'Репозитории ещё не подключены. После установки GitHub App на новый аккаунт или добавления репозиториев в уже подключённую установку нажмите «Обновить доступ»: откроется GitHub, затем вы вернётесь сюда. Репозиторий может появиться с задержкой до нескольких минут.',
+    'Репозитории ещё не подключены. Для GitHub установите GitHub App или добавьте репозитории в существующую установку, затем нажмите «Обновить доступ». Для Bitbucket Cloud используйте блок «Bitbucket Cloud» ниже.',
   searchPlaceholder: 'Поиск по названию...',
   filter: {
     label: 'Фильтр репозиториев',
@@ -55,7 +55,7 @@ export const repositories: Translation<typeof en> = {
   },
   reviewFor: 'Ревью для {{name}}',
   noAccess: 'Нет доступа',
-  noAccessLabel: 'Нет доступа у GitHub App к {{name}}: открыть настройки',
+  noAccessLabel: 'Нет доступа у {{accessName}} к {{name}}: открыть настройки',
   configure: 'Настроить',
   settingsFor: 'Настройки {{name}}',
   accessRefresh: {

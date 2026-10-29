@@ -1,10 +1,6 @@
 import type { RagIndex } from '../../../entities/repository'
 import type { ParseKeys } from 'i18next'
-import {
-  VCS_ACCESS_NAME,
-  VCS_PROVIDER_LABEL,
-  type VcsProvider,
-} from '../../../shared/model/provider'
+import { VCS_ACCESS_NAME, type VcsProvider } from '../../../shared/model/provider'
 
 import { formatDateTime, i18n } from '../../../shared/i18n'
 

@@ -143,7 +143,9 @@ export const AutoReviewSwitch: FC<AutoReviewSwitchProps> = ({
           description={
             <Flex gap={8} vertical>
               <span>
-                {t('settings.autoReview.unavailableText', { accessName: VCS_ACCESS_NAME[provider] })}
+                {t('settings.autoReview.unavailableText', {
+                  accessName: VCS_ACCESS_NAME[provider],
+                })}
               </span>
               <Flex gap={8} wrap>
                 <Button

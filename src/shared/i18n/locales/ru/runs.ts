@@ -10,6 +10,7 @@ export const runs: Translation<typeof en> = {
   resetFilter: 'Сбросить фильтр',
   columns: {
     repository: 'Репозиторий',
+    provider: 'Источник',
     status: 'Статус ревью',
     engine: 'Движок',
   },
@@ -56,12 +57,15 @@ export const runs: Translation<typeof en> = {
     mutationNotFound: 'Прогон не найден — обновите страницу',
     rerunConflict:
       'Нельзя перезапустить ревью: у PR уже есть активный прогон, PR закрыт, ревью репозитория приостановлено или GitHub App недоступна',
+    rerunConflictProvider:
+      'Нельзя перезапустить ревью: у PR уже есть активный прогон, PR закрыт, ревью репозитория приостановлено или {{accessName}} недоступен',
     rerunNoRule: 'Нельзя перезапустить: у репозитория нет активного правила или версии промпта',
     cancelRejected: 'Сервер отклонил запрос на отмену',
     mutationFailed: 'Не удалось выполнить операцию',
   },
   header: {
     repository: 'Репозиторий',
+    provider: 'Источник',
     pullRequest: 'PR',
     commit: 'Commit',
     author: 'Автор',

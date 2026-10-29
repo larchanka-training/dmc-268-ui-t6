@@ -19,7 +19,7 @@ import {
   type UpdateRepositoryInput,
 } from '../../entities/repository'
 import { setMockAuthAdapter, useAuthStore } from '../../features/auth'
-import type { BitbucketConnectionItem } from '../../features/bitbucket-connections/model/schemas'
+import type { BitbucketConnectionItem } from '../../features/bitbucket-connections'
 import {
   ApiError,
   setAccessToken,

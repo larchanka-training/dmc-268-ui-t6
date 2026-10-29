@@ -830,15 +830,14 @@ Upgrade canary в `routerLocationAdapter.test.tsx` проверяет досту
   доступа у `VCS_ACCESS_NAME[provider]`, например GitHub App, GitLab или Bitbucket Cloud;
   кнопки не в слоте `action` у `Alert`: рядом с ними заголовок и текст
   схлопываются): «Включить авто-ревью» — `PATCH { enabled: true }`, «Оставить выключенным» —
-  `PATCH { enabled: false }`. Подписи и тексты сообщений — в
-  `features/repository-settings/lib/autoReviewChoice.ts`; вызов
-  `autoReviewChoiceSaved(enabled, repository.provider)` выбирает название доступа по провайдеру.
+  `PATCH { enabled: false }`. Подписи и тексты сообщений — в словарях `settings.autoReview`;
+  вызов `autoReviewChoiceSaved(enabled, repository.provider)` выбирает название доступа по провайдеру.
   Ответ на такой `PATCH` с
   `installationAvailable: false` (при любом значении `enabled`) — `message.info` от
   `autoReviewChoiceSaved`: для GitHub это «Выбор сохранён. Авто-ревью включится, когда доступ к
   GitHub App восстановится.» при `true` и «Выбор сохранён. Авто-ревью останется выключенным, когда
   доступ к GitHub App восстановится.» при `false`; для GitLab и Bitbucket Cloud функция подставляет
-  соответствующее название доступа. Это сообщение показывается вместо
+  соответствующее название доступа. Сообщение берётся на текущем языке интерфейса и показывается вместо
   «Автоматическое ревью включено» / «выключено»; ошибки нет. Остальные `PATCH` дают прежние
   сообщения. Пока `PATCH` идёт, переключатель (или обе кнопки, нажатая в `loading`) недоступен и
   браузер уводит с него фокус: после ответа фокус возвращается на нажатый элемент, если он был у него
@@ -847,9 +846,8 @@ Upgrade canary в `routerLocationAdapter.test.tsx` проверяет досту
   Список репозиториев (`widgets/repository-list`) для строки без доступа (решения D13 и D17) не
   предлагает выбор: переключателя в строке нет, в ячейке «Ревью» в одну строку, без `wrap`, стоят
   значок предупреждения (`ExclamationCircleFilled`, цвет `--rv-warning`, `aria-hidden`) и ссылка
-  «Нет доступа» на страницу настроек этого репозитория (`aria-label` для GitHub — «Нет доступа у
-  GitHub App к {fullName}: открыть настройки», для GitLab/Bitbucket — «Нет доступа к
-  {VCS_PROVIDER_LABEL[provider]} для {fullName}: открыть настройки»). Клик по ней ведёт так же, как кнопка настроек: переход без
+  «Нет доступа» на страницу настроек этого репозитория (`aria-label` на текущем языке интерфейса
+  подставляет название доступа к провайдеру и `fullName`). Клик по ней ведёт так же, как кнопка настроек: переход без
   загрузки страницы, а при Ctrl, Cmd или Shift и без `onOpenSettings` — обычная ссылка браузера.
   Выбор («Включить авто-ревью» / «Оставить выключенным») живёт только на странице настроек, где его
   объясняет предупреждение, поэтому список показывает только обычные сообщения переключателя.
@@ -1350,9 +1348,9 @@ nginx-контейнер за edge-Caddy); п. 1 [SD][sd] покрывал и р
 ниже: `POST /api/runs/{id}/rerun` (`202` → новый `RunSession` в `queued` для текущего head SHA PR;
 `409`, если у PR уже есть активный прогон, PR закрыт, ревью репозитория приостановлено или доступ к
 источнику недоступен). По [OpenAPI][openapi] `ErrorResponse` содержит только строковый `detail` без кода причины,
-поэтому UI показывает фиксированный русский текст по `run.provider`: для GitHub — «Нельзя перезапустить
-ревью: у PR уже есть активный прогон, PR закрыт, ревью репозитория приостановлено или GitHub App
-недоступна», для GitLab/Bitbucket Cloud — с соответствующим именем провайдера вместо GitHub App. Также добавлены
+поэтому UI показывает фиксированный текст из словаря на текущем языке интерфейса по
+`run.provider`: для GitHub используется `runs.errors.rerunConflict`, для GitLab/Bitbucket Cloud —
+`runs.errors.rerunConflictProvider` с названием провайдера. Также добавлены
 `/api/auth/*` (Ф-15), `/api/repos`, `/api/repos/{id}` и `/api/repos/{id}/pulls` (Ф-17).
 Операции с `x-status: planned` в openapi ещё не реализованы, `x-issue` называет задачу.
 
@@ -2522,10 +2520,9 @@ antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-l
 - **`POST /api/runs/{id}/rerun`** — есть в [`openapi.yaml`][openapi] (реализация — api#34): `202` →
   новый `RunSession` в `queued` для текущего head SHA PR; `409`, если у PR уже есть активный прогон,
   PR закрыт, ревью репозитория приостановлено или доступ к источнику недоступен. `ErrorResponse` содержит
-  только строковый `detail` без кода причины, поэтому UI показывает фиксированный русский текст по
-  `run.provider`: для GitHub — «Нельзя перезапустить ревью: у PR уже есть активный прогон, PR закрыт,
-  ревью репозитория приостановлено или GitHub App недоступна»; для GitLab и Bitbucket Cloud подставляет
-  соответствующее имя провайдера. Повторный запуск реализован: `endpoints.runs.rerun`
+  только строковый `detail` без кода причины, поэтому UI показывает фиксированный текст из словаря
+  на текущем языке интерфейса по `run.provider`: `runs.errors.rerunConflict` для GitHub и
+  `runs.errors.rerunConflictProvider` с названием провайдера для GitLab/Bitbucket Cloud. Повторный запуск реализован: `endpoints.runs.rerun`
   в `src/shared/api/endpoints.ts`, `runApi.rerun` / `rerunRun` в `src/entities/run/api/index.ts`
   и кнопка `RunControls` в `src/widgets/run-inspector/ui/RunControls.tsx`.
 

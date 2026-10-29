@@ -1,6 +1,7 @@
 import type { en } from '../en'
 import type { Translation } from '../types'
 import { auth } from './auth'
+import { bitbucket } from './bitbucket'
 import { common } from './common'
 import { layout } from './layout'
 import { reasons } from './reasons'
@@ -13,6 +14,7 @@ import { settings } from './settings'
 export const ru: Translation<typeof en> = {
   common,
   auth,
+  bitbucket,
   layout,
   repositories,
   settings,

@@ -1,7 +1,7 @@
 import { Alert, Flex, Switch, Tooltip, Typography } from 'antd'
 import { useId, useRef, useState, type FC } from 'react'
 import { flushSync } from 'react-dom'
-import { VCS_ACCESS_NAME, type VcsProvider } from '../../../shared/model/provider'
+import type { VcsProvider } from '../../../shared/model/provider'
 
 import type { RagIndex } from '../../../entities/repository'
 import { useTranslation } from '../../../shared/i18n'
@@ -117,11 +117,7 @@ export const RagSection: FC<RagSectionProps> = ({
         </Text>
       </Flex>
       <Text type="secondary">{ragHint()}</Text>
-      {!installationAvailable ? (
-        <Text type="secondary">
-          {ragNoAccessText(provider)}
-        </Text>
-      ) : null}
+      {!installationAvailable ? <Text type="secondary">{ragNoAccessText(provider)}</Text> : null}
 
       <Flex align="center" aria-live="polite" className={styles.status} gap={8} role="status" wrap>
         <Text type="secondary">{t('settings.rag.indexStatus')}</Text>

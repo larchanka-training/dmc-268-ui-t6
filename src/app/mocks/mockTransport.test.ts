@@ -17,7 +17,7 @@ import {
   listBitbucketConnections,
   rotateBitbucketCredential,
   rotateBitbucketWebhookSecret,
-} from '../../features/bitbucket-connections/api'
+} from '../../features/bitbucket-connections'
 import {
   RunDetailSchema,
   RunListPageSchema,

@@ -169,3 +169,53 @@ describe('RepositorySettingsForm: after a change of the interface language', () 
     expect(shownErrors('waitForCi')).toEqual(['Сервер не принял значение'])
   })
 })
+
+describe('RepositorySettingsForm: provider settings', () => {
+  it('shows supported Bitbucket options as read-only in both languages', async () => {
+    const repository: Repository = { ...REPOSITORY, provider: 'bitbucket', waitForCi: 'never' }
+    const onSave = vi.fn<OnSave>((patch) => Promise.resolve({ ...repository, ...patch }))
+    render(
+      <RepositorySettingsForm
+        describeError={() => 'error'}
+        onSave={onSave}
+        repository={repository}
+      />,
+    )
+    expect(screen.getByText('Никогда (запускать ревью без ожидания CI)')).toBeTruthy()
+    expect(screen.getByText('Комментарии и статус коммита')).toBeTruthy()
+    expect(screen.queryByLabelText(CI_LABEL)).toBeNull()
+    expect(screen.queryByLabelText(VERDICT_LABEL)).toBeNull()
+    try {
+      await act(async () => {
+        await i18n.changeLanguage('en')
+      })
+      expect(screen.getByText('Never (run the review without waiting for CI)')).toBeTruthy()
+      expect(screen.getByText('Comments and commit status')).toBeTruthy()
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage('ru')
+      })
+    }
+  })
+
+  it('keeps GitLab CI and verdict choices editable', async () => {
+    const repository: Repository = { ...REPOSITORY, provider: 'gitlab' }
+    const onSave = vi.fn<OnSave>((patch) => Promise.resolve({ ...repository, ...patch }))
+    render(
+      <RepositorySettingsForm
+        describeError={() => 'error'}
+        onSave={onSave}
+        repository={repository}
+      />,
+    )
+    await chooseOption(CI_LABEL, NEVER_OPTION)
+    await chooseOption(VERDICT_LABEL, REQUEST_CHANGES_OPTION)
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith({
+        waitForCi: 'never',
+        reviewEvent: 'REQUEST_CHANGES',
+      })
+    })
+  })
+})

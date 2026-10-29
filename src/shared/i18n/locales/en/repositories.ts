@@ -9,13 +9,13 @@ export const repositories = {
   refreshAccessTooltip:
     'Signing in with GitHub again updates the list of your GitHub App installations. GitHub opens, then you come back to this page',
   refreshAccessUnavailable: 'Refreshing access is unavailable: VITE_GITHUB_CLIENT_ID is not set',
-  connect: 'Connect repository',
+  connect: 'Connect GitHub repository',
   installApp: 'Install GitHub App',
   installTooltip:
     'After you install the GitHub App on a new account, click "Refresh access": GitHub opens, then you come back here. A repository can take a few minutes to appear',
   installUnavailable: 'Installation is unavailable: VITE_GITHUB_APP_SLUG is not set',
   empty:
-    'No repositories are connected yet. After you install the GitHub App on a new account or add repositories to an existing installation, click "Refresh access": GitHub opens, then you come back here. A repository can take a few minutes to appear.',
+    'No repositories are connected yet. For GitHub, install the GitHub App or add repositories to an existing installation, then click "Refresh access". For Bitbucket Cloud, use the panel below.',
   searchPlaceholder: 'Search by name...',
   filter: {
     label: 'Repository filter',
@@ -50,7 +50,7 @@ export const repositories = {
   },
   reviewFor: 'Review for {{name}}',
   noAccess: 'No access',
-  noAccessLabel: 'The GitHub App has no access to {{name}}: open settings',
+  noAccessLabel: '{{accessName}} has no access to {{name}}: open settings',
   configure: 'Configure',
   settingsFor: 'Settings for {{name}}',
   accessRefresh: {

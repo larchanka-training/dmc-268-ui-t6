@@ -33,4 +33,11 @@ export const rules = {
     policy_rate_limited: 'GitHub limited the number of requests',
     fallback: 'The server could not read the rules file',
   },
+  providerReasons: {
+    policy_access_denied: '{{accessName}} has no access to the repository',
+    policy_revision_unavailable:
+      'The default branch revision is unavailable: {{name}} did not confirm whether the rules file exists.',
+    policy_fetch_transient: '{{name}} is temporarily not responding',
+    policy_rate_limited: '{{accessName}} limited the number of requests',
+  },
 }
