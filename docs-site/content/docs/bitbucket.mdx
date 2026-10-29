@@ -11,7 +11,7 @@ Sign in to the Reviewer portal with GitHub. This identifies your portal account.
 
 ### Create an API token
 
-Create a scoped [Atlassian API token](https://support.atlassian.com/bitbucket-cloud/docs/using-api-tokens/) for the Bitbucket workspace with **Repositories: Read** (`read:repository:bitbucket`) and **Pull requests: Read** (`read:pullrequest:bitbucket`). The portal stores this token encrypted and uses it to read the repository and publish review comments and commit status. Keep the token out of chat, screenshots and repository files. The manual webhook flow does not need webhook API scopes.
+Create a scoped [Atlassian API token](https://support.atlassian.com/bitbucket-cloud/docs/using-api-tokens/) for the Bitbucket workspace with **Repositories: Read** (`read:repository:bitbucket`), **Pull requests: Read** (`read:pullrequest:bitbucket`) and **User: Read** (`read:user:bitbucket`). The portal stores this token encrypted and uses it to read the repository, verify the review comment author, and publish review comments and commit status. If an existing token lacks **User: Read**, create a replacement token with all three scopes and use **Update API token** on the connection. Keep the token out of chat, screenshots and repository files. The manual webhook flow does not need webhook API scopes.
 
 </Step>
 <Step>
