@@ -2124,7 +2124,6 @@ checkpoint или ошибка до входа в `traced_step` могут ос�
 - `mockRunActions` — 34 действия в Duo-подобной последовательности (`makeDuoActions`,
   `src/entities/run/lib/duoActions.fixture.ts`: `get_pull_request`, `get_diff`, 19× `get_tree`,
   11× `get_blob`, `get_pull_request`, `post_review`), 2 действия с `responseRef` вместо `response`;
-- `mockUiState` — состояние виджетов (выбранный прогон/файл, раскрытые узлы дерева);
 - `mockRepositories` — 4 репозитория с полями настроек api#149 и RAG api#145 (ниже, «Репозитории,
   правила и история»).
 
