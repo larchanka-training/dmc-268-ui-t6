@@ -28,6 +28,9 @@ SCRIPT = SKILL / "scripts" / "acceptance.py"
 EXAMPLES = SKILL / "examples"
 STEP_AUTHOR = EXAMPLES / "01-not-done-then-ac-check" / "step-2"  # table, all done, In Progress
 STEP_CLOSED = EXAMPLES / "06-closed-by-merge" / "step-1"
+STEP_ACCEPT = EXAMPLES / "03-accept-and-close" / "step-1"  # accept, AC Check, all done
+STEP_RETURN = EXAMPLES / "04-return-with-fail" / "step-1"  # return, AC3 not done
+REAL_272 = HERE / "fixtures" / "real-272"
 API = "larchanka-training/dmc-268-api-t6"
 REF = f"{API}#500"
 
@@ -428,3 +431,454 @@ def test_usage_errors_exit_2() -> None:
         r = run(*args)
         assert r.returncode == 2, args
         error_of(r)
+
+
+# ─── accept and return: shared helpers ──────────────────────────────────────
+def accept_fx(tmp_path: Path, step: Path = STEP_ACCEPT) -> Path:
+    return fixtures_of(step, tmp_path)
+
+
+def comments_of(fx: Path) -> list[dict[str, Any]]:
+    nodes = read(fx / "acceptance-p1.json")["data"]["repository"]["issue"]["comments"]["nodes"]
+    assert isinstance(nodes, list)
+    return nodes
+
+
+def edit_acceptance(fx: Path, edit: Any, name: str = "acceptance-p1") -> None:
+    doc = read(fx / f"{name}.json")
+    edit(doc["data"]["repository"]["issue"], doc["data"])
+    put(fx, name, doc)
+
+
+def accepter(
+    tmp_path: Path, *args: str, fx: Path | None = None, log: Path | None = None
+) -> subprocess.CompletedProcess[str]:
+    return run(*args, fixtures=fx or accept_fx(tmp_path), log=log)
+
+
+def ops(log: Path) -> list[str]:
+    if not log.exists():
+        return []
+    return [json.loads(x)["op"] for x in log.read_text(encoding="utf-8").splitlines()]
+
+
+# ─── the live smoke fixture: api#272, closed by hand ────────────────────────
+def test_real_272_is_already_closed_by_hand_so_accept_and_return_stop(tmp_path: Path) -> None:
+    for command, message in (
+        ("accept", "nothing to accept"),
+        ("return", "nothing to return"),
+    ):
+        r = run(command, "api#272", fixtures=REAL_272)
+        assert r.returncode == 1, r.stderr
+        doc = json.loads(r.stdout)
+        assert doc["verdict"] == "stop"
+        assert doc["stops"] == [f"issue {API}#272 is already CLOSED by a manual close: {message}"]
+        assert doc["viewer"] == "axyi" and doc["rows"] == []
+    log = tmp_path / "w.jsonl"
+    r = run("accept", "api#272", "--apply", fixtures=REAL_272, log=log)
+    assert r.returncode == 1 and not log.exists()
+
+
+# ─── reading a table ────────────────────────────────────────────────────────
+def test_split_row_unescapes_pipes_and_ignores_prose() -> None:
+    assert acc.split_row("| AC1 | a \\| b | `x \\| y` |") == ["AC1", "a | b", "`x | y`"]
+    assert acc.split_row("no table here") is None
+    assert acc.split_row("|a|b|") == ["a", "b"]
+
+
+def test_table_rows_drop_the_header_and_the_separator() -> None:
+    body = "text\n\n| # | Пункт | Доказательство |\n| --- | :-: | ---: |\n| AC1 | a | b |\n"
+    assert acc.table_rows(body) == [["AC1", "a", "b"]]
+
+
+@pytest.mark.parametrize(
+    ("cell", "status"),
+    [
+        ("не выполнено", "not_done"),
+        ("**Не выполнено**", "not_done"),
+        ("не выполнено — позже", "not_done"),
+        ("перенесён в #285", "moved"),
+        ("", "missing"),
+        ("  ", "missing"),
+        ("PR #1", "done"),
+        ("выполнено, не выполнено лишь A", "done"),
+    ],
+)
+def test_evidence_status(cell: str, status: str) -> None:
+    assert acc.evidence_status(cell)[0] == status
+
+
+def snap_of(body: str, comments: list[Any]) -> Any:
+    return acc.Snapshot(API, 500, {}, body, acc.body_items(body), ["executor"], "axyi", comments)
+
+
+BODY = "## Acceptance Criteria\n\n- [ ] one | two\n- [ ] three\n\n## DoD Checklist\n\n- [ ] gate\n"
+
+
+def table_comment(rows: list[dict[str, str]], cid: int = 1) -> Any:
+    return acc.Comment(cid, "executor", "t", acc.render_table(rows, None))
+
+
+def row(item_id: str, text: str, status: str, evidence: str) -> dict[str, str]:
+    kind = "ac" if item_id.startswith("AC") else "dod"
+    return {"id": item_id, "kind": kind, "text": text, "status": status, "evidence": evidence}
+
+
+def test_the_table_this_script_renders_reads_back_row_for_row() -> None:
+    rows = [
+        row("AC1", "one | two", "done", "PR #1 | a"),
+        row("AC2", "three", "not_done", "не выполнено"),
+        row("DoD1", "gate", "done", "CI"),
+    ]
+    snap = snap_of(BODY, [table_comment(rows)])
+    read_back = acc.read_table(snap, None)
+    assert read_back.via == "marker"
+    assert [(r["id"], r["status"], r["evidence"]) for r in read_back.rows] == [
+        ("AC1", "done", "PR #1 | a"),
+        ("AC2", "not_done", "не выполнено"),
+        ("DoD1", "done", "CI"),
+    ]
+    assert [i["id"] for i in read_back.returned] == ["AC2"]
+
+
+def test_a_missing_row_and_a_changed_item_return_but_a_longer_item_does_not() -> None:
+    rows = [row("AC1", "one | two", "done", "x"), row("DoD1", "gate", "done", "y")]
+    snap = snap_of(BODY, [table_comment(rows)])
+    returned = {i["id"]: i["reason"] for i in acc.read_table(snap, None).returned}
+    assert returned == {"AC2": "в таблице нет строки"}
+    longer = BODY.replace("- [ ] gate", "- [ ] gate, stricter")
+    assert acc.read_table(snap_of(longer, [table_comment(rows)]), None).returned[0]["id"] == "AC2"
+    assert [
+        i["id"] for i in acc.read_table(snap_of(longer, [table_comment(rows)]), None).returned
+    ] == ["AC2"]
+    changed = BODY.replace("- [ ] gate", "- [ ] other gate")
+    returned = {
+        i["id"]: i["reason"]
+        for i in acc.read_table(snap_of(changed, [table_comment(rows)]), None).returned
+    }
+    assert returned["DoD1"] == "пункт в теле issue изменён после таблицы"
+
+
+def test_a_row_the_issue_does_not_have_is_a_stop_on_the_marker_path() -> None:
+    rows = [row("AC1", "one | two", "done", "x"), row("AC9", "ghost", "done", "y")]
+    with pytest.raises(acc.TableError, match="AC9 | ghost | y"):
+        acc.read_table(snap_of(BODY, [table_comment(rows)]), None)
+
+
+def test_moved_needs_the_note_in_the_body_to_pass() -> None:
+    rows = [
+        row("AC1", "one | two", "moved", "перенесён в #285"),
+        row("AC2", "three", "done", "x"),
+        row("DoD1", "gate", "done", "y"),
+    ]
+    returned = acc.read_table(snap_of(BODY, [table_comment(rows)]), None).returned
+    assert [i["id"] for i in returned] == ["AC1"]
+    assert "#285" in returned[0]["reason"]
+    noted = BODY.replace("one | two", "one | two, перенесён в #285 решением техлида")
+    rows[0]["text"] = "one | two, перенесён в #285 решением техлида"
+    assert acc.read_table(snap_of(noted, [table_comment(rows)]), None).returned == []
+
+
+HAND_WRITTEN = (
+    "Проверил:\n\n"
+    "| Пункт | Что проверено |\n| --- | --- |\n"
+    "| **AC1** | видно в PR #3 |\n"
+    "| three | **не выполнено** |\n"
+    "| gate | зелёный |\n"
+)
+
+
+def test_a_hand_written_table_is_read_by_id_or_by_text() -> None:
+    comments = [acc.Comment(77, "executor", "t", HAND_WRITTEN)]
+    snap = snap_of(BODY, comments)
+    read_back = acc.read_table(snap, 77)
+    assert read_back.via == "flag"
+    assert [(r["id"], r["status"]) for r in read_back.rows] == [
+        ("AC1", "done"),
+        ("AC2", "not_done"),
+        ("DoD1", "done"),
+    ]
+
+
+def test_a_hand_written_table_with_a_gap_is_incomplete_not_a_pass() -> None:
+    comments = [acc.Comment(77, "executor", "t", HAND_WRITTEN.replace("| gate | зелёный |\n", ""))]
+    returned = acc.read_table(snap_of(BODY, comments), 77).returned
+    assert [(i["id"], i["reason"]) for i in returned] == [
+        ("AC2", acc.NOT_DONE),
+        ("DoD1", "в таблице нет строки"),
+    ]
+
+
+def test_table_comment_errors_are_stops() -> None:
+    snap = snap_of(BODY, [acc.Comment(5, "executor", "t", "just text")])
+    with pytest.raises(acc.TableError, match="comment 9 not found"):
+        acc.read_table(snap, 9)
+    with pytest.raises(acc.TableError, match="comment 5 has no table"):
+        acc.read_table(snap, 5)
+    with pytest.raises(acc.TableError, match="no --table-comment ID"):
+        acc.read_table(snap, None)
+
+
+def test_table_comment_flag_through_the_cli(tmp_path: Path) -> None:
+    fx = accept_fx(tmp_path)
+    marker_id = comments_of(fx)[0]["databaseId"]
+    r = accepter(tmp_path, "accept", "api#500", "--table-comment", str(marker_id), fx=fx)
+    assert r.returncode == 0, r.stderr
+    assert json.loads(r.stdout)["table"]["via"] == "flag"
+    r = accepter(tmp_path, "accept", "api#500", "--table-comment", "424242", fx=fx)
+    assert json.loads(r.stdout)["stops"] == ["comment 424242 not found in the issue"]
+
+
+# ─── ticking ────────────────────────────────────────────────────────────────
+def test_tick_keeps_crlf_and_changes_only_the_boxes() -> None:
+    body = (
+        "## Acceptance Criteria\r\n\r\n- [ ] a\r\n- [x] b\r\n* [ ] c\r\n\r\n"
+        "## DoD Checklist\r\n\r\n  - [ ] d\r\ntail without newline"
+    )
+    items = acc.body_items(body)
+    ticked = acc.tick_body(body, items, [i.id for i in items if not i.checked])
+    assert ticked == body.replace("[ ]", "[x]")
+    assert ticked.count("\r\n") == body.count("\r\n")
+
+
+def test_tick_refuses_a_line_it_cannot_rewrite_safely() -> None:
+    body = "## Acceptance Criteria\n\n<!-- note --> - [ ] a\n"
+    items = acc.body_items(body)
+    assert [i.id for i in items] == ["AC1"]
+    with pytest.raises(SystemExit) as stop:
+        acc.tick_body(body, items, ["AC1"])
+    assert stop.value.code == 3
+
+
+# ─── accept ─────────────────────────────────────────────────────────────────
+def test_accept_dry_run_writes_nothing_and_ticks_only_unchecked(tmp_path: Path) -> None:
+    log = tmp_path / "w.jsonl"
+    r = accepter(tmp_path, "accept", "api#500", log=log)
+    doc = json.loads(r.stdout)
+    assert (r.returncode, doc["verdict"], doc["tick"]) == (
+        0,
+        "accept",
+        ["AC1", "AC2", "DoD1", "DoD2"],
+    )
+    assert not log.exists()
+
+
+def test_accept_apply_on_a_return_verdict_refuses(tmp_path: Path) -> None:
+    log = tmp_path / "w.jsonl"
+    fx = accept_fx(tmp_path, STEP_RETURN)
+    r = accepter(tmp_path, "accept", "api#500", "--apply", fx=fx, log=log)
+    doc = json.loads(r.stdout)
+    assert r.returncode == 1 and doc["verdict"] == "stop"
+    assert doc["stops"] == ["the verdict is return, not accept: nothing is written; run return"]
+    assert [i["id"] for i in doc["return_items"]] == ["AC3"]
+    assert not log.exists()
+
+
+def test_accept_stops_when_the_body_changed_under_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fx = accept_fx(tmp_path)
+    log = tmp_path / "w.jsonl"
+    monkeypatch.setenv("ACCEPT_ISSUE_FIXTURE_DIR", str(fx))
+    monkeypatch.setenv("ACCEPT_ISSUE_WRITE_LOG", str(log))
+    real = acc.fetch_acceptance
+    calls = {"n": 0}
+
+    def changing(repo: str, number: int, prefix: str = "") -> Any:
+        viewer, body, assignees, comments = real(repo, number, prefix)
+        calls["n"] += 1
+        return (
+            viewer,
+            body + "\nedited meanwhile\n" if calls["n"] > 1 else body,
+            assignees,
+            comments,
+        )
+
+    monkeypatch.setattr(acc, "fetch_acceptance", changing)
+    with pytest.raises(SystemExit) as stop:
+        acc.run_accepter("accept", "api#500", None, [], {}, True)
+    assert stop.value.code == 3
+    assert not log.exists()
+
+
+def test_an_identical_closing_comment_is_not_posted_twice(tmp_path: Path) -> None:
+    fx = accept_fx(tmp_path)
+    log = tmp_path / "w.jsonl"
+    first = accepter(tmp_path, "accept", "api#500", fx=fx, log=log)
+    comment = json.loads(first.stdout)["comment"]
+    edit_acceptance(
+        fx,
+        lambda issue, _: issue["comments"]["nodes"].append(
+            {
+                "databaseId": 9,
+                "author": {"login": "axyi"},
+                "createdAt": "2026-10-30T12:00:00Z",
+                "body": comment,
+            }
+        ),
+    )
+    r = accepter(tmp_path, "accept", "api#500", "--apply", fx=fx, log=log)
+    assert r.returncode == 0, r.stderr
+    assert ops(log) == ["patch-body", "close"]
+    assert "already the latest one (#9)" in json.loads(r.stdout)["warnings"][-1]
+
+
+def test_a_read_back_that_is_not_closed_exits_3(tmp_path: Path) -> None:
+    fx = accept_fx(tmp_path)
+    doc = read(fx / "after-issue-p1.json")
+    issue = doc["data"]["repository"]["issue"]
+    issue["state"] = "OPEN"
+    issue["timelineItems"]["nodes"] = issue["timelineItems"]["nodes"][:-1]
+    put(fx, "after-issue-p1", doc)
+    r = accepter(tmp_path, "accept", "api#500", "--apply", fx=fx, log=tmp_path / "w.jsonl")
+    assert r.returncode == 3
+    assert "read-back failed after the writes" in error_of(r)
+
+
+def test_a_read_back_with_a_different_body_exits_3(tmp_path: Path) -> None:
+    fx = accept_fx(tmp_path)
+    edit_acceptance(
+        fx, lambda issue, _: issue.update(body=issue["body"] + "x"), "after-acceptance-p1"
+    )
+    r = accepter(tmp_path, "accept", "api#500", "--apply", fx=fx, log=tmp_path / "w.jsonl")
+    assert r.returncode == 3
+    assert "body reads back different" in error_of(r)
+
+
+def test_accept_warns_about_unresolved_threads_and_red_ci(tmp_path: Path) -> None:
+    fx = accept_fx(tmp_path)
+    doc = read(fx / "issue-p1.json")
+    pull = doc["data"]["repository"]["issue"]["timelineItems"]["nodes"][0]["source"]
+    pull["reviewThreads"]["nodes"] = [{"isResolved": False}, {"isResolved": False}]
+    pull["commits"]["nodes"][0]["commit"]["statusCheckRollup"]["state"] = "FAILURE"
+    put(fx, "issue-p1", doc)
+    r = accepter(tmp_path, "accept", "api#500", fx=fx)
+    assert json.loads(r.stdout)["warnings"] == [
+        f"PR {API}#901 has 2 unresolved review thread(s)",
+        f"PR {API}#901 CI state is FAILURE, not SUCCESS",
+    ]
+
+
+def test_script_comments_after_the_table_are_not_listed(tmp_path: Path) -> None:
+    fx = accept_fx(tmp_path)
+    edit_acceptance(
+        fx,
+        lambda issue, _: issue["comments"]["nodes"].extend(
+            [
+                {
+                    "databaseId": 20,
+                    "author": {"login": "axyi"},
+                    "createdAt": "t",
+                    "body": acc.RETURNED_MARK + "\nold",
+                },
+                {"databaseId": 21, "author": None, "createdAt": "t", "body": "\n\n" + "x" * 100},
+            ]
+        ),
+    )
+    doc = json.loads(accepter(tmp_path, "accept", "api#500", fx=fx).stdout)
+    assert doc["after_table"] == [{"author": "ghost", "excerpt": "x" * 79 + "…", "id": 21}]
+
+
+def test_a_follow_up_without_a_parent_is_a_stop(tmp_path: Path) -> None:
+    fx = accept_fx(tmp_path)
+    put(
+        fx,
+        f"parent-{API.replace('/', '_')}-511",
+        {"data": {"repository": {"issue": {"parent": None}}}},
+    )
+    r = accepter(
+        tmp_path, "accept", "api#500", "--followup", "api#511", "--apply", fx=fx, log=tmp_path / "w"
+    )
+    assert json.loads(r.stdout)["stops"] == [
+        f"follow-up {API}#511 has no parent, not this issue {API}#500"
+    ]
+    assert r.returncode == 1 and not (tmp_path / "w").exists()
+
+
+# ─── return ─────────────────────────────────────────────────────────────────
+def test_return_with_nothing_to_return_refuses(tmp_path: Path) -> None:
+    r = accepter(tmp_path, "return", "api#500")
+    doc = json.loads(r.stdout)
+    assert r.returncode == 1
+    assert doc["stops"] == [
+        "nothing to return: the table has no «не выполнено» and no --fail was given"
+    ]
+
+
+def test_fail_overrides_the_table_reason_and_unknown_ids_are_stops(tmp_path: Path) -> None:
+    fx = accept_fx(tmp_path, STEP_RETURN)
+    r = accepter(tmp_path, "return", "api#500", "--fail", "AC3=не прошло на staging", fx=fx)
+    items = {i["id"]: i["reason"] for i in json.loads(r.stdout)["return_items"]}
+    assert items == {"AC3": "доказательство не подтвердилось: не прошло на staging"}
+    r = accepter(tmp_path, "return", "api#500", "--fail", "AC9=x", fx=fx)
+    assert json.loads(r.stdout)["stops"] == ["--fail AC9: no such AC or DoD in the issue body"]
+
+
+@pytest.mark.parametrize("value", ["AC1", "AC1=", "=x", " = "])
+def test_a_bad_fail_exits_2(tmp_path: Path, value: str) -> None:
+    r = accepter(tmp_path, "return", "api#500", "--fail", value)
+    assert r.returncode == 2
+    assert "bad --fail" in error_of(r)
+
+
+@pytest.mark.parametrize(
+    ("status", "action", "warned"),
+    [("AC Check", "set", False), ("In Progress", "none", True), ("On Review", "set", True)],
+)
+def test_return_moves_the_card_unless_it_is_already_back(
+    tmp_path: Path, status: str, action: str, warned: bool
+) -> None:
+    fx = accept_fx(tmp_path, STEP_RETURN)
+    doc = read(fx / "item.json")
+    doc["data"]["repository"]["issue"]["projectItems"]["nodes"][0]["fieldValueByName"]["name"] = (
+        status
+    )
+    put(fx, "item", doc)
+    log = tmp_path / "w.jsonl"
+    r = accepter(tmp_path, "return", "api#500", "--fail", "AC1=x", "--apply", fx=fx, log=log)
+    assert r.returncode == 0, r.stderr
+    out = json.loads(r.stdout)
+    assert out["board"]["action"] == action and out["board"]["to"] == "In Progress"
+    assert ops(log) == (["comment", "set-status"] if action == "set" else ["comment"])
+    assert (f"the card is in {status}, not AC Check" in out["warnings"]) is warned
+
+
+def test_an_identical_returned_comment_is_not_posted_twice(tmp_path: Path) -> None:
+    fx = accept_fx(tmp_path, STEP_RETURN)
+    log = tmp_path / "w.jsonl"
+    args = ("return", "api#500", "--fail", "AC1=x", "--apply")
+    first = accepter(tmp_path, *args, fx=fx, log=log)
+    comment = json.loads(first.stdout)["comment"]
+    edit_acceptance(
+        fx,
+        lambda issue, _: issue["comments"]["nodes"].append(
+            {"databaseId": 9, "author": {"login": "axyi"}, "createdAt": "t", "body": comment}
+        ),
+    )
+    log.unlink()
+    second = accepter(tmp_path, *args, fx=fx, log=log)
+    assert second.returncode == 0, second.stderr
+    assert ops(log) == ["set-status"]
+
+
+# ─── live writes: argv ──────────────────────────────────────────────────────
+def test_live_body_and_close_are_rest_patches(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(argv: list[str], **_: Any) -> subprocess.CompletedProcess[str]:
+        calls.append(argv)
+        return subprocess.CompletedProcess(argv, 0, "{}", "")
+
+    monkeypatch.setattr(acc.subprocess, "run", fake_run)
+    acc.patch_issue(API, 500, {"body": "- [x] a\n"}, {"body": "- [x] a\n", "op": "patch-body"})
+    acc.patch_issue(
+        API,
+        500,
+        {"state": "closed", "state_reason": "completed"},
+        {"op": "close", "state_reason": "completed"},
+    )
+    base = ["gh", "api", f"repos/{API}/issues/500", "-X", "PATCH"]
+    assert calls == [
+        [*base, "-f", "body=- [x] a\n"],
+        [*base, "-f", "state=closed", "-f", "state_reason=completed"],
+    ]

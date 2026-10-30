@@ -141,9 +141,6 @@ def test_the_readme_repeats_the_command_and_starts_with_the_sync_line(step: Path
 
 
 # ─── running the goldens ────────────────────────────────────────────────────
-IMPLEMENTED = ("table",)  # the commands acceptance.py has so far
-
-
 def run_step(step: Path, tmp_path: Path) -> tuple[subprocess.CompletedProcess[str], str]:
     """Run a step offline from its own directory; (process, the write log's text)."""
     guard = tmp_path / "guard-bin"
@@ -172,12 +169,7 @@ def run_step(step: Path, tmp_path: Path) -> tuple[subprocess.CompletedProcess[st
     return proc, log.read_text(encoding="utf-8") if log.exists() else ""
 
 
-RUNNABLE = [
-    s for s in STEPS if (s / "args.txt").read_text(encoding="utf-8").split()[0] in IMPLEMENTED
-]
-
-
-@pytest.mark.parametrize("step", RUNNABLE, ids=[f"{s.parent.name}/{s.name}" for s in RUNNABLE])
+@pytest.mark.parametrize("step", STEPS, ids=IDS)
 def test_step_matches_its_golden(step: Path, tmp_path: Path) -> None:
     proc, writes = run_step(step, tmp_path)
     expected = (step / "expected.json").read_text(encoding="utf-8")
