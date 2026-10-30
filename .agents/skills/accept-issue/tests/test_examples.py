@@ -1,7 +1,8 @@
 """Tests for examples/: the golden cases of acceptance.py.
 
-Offline: no network, no tokens. Every step of every case is checked for internal
-consistency here, so the goldens cannot drift apart from each other: every fixture
+Offline: no network, no tokens. Every step of every case is run against
+`scripts/acceptance.py` (stdout, exit code and write log byte for byte), and checked for
+internal consistency, so the goldens cannot drift apart from each other: every fixture
 parses, the issue body is the same in both fixtures that carry it, `rows.json` names
 exactly the AC / DoD of that body, the comment in `expected.json` is the comment in
 `expected-writes.jsonl`, and the case README repeats the step's command line and starts
@@ -13,6 +14,9 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
+import shlex
+import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -23,6 +27,7 @@ import pytest
 HERE = Path(__file__).resolve().parent
 SKILL = HERE.parent
 EXAMPLES = SKILL / "examples"
+SCRIPT = SKILL / "scripts" / "acceptance.py"
 
 
 def _load(path: Path, name: str) -> ModuleType:
@@ -133,3 +138,51 @@ def test_the_readme_repeats_the_command_and_starts_with_the_sync_line(step: Path
     )
     args = (step / "args.txt").read_text(encoding="utf-8").strip()
     assert f"acceptance.py {args}" in readme
+
+
+# ─── running the goldens ────────────────────────────────────────────────────
+IMPLEMENTED = ("table",)  # the commands acceptance.py has so far
+
+
+def run_step(step: Path, tmp_path: Path) -> tuple[subprocess.CompletedProcess[str], str]:
+    """Run a step offline from its own directory; (process, the write log's text)."""
+    guard = tmp_path / "guard-bin"
+    guard.mkdir()
+    gh = guard / "gh"
+    gh.write_text(
+        f"#!{sys.executable}\nimport sys\n"
+        "sys.stderr.write('unexpected gh call\\n')\nsys.exit(97)\n",
+        encoding="utf-8",
+    )
+    gh.chmod(0o755)
+    log = tmp_path / "writes.jsonl"
+    env = dict(os.environ)
+    env["PATH"] = f"{guard}{os.pathsep}{env.get('PATH', '')}"
+    env["ACCEPT_ISSUE_FIXTURE_DIR"] = str(step / "fixtures")
+    env["ACCEPT_ISSUE_WRITE_LOG"] = str(log)
+    args = shlex.split((step / "args.txt").read_text(encoding="utf-8"))
+    proc = subprocess.run(
+        [sys.executable, str(SCRIPT), *args],
+        capture_output=True,
+        encoding="utf-8",
+        env=env,
+        cwd=step,
+        check=False,
+    )
+    return proc, log.read_text(encoding="utf-8") if log.exists() else ""
+
+
+RUNNABLE = [
+    s for s in STEPS if (s / "args.txt").read_text(encoding="utf-8").split()[0] in IMPLEMENTED
+]
+
+
+@pytest.mark.parametrize("step", RUNNABLE, ids=[f"{s.parent.name}/{s.name}" for s in RUNNABLE])
+def test_step_matches_its_golden(step: Path, tmp_path: Path) -> None:
+    proc, writes = run_step(step, tmp_path)
+    expected = (step / "expected.json").read_text(encoding="utf-8")
+    assert proc.stdout == expected
+    assert proc.stderr == ""
+    assert proc.returncode == (1 if json.loads(expected)["verdict"] == "stop" else 0)
+    golden = step / "expected-writes.jsonl"
+    assert writes == (golden.read_text(encoding="utf-8") if golden.exists() else "")
