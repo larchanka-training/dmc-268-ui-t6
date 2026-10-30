@@ -363,9 +363,16 @@ def visible_lines(text: str, *, skip_quotes: bool) -> Iterator[str]:
     comments (single- and multi-line; the text around a comment stays) and, when
     `skip_quotes`, outside blockquotes. Shared by the checkbox scan and the
     `Refs` search so that both see the same text."""
+    for _, line in visible_indexed(text, skip_quotes=skip_quotes):
+        yield line
+
+
+def visible_indexed(text: str, *, skip_quotes: bool) -> Iterator[tuple[int, str]]:
+    """`visible_lines` with the index of each line's raw line in `text.splitlines()`,
+    for a caller that rewrites the raw line."""
     fence: str | None = None  # the opening run of the open fenced block
     in_comment = False
-    for raw in text.splitlines():
+    for index, raw in enumerate(text.splitlines()):
         if fence is not None:
             closer = FENCE_CLOSE.match(raw)
             if closer and closer.group(1)[0] == fence[0] and len(closer.group(1)) >= len(fence):
@@ -397,16 +404,16 @@ def visible_lines(text: str, *, skip_quotes: bool) -> Iterator[str]:
             continue
         if skip_quotes and line.lstrip().startswith(">"):
             continue
-        yield line
+        yield index, line
 
 
-def build_checkboxes(body: str) -> dict[str, Any]:
-    """AC / DoD checkboxes of the issue body, plus a count of the ones elsewhere."""
-    sections: dict[str, list[dict[str, Any]]] = {"ac": [], "dod": []}
-    outside = 0
+def scan_checkboxes(body: str) -> Iterator[tuple[int, str | None, bool, str]]:
+    """Every checkbox of the issue body as (raw line index in `body.splitlines()`,
+    section, checked, text); section is "ac" / "dod" inside the two sections, else
+    None."""
     current: str | None = None  # "ac" | "dod" | None
     level = 0  # heading level of the open section
-    for line in visible_lines(body, skip_quotes=True):
+    for index, line in visible_indexed(body, skip_quotes=True):
         heading = HEADING.match(line)
         if heading:
             depth = len(heading.group(1))
@@ -417,12 +424,19 @@ def build_checkboxes(body: str) -> dict[str, Any]:
                 current = None
             continue
         box = CHECKBOX.match(line)
-        if not box:
-            continue
-        if current is None:
+        if box:
+            yield index, current, box.group(1) != " ", box.group(2).strip()
+
+
+def build_checkboxes(body: str) -> dict[str, Any]:
+    """AC / DoD checkboxes of the issue body, plus a count of the ones elsewhere."""
+    sections: dict[str, list[dict[str, Any]]] = {"ac": [], "dod": []}
+    outside = 0
+    for _, section, checked, text in scan_checkboxes(body):
+        if section is None:
             outside += 1
         else:
-            sections[current].append({"checked": box.group(1) != " ", "text": box.group(2).strip()})
+            sections[section].append({"checked": checked, "text": text})
     return {
         "ac": section_facts(sections["ac"]),
         "dod": section_facts(sections["dod"]),
