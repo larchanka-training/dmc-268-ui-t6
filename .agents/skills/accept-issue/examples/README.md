@@ -67,9 +67,12 @@ carries «перенесён в #M» with the same `#M` (otherwise a stop: only 
 (`accepter`), `next`, `readback`, `return_items`, `rework_rule`, `rows`, `schema`, `stops`,
 `table`, `tick`, `verdict` (`accept` | `return` | `stop`), `viewer`, `warnings`.
 
-- `rows` — `{id, kind (ac|dod), text, status (done|not_done|moved), evidence}`; `evidence` is the
-  table cell (`не выполнено` / `перенесён в #M` for the other two statuses). `accept` / `return`
-  read them from the table comment and match them to the body. The same rows apply to AC and DoD.
+- `rows` — `{id, kind (ac|dod), text, status, evidence}`; `evidence` is the table cell (`не
+  выполнено` / `перенесён в #M` for the other two statuses). In `table` the status is `done`,
+  `not_done` or `moved`. `accept` / `return` read the rows from the table comment and match them
+  to the body, so there a row can also be `missing` (no row or no evidence for the item) or
+  `stale` (the item text in the body no longer starts with the text in the table); both go to
+  `return_items`. The same rows apply to AC and DoD.
 - `comment` — the exact text that `--apply` posts (`null` on a stop, and on `accept` with verdict
   `return`, which posts nothing).
 - `board` — `{action, from, to, readback}`. `from` is the Status read before; `to` the target;
@@ -90,8 +93,12 @@ carries «перенесён в #M» with the same `#M` (otherwise a stop: only 
 - `after_table` — `{id, author, excerpt}` for every comment after the table (not written by this
   script): the human judges «замечания без ответа».
 - `readback` — after `accept --apply`: `{state, last_closer, checked, total, unchecked}` from a
-  fresh facts run; the close is good only when `state` is `CLOSED`, `last_closer` is `manual` and
-  `unchecked` is 0.
+  fresh facts run; the close is good only when `state` is `CLOSED`, `last_closer` is `manual`,
+  `unchecked` is 0, the count of boxes outside AC / DoD is unchanged and the body reads back as
+  the ticked body. GitHub may not show the close at once, so the read-back is tried up to 3 times,
+  1 s apart (no pause under the offline seam). When it still fails the run exits 3 and the error
+  line names the writes already made, e.g. `(written: patch-body, comment, close)`; nothing is
+  rolled back, and a rerun finds the issue closed.
 
 `rework_rule` text (Russian):
 
@@ -103,13 +110,22 @@ A stop gives `verdict: stop`, exit 1, nothing written even with `--apply`. Check
 order and the first stop returns at once; fields of later steps stay at their defaults
 (`rows: []`, `table: null`, `tick: []`, `board: {none, null, null, null}`):
 
-- `accept` / `return`: (1) the issue is CLOSED (only this stop is reported); (2) an OPEN PR whose
-  `Refs` names the issue; (3) no table: no marker comment and no `--table-comment ID`; (4) the
+- `accept` / `return`: (1) the issue is CLOSED (only this stop is reported); (1b) the body has
+  no AC or DoD checkbox (`… there is nothing to accept` / `… to return`: an empty body is never
+  accepted, whatever table is given); (2) an OPEN PR whose `Refs` names the issue; (3) no table: no marker comment and no `--table-comment ID`; (4) the
   table is read and the verdict computed; (5) `--followup` with verdict `return` (a follow-up for
-  an unmet AC or DoD is not filed), then each follow-up's native parent is not this issue; (6)
-  the board Status is read, warnings are collected.
-- `table`: (1) the issue is CLOSED; (2) the rows do not match the body (a missing or extra id, a
-  `done` without evidence, `moved` without «перенесён в #M» in the body item); (3) the board is read.
+  an unmet AC or DoD is not filed), then each follow-up's native parent is not this issue, then a
+  box that cannot be ticked safely (`cannot tick AC1: line 3 of the body is not a plain
+  checkbox`, found in the dry run too); (6) the board Status is read, warnings are collected.
+  Also: `return` with nothing to return, and `--fail ID` for an ID the body does not have, are
+  stops; `accept --apply` on a table whose verdict is `return` is a stop («the verdict is return,
+  not accept … run return»), while the dry run reports `return` with exit 0. Every validation
+  runs before the first write.
+- `table`: (1) the issue is CLOSED; (1b) the body has no AC or DoD checkbox; (2) the rows do not
+  match the body (a missing or extra id, a `done` without evidence or whose evidence reads as
+  «не выполнено» / «перенесён в #M» in the table, `moved` without «перенесён в #M» in the body
+  item); (3) the board is read, and AC Check requested with the card in Todo, Done or no Status is
+  a stop.
 
 Warnings (never stops; D3: the script does not decide who the tech lead is):
 
@@ -118,6 +134,24 @@ Warnings (never stops; D3: the script does not decide who the tech lead is):
 - `accept` / `return`: the card is not in AC Check (names the Status); the viewer wrote the table
   or is an assignee; a PR with unresolved threads or a CI state other than SUCCESS; the table
   author is not an assignee.
+
+### How a table comment is read
+
+The marker path is strict: the latest comment that starts with the table marker (by anybody),
+every table row must be `| id | text | evidence |` with an id of this issue, otherwise a stop. The
+`--table-comment ID` path is tolerant, by this exact rule: a row belongs to the item whose id
+(`AC<n>` / `DoD<n>`, any case, `*` and `_` ignored) is the whole first cell; failing that, to the
+first item for which some cell other than the last has the same text (backticks and `*` removed,
+blanks collapsed, case ignored), or is at least 12 characters long and a prefix of that text. The
+evidence is the last cell. The first row that matches an item wins; rows that match none are
+ignored; an item with no row is returned as «в таблице нет строки», never passed. An evidence
+cell is `не выполнено` when it starts with those words (bold allowed), `moved` when it starts
+with «перенесён в #M» (the body item must carry the same note, else it is returned), empty is a
+gap, anything else is `done`.
+
+A comment of this script is not posted again when it is the latest script comment (any of the
+three markers) and has the same text (compared stripped). A newer comment of another marker, for
+example a returned comment after the table, makes a repeat legitimate.
 
 ## The three comments
 

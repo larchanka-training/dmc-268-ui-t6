@@ -268,13 +268,15 @@ def ref_str(repo: str, number: int) -> str:
 
 
 # ─── fetch ──────────────────────────────────────────────────────────────────
-def fetch_issue(repo: str, number: int) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+def fetch_issue(
+    repo: str, number: int, prefix: str = ""
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """The issue's own fields (first page) and every timeline node, all pages."""
     issue: dict[str, Any] | None = None
     timeline: list[dict[str, Any]] = []
     cursor: str | None = None
     for page in range(1, MAX_PAGES + 1):
-        data = request(f"issue-p{page}", ISSUE_QUERY, repo, number, cursor)
+        data = request(f"{prefix}issue-p{page}", ISSUE_QUERY, repo, number, cursor)
         repository = data.get("repository")
         node = obj(repository, "repository") if repository is not None else {}
         raw_issue = node.get("issue")
@@ -291,12 +293,12 @@ def fetch_issue(repo: str, number: int) -> tuple[dict[str, Any], list[dict[str, 
     fail(f"issue timeline has more than {MAX_PAGES} pages", 3)
 
 
-def extra_unresolved(repo: str, number: int, cursor: str) -> int:
+def extra_unresolved(repo: str, number: int, cursor: str, prefix: str = "") -> int:
     """Unresolved review threads on the pages after the first, 100 per page."""
     count = 0
     after: str | None = cursor
     for page in range(2, MAX_PAGES + 2):
-        name = f"threads-{repo.replace('/', '_')}-{number}-p{page}"
+        name = f"{prefix}threads-{repo.replace('/', '_')}-{number}-p{page}"
         data = request(name, THREADS_QUERY, repo, number, after)
         repository = obj(data.get("repository"), "repository")
         pull = obj(repository.get("pullRequest"), "pullRequest")
@@ -469,7 +471,9 @@ def names_issue(pr: dict[str, Any], pr_repo: str, issue: tuple[str, int]) -> boo
     return False
 
 
-def build_prs(timeline: list[dict[str, Any]], issue: tuple[str, int]) -> list[dict[str, Any]]:
+def build_prs(
+    timeline: list[dict[str, Any]], issue: tuple[str, int], prefix: str = ""
+) -> list[dict[str, Any]]:
     found: dict[tuple[str, int], dict[str, Any]] = {}
     for i, node in enumerate(timeline):
         if node.get("__typename") != "CrossReferencedEvent":
@@ -497,7 +501,7 @@ def build_prs(timeline: list[dict[str, Any]], issue: tuple[str, int]) -> list[di
         unresolved = sum(1 for t in threads if t.get("isResolved") is False)
         if more:
             assert cursor is not None
-            unresolved += extra_unresolved(pr_repo, pr_number, cursor)
+            unresolved += extra_unresolved(pr_repo, pr_number, cursor, prefix)
         found[key] = {
             "ref": ref_str(pr_repo, pr_number),
             "title": text_of(source, "title", f"{where}.source"),
@@ -534,8 +538,10 @@ def commit_nodes(pr: dict[str, Any], where: str) -> list[dict[str, Any]]:
 
 
 # ─── main ───────────────────────────────────────────────────────────────────
-def collect(repo: str, number: int) -> dict[str, Any]:
-    issue, timeline = fetch_issue(repo, number)
+def collect(repo: str, number: int, prefix: str = "") -> dict[str, Any]:
+    """The facts. `prefix` is prepended to every offline fixture name (the read-back
+    of a write uses `after-`); it changes nothing against live gh."""
+    issue, timeline = fetch_issue(repo, number, prefix)
     state = text_of(issue, "state", "issue")
     body = issue.get("body")
     if body is not None and not isinstance(body, str):
@@ -551,7 +557,7 @@ def collect(repo: str, number: int) -> dict[str, Any]:
         },
         "closing": build_closing(timeline, state),
         "checkboxes": build_checkboxes(body or ""),
-        "prs": build_prs(timeline, (repo, number)),
+        "prs": build_prs(timeline, (repo, number), prefix),
     }
 
 

@@ -645,9 +645,29 @@ def test_tick_refuses_a_line_it_cannot_rewrite_safely() -> None:
     body = "## Acceptance Criteria\n\n<!-- note --> - [ ] a\n"
     items = acc.body_items(body)
     assert [i.id for i in items] == ["AC1"]
-    with pytest.raises(SystemExit) as stop:
+    with pytest.raises(acc.TickError, match="cannot tick AC1: line 3"):
         acc.tick_body(body, items, ["AC1"])
-    assert stop.value.code == 3
+
+
+def test_a_dry_run_accept_stops_where_apply_would_exit_3(tmp_path: Path) -> None:
+    fx = accept_fx(tmp_path)
+
+    def hide_a_box(issue: Any, _: Any) -> None:
+        issue["body"] = issue["body"].replace(
+            "- [ ] `GET /health`", "<!-- n --> - [ ] `GET /health`"
+        )
+
+    edit_acceptance(fx, hide_a_box)
+    edit_acceptance(fx, hide_a_box, "acceptance-p1")
+    doc = read(fx / "issue-p1.json")
+    issue = doc["data"]["repository"]["issue"]
+    issue["body"] = issue["body"].replace("- [ ] `GET /health`", "<!-- n --> - [ ] `GET /health`")
+    put(fx, "issue-p1", doc)
+    r = accepter(tmp_path, "accept", "api#500", fx=fx)
+    assert r.returncode == 1, r.stderr
+    out = json.loads(r.stdout)
+    assert out["verdict"] == "stop" and out["tick"] == [] and out["comment"] is None
+    assert out["stops"][0].startswith("cannot tick AC1: line ")
 
 
 # ─── accept ─────────────────────────────────────────────────────────────────
@@ -882,3 +902,159 @@ def test_live_body_and_close_are_rest_patches(monkeypatch: pytest.MonkeyPatch) -
         [*base, "-f", "body=- [x] a\n"],
         [*base, "-f", "state=closed", "-f", "state_reason=completed"],
     ]
+
+
+# ─── review round B ─────────────────────────────────────────────────────────
+def set_body(fx: Path, body: str, names: tuple[str, ...] = ("issue-p1", "acceptance-p1")) -> None:
+    for name in names:
+        doc = read(fx / f"{name}.json")
+        doc["data"]["repository"]["issue"]["body"] = body
+        put(fx, name, doc)
+
+
+def body_of_fx(fx: Path) -> str:
+    return str(read(fx / "acceptance-p1.json")["data"]["repository"]["issue"]["body"])
+
+
+@pytest.mark.parametrize("command", ["accept", "return"])
+def test_an_issue_without_ac_or_dod_is_never_accepted_or_returned(
+    tmp_path: Path, command: str
+) -> None:
+    fx = accept_fx(tmp_path)
+    marker_id = comments_of(fx)[0]["databaseId"]
+    set_body(fx, "## Background\n\nNo boxes here.\n")
+    log = tmp_path / "w.jsonl"
+    r = accepter(
+        tmp_path, command, "api#500", "--table-comment", str(marker_id), "--apply", fx=fx, log=log
+    )
+    assert r.returncode == 1, r.stderr
+    doc = json.loads(r.stdout)
+    assert doc["verdict"] == "stop"
+    assert doc["stops"] == [
+        f"issue {API}#500 has no AC or DoD checkboxes: there is nothing to {command}"
+    ]
+    assert not log.exists()
+
+
+def test_return_stops_on_an_open_pr_too(tmp_path: Path) -> None:
+    fx = accept_fx(tmp_path, STEP_RETURN)
+    doc = read(fx / "issue-p1.json")
+    node = doc["data"]["repository"]["issue"]["timelineItems"]["nodes"][0]
+    node["source"]["state"], node["source"]["mergedAt"] = "OPEN", None
+    put(fx, "issue-p1", doc)
+    log = tmp_path / "w.jsonl"
+    r = accepter(tmp_path, "return", "api#500", "--fail", "AC1=x", "--apply", fx=fx, log=log)
+    assert r.returncode == 1
+    assert "is OPEN and has a Refs line" in json.loads(r.stdout)["stops"][0]
+    assert not log.exists()
+
+
+def test_accept_apply_ticks_only_the_ac_and_dod_boxes_of_a_crlf_body(tmp_path: Path) -> None:
+    fx = accept_fx(tmp_path)
+    original = body_of_fx(fx)
+    extra = "```\n- [ ] fenced\n```\n\n## Notes\n\n- [ ] outside the sections\n"
+    body = original.replace("\n## DoD Checklist", "\n" + extra + "\n## DoD Checklist")
+    body = body.replace(
+        "## Acceptance Criteria\n", "## Acceptance Criteria\n\n```\n- [ ] in a fence\n```\n", 1
+    )
+    body = body.replace("\n", "\r\n")
+    assert body.count("- [ ]") == original.count("- [ ]") + 3
+    set_body(fx, body)
+    expected = body
+    for text in acc_items_text(original):
+        expected = expected.replace(f"- [ ] {text}", f"- [x] {text}")
+    ticked = expected
+    set_body(fx, ticked, ("after-issue-p1", "after-acceptance-p1"))
+    log = tmp_path / "w.jsonl"
+    r = accepter(tmp_path, "accept", "api#500", "--apply", fx=fx, log=log)
+    assert r.returncode == 0, r.stderr
+    written = [json.loads(x) for x in log.read_text(encoding="utf-8").splitlines()]
+    assert [w["op"] for w in written] == ["patch-body", "comment", "close"]
+    assert written[0]["body"] == ticked
+    assert ticked.count("- [ ]") == 3 and "\r\n" in ticked
+    assert json.loads(r.stdout)["readback"]["unchecked"] == 0
+
+
+def acc_items_text(body: str) -> list[str]:
+    return [item.text for item in acc.body_items(body) if not item.checked]
+
+
+def test_a_moved_item_with_an_unchecked_box_is_ticked(tmp_path: Path) -> None:
+    fx = accept_fx(tmp_path)
+    set_body(fx, body_of_fx(fx).replace("- [x] Проверка", "- [ ] Проверка"))
+    r = accepter(tmp_path, "accept", "api#500", fx=fx)
+    assert json.loads(r.stdout)["tick"] == ["AC1", "AC2", "AC3", "DoD1", "DoD2"]
+
+
+def test_accept_apply_with_the_card_outside_ac_check_writes_and_only_warns(
+    tmp_path: Path,
+) -> None:
+    fx = accept_fx(tmp_path)
+    doc = read(fx / "item.json")
+    doc["data"]["repository"]["issue"]["projectItems"]["nodes"][0]["fieldValueByName"]["name"] = (
+        "On Review"
+    )
+    put(fx, "item", doc)
+    log = tmp_path / "w.jsonl"
+    r = accepter(tmp_path, "accept", "api#500", "--apply", fx=fx, log=log)
+    assert r.returncode == 0, r.stderr
+    assert ops(log) == ["patch-body", "comment", "close"]
+    assert "the card is in On Review, not AC Check" in json.loads(r.stdout)["warnings"]
+
+
+def test_a_read_back_error_names_the_writes_already_made(tmp_path: Path) -> None:
+    fx = accept_fx(tmp_path)
+    doc = read(fx / "after-issue-p1.json")
+    issue = doc["data"]["repository"]["issue"]
+    issue["state"] = "OPEN"
+    put(fx, "after-issue-p1", doc)
+    r = accepter(tmp_path, "accept", "api#500", "--apply", fx=fx, log=tmp_path / "w.jsonl")
+    assert r.returncode == 3
+    assert "(written: patch-body, comment, close)" in error_of(r)
+
+
+def test_the_read_back_is_retried_with_a_pause_until_it_is_clean() -> None:
+    answers = [({}, ["not closed yet"]), ({}, ["not closed yet"]), ({"ok": True}, [])]
+    slept: list[float] = []
+    result = acc.retry_readback(lambda: answers.pop(0), 1.0, slept.append)
+    assert result == ({"ok": True}, []) and slept == [1.0, 1.0]
+
+
+def test_the_read_back_gives_up_after_three_attempts() -> None:
+    calls: list[int] = []
+
+    def check() -> tuple[dict[str, Any], list[str]]:
+        calls.append(1)
+        return ({}, ["still open"])
+
+    slept: list[float] = []
+    assert acc.retry_readback(check, 1.0, slept.append) == ({}, ["still open"])
+    assert len(calls) == acc.READBACK_ATTEMPTS == 3 and slept == [1.0, 1.0]
+    calls.clear()
+    slept.clear()
+    acc.retry_readback(check, 0.0, slept.append)  # the offline seam: no pause
+    assert len(calls) == 3 and slept == []
+
+
+@pytest.mark.parametrize(
+    ("evidence", "read_as"), [("не выполнено", "not_done"), ("перенесён в #285", "moved")]
+)
+def test_a_done_row_whose_evidence_reads_as_something_else_is_a_stop(
+    tmp_path: Path, evidence: str, read_as: str
+) -> None:
+    spec = good_rows()
+    spec["AC1"] = {"status": "done", "evidence": evidence}
+    assert stops_of(table(tmp_path, spec)) == [
+        f"AC1: this evidence reads as {read_as} in the table; use status {read_as} "
+        "or write another evidence"
+    ]
+
+
+def test_dedupe_ignores_surrounding_blanks_but_not_a_newer_script_comment() -> None:
+    mark, other = acc.TABLE_MARK, acc.RETURNED_MARK
+    old = acc.Comment(1, "a", "t", f"{mark}\nbody\n")
+    returned = acc.Comment(2, "a", "t", f"{other}\nback")
+    assert acc.already_posted([old], mark, f"\n{mark}\nbody") is old
+    assert acc.already_posted([old, returned], mark, f"{mark}\nbody") is None
+    assert acc.already_posted([], mark, "x") is None
+    assert acc.already_posted([old], acc.ACCEPTED_MARK, f"{mark}\nbody") is None

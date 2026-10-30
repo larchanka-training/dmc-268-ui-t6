@@ -10,7 +10,7 @@
   "comment": "<!-- accept-issue:table v1 -->\n\n## Самопроверка: AC → доказательство\n\n| # | Пункт | Доказательство |\n| --- | --- | --- |\n| AC1 | `GET /health` отвечает 200 и версией сборки | PR #901, тест `test_health_returns_version` |\n| AC2 | Повтор запроса с тем же `Idempotency-Key` не создаёт вторую запись | не выполнено |\n| AC3 | Правило включено в ruleset ветки `main` | комментарий исполнителя https://github.com/larchanka-training/dmc-268-api-t6/issues/500#issuecomment-1000 |\n| DoD1 | Гейты CI зелёные | CI зелёный на голове PR #901 |\n| DoD2 | PR одобрены на текущей голове, все треды закрыты | approve на голове PR #901, треды закрыты |\n\nИтог: не выполнено — AC2. AC Check не ставлю, доработка идёт в этом же issue.\n",
   "issue": "larchanka-training/dmc-268-api-t6#500",
   "mode": "author",
-  "next": "Rework stays in this issue: a code AC -> a new PR with Refs (implement-issue), a non-code AC -> an action plus an evidence comment; no follow-up issue, no «Хвосты». Then run table again.",
+  "next": "Rework stays in this issue: a code AC -> a new PR with Refs, a non-code AC -> an action plus an evidence comment; no follow-up issue, no «Хвосты». Then run table again.",
   "rework_rule": "Невыполненный AC или DoD доделывается в том же issue: кодовый — новым PR с `Refs #N`, некодовый — действием и доказательством (правило «Доработка — в том же issue», `docs/CONTRIBUTING.md`, «Приёмка задачи»).",
   "rows": [
     {

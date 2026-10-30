@@ -29,8 +29,9 @@ comment, and moves the card: AC Check when nothing is «не выполнено�
 In Progress when something is (a card already in AC Check is left, the acceptor
 returns it). Without `--apply` nothing is written: the JSON verdict shows the exact
 comment. With `--apply` everything is revalidated and written; a stop writes nothing.
-Before the body PATCH the body is read again and the run stops (exit 3, nothing
-written) if it differs from the one the verdict was computed on.
+After the close the read-back is retried (3 times, 1 s apart); the exit-3 error then
+names the writes already made. Before the body PATCH the body is read again and the run
+stops (exit 3, nothing written) if it differs from the one the verdict was computed on.
 
 Contract
 --------
@@ -55,6 +56,8 @@ import os
 import re
 import subprocess
 import sys
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, NoReturn
@@ -73,8 +76,9 @@ ACCEPTED_MARK = "<!-- accept-issue:accepted v1 -->"
 RETURNED_MARK = "<!-- accept-issue:returned v1 -->"
 MARKS = (TABLE_MARK, ACCEPTED_MARK, RETURNED_MARK)
 NOT_DONE = "не выполнено"
-MOVED_NOTE = re.compile(r"перенесён в ((?:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#[1-9][0-9]*)")
-MOVED_TO = re.compile(r"(?:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#[1-9][0-9]*")
+MOVED_REF = r"(?:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#[1-9][0-9]*"
+MOVED_TO = re.compile(MOVED_REF)
+MOVED_NOTE = re.compile(rf"перенесён в ({MOVED_REF})")  # the body item and the table cell
 STATUSES = ("done", "not_done", "moved")
 
 RULE = (
@@ -85,13 +89,13 @@ RULE = (
 NEXT = {
     ("table", "ac_check"): "The table is posted for the acceptor: the acceptor runs accept next.",
     ("table", "not_done"): (
-        "Rework stays in this issue: a code AC -> a new PR with Refs (implement-issue), "
+        "Rework stays in this issue: a code AC -> a new PR with Refs, "
         "a non-code AC -> an action plus an evidence comment; no follow-up issue, no "
         "«Хвосты». Then run table again."
     ),
     ("table", "left"): (
         "The card stays in AC Check and the acceptor returns it to In Progress. Rework stays "
-        "in this issue: a code AC -> a new PR with Refs (implement-issue), a non-code AC -> "
+        "in this issue: a code AC -> a new PR with Refs, a non-code AC -> "
         "an action plus an evidence comment; no follow-up issue, no «Хвосты». Then run table again."
     ),
     ("table", "stop"): "Fix the stop reasons, then run table again.",
@@ -114,9 +118,8 @@ FOLLOWUP_ON_UNMET = "follow-up на невыполненный AC или DoD н�
 CHECKBOX_RAW = re.compile(r"^(\s*[-*+] \[) (\].*)$", re.DOTALL)
 SEPARATOR_CELL = re.compile(r":?-+:?")
 ITEM_ID = re.compile(r"(AC|DoD)\s*([1-9][0-9]*)", re.IGNORECASE)
-MOVED_EVIDENCE = re.compile(
-    r"перенесён в ((?:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#[1-9][0-9]*)", re.IGNORECASE
-)
+READBACK_ATTEMPTS = 3
+READBACK_PAUSE = 1.0  # seconds between read-back attempts; 0 under the offline seam
 
 ACCEPTANCE_QUERY = """
 query($owner: String!, $name: String!, $number: Int!, $c: String) {
@@ -353,6 +356,13 @@ def build_rows(items: list[Item], spec: dict[str, Any]) -> tuple[list[Json], lis
                 problems.append(f"{item.id}: status done needs a non-empty evidence")
                 continue
             evidence = given.strip()
+            read_as = evidence_status(evidence)[0]
+            if read_as != "done":
+                problems.append(
+                    f"{item.id}: this evidence reads as {read_as} in the table; use status "
+                    f"{read_as} or write another evidence"
+                )
+                continue
         elif status == "moved":
             target = entry.get("to")
             if not isinstance(target, str) or not MOVED_TO.fullmatch(target):
@@ -411,6 +421,17 @@ def render_table(rows: list[Json], card: str | None) -> str:
 def latest_marked(comments: list[Comment], marker: str) -> Comment | None:
     marked = [c for c in comments if c.body.lstrip().startswith(marker)]
     return marked[-1] if marked else None
+
+
+def already_posted(comments: list[Comment], marker: str, body: str) -> Comment | None:
+    """The latest script comment (any of the three markers) when it is of this `marker`
+    and says the same: only then is posting `body` again a duplicate."""
+    scripted = [c for c in comments if c.body.lstrip().startswith(MARKS)]
+    if not scripted:
+        return None
+    last = scripted[-1]
+    same = last.body.lstrip().startswith(marker) and last.body.strip() == body.strip()
+    return last if same else None
 
 
 # ─── the board ──────────────────────────────────────────────────────────────
@@ -509,8 +530,8 @@ def run_table(ref: str, rows_path: str, apply: bool) -> Json:
     out["rework_rule"] = RULE if not_done else None
     out["next"] = NEXT[("table", "left" if action == "left" else out["verdict"])]
     if apply:
-        latest = latest_marked(snap.comments, TABLE_MARK)
-        if latest is not None and latest.body == comment:
+        latest = already_posted(snap.comments, TABLE_MARK, comment)
+        if latest is not None:
             out["warnings"].append(
                 f"the same table is already the latest table comment (#{latest.id}): "
                 "not posted again"
@@ -581,7 +602,7 @@ def evidence_status(cell: str) -> tuple[str, str]:
         return ("missing", "")
     if plain.startswith(NOT_DONE):
         return ("not_done", evidence)
-    if MOVED_EVIDENCE.match(plain):
+    if MOVED_NOTE.match(plain):
         return ("moved", evidence)
     return ("done", evidence)
 
@@ -675,7 +696,7 @@ def read_table(snap: Snapshot, table_comment: int | None) -> TableRead:
             elif status == "not_done":
                 reason = NOT_DONE
             elif status == "moved":
-                target = MOVED_EVIDENCE.search(evidence.casefold())
+                target = MOVED_NOTE.search(evidence.casefold())
                 note = MOVED_NOTE.search(item.text)
                 wanted = target.group(1) if target else ""
                 if note is None or note.group(1).casefold() != wanted:
@@ -750,16 +771,22 @@ def render_returned(snap: Snapshot, items: list[Json], table_id: int) -> str:
     return "\n".join(lines) + "\n"
 
 
+class TickError(Exception):
+    """A box cannot be ticked safely; the message is a stop."""
+
+
 def tick_body(body: str, items: list[Item], ids: list[str]) -> str:
     """`body` with the boxes of `ids` ticked and nothing else changed (line endings kept).
-    A raw line that is not a plain unchecked box is a data error (exit 3)."""
+    A raw line that is not a plain unchecked box raises TickError."""
     lines = body.splitlines(keepends=True)
     by_id = {item.id: item for item in items}
     for item_id in ids:
         index = by_id[item_id].line
         match = CHECKBOX_RAW.match(lines[index])
         if match is None:
-            fail(f"cannot tick {item_id}: line {index + 1} of the body is not a plain checkbox", 3)
+            raise TickError(
+                f"cannot tick {item_id}: line {index + 1} of the body is not a plain checkbox"
+            )
         lines[index] = f"{match.group(1)}x{match.group(2)}"
     return "".join(lines)
 
@@ -769,22 +796,6 @@ def patch_issue(repo: str, number: int, fields: dict[str, str], op: Json) -> Non
     for key, value in fields.items():
         argv += ["-f", f"{key}={value}"]
     write({**op, "issue": number, "repo": repo}, argv)
-
-
-def facts_after(repo: str, number: int) -> Json:
-    """A fresh facts run; under the seam the `after-` fixtures answer it."""
-    if not seam():
-        return issue_facts.collect(repo, number)
-    original = issue_facts.request
-
-    def prefixed(name: str, query: str, repo: str, number: int, cursor: str | None) -> Json:
-        return original(f"after-{name}", query, repo, number, cursor)
-
-    issue_facts.request = prefixed
-    try:
-        return issue_facts.collect(repo, number)
-    finally:
-        issue_facts.request = original
 
 
 def check_parent(snap: Snapshot, ref: str) -> tuple[Json | None, str | None]:
@@ -920,6 +931,9 @@ def run_accepter(
     if snap.facts["issue"]["state"] == "CLOSED":
         stops.append(closed_stop(snap, command))
         return out
+    if not snap.items:
+        stops.append(f"issue {snap.ref} has no AC or DoD checkboxes: there is nothing to {command}")
+        return out
     for pr in snap.facts["prs"]:
         if pr["refs"] and pr["state"] == "OPEN":
             stops.append(
@@ -974,6 +988,14 @@ def run_accepter(
             stops.append(stop or "follow-up check failed")
             return out
         checked.append(found)
+    tick = [item.id for item in snap.items if not item.checked]
+    ticked = snap.body
+    if command == "accept" and verdict == "accept":
+        try:
+            ticked = tick_body(snap.body, snap.items, tick)
+        except TickError as exc:
+            stops.append(str(exc))
+            return out
     status = board_status.read_status(repo, number)
     out["warnings"] = accepter_warnings(snap, table, status)
     out["verdict"] = verdict
@@ -993,40 +1015,18 @@ def run_accepter(
             out["next"] = NEXT[("accept", "stop")]
         return out
     out["followups"] = checked
-    out["tick"] = [item.id for item in snap.items if not item.checked]
+    out["tick"] = tick
     shown = [short_ref(snap, *issue_facts.parse_ref(f["ref"])) for f in checked]
     out["comment"] = render_accepted(snap, table.rows, table.comment.id, shown)
     if apply:
-        out["readback"] = apply_accept(snap, out)
+        out["readback"] = apply_accept(snap, out, ticked)
     return out
 
 
-def apply_accept(snap: Snapshot, out: Json) -> Json:
-    """tick -> closing comment -> close -> read-back; returns the read-back."""
-    _, body_now, _, comments_now = fetch_acceptance(snap.repo, snap.number)
-    if body_now != snap.body:
-        fail(
-            "the issue body changed since the verdict was computed; nothing was written, "
-            "run accept again",
-            3,
-        )
-    ticked = tick_body(snap.body, snap.items, out["tick"])
-    if ticked != snap.body:
-        patch_issue(snap.repo, snap.number, {"body": ticked}, {"body": ticked, "op": "patch-body"})
-    latest = latest_marked(comments_now, ACCEPTED_MARK)
-    if latest is not None and latest.body == out["comment"]:
-        out["warnings"].append(
-            f"the same closing comment is already the latest one (#{latest.id}): not posted again"
-        )
-    else:
-        post_comment(snap.repo, snap.number, out["comment"])
-    patch_issue(
-        snap.repo,
-        snap.number,
-        {"state": "closed", "state_reason": "completed"},
-        {"op": "close", "state_reason": "completed"},
-    )
-    facts = facts_after(snap.repo, snap.number)
+def readback_once(snap: Snapshot, ticked: str) -> tuple[Json, list[str]]:
+    """One read-back of the close: (the numbers, the problems)."""
+    prefix = "after-" if seam() else ""
+    facts = issue_facts.collect(snap.repo, snap.number, prefix)
     boxes = facts["checkboxes"]
     total = boxes["ac"]["total"] + boxes["dod"]["total"]
     checked = boxes["ac"]["checked"] + boxes["dod"]["checked"]
@@ -1047,19 +1047,76 @@ def apply_accept(snap: Snapshot, out: Json) -> Json:
         problems.append(f"{readback['unchecked']} of {total} AC / DoD boxes are unchecked")
     if boxes["outside"] != snap.facts["checkboxes"]["outside"]:
         problems.append("the number of checkboxes outside AC / DoD changed")
-    prefix = "after-" if seam() else ""
     if fetch_acceptance(snap.repo, snap.number, prefix)[1] != ticked:
         problems.append("the body reads back different from the ticked body")
+    return readback, problems
+
+
+def retry_readback(
+    check: Callable[[], tuple[Json, list[str]]],
+    pause: float,
+    sleep: Callable[[float], None],
+) -> tuple[Json, list[str]]:
+    """`check` up to READBACK_ATTEMPTS times, `pause` seconds apart (GitHub may not show
+    the close at once); the last answer when none is clean."""
+    answer = check()
+    for _ in range(READBACK_ATTEMPTS - 1):
+        if not answer[1]:
+            break
+        if pause > 0:
+            sleep(pause)
+        answer = check()
+    return answer
+
+
+def apply_accept(snap: Snapshot, out: Json, ticked: str) -> Json:
+    """tick -> closing comment -> close -> read-back; returns the read-back. Everything
+    that can refuse has been checked before the first write."""
+    _, body_now, _, comments_now = fetch_acceptance(snap.repo, snap.number)
+    if body_now != snap.body:
+        fail(
+            "the issue body changed since the verdict was computed; nothing was written, "
+            "run accept again",
+            3,
+        )
+    written: list[str] = []
+    if ticked != snap.body:
+        patch_issue(snap.repo, snap.number, {"body": ticked}, {"body": ticked, "op": "patch-body"})
+        written.append("patch-body")
+    latest = already_posted(comments_now, ACCEPTED_MARK, out["comment"])
+    if latest is not None:
+        out["warnings"].append(
+            f"the same closing comment is already the latest one (#{latest.id}): not posted again"
+        )
+    else:
+        post_comment(snap.repo, snap.number, out["comment"])
+        written.append("comment")
+    patch_issue(
+        snap.repo,
+        snap.number,
+        {"state": "closed", "state_reason": "completed"},
+        {"op": "close", "state_reason": "completed"},
+    )
+    written.append("close")
+    readback, problems = retry_readback(
+        lambda: readback_once(snap, ticked), 0.0 if seam() else READBACK_PAUSE, time.sleep
+    )
     if problems:
-        fail("read-back failed after the writes: " + "; ".join(problems), 3)
+        fail(
+            "read-back failed after the writes (written: "
+            + ", ".join(written)
+            + "): "
+            + "; ".join(problems),
+            3,
+        )
     return readback
 
 
 def apply_return(snap: Snapshot, out: Json) -> None:
     """returned comment -> card to In Progress (read back)."""
     comments_now = fetch_acceptance(snap.repo, snap.number)[3]
-    latest = latest_marked(comments_now, RETURNED_MARK)
-    if latest is not None and latest.body == out["comment"]:
+    latest = already_posted(comments_now, RETURNED_MARK, out["comment"])
+    if latest is not None:
         out["warnings"].append(
             f"the same returned comment is already the latest one (#{latest.id}): not posted again"
         )
