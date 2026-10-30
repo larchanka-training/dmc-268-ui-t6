@@ -24,6 +24,10 @@ retype it. Only the evidence is yours. Rows are required for every AC and DoD an
 | Moved AC                               | `{"status": "moved", "to": "#285"}` | the body item must say «перенесён в #285 решением техлида»     |
 | Not shown                              | `{"status": "not_done"}`            |                                                                |
 
+- Evidence must be something the acceptor can open: a merged PR, a commit on `main`, a CI run
+  link, an issue or PR comment, or quoted command output together with the command. A local file
+  path (`/home/…/SKILL.md:112`), an unpushed commit or the state of your worktree is not evidence;
+  the row is `not_done` until the work is merged or pushed. Then post a new table.
 - Text is the default. A screenshot is for an AC about appearance; for everything else it proves
   less than a command output. The script cannot tell the difference — you decide.
 - Evidence that starts with «не выполнено» or «перенесён в #M» is read as that status by the table

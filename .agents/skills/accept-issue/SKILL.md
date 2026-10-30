@@ -112,6 +112,10 @@ closes the issue; the script does neither in this mode. The run:
    - **Text is the default:** PR, commit, test name, command output, a link to a comment. A
      **screenshot only for an AC that is about what the page looks like**; the script cannot tell,
      you choose.
+   - **Evidence must be something the acceptor can open:** a merged PR, a commit on `main`, a CI
+     run link, an issue or PR comment, or quoted command output **with the command**. A local file
+     path, an unpushed commit or the state of your worktree is not evidence: the row is
+     `not_done` until the work is merged or pushed.
    - A **non-code AC** (ruleset, board, live run): do the action, post a comment with what was
      done and how to check it (command output, link), and put that comment's link in the row.
 3. Save the rows as JSON under `$(mktemp -d)`:
