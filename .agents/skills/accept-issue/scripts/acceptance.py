@@ -978,7 +978,8 @@ def run_accepter(
     if returned_after:
         message = (
             f"таблица старше возврата #{returned_after[-1].id}: "
-            "исполнитель не выложил новую таблицу"
+            "исполнитель не выложил новую таблицу "
+            "(таблицу, выложенную вручную после возврата, укажите через --table-comment ID)"
         )
         if command == "accept":
             stops.append(message)

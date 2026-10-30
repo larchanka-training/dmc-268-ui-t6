@@ -11,7 +11,8 @@ may accept is decided by the human, not by the script.
 
 Stop: the issue is CLOSED; the body has no AC or DoD; a PR with `Refs` is OPEN; no table (no marker
 comment and no `--table-comment`); `--followup` with an unmet table or whose native parent is not
-this issue; a box that cannot be ticked safely; (for `accept`) a returned comment newer than the table — the executor has not posted a new one. Warnings (shown to the user, never a stop): the card
+this issue; a box that cannot be ticked safely; (for `accept`) a returned comment newer than the table — the executor has not posted a new one (a table posted
+by hand after the return is passed with `--table-comment ID`). Warnings (shown to the user, never a stop): the card
 is not in AC Check; the viewer wrote the table / is an assignee; a merged PR has open threads or CI
 other than SUCCESS; the table author is not an assignee; (for `return`) the table is older than an earlier return.
 

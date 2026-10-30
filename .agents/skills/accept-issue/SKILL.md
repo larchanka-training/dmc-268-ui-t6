@@ -36,10 +36,10 @@ So when the user says «заведи follow-up на AC2», «follow-up на не
 
 1. File nothing: no `create-issue`, no spec, no «Хвосты приёмки #N».
 2. Say in the reply that the request differs from the rule, name the rule («Доработка — в том же
-   issue»), and give the way forward: a new branch and PR with `Refs #N` per `.agents/rules/git-workflow.md`
-   (code AC) or an action plus an evidence comment (non-code AC), then a new table (author) or
-   `return` (accepter). `implement-issue`'s pre-start may stop on a finished task; then the user
-   decides how to start the rework.
+   issue»), and give the way forward: a new branch and PR with `Refs #N` per
+   `.agents/rules/git-workflow.md` (code AC) or an action plus an evidence comment (non-code AC),
+   then a new table (author) or `return` (accepter). `implement-issue`'s pre-start may stop on a
+   finished task; then the user decides how to start the rework.
 3. Offer a follow-up only for a finding outside the AC.
 
 The sentence «ваша просьба расходится с правилом» belongs to this reply and is said **only when the
@@ -114,8 +114,11 @@ closes the issue; the script does neither in this mode. The run:
      you choose.
    - A **non-code AC** (ruleset, board, live run): do the action, post a comment with what was
      done and how to check it (command output, link), and put that comment's link in the row.
-3. Save the rows as JSON under `$(mktemp -d)`: `{"AC1": {"status": "done", "evidence": "..."}, ...}`.
-4. Dry run `python3 .agents/skills/accept-issue/scripts/acceptance.py table REF rows.json`, show it, wait for the yes, rerun with `--apply`.
+3. Save the rows as JSON under `$(mktemp -d)`:
+   `{"AC1": {"status": "done", "evidence": "..."}, ...}`.
+4. Dry run
+   `python3 .agents/skills/accept-issue/scripts/acceptance.py table REF rows.json`,
+   show it, wait for the yes, and rerun with `--apply`.
 5. Read `verdict`:
    - `ac_check`: the table is posted and the card is in AC Check; the acceptor runs `accept`.
    - `not_done`: the table is posted, AC Check is **not** set; the card goes On Review → In Progress
@@ -129,9 +132,11 @@ closes the issue; the script does neither in this mode. The run:
 
 Read `references/accepter.md` for sampling, remarks and the stops. The run:
 
-1. **Dry run** `python3 .agents/skills/accept-issue/scripts/acceptance.py accept REF` (add `--table-comment ID` when the table is a hand-written
-   comment or another session's; with neither the marker nor the flag the script stops and names
-   both ways — it never says "self-check missing").
+1. **Dry run**
+   `python3 .agents/skills/accept-issue/scripts/acceptance.py accept REF`
+   (add `--table-comment ID` when the table is a hand-written comment or another session's; with
+   neither the marker nor the flag the script stops and names both ways — it never says
+   "self-check missing").
 2. **Check the table, selectively but for real:** open some of the cited PRs, tests, runs and
    comment links and see that they show what the row says. Read `after_table`: every comment after
    the table is listed; judge whether a remark has no answer. Show `warnings` to the user.
@@ -140,14 +145,17 @@ Read `references/accepter.md` for sampling, remarks and the stops. The run:
      `accept --apply`: tick (only AC/DoD boxes), the comment that names every AC, close as
      completed, read-back (CLOSED, closed manually, 0 unchecked). Done on the board is set by the
      workflow «Item closed»; nothing else moves the card.
-   - A row is «не выполнено», or the evidence did not hold → issue stays open: `return REF [--fail ID=reason]...`, dry run, yes, `--apply`: the «что осталось»
-     comment and the card AC Check → In Progress. An `accept` whose verdict is `return` never writes.
+   - A row is «не выполнено», or the evidence did not hold → issue stays open:
+     `python3 .agents/skills/accept-issue/scripts/acceptance.py return REF [--fail ID=reason]...`,
+     dry run, yes, `--apply`: the «что осталось» comment and the card AC Check → In Progress. An
+     `accept` whose verdict is `return` never writes.
    - A **remark without an answer** (from `after_table`, or in the issue): neither `accept` nor
      `return`. Leave the card, ask the user to get the remark answered, and rerun later.
    - A **finding outside the AC** (new scope): accept proceeds. File it with `create-issue`, one
      issue, `parent` = this issue, an ordinary title (no «Хвосты приёмки»), get its number, then
-     `accept REF --followup REF2 --apply`; the script verifies the native parent and names the
-     follow-up in the closing comment. `--followup` on an unmet table is a stop (Rule 1).
+     `python3 .agents/skills/accept-issue/scripts/acceptance.py accept REF --followup REF2 --apply`;
+     the script verifies the native parent and names the follow-up in the closing comment.
+     `--followup` on an unmet table is a stop (Rule 1).
 4. A `stop` is reported verbatim: a CLOSED issue (closed by a merge or the Development panel: the
    tech lead reopens it, the script never reopens), an OPEN PR with `Refs`, no table, an issue
    with no AC/DoD, a follow-up with another parent. Never work around it.

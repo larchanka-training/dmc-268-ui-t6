@@ -1140,5 +1140,20 @@ def test_return_only_warns_when_the_table_is_older_than_a_return(tmp_path: Path)
     r = accepter(tmp_path, "return", "api#500", "--fail", "AC1=x", fx=fx)
     assert r.returncode == 0, r.stderr
     assert json.loads(r.stdout)["warnings"][0] == (
-        "таблица старше возврата #8003: исполнитель не выложил новую таблицу"
+        "таблица старше возврата #8003: исполнитель не выложил новую таблицу "
+        "(таблицу, выложенную вручную после возврата, укажите через --table-comment ID)"
     )
+
+
+def test_a_bad_shaped_card_response_after_the_mutation_still_names_set_status(
+    tmp_path: Path,
+) -> None:
+    fx = accept_fx(tmp_path, STEP_RETURN)
+    put(fx, "set-status", {"data": {"updateProjectV2ItemFieldValue": None}})
+    r = accepter(
+        tmp_path, "return", "api#500", "--fail", "AC1=x", "--apply", fx=fx, log=tmp_path / "w"
+    )
+    assert r.returncode == 3
+    message = one_json_line(r)
+    assert "updateProjectV2ItemFieldValue" in message
+    assert message.endswith("(written: comment, set-status)")

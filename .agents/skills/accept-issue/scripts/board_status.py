@@ -265,7 +265,8 @@ def board_item(name: str, repo: str, number: int, project_id: str) -> tuple[str,
 def set_status(
     repo: str, number: int, wanted: str, on_written: Callable[[], None] | None = None
 ) -> str:
-    """Set the Status and read it back. `on_written` is called once the write has gone through."""
+    """Set the Status and read it back. `on_written` is called as soon as the write request
+    has returned."""
     project_id, field_id, options = load_board()
     status = pick_option(wanted, options)
     item_id, _ = board_item("item", repo, number, project_id)
@@ -276,9 +277,9 @@ def set_status(
         "option": options[status],
     }
     written = request("set-status", SET_QUERY, variables)
-    obj(written.get("updateProjectV2ItemFieldValue"), "updateProjectV2ItemFieldValue")
-    if on_written is not None:
+    if on_written is not None:  # the request went through; a bad shape below is not a no-op
         on_written()
+    obj(written.get("updateProjectV2ItemFieldValue"), "updateProjectV2ItemFieldValue")
     _, read_back = board_item("readback", repo, number, project_id)
     if read_back != status:
         fail(f"Status of {repo}#{number} reads back as {read_back!r}, not {status!r}", 3)
