@@ -83,7 +83,8 @@ made, the error ends with `(written: …)`). The output keys are in `references/
    exact comment.
 2. Show the user the comment, the verdict, the `board` move and **every** entry of `warnings` and
    `stops` (a warning is how the script says "check this": the card is not in AC Check, the viewer
-   wrote the table, a PR has open threads, a PR is still open). Quote `rework_rule` when it is set.
+   wrote the table, a PR has open threads, a PR is still open, a moved AC rests only on the note
+   in the issue body). Quote `rework_rule` when it is set.
 3. Wait for the user's own explicit «да»/yes in the conversation. Not for "go on", not for silence.
 4. Run the same command with `--apply`. It revalidates everything; on a stop it writes nothing.
 5. Report the result from the output: comment posted, card (`board.readback`), `readback` of a
@@ -115,7 +116,7 @@ closes the issue; the script does neither in this mode. The run:
    - **Evidence must be something the acceptor can open:** a merged PR, a commit on `main`, a CI
      run link, an issue or PR comment, or quoted command output **with the command**. A local file
      path, an unpushed commit or the state of your worktree is not evidence: the row is
-     `not_done` until the work is merged or pushed.
+     `not_done` until the work is merged.
    - A **non-code AC** (ruleset, board, live run): do the action, post a comment with what was
      done and how to check it (command output, link), and put that comment's link in the row.
 3. Save the rows as JSON under `$(mktemp -d)`:
