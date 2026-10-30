@@ -259,28 +259,6 @@ export const mockReviewComments: ReviewComment[] = [
 
 export const mockRunActions: RunAction[] = makeDuoActions(COMPLETED_ID)
 
-export interface MockUiState {
-  runInspector: {
-    selectedRunId: string
-    expandedKeys: string[]
-  }
-  diffViewer: {
-    viewType: 'unified' | 'split'
-    expandedRanges: Record<string, boolean>
-  }
-}
-
-export const mockUiState: MockUiState = {
-  runInspector: {
-    selectedRunId: COMPLETED_ID,
-    expandedKeys: ['group-2', 'action-33'],
-  },
-  diffViewer: {
-    viewType: 'unified',
-    expandedRanges: {},
-  },
-}
-
 export const mockCurrentUser: User = {
   id: 114473628,
   login: 'skvertl',
