@@ -11,9 +11,9 @@ may accept is decided by the human, not by the script.
 
 Stop: the issue is CLOSED; the body has no AC or DoD; a PR with `Refs` is OPEN; no table (no marker
 comment and no `--table-comment`); `--followup` with an unmet table or whose native parent is not
-this issue; a box that cannot be ticked safely. Warnings (shown to the user, never a stop): the card
+this issue; a box that cannot be ticked safely; (for `accept`) a returned comment newer than the table — the executor has not posted a new one. Warnings (shown to the user, never a stop): the card
 is not in AC Check; the viewer wrote the table / is an assignee; a merged PR has open threads or CI
-other than SUCCESS; the table author is not an assignee.
+other than SUCCESS; the table author is not an assignee; (for `return`) the table is older than an earlier return.
 
 What stays with you: which of the referencing PRs belong to the task (the PRs list shows each
 `refs`), and whether the comments after the table (`after_table`) leave a remark without an answer.
@@ -53,7 +53,7 @@ goes to `--followup`; the script reads its native parent and stops when it is no
 ## After the close
 
 `readback` must say `state: CLOSED`, `last_closer: manual`, `unchecked: 0`. If the run exits 3
-after the writes, the error names what was written; do not repeat blindly: read the issue (it may
+after the writes, the error ends with `(written: …)` and names what was written; do not repeat blindly: read the issue (it may
 be closed already) and tell the user. Done on the board is set by the workflow «Item closed».
 
 ## An issue closed the wrong way

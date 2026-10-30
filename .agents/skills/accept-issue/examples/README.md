@@ -98,7 +98,7 @@ carries «перенесён в #M» with the same `#M` (otherwise a stop: only 
   the ticked body. GitHub may not show the close at once, so the read-back is tried up to 3 times,
   1 s apart (no pause under the offline seam). When it still fails the run exits 3 and the error
   line names the writes already made, e.g. `(written: patch-body, comment, close)`; nothing is
-  rolled back, and a rerun finds the issue closed.
+  rolled back, and a rerun finds the issue closed. The same holds for every exit 3 after the first write of a run (a failing gh call, a missing fixture, a card read-back that differs), in `table`, `accept` and `return`: the one JSON error line ends with `(written: comment, set-status)`-style kinds, in order (`comment`, `patch-body`, `close`, `set-status`).
 
 `rework_rule` text (Russian):
 
@@ -113,7 +113,7 @@ order and the first stop returns at once; fields of later steps stay at their de
 - `accept` / `return`: (1) the issue is CLOSED (only this stop is reported); (1b) the body has
   no AC or DoD checkbox (`… there is nothing to accept` / `… to return`: an empty body is never
   accepted, whatever table is given); (2) an OPEN PR whose `Refs` names the issue; (3) no table: no marker comment and no `--table-comment ID`; (4) the
-  table is read and the verdict computed; (5) `--followup` with verdict `return` (a follow-up for
+  table is read; (4b) a returned comment is newer than that table (`таблица старше возврата #id: …`: a stop for `accept`, a warning for `return`) and the verdict is computed; (5) `--followup` with verdict `return` (a follow-up for
   an unmet AC or DoD is not filed), then each follow-up's native parent is not this issue, then a
   box that cannot be ticked safely (`cannot tick AC1: line 3 of the body is not a plain
   checkbox`, found in the dry run too); (6) the board Status is read, warnings are collected.
@@ -201,4 +201,4 @@ close; `return` — comment, then the card. Live, the same writes are `gh api` R
 | `05-finding-outside-ac` | a finding outside the AC during acceptance: accept proceeds, the follow-up is a create-issue spec with `parent` = the source issue and no «Хвосты» (the parent is verified), the closing comment names it |
 | `06-closed-by-merge` | accepter on an issue closed by merge (the Development trap): stop, nothing written even with `--apply` |
 | `07-followup-on-unmet-ac` | «заводи follow-up на AC2» for an unmet AC: author and accepter modes, no write, `rework_rule`; step 3: `accept --followup` on an unmet table is a stop |
-| `08-guards-and-stops` | an OPEN PR (stop in `accept`, warning in `table`), a card outside AC Check, a viewer who wrote the table, a follow-up with another parent, `moved` without the tech lead's note, no table found |
+| `08-guards-and-stops` | an OPEN PR (stop in `accept`, warning in `table`), a card outside AC Check, a viewer who wrote the table, a follow-up with another parent, `moved` without the tech lead's note, no table found, a table older than a return |

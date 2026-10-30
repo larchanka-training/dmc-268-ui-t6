@@ -50,6 +50,7 @@ import os
 import re
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, NoReturn
 
@@ -106,7 +107,18 @@ mutation($project: ID!, $item: ID!, $field: ID!, $option: String!) {
 """
 
 
+def no_note() -> str:
+    return ""
+
+
+# A caller that has already written something sets this to append what it wrote to every
+# exit-3 message (acceptance.py does); the default adds nothing.
+exit3_note: Callable[[], str] = no_note
+
+
 def fail(message: str, code: int) -> NoReturn:
+    if code == 3:
+        message += exit3_note()
     sys.stderr.write(json.dumps({"error": message}, ensure_ascii=False) + "\n")
     sys.exit(code)
 
@@ -250,7 +262,10 @@ def board_item(name: str, repo: str, number: int, project_id: str) -> tuple[str,
     fail(f"issue {repo}#{number} is not on board {BOARD_NUMBER}; this script never adds it", 3)
 
 
-def set_status(repo: str, number: int, wanted: str) -> str:
+def set_status(
+    repo: str, number: int, wanted: str, on_written: Callable[[], None] | None = None
+) -> str:
+    """Set the Status and read it back. `on_written` is called once the write has gone through."""
     project_id, field_id, options = load_board()
     status = pick_option(wanted, options)
     item_id, _ = board_item("item", repo, number, project_id)
@@ -262,6 +277,8 @@ def set_status(repo: str, number: int, wanted: str) -> str:
     }
     written = request("set-status", SET_QUERY, variables)
     obj(written.get("updateProjectV2ItemFieldValue"), "updateProjectV2ItemFieldValue")
+    if on_written is not None:
+        on_written()
     _, read_back = board_item("readback", repo, number, project_id)
     if read_back != status:
         fail(f"Status of {repo}#{number} reads back as {read_back!r}, not {status!r}", 3)

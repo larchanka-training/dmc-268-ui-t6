@@ -13,3 +13,4 @@
 5. `acceptance.py accept api#500 --followup api#511 --apply` — api#511's native parent is #321, not #500: **stop**, no write.
 6. `acceptance.py table api#500 rows.json` — AC3 is `moved` but the body item has no «перенесён в #285»: **stop**; only the tech lead moves an AC.
 7. `acceptance.py accept api#500` — no comment with the marker and no `--table-comment`: **stop**; the message names both ways.
+8. `acceptance.py accept api#500` — a returned comment (#8003) is newer than the executor's table: **stop** («таблица старше возврата #8003 …»); `return` only warns.

@@ -789,7 +789,7 @@ def test_script_comments_after_the_table_are_not_listed(tmp_path: Path) -> None:
                     "databaseId": 20,
                     "author": {"login": "axyi"},
                     "createdAt": "t",
-                    "body": acc.RETURNED_MARK + "\nold",
+                    "body": acc.ACCEPTED_MARK + "\nold",
                 },
                 {"databaseId": 21, "author": None, "createdAt": "t", "body": "\n\n" + "x" * 100},
             ]
@@ -1058,3 +1058,87 @@ def test_dedupe_ignores_surrounding_blanks_but_not_a_newer_script_comment() -> N
     assert acc.already_posted([old, returned], mark, f"{mark}\nbody") is None
     assert acc.already_posted([], mark, "x") is None
     assert acc.already_posted([old], acc.ACCEPTED_MARK, f"{mark}\nbody") is None
+
+
+# ─── review round C ─────────────────────────────────────────────────────────
+def one_json_line(r: subprocess.CompletedProcess[str]) -> str:
+    return error_of(r)
+
+
+def test_a_failing_read_back_fixture_names_the_writes_already_made(tmp_path: Path) -> None:
+    fx = accept_fx(tmp_path)
+    (fx / "after-issue-p1.json").unlink()
+    r = accepter(tmp_path, "accept", "api#500", "--apply", fx=fx, log=tmp_path / "w.jsonl")
+    assert r.returncode == 3
+    message = one_json_line(r)
+    assert message.startswith("cannot read fixture") and message.endswith(
+        "(written: patch-body, comment, close)"
+    )
+
+
+def test_a_failing_card_write_after_the_comment_names_the_comment_in_table(
+    tmp_path: Path,
+) -> None:
+    fx = fixtures_of(STEP_AUTHOR, tmp_path)
+    (fx / "set-status.json").unlink()
+    r = table(tmp_path, good_rows(), "--apply", fixtures=fx, log=tmp_path / "w.jsonl")
+    assert r.returncode == 3
+    assert one_json_line(r).endswith("(written: comment)")
+
+
+def test_a_failing_card_write_after_the_comment_names_the_comment_in_return(
+    tmp_path: Path,
+) -> None:
+    fx = accept_fx(tmp_path, STEP_RETURN)
+    (fx / "set-status.json").unlink()
+    r = accepter(
+        tmp_path, "return", "api#500", "--fail", "AC1=x", "--apply", fx=fx, log=tmp_path / "w"
+    )
+    assert r.returncode == 3
+    assert one_json_line(r).endswith("(written: comment)")
+
+
+def test_a_card_read_back_that_differs_names_comment_and_card(tmp_path: Path) -> None:
+    fx = accept_fx(tmp_path, STEP_RETURN)
+    doc = read(fx / "readback.json")
+    doc["data"]["repository"]["issue"]["projectItems"]["nodes"][0]["fieldValueByName"]["name"] = (
+        "Todo"
+    )
+    put(fx, "readback", doc)
+    r = accepter(
+        tmp_path, "return", "api#500", "--fail", "AC1=x", "--apply", fx=fx, log=tmp_path / "w"
+    )
+    assert r.returncode == 3
+    assert one_json_line(r).endswith("(written: comment, set-status)")
+
+
+def test_an_error_before_any_write_has_no_written_note(tmp_path: Path) -> None:
+    fx = accept_fx(tmp_path)
+    (fx / "item.json").unlink()
+    r = accepter(tmp_path, "accept", "api#500", "--apply", fx=fx, log=tmp_path / "w")
+    assert r.returncode == 3
+    assert "written" not in one_json_line(r)
+
+
+def add_returned_after_the_table(fx: Path) -> None:
+    edit_acceptance(
+        fx,
+        lambda issue, _: issue["comments"]["nodes"].append(
+            {
+                "databaseId": 8003,
+                "author": {"login": "axyi"},
+                "createdAt": "2026-10-30T11:00:00Z",
+                "body": acc.RETURNED_MARK + "\nold return",
+            }
+        ),
+    )
+
+
+def test_return_only_warns_when_the_table_is_older_than_a_return(tmp_path: Path) -> None:
+    fx = accept_fx(tmp_path, STEP_RETURN)
+    add_returned_after_the_table(fx)
+    r = accepter(tmp_path, "return", "api#500", "--fail", "AC1=x", fx=fx)
+    assert r.returncode == 0, r.stderr
+    assert json.loads(r.stdout)["warnings"][0] == (
+        "таблица старше возврата #8003: исполнитель не выложил новую таблицу"
+    )

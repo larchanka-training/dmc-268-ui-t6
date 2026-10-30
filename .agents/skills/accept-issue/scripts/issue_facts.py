@@ -73,7 +73,7 @@ import os
 import re
 import subprocess
 import sys
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any, NoReturn
 
@@ -156,7 +156,18 @@ query($owner: String!, $name: String!, $number: Int!, $c: String) {
 """
 
 
+def no_note() -> str:
+    return ""
+
+
+# A caller that has already written something sets this to append what it wrote to every
+# exit-3 message (acceptance.py does); the default adds nothing.
+exit3_note: Callable[[], str] = no_note
+
+
 def fail(message: str, code: int) -> NoReturn:
+    if code == 3:
+        message += exit3_note()
     sys.stderr.write(json.dumps({"error": message}, ensure_ascii=False) + "\n")
     sys.exit(code)
 

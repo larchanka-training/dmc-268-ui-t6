@@ -148,6 +148,19 @@ query($owner: String!, $name: String!, $number: Int!) {
 Json = dict[str, Any]
 
 
+WRITTEN: list[str] = []  # kinds of the writes made so far in this run, in order
+
+
+def written_note() -> str:
+    return f" (written: {', '.join(WRITTEN)})" if WRITTEN else ""
+
+
+# Every exit 3 after the first write names what was written, in this script and in the
+# facts / board modules it calls: still exactly one JSON error line.
+issue_facts.exit3_note = written_note
+board_status.exit3_note = written_note
+
+
 def fail(message: str, code: int) -> NoReturn:
     issue_facts.fail(message, code)
 
@@ -298,6 +311,7 @@ def write(op: Json, argv: list[str]) -> None:
 def post_comment(repo: str, number: int, body: str) -> None:
     op = {"body": body, "issue": number, "op": "comment", "repo": repo}
     write(op, [f"repos/{repo}/issues/{number}/comments", "-f", f"body={body}"])
+    WRITTEN.append("comment")
 
 
 def set_card(repo: str, number: int, status: str) -> str:
@@ -305,7 +319,9 @@ def set_card(repo: str, number: int, status: str) -> str:
     ref = issue_facts.ref_str(repo, number)
     if seam():
         write({"op": "set-status", "ref": ref, "status": status}, [])
-    return board_status.set_status(repo, number, status)
+    return board_status.set_status(
+        repo, number, status, on_written=lambda: WRITTEN.append("set-status")
+    )
 
 
 # ─── rows and the table ─────────────────────────────────────────────────────
@@ -486,6 +502,7 @@ def table_output(snap: Snapshot, apply: bool) -> Json:
 
 
 def run_table(ref: str, rows_path: str, apply: bool) -> Json:
+    WRITTEN.clear()
     repo, number = issue_facts.parse_ref(ref)
     spec = load_rows(rows_path)
     if apply:
@@ -796,6 +813,7 @@ def patch_issue(repo: str, number: int, fields: dict[str, str], op: Json) -> Non
     for key, value in fields.items():
         argv += ["-f", f"{key}={value}"]
     write({**op, "issue": number, "repo": repo}, argv)
+    WRITTEN.append(str(op["op"]))
 
 
 def check_parent(snap: Snapshot, ref: str) -> tuple[Json | None, str | None]:
@@ -922,6 +940,7 @@ def run_accepter(
     failed: dict[str, str],
     apply: bool,
 ) -> Json:
+    WRITTEN.clear()
     repo, number = issue_facts.parse_ref(ref)
     if apply:
         require_write_log()
@@ -953,6 +972,18 @@ def run_accepter(
         "via": table.via,
     }
     out["rows"] = table.rows
+    early_warnings: list[str] = []
+    later = snap.comments[snap.comments.index(table.comment) + 1 :]
+    returned_after = [c for c in later if c.body.lstrip().startswith(RETURNED_MARK)]
+    if returned_after:
+        message = (
+            f"таблица старше возврата #{returned_after[-1].id}: "
+            "исполнитель не выложил новую таблицу"
+        )
+        if command == "accept":
+            stops.append(message)
+            return out
+        early_warnings.append(message)
     unknown = [k for k in failed if k not in {item.id for item in snap.items}]
     if unknown:
         stops.extend(f"--fail {k}: no such AC or DoD in the issue body" for k in unknown)
@@ -966,7 +997,6 @@ def run_accepter(
                 "text": item.text,
             }
     out["return_items"] = [returned[i.id] for i in snap.items if i.id in returned]
-    later = snap.comments[snap.comments.index(table.comment) + 1 :]
     out["after_table"] = [
         {"author": c.author, "excerpt": excerpt(c.body), "id": c.id}
         for c in later
@@ -997,7 +1027,7 @@ def run_accepter(
             stops.append(str(exc))
             return out
     status = board_status.read_status(repo, number)
-    out["warnings"] = accepter_warnings(snap, table, status)
+    out["warnings"] = early_warnings + accepter_warnings(snap, table, status)
     out["verdict"] = verdict
     out["next"] = NEXT[(command, verdict)]
     if command == "return":
@@ -1079,10 +1109,8 @@ def apply_accept(snap: Snapshot, out: Json, ticked: str) -> Json:
             "run accept again",
             3,
         )
-    written: list[str] = []
     if ticked != snap.body:
         patch_issue(snap.repo, snap.number, {"body": ticked}, {"body": ticked, "op": "patch-body"})
-        written.append("patch-body")
     latest = already_posted(comments_now, ACCEPTED_MARK, out["comment"])
     if latest is not None:
         out["warnings"].append(
@@ -1090,25 +1118,17 @@ def apply_accept(snap: Snapshot, out: Json, ticked: str) -> Json:
         )
     else:
         post_comment(snap.repo, snap.number, out["comment"])
-        written.append("comment")
     patch_issue(
         snap.repo,
         snap.number,
         {"state": "closed", "state_reason": "completed"},
         {"op": "close", "state_reason": "completed"},
     )
-    written.append("close")
     readback, problems = retry_readback(
         lambda: readback_once(snap, ticked), 0.0 if seam() else READBACK_PAUSE, time.sleep
     )
     if problems:
-        fail(
-            "read-back failed after the writes (written: "
-            + ", ".join(written)
-            + "): "
-            + "; ".join(problems),
-            3,
-        )
+        fail("read-back failed after the writes: " + "; ".join(problems), 3)
     return readback
 
 

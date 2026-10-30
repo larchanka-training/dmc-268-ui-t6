@@ -36,8 +36,10 @@ So when the user says «заведи follow-up на AC2», «follow-up на не
 
 1. File nothing: no `create-issue`, no spec, no «Хвосты приёмки #N».
 2. Say in the reply that the request differs from the rule, name the rule («Доработка — в том же
-   issue»), and give the way forward: new PR with `Refs #N` (code AC, `implement-issue`) or an
-   action plus an evidence comment (non-code AC), then a new table (author) or `return` (accepter).
+   issue»), and give the way forward: a new branch and PR with `Refs #N` per `.agents/rules/git-workflow.md`
+   (code AC) or an action plus an evidence comment (non-code AC), then a new table (author) or
+   `return` (accepter). `implement-issue`'s pre-start may stop on a finished task; then the user
+   decides how to start the rework.
 3. Offer a follow-up only for a finding outside the AC.
 
 The sentence «ваша просьба расходится с правилом» belongs to this reply and is said **only when the
@@ -63,17 +65,17 @@ viewer and never decides who the tech lead is.
 
 In `.agents/skills/accept-issue/scripts/`. All three are stdlib, offline-testable.
 
-| Script                                                                          | Does                                                        |
-| ------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| `issue_facts.py REF`                                                            | Read-only facts: AC/DoD boxes, PRs with `Refs`, closing log |
-| `acceptance.py table REF ROWS_JSON [--apply]`                                   | Author: validate rows, render the table, move the card      |
-| `acceptance.py accept REF [--table-comment ID] [--followup REF]... [--apply]`   | Accepter: tick, close, name every AC                        |
-| `acceptance.py return REF [--table-comment ID] [--fail ID=reason]... [--apply]` | Accepter: «что осталось», card to In Progress               |
-| `board_status.py REF [STATUS]`                                                  | Read or set the board Status (never adds the card)          |
+| Script                                                                          | Does                                                                  |
+| ------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `issue_facts.py REF`                                                            | Read-only facts: AC/DoD boxes, PRs with `Refs`, closing log           |
+| `acceptance.py table REF ROWS_JSON [--apply]`                                   | Author: validate rows, render the table, move the card                |
+| `acceptance.py accept REF [--table-comment ID] [--followup REF]... [--apply]`   | Accepter: tick, close, name every AC                                  |
+| `acceptance.py return REF [--table-comment ID] [--fail ID=reason]... [--apply]` | Accepter: «что осталось», card to In Progress                         |
+| `board_status.py REF` (read-only in this skill)                                 | Prints the board Status; every card move goes through `acceptance.py` |
 
 Exit codes of `acceptance.py`: `0` ok · `1` stop (the JSON is on stdout, `verdict: stop`) · `2`
-usage or a bad `ROWS_JSON` · `3` gh/API/data error (stderr `{"error": ...}`; after a failed
-read-back the error lists the writes already made). The output keys are in `references/formats.md`.
+usage or a bad `ROWS_JSON` · `3` gh/API/data error (stderr `{"error": ...}`; once a write was
+made, the error ends with `(written: …)`). The output keys are in `references/formats.md`.
 
 ## Writes: dry run, then an explicit yes, then `--apply`
 
@@ -86,6 +88,9 @@ read-back the error lists the writes already made). The output keys are in `refe
 4. Run the same command with `--apply`. It revalidates everything; on a stop it writes nothing.
 5. Report the result from the output: comment posted, card (`board.readback`), `readback` of a
    close. Never claim a close the read-back did not confirm.
+6. A run that exits 3 after `--apply` began: do not repeat it blindly. Read the `(written: …)` list
+   at the end of the error and the issue's real state (body, comments, card) first, then tell the
+   user what is done and what is not.
 
 **Auto mode.** A permission guard may refuse the `--apply` of a close or return (self-approval).
 Do not look for a way around it: print the exact command and ask the user to run it themselves in
@@ -94,7 +99,8 @@ api#N --apply`), then read the board and issue again to report.
 
 ## Author mode
 
-Read `references/author.md` for the details and examples. The run:
+Read `references/author.md` for the details and examples. The author never ticks a box and never
+closes the issue; the script does neither in this mode. The run:
 
 1. **Preflight.** `python3 .agents/skills/accept-issue/scripts/issue_facts.py REF`: the issue is
    OPEN; `checkboxes.ac.items` / `.dod.items` are the rows (ids `AC1..`, `DoD1..` in body order);
@@ -109,13 +115,13 @@ Read `references/author.md` for the details and examples. The run:
    - A **non-code AC** (ruleset, board, live run): do the action, post a comment with what was
      done and how to check it (command output, link), and put that comment's link in the row.
 3. Save the rows as JSON under `$(mktemp -d)`: `{"AC1": {"status": "done", "evidence": "..."}, ...}`.
-4. Dry run `acceptance.py table REF rows.json`, show it, wait for the yes, rerun with `--apply`.
+4. Dry run `python3 .agents/skills/accept-issue/scripts/acceptance.py table REF rows.json`, show it, wait for the yes, rerun with `--apply`.
 5. Read `verdict`:
    - `ac_check`: the table is posted and the card is in AC Check; the acceptor runs `accept`.
    - `not_done`: the table is posted, AC Check is **not** set; the card goes On Review → In Progress
      (a card already in AC Check is left, the acceptor returns it: say so). Rework stays in this
-     issue (Rule 1): code AC → `implement-issue` / new PR with `Refs #N`; non-code AC → action plus
-     evidence comment. After it, post a **new full table** the same way.
+     issue (Rule 1): code AC → a new branch and PR with `Refs #N` per `git-workflow.md`; non-code
+     AC → action plus evidence comment. After it, post a **new full table** the same way.
    - `stop`: report `stops` verbatim (a closed issue, rows that do not match the body, a card that
      cannot go to AC Check). Do not edit the issue to get past it.
 
@@ -123,7 +129,7 @@ Read `references/author.md` for the details and examples. The run:
 
 Read `references/accepter.md` for sampling, remarks and the stops. The run:
 
-1. **Dry run** `acceptance.py accept REF` (add `--table-comment ID` when the table is a hand-written
+1. **Dry run** `python3 .agents/skills/accept-issue/scripts/acceptance.py accept REF` (add `--table-comment ID` when the table is a hand-written
    comment or another session's; with neither the marker nor the flag the script stops and names
    both ways — it never says "self-check missing").
 2. **Check the table, selectively but for real:** open some of the cited PRs, tests, runs and
@@ -134,9 +140,10 @@ Read `references/accepter.md` for sampling, remarks and the stops. The run:
      `accept --apply`: tick (only AC/DoD boxes), the comment that names every AC, close as
      completed, read-back (CLOSED, closed manually, 0 unchecked). Done on the board is set by the
      workflow «Item closed»; nothing else moves the card.
-   - A row is «не выполнено», or the evidence did not hold → issue stays open: `return REF
-[--fail ID=reason]...`, dry run, yes, `--apply`: the «что осталось» comment and the card
-     AC Check → In Progress. An `accept` whose verdict is `return` never writes.
+   - A row is «не выполнено», or the evidence did not hold → issue stays open: `return REF [--fail ID=reason]...`, dry run, yes, `--apply`: the «что осталось»
+     comment and the card AC Check → In Progress. An `accept` whose verdict is `return` never writes.
+   - A **remark without an answer** (from `after_table`, or in the issue): neither `accept` nor
+     `return`. Leave the card, ask the user to get the remark answered, and rerun later.
    - A **finding outside the AC** (new scope): accept proceeds. File it with `create-issue`, one
      issue, `parent` = this issue, an ordinary title (no «Хвосты приёмки»), get its number, then
      `accept REF --followup REF2 --apply`; the script verifies the native parent and names the
@@ -156,9 +163,7 @@ Read `references/accepter.md` for sampling, remarks and the stops. The run:
 
 ## Harness notes
 
-- `git push` and `gh` writes may need a human's confirmation: stop and ask, never bypass.
-- Independent checks run in a clean context per `.agents/README.md` § Sub-agents across harnesses;
-  this skill itself needs none. Claude Code and Codex read the same file.
+- This skill spawns no sub-agents. Claude Code and Codex read the same file.
 - Do not rely on `.agents/agents/*.md`: Codex does not load them.
 
 ## Tests and examples
