@@ -69,6 +69,7 @@
   "verdict": "accept",
   "viewer": "executor",
   "warnings": [
-    "viewer executor wrote the table and is an assignee of the issue; the acceptor is the tech lead or a participant they named (this script does not decide who that is)"
+    "viewer executor wrote the table and is an assignee of the issue; the acceptor is the tech lead or a participant they named (this script does not decide who that is)",
+    "AC3 засчитан как перенесённый в #285 по пометке в теле issue: проверьте, что пометку дописал техлид — тело issue может править и исполнитель"
   ]
 }

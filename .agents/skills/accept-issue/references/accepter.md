@@ -24,7 +24,9 @@ What stays with you: which of the referencing PRs belong to the task (the PRs li
 Read every row, open some of the evidence: a PR page, a test file, a command output, a linked
 comment. A row «выполнено» must show what the AC says, not only mention it. For a non-code AC the
 linked comment must say what was done and how to check it. A moved AC (`перенесён в #M`) is fine
-only with the tech lead's note in the body item; the script returns it otherwise.
+only with the tech lead's note in the body item; the script returns it otherwise. The script cannot
+tell who wrote that note (the executor can edit the body too), so it warns for every moved row it
+accepts: check that the tech lead added the note (the issue's edit history shows it).
 
 If the table was written by hand or by another session, pass `--table-comment ID`. It is read
 tolerantly (rows by `AC<n>`/`DoD<n>` or by item text); a gap makes the verdict `return`, never a

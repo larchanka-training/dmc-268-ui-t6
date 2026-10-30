@@ -433,6 +433,12 @@ def test_usage_errors_exit_2() -> None:
         error_of(r)
 
 
+MOVED_WARNING = (
+    "AC3 засчитан как перенесённый в #285 по пометке в теле issue: проверьте, что пометку "
+    "дописал техлид — тело issue может править и исполнитель"
+)
+
+
 # ─── accept and return: shared helpers ──────────────────────────────────────
 def accept_fx(tmp_path: Path, step: Path = STEP_ACCEPT) -> Path:
     return fixtures_of(step, tmp_path)
@@ -776,6 +782,7 @@ def test_accept_warns_about_unresolved_threads_and_red_ci(tmp_path: Path) -> Non
     assert json.loads(r.stdout)["warnings"] == [
         f"PR {API}#901 has 2 unresolved review thread(s)",
         f"PR {API}#901 CI state is FAILURE, not SUCCESS",
+        MOVED_WARNING,
     ]
 
 
@@ -1157,3 +1164,30 @@ def test_a_bad_shaped_card_response_after_the_mutation_still_names_set_status(
     message = one_json_line(r)
     assert "updateProjectV2ItemFieldValue" in message
     assert message.endswith("(written: comment, set-status)")
+
+
+def test_a_moved_row_accepted_on_a_body_note_always_warns(tmp_path: Path) -> None:
+    for command, step in (("accept", STEP_ACCEPT), ("return", STEP_RETURN)):
+        fx = accept_fx(tmp_path / command, step)
+        extra = ("--fail", "AC1=x") if command == "return" else ()
+        # step 04's table has AC3 not done; make AC3 a moved row for the return case
+        if command == "return":
+            moved = read(STEP_ACCEPT / "fixtures" / "acceptance-p1.json")
+            edit_acceptance(
+                fx,
+                lambda issue, _, src=moved: issue.update(
+                    body=src["data"]["repository"]["issue"]["body"],
+                    comments=src["data"]["repository"]["issue"]["comments"],
+                ),
+            )
+        r = accepter(tmp_path, command, "api#500", *extra, fx=fx)
+        assert r.returncode == 0, r.stderr
+        assert MOVED_WARNING in json.loads(r.stdout)["warnings"], command
+
+
+def test_a_moved_row_that_is_returned_does_not_also_warn(tmp_path: Path) -> None:
+    fx = accept_fx(tmp_path)
+    set_body(fx, body_of_fx(fx).replace(" перенесён в #285 решением техлида", ""))
+    out = json.loads(accepter(tmp_path, "accept", "api#500", fx=fx).stdout)
+    assert [i["id"] for i in out["return_items"]] == ["AC3"]
+    assert MOVED_WARNING not in out["warnings"]

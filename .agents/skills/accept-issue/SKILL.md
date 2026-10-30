@@ -198,6 +198,8 @@ line.
 
 - GitHub only. The script never decides who the tech lead is: the viewer is shown, the human
   decides. The latest table comment wins whoever wrote it — read the author in the output.
+- A moved AC is accepted on the «перенесён в #M» note in the body, whoever wrote it; the script
+  warns on every such row. Check that the tech lead added the note before the yes.
 - It writes through `gh api` REST (comment, body, close) and the one board mutation; it never
   reopens, never closes by a merge, never sets Done, never creates an issue.
 - Evidence quality is the model's and the human's judgment; the script checks form and coverage.

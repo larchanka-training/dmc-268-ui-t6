@@ -891,7 +891,9 @@ def excerpt(text: str) -> str:
     return first if len(first) <= 80 else first[:79] + "…"
 
 
-def accepter_warnings(snap: Snapshot, table: TableRead, status: str | None) -> list[str]:
+def accepter_warnings(
+    snap: Snapshot, table: TableRead, status: str | None, returned: list[Json]
+) -> list[str]:
     warnings: list[str] = []
     if status != "AC Check":
         warnings.append(f"the card is in {status or 'no Status'}, not AC Check")
@@ -919,6 +921,15 @@ def accepter_warnings(snap: Snapshot, table: TableRead, status: str | None) -> l
         warnings.append(
             f"the table author {table.comment.author} is not an assignee (assignees: {listing})"
         )
+    unmet = {i["id"] for i in returned}
+    for row in table.rows:
+        note = MOVED_NOTE.search(row["text"])
+        if row["status"] == "moved" and row["id"] not in unmet and note is not None:
+            warnings.append(
+                f"{row['id']} засчитан как перенесённый в {note.group(1)} по пометке в теле "
+                "issue: проверьте, что пометку дописал техлид — тело issue может править "
+                "и исполнитель"
+            )
     return warnings
 
 
@@ -1028,7 +1039,7 @@ def run_accepter(
             stops.append(str(exc))
             return out
     status = board_status.read_status(repo, number)
-    out["warnings"] = early_warnings + accepter_warnings(snap, table, status)
+    out["warnings"] = early_warnings + accepter_warnings(snap, table, status, out["return_items"])
     out["verdict"] = verdict
     out["next"] = NEXT[(command, verdict)]
     if command == "return":

@@ -69,6 +69,7 @@
   "verdict": "accept",
   "viewer": "axyi",
   "warnings": [
-    "the card is in On Review, not AC Check"
+    "the card is in On Review, not AC Check",
+    "AC3 засчитан как перенесённый в #285 по пометке в теле issue: проверьте, что пометку дописал техлид — тело issue может править и исполнитель"
   ]
 }

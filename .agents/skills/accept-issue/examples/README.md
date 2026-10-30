@@ -133,7 +133,8 @@ Warnings (never stops; D3: the script does not decide who the tech lead is):
   follows the last PR of the task).
 - `accept` / `return`: the card is not in AC Check (names the Status); the viewer wrote the table
   or is an assignee; a PR with unresolved threads or a CI state other than SUCCESS; the table
-  author is not an assignee.
+  author is not an assignee; every row accepted as `moved`, which rests on the note in the body
+  (the executor can edit the body too: check that the tech lead wrote it).
 
 ### How a table comment is read
 
