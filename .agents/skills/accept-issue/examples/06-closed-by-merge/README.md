@@ -3,7 +3,7 @@
 # 06 — the issue was closed by a merge: stop, write nothing
 
 **Source:** synthetic (issue `larchanka-training/dmc-268-api-t6#500`, three AC, two DoD); see `../README.md` for the contract. The issue is CLOSED and its last close was by the merge of PR #901 (the Development trap,
-CONTRIBUTING L82).
+CONTRIBUTING L85).
 
 ## Input
 

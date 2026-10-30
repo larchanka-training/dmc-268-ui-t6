@@ -14,7 +14,7 @@ acceptance.py accept api#500 --apply
 ## Expected
 
 - `verdict: accept`, `tick: [AC1, AC2, DoD1, DoD2]` (AC3 is already ticked and is left alone).
-- The closing comment names every AC and DoD (AC3 as «перенесён в #285») and links the table.
+- The closing comment names every AC and DoD and links the table; the moved AC3 is listed once, as its body item reads («перенесён в #285 решением техлида»), with no second «перенесён».
 - Write log, in order: `patch-body` (the ticked body, nothing else changed), `comment`, `close`
   (`state_reason: completed`). No board write: Done is set by the workflow «Item closed».
 - `readback` comes from `after-issue-p1` / `after-acceptance-p1`: `CLOSED`, `last_closer: manual`,

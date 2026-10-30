@@ -18,5 +18,7 @@ reads it as JSON (`parent`, the title) and never runs the create-issue scripts.
 ## Expected
 
 Same as case 03, plus: the comment after the table is listed in `after_table`, and the closing
-comment ends with `Follow-up вне AC (новый скоуп): #510`. An unmet AC would never reach this path
+comment ends with `Follow-up вне AC (новый скоуп): #510`. The script reads the follow-up's native
+parent (fixture `parent-…-510`) and `followups` shows `parent` = this issue; a follow-up with another
+parent is a stop (case 08). An unmet AC would never reach this path
 (case 07).

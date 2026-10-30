@@ -8,10 +8,10 @@
     "to": null
   },
   "comment": null,
+  "followups": [],
   "issue": "larchanka-training/dmc-268-api-t6#500",
   "mode": "accepter",
   "next": "The table is not acceptable as it stands: run return (add --fail ID=reason for evidence that did not hold).",
-  "notice": "Просьба завести follow-up на невыполненный AC или DoD расходится с правилом «Доработка — в том же issue» (docs/CONTRIBUTING.md, «Приёмка задачи», L79): отдельный issue не заводится. Кодовый AC доделывают новым PR с `Refs #N` в этом же issue, некодовый — действием и доказательством комментарием. Follow-up заводят только на находку вне AC.",
   "readback": null,
   "return_items": [
     {
@@ -20,6 +20,7 @@
       "text": "Повтор запроса с тем же `Idempotency-Key` не создаёт вторую запись"
     }
   ],
+  "rework_rule": "Невыполненный AC или DoD доделывается в том же issue: кодовый — новым PR с `Refs #N`, некодовый — действием и доказательством (правило «Доработка — в том же issue», `docs/CONTRIBUTING.md`, «Приёмка задачи»).",
   "rows": [
     {
       "evidence": "PR #901, тест `test_health_returns_version`",

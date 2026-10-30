@@ -15,7 +15,7 @@ acceptance.py return api#500 --fail 'AC1=версия в ответе не со�
 ## Expected
 
 - `verdict: return`; `return_items`: AC1 («доказательство не подтвердилось: …») and AC3
-  («не выполнено»), in body order; `notice` is present (the run returns items; the text is fixed whatever the user asked).
+  («не выполнено»), in body order; `rework_rule` is present (the run returns items; the text states the rule and does not claim any request).
 - Write log: the returned comment (links the table, lists what is left, names the rework rule),
   then `set-status In Progress`. The board goes AC Check → In Progress, read back. The issue is
   not closed and no checkbox is ticked.

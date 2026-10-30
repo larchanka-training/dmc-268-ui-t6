@@ -41,7 +41,7 @@
                 "login": "axyi"
               },
               "createdAt": "2026-10-30T10:20:00Z",
-              "body": "<!-- accept-issue:accepted v1 -->\n\n## Приёмка: issue закрыт\n\nТаблица исполнителя: https://github.com/larchanka-training/dmc-268-api-t6/issues/500#issuecomment-5001. Чекбоксы AC и DoD в теле issue отмечены.\n\n**Acceptance Criteria**\n\n- AC1 — `GET /health` отвечает 200 и версией сборки — выполнено\n- AC2 — Повтор запроса с тем же `Idempotency-Key` не создаёт вторую запись — выполнено\n- AC3 — Проверка обратной совместимости схемы — перенесён в #285 решением техлида — перенесён в #285\n\n**DoD Checklist**\n\n- DoD1 — Гейты CI зелёные — выполнено\n- DoD2 — PR одобрены на текущей голове, все треды закрыты — выполнено\n\nFollow-up вне AC (новый скоуп): #510\n"
+              "body": "<!-- accept-issue:accepted v1 -->\n\n## Приёмка: issue закрыт\n\nТаблица исполнителя: https://github.com/larchanka-training/dmc-268-api-t6/issues/500#issuecomment-5001. Чекбоксы AC и DoD в теле issue отмечены.\n\n**Acceptance Criteria**\n\n- AC1 — `GET /health` отвечает 200 и версией сборки — выполнено\n- AC2 — Повтор запроса с тем же `Idempotency-Key` не создаёт вторую запись — выполнено\n- AC3 — Проверка обратной совместимости схемы — перенесён в #285 решением техлида\n\n**DoD Checklist**\n\n- DoD1 — Гейты CI зелёные — выполнено\n- DoD2 — PR одобрены на текущей голове, все треды закрыты — выполнено\n\nFollow-up вне AC (новый скоуп): #510\n"
             }
           ]
         }

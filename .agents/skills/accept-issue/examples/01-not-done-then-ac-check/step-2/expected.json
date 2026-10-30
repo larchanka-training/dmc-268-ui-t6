@@ -11,7 +11,7 @@
   "issue": "larchanka-training/dmc-268-api-t6#500",
   "mode": "author",
   "next": "The table is posted for the acceptor: the acceptor runs accept next.",
-  "notice": null,
+  "rework_rule": null,
   "rows": [
     {
       "evidence": "PR #901, тест `test_health_returns_version`",

@@ -8,12 +8,13 @@
     "to": null
   },
   "comment": null,
+  "followups": [],
   "issue": "larchanka-training/dmc-268-api-t6#500",
   "mode": "accepter",
   "next": "Do not close the issue; fix the stop reasons first.",
-  "notice": null,
   "readback": null,
   "return_items": [],
+  "rework_rule": null,
   "rows": [],
   "schema": 1,
   "stops": [

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """board_status.py — set the Status of an issue on the course board, then read it back.
 
-accept-issue's own copy of implement-issue's script (a skill never reads another
-skill's files, so the two are kept in step by hand). It adds one thing: with STATUS
-omitted it only reads the Status the issue has now.
+This skill's own board script: it does not import or read any other skill's files.
+Besides setting a Status it can read one: with STATUS omitted it only reads the Status
+the issue has now.
 
 Usage
 -----

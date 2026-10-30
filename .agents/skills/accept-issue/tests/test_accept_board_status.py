@@ -4,9 +4,9 @@ Offline: no network, no tokens, no live `gh`. An autouse guard puts a fake `gh`
 first on PATH that fails with exit 97, so any request that escapes the fixture
 seam (`ACCEPT_ISSUE_FIXTURE_DIR`) or a test's own fake is an error, never a call.
 
-This is accept-issue's own copy of the board script (a skill never reads another
-skill's files); it adds one thing, reading the current Status without STATUS, and
-asserts the board queries here, in this skill, only.
+These tests belong to this skill's board script alone (a skill never reads another
+skill's files): they cover, besides the Status write, reading the current Status
+without STATUS, and assert the board queries here only.
 
 Covers: a live capture of the board (`fixtures/board-live/`: project, Status field
 and options of board 12, and the item of api#269) and synthetic variants of it; the
@@ -15,7 +15,7 @@ Status lookup by name, the read-back, the single write, and what must not happen
 no write, or no success); the REF grammar, exit codes 2 and 3, and the argv and the
 queries the script hands to `gh`.
 """
-# SYNC: mirrored in dmc-268-{ui,api}-t6/.agents/skills/accept-issue/tests/test_board_status.py
+# SYNC: mirrored in dmc-268-{ui,api}-t6/.agents/skills/accept-issue/tests/test_accept_board_status.py  # noqa: E501
 
 from __future__ import annotations
 
