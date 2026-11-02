@@ -12,6 +12,7 @@ import { AnalyticsPage } from './AnalyticsPage'
 
 const REPO = {
   id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  provider: 'github' as const,
   fullName: 'org/repo',
   url: 'https://github.com/org/repo',
   defaultBranch: 'main',
