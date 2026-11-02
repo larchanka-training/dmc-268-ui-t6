@@ -1,0 +1,9 @@
+.workspaceSelect {
+  width: 100%;
+  max-width: 360px;
+  margin-block: 12px;
+}
+
+.workspaceSelectControl {
+  width: 100%;
+}

@@ -33,6 +33,7 @@ function addedLinesPatch(filename: string, lineCount: number) {
 }
 
 const PULL_REQUEST = {
+  provider: 'github',
   repo: 'larchanka-training/dmc-268-ui-t6',
   number: 40,
   title: 'feat: huge refactor',
@@ -41,6 +42,7 @@ const PULL_REQUEST = {
 }
 
 const SUMMARY_ONLY_RUN_WIRE = {
+  provider: 'github',
   id: '33333333-3333-4333-8333-000000000001',
   engine: 'deep',
   model: 'claude-sonnet-5',

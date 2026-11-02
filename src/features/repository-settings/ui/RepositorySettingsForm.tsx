@@ -110,6 +110,8 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<{ error: unknown } | null>(null)
   const [serverErrors, setServerErrors] = useState<ServerFieldErrors>({})
+  const isBitbucket = repository.provider === 'bitbucket'
+  const firstField: SettingsFieldName = isBitbucket ? 'maxComments' : FIRST_FIELD
 
   const changed = Object.keys(buildSettingsPatch(baseline, values)).length > 0
 
@@ -117,7 +119,7 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
     ref,
     () => ({
       focusFirstField: () => {
-        form.focusField(FIRST_FIELD)
+        form.focusField(firstField)
       },
       // Anything typed counts, even what no PATCH could carry (an emptied limit): asked of the
       // store now, not of the `values` of the last render.
@@ -141,7 +143,7 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
         setServerErrors({})
       },
     }),
-    [form, baseline],
+    [form, baseline, firstField],
   )
 
   // antd keeps the text of a failed rule from the moment it ran. After a change of the interface
@@ -159,6 +161,12 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
 
   const handleFinish = async (submitted: SettingsFormValues): Promise<void> => {
     const patch = buildSettingsPatch(baseline, submitted)
+    if (isBitbucket) {
+      // The Bitbucket publisher writes comments and commit status and does not wait for CI.
+      // Hidden form fields preserve the saved baseline but must never enter its PATCH body.
+      delete patch.waitForCi
+      delete patch.reviewEvent
+    }
     if (Object.keys(patch).length === 0) {
       return
     }
@@ -175,8 +183,8 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
       // setFieldsValue does not fire onValuesChange.
       setValues(next)
       setBaseline(toFormValues(saved))
-      // "Save" is disabled again now: keep the keyboard user in the form.
-      form.focusField(FIRST_FIELD)
+      // Save is disabled again now: keep the keyboard user in the form.
+      form.focusField(firstField)
     } catch (error) {
       // The entered values stay in the fields; only messages appear: under the fields the
       // server named, above the form for the rest.
@@ -199,7 +207,7 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
     setSaveError(null)
     setServerErrors({})
     // The button just used is disabled now: keep the keyboard user in the form.
-    form.focusField(FIRST_FIELD)
+    form.focusField(firstField)
   }
 
   return (
@@ -235,20 +243,34 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
         <Text>{engineLabel[repository.defaultEngine]}</Text>
       </Form.Item>
 
-      <Form.Item
-        label={t('settings.form.waitForCi')}
-        name="waitForCi"
-        rules={[{ required: true }]}
-        {...serverErrorProps(serverErrors, 'waitForCi', t)}
-      >
-        <Select
-          options={[
-            { value: 'auto', label: t('settings.form.waitForCiAuto') },
-            { value: 'always', label: t('settings.form.waitForCiAlways') },
-            { value: 'never', label: t('settings.form.waitForCiNever') },
-          ]}
-        />
-      </Form.Item>
+      {isBitbucket ? (
+        <>
+          <Form.Item hidden name="waitForCi">
+            <Input type="hidden" />
+          </Form.Item>
+          <Form.Item
+            extra={t('settings.form.bitbucketCiExtra')}
+            label={t('settings.form.waitForCi')}
+          >
+            <Text>{t('settings.form.waitForCiNever')}</Text>
+          </Form.Item>
+        </>
+      ) : (
+        <Form.Item
+          label={t('settings.form.waitForCi')}
+          name="waitForCi"
+          rules={[{ required: true }]}
+          {...serverErrorProps(serverErrors, 'waitForCi', t)}
+        >
+          <Select
+            options={[
+              { value: 'auto', label: t('settings.form.waitForCiAuto') },
+              { value: 'always', label: t('settings.form.waitForCiAlways') },
+              { value: 'never', label: t('settings.form.waitForCiNever') },
+            ]}
+          />
+        </Form.Item>
+      )}
 
       <Form.Item
         label={t('settings.form.maxComments')}
@@ -262,19 +284,33 @@ export const RepositorySettingsForm: FC<RepositorySettingsFormProps> = ({
         <InputNumber className={styles.fullWidth} max={10} min={1} precision={0} />
       </Form.Item>
 
-      <Form.Item
-        label={t('settings.form.reviewEvent')}
-        name="reviewEvent"
-        rules={[{ required: true }]}
-        {...serverErrorProps(serverErrors, 'reviewEvent', t)}
-      >
-        <Select
-          options={[
-            { value: 'COMMENT', label: t('settings.form.reviewEventComment') },
-            { value: 'REQUEST_CHANGES', label: t('settings.form.reviewEventRequestChanges') },
-          ]}
-        />
-      </Form.Item>
+      {isBitbucket ? (
+        <>
+          <Form.Item hidden name="reviewEvent">
+            <Input type="hidden" />
+          </Form.Item>
+          <Form.Item
+            extra={t('settings.form.bitbucketReviewExtra')}
+            label={t('settings.form.reviewEvent')}
+          >
+            <Text>{t('settings.form.bitbucketReviewValue')}</Text>
+          </Form.Item>
+        </>
+      ) : (
+        <Form.Item
+          label={t('settings.form.reviewEvent')}
+          name="reviewEvent"
+          rules={[{ required: true }]}
+          {...serverErrorProps(serverErrors, 'reviewEvent', t)}
+        >
+          <Select
+            options={[
+              { value: 'COMMENT', label: t('settings.form.reviewEventComment') },
+              { value: 'REQUEST_CHANGES', label: t('settings.form.reviewEventRequestChanges') },
+            ]}
+          />
+        </Form.Item>
+      )}
 
       <Form.Item
         extra={t('settings.form.branchFilterExtra')}

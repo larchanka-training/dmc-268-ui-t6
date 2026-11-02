@@ -1,0 +1,44 @@
+---
+title: Connect Bitbucket Cloud
+description: Connect a repository, configure its webhook, and read its reviews.
+icon: GitPullRequest
+---
+
+Sign in to the Reviewer portal with GitHub. This identifies your portal account. The available portal workspaces come from GitHub App installations connected to the portal; you need membership in the one where the Bitbucket repository should appear. The Bitbucket repository itself does not need a GitHub App installation. You need access to that repository, including if it is private. Repository webhooks are configured manually, so you also need permission to manage that repository's webhooks in Bitbucket.
+
+<Steps>
+<Step>
+
+### Create an API token
+
+Create a scoped [Atlassian API token](https://support.atlassian.com/bitbucket-cloud/docs/using-api-tokens/) for the Bitbucket workspace with **Repositories: Read** (`read:repository:bitbucket`), **Pull requests: Read** (`read:pullrequest:bitbucket`) and **User: Read** (`read:user:bitbucket`). The portal stores this token encrypted and uses it to read the repository, verify the review comment author, and publish review comments and commit status. If an existing token lacks **User: Read**, create a replacement token with all three scopes and use **Update API token** on the connection. Keep the token out of chat, screenshots and repository files. The manual webhook flow does not need webhook API scopes.
+
+</Step>
+<Step>
+
+### Connect the repository
+
+Open <AppLink path="/repositories">**Repositories**</AppLink>. In the **Bitbucket Cloud** panel, choose a **Portal workspace** from those available to your portal account. Enter the **Bitbucket workspace** slug and **API token**, then choose **Find repositories**. Find the repository in the results, including one marked **private**, and choose its `Connect {slug}` button. It appears in the common repository list for members of the selected portal workspace. A second repository in the same Bitbucket workspace uses the same API token; use **Update API token** to replace the shared credential deliberately.
+
+The portal removes spaces accidentally pasted around the API token before discovery, connection or rotation. A token with spaces inside, non-ASCII characters or more than 4096 characters is rejected with an input error before it is sent.
+
+</Step>
+<Step>
+
+### Configure the repository webhook
+
+The portal shows **Webhook URL**, **Events** and **Webhook secret** in a setup card. Copy them before closing the card or switching portal workspaces: the secret is shown only once and cannot be retrieved later. In that repository's Bitbucket settings, add a webhook with the shown URL and secret. Subscribe to `repo:push`, `pullrequest:created`, `pullrequest:updated`, `pullrequest:fulfilled` and `pullrequest:rejected`. Keep the secret in Bitbucket's webhook settings or a protected secret store; keep it out of screenshots. The portal shows **Awaiting webhook** until the first valid signed delivery for that repository, then **Webhook active**.
+
+If you reconnect an already connected repository, the portal does not show its old secret again. Choose **New webhook secret** for that repository to issue a replacement, update the webhook in Bitbucket, and discard the old secret. Other repositories keep their own webhook secrets.
+
+</Step>
+<Step>
+
+### Review and disconnect
+
+Open a pull request, then follow the review in <AppLink path="/runs">**Runs**</AppLink>. A Bitbucket repository starts review without waiting for CI: its **CI waiting** setting is **Never**. The read-only **Verdict** field shows **Comments and commit status**. The reviewer posts findings as inline Bitbucket comments, one summary, and a separate commit status for the reviewed head. It cannot request changes through a GitHub-style review event. Suggested patches appear as **comment text for manual application**; the portal does not offer one-click application in Bitbucket.
+
+To stop one repository, choose its `Disconnect {workspace}/{repository}` button, confirm the named portal workspace and repository, and remove that repository's webhook in Bitbucket. Other repositories under the same connection remain active. Replacing the shared API token is an explicit **Update API token** action. If you rotate a repository's webhook secret, update its webhook in Bitbucket using the new one-time secret.
+
+</Step>
+</Steps>

@@ -114,6 +114,7 @@ export function walkingRunAt(
     }),
   )
   const session: RunSession = {
+    provider: 'github',
     id: WALKING_RUN_ID,
     engine: 'deep',
     model: 'claude-sonnet-5',
@@ -126,6 +127,7 @@ export function walkingRunAt(
     createdAt: new Date(originMs).toISOString(),
     summaryOnly: false,
     pullRequest: {
+      provider: 'github',
       repo: REPO,
       number: WALKING_PR,
       title: 'feat: live run progress demo',
@@ -164,6 +166,7 @@ export function buildWalkingRunDetail(session: RunSession): RunDetail {
 }
 
 export const mockFailedRun: RunSession = {
+  provider: 'github',
   id: FAILED_RUN_ID,
   engine: 'deep',
   model: 'claude-sonnet-5',
@@ -176,6 +179,7 @@ export const mockFailedRun: RunSession = {
   createdAt: '2026-09-18T09:59:00.000Z',
   summaryOnly: false,
   pullRequest: {
+    provider: 'github',
     repo: REPO,
     number: FAILED_PR,
     title: 'fix: retry the review on a model timeout',

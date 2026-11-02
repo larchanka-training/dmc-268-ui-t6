@@ -28,6 +28,7 @@ import {
   useRepositories,
   type Repository,
 } from '../../entities/repository'
+import { setMockTransport } from '../../shared/api/client'
 
 import { RepositoriesPage } from './RepositoriesPage'
 
@@ -66,10 +67,42 @@ describe('RepositoriesPage', () => {
 
   afterEach(() => {
     cleanup()
+    setMockTransport(null)
     vi.useRealTimers()
     globalThis.fetch = originalFetch
     useAuthStore.setState(originalAuth, true)
     sessionStorage.clear()
+  })
+
+  it('shows the Bitbucket workspace selector from the authenticated account without choosing one', async () => {
+    const requests: string[] = []
+    useAuthStore.setState({ isAuthenticated: true })
+    setMockTransport((endpoint) => {
+      requests.push(endpoint.path)
+      if (endpoint.path === '/auth/me') {
+        return {
+          id: 1,
+          login: 'reviewer',
+          name: 'Reviewer',
+          avatarUrl: null,
+          workspaces: [
+            {
+              id: '11111111-1111-4111-8111-111111111111',
+              name: 'Private team',
+              installationId: 1,
+            },
+          ],
+        }
+      }
+      if (endpoint.path === '/repos') return []
+      throw new Error(`Unexpected request ${endpoint.path}`)
+    })
+    renderWithClient(<RepositoriesPage />)
+    expect(await screen.findByText('Bitbucket Cloud')).toBeTruthy()
+    expect(screen.getByText('Выберите workspace перед просмотром подключений.')).toBeTruthy()
+    expect(requests).not.toContain(
+      '/workspaces/11111111-1111-4111-8111-111111111111/bitbucket/connections',
+    )
   })
 
   it('keeps one empty status through an idle error without exposing an empty list', async () => {
@@ -150,6 +183,7 @@ describe('RepositoriesPage', () => {
       saveAccessRefreshIntent()
       activateAccessRefreshIntent()
       const repository: Repository = {
+        provider: 'github',
         id: '11111111-1111-4111-8111-111111111111',
         fullName: 'org/old-repo',
         url: 'https://github.com/org/old-repo',
@@ -226,6 +260,7 @@ describe('RepositoriesPage', () => {
     saveAccessRefreshIntent()
     activateAccessRefreshIntent()
     const oldRepo: Repository = {
+      provider: 'github',
       id: '11111111-1111-4111-8111-111111111111',
       fullName: 'org/old-repo',
       url: 'https://github.com/org/old-repo',
@@ -292,6 +327,7 @@ describe('RepositoriesPage', () => {
     saveAccessRefreshIntent()
     activateAccessRefreshIntent()
     const repository: Repository = {
+      provider: 'github',
       id: '11111111-1111-4111-8111-111111111111',
       fullName: 'org/old-repo',
       url: 'https://github.com/org/old-repo',
@@ -642,6 +678,7 @@ describe('RepositoriesPage', () => {
     saveAccessRefreshIntent()
     activateAccessRefreshIntent()
     const repository: Repository = {
+      provider: 'github',
       id: '22222222-2222-4222-8222-222222222222',
       fullName: 'org/new-repo',
       url: 'https://github.com/org/new-repo',
@@ -718,6 +755,7 @@ describe('RepositoriesPage', () => {
     saveAccessRefreshIntent()
     activateAccessRefreshIntent()
     let repository: Repository = {
+      provider: 'github',
       id: '22222222-2222-4222-8222-222222222222',
       fullName: 'org/new-repo',
       url: 'https://github.com/org/new-repo',
@@ -766,6 +804,7 @@ describe('RepositoriesPage', () => {
     saveAccessRefreshIntent()
     activateAccessRefreshIntent()
     const repository: Repository = {
+      provider: 'github',
       id: '22222222-2222-4222-8222-222222222222',
       fullName: 'org/delayed-repo',
       url: 'https://github.com/org/delayed-repo',
@@ -832,6 +871,7 @@ describe('RepositoriesPage', () => {
     saveAccessRefreshIntent()
     activateAccessRefreshIntent()
     const first: Repository = {
+      provider: 'github',
       id: '11111111-1111-4111-8111-111111111111',
       fullName: 'org/first-repo',
       url: 'https://github.com/org/first-repo',
@@ -947,6 +987,7 @@ describe('RepositoriesPage', () => {
       defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
     })
     const repository: Repository = {
+      provider: 'github',
       id: '11111111-1111-4111-8111-111111111111',
       fullName: 'org/pending-repo',
       url: 'https://github.com/org/pending-repo',
@@ -993,6 +1034,7 @@ describe('RepositoriesPage', () => {
 
   it('renders repository list within layout on successful load', async () => {
     const mockRepo = {
+      provider: 'github',
       id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
       fullName: 'larchanka-training/dmc-268-ui-t6',
       url: 'https://github.com/larchanka-training/dmc-268-ui-t6',
@@ -1058,6 +1100,7 @@ describe('RepositoriesPage', () => {
 
   it('optimistically toggles switch and rolls back to original state on PATCH error', async () => {
     const mockRepo = {
+      provider: 'github',
       id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
       fullName: 'larchanka-training/dmc-268-ui-t6',
       url: 'https://github.com/larchanka-training/dmc-268-ui-t6',
@@ -1129,6 +1172,7 @@ describe('RepositoriesPage', () => {
 
   it('supports parallel row mutations: disables both while pending, and reenables completed row independently', async () => {
     const repo1 = {
+      provider: 'github',
       id: '11111111-1111-4111-8111-111111111111',
       fullName: 'org/repo-1',
       url: 'https://github.com/org/repo-1',
@@ -1145,6 +1189,7 @@ describe('RepositoriesPage', () => {
       ragIndex: disabledRagIndex,
     }
     const repo2 = {
+      provider: 'github',
       id: '22222222-2222-4222-8222-222222222222',
       fullName: 'org/repo-2',
       url: 'https://github.com/org/repo-2',
@@ -1252,6 +1297,7 @@ describe('RepositoriesPage', () => {
 
   it('navigates to the settings page', async () => {
     const mockRepo = {
+      provider: 'github',
       id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
       fullName: 'larchanka-training/dmc-268-ui-t6',
       url: 'https://github.com/larchanka-training/dmc-268-ui-t6',
@@ -1300,6 +1346,7 @@ describe('RepositoriesPage', () => {
     const INFRA_NAME = 'larchanka-training/dmc-268-infra-t6'
     const UI_NAME = 'larchanka-training/dmc-268-ui-t6'
     const INFRA_REPO: Repository = {
+      provider: 'github',
       id: '33333333-3333-4333-8333-333333333333',
       fullName: INFRA_NAME,
       url: `https://github.com/${INFRA_NAME}`,

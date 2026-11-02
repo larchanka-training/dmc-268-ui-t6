@@ -35,4 +35,11 @@ export const rules: Translation<typeof en> = {
     policy_rate_limited: 'GitHub ограничил число запросов',
     fallback: 'Сервер не смог прочитать файл правил',
   },
+  providerReasons: {
+    policy_access_denied: 'У {{accessName}} нет доступа к репозиторию',
+    policy_revision_unavailable:
+      'Ревизия default branch недоступна: {{name}} не подтвердил, есть ли файл правил.',
+    policy_fetch_transient: '{{name}} временно не отвечает',
+    policy_rate_limited: '{{accessName}} ограничил число запросов',
+  },
 }

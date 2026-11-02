@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { RunDetailSchema, RunSessionSchema } from '../model/schemas'
 
 const runSession = {
+  provider: 'github',
   id: '11111111-1111-4111-8111-000000000002',
   engine: 'deep',
   model: 'claude-sonnet-5',
@@ -15,6 +16,7 @@ const runSession = {
   createdAt: '2026-09-18T11:00:00.000Z',
   summaryOnly: false,
   pullRequest: {
+    provider: 'github',
     repo: 'org/repo',
     number: 32,
     title: 'Title',

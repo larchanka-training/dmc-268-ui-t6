@@ -30,6 +30,7 @@ import {
 } from '../../features/repository-settings'
 import { useTranslation } from '../../shared/i18n'
 import { PageHeader } from '../../shared/ui'
+import { VCS_PROVIDER_LABEL } from '../../shared/model/provider'
 import { RulesStatusPanel } from '../../widgets/repository-rules'
 import { formatErrorMessage } from './lib/formatError'
 import { useRagIndexPolling } from './lib/useRagIndexPolling'
@@ -234,7 +235,7 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
       // choice is kept but reads off, whichever way it went, and saying "on" or "off"
       // would be wrong.
       if (!saved.installationAvailable) {
-        void message.info(autoReviewChoiceSaved(enabled))
+        void message.info(autoReviewChoiceSaved(enabled, repository.provider))
         return
       }
       void message.success(enabled ? t('settings.autoReview.on') : t('settings.autoReview.off'))
@@ -265,7 +266,12 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
               {t('settings.history')}
             </LinkButton>
           }
-          description={repository.fullName}
+          description={
+            <>
+              <span>{repository.fullName}</span> ·{' '}
+              <span>{VCS_PROVIDER_LABEL[repository.provider]}</span>
+            </>
+          }
           title={t('settings.title')}
         />
         {notice === 'stale' ? (
@@ -304,12 +310,14 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
           />
         ) : null}
         <AutoReviewSwitch
+          provider={repository.provider}
           describeError={(err) => formatErrorMessage(err, t('settings.autoReview.changeFailed'))}
           enabled={repository.enabled}
           installationAvailable={repository.installationAvailable}
           onChange={handleToggleAutoReview}
         />
         <RagSection
+          provider={repository.provider}
           describeError={(err) => formatErrorMessage(err, ragErrorTitle())}
           installationAvailable={repository.installationAvailable}
           onChange={handleToggleRag}
@@ -324,7 +332,7 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
           ref={formRef}
           repository={repository}
         />
-        <RulesStatusPanel repoId={repository.id} />
+        <RulesStatusPanel provider={repository.provider} repoId={repository.id} />
       </Flex>
     )
   }

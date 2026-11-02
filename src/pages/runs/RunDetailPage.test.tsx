@@ -485,7 +485,7 @@ describe('RunDetailPage', () => {
           cancelRequested: true,
           trigger: 'webhook',
           createdAt: '2026-09-18T11:00:00.000Z',
-          pullRequest: { repo, number, title, url, headSha },
+          pullRequest: { provider: session.provider, repo, number, title, url, headSha },
         }
       }
       return undefined

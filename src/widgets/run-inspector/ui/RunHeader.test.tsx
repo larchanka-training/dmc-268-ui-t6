@@ -7,6 +7,7 @@ import { RunHeader } from './RunHeader'
 import styles from './RunHeader.module.css'
 
 const baseRun: RunSession = {
+  provider: 'github',
   id: '11111111-1111-4111-8111-000000000004',
   engine: 'deep',
   model: 'claude-sonnet-5',
@@ -19,6 +20,7 @@ const baseRun: RunSession = {
   createdAt: '2026-09-18T11:00:00.000Z',
   summaryOnly: false,
   pullRequest: {
+    provider: 'github',
     repo: 'larchanka-training/dmc-268-ui-t6',
     number: 34,
     title: 'feat: skeleton',
@@ -37,6 +39,21 @@ afterEach(() => {
 })
 
 describe('RunHeader metadata layout', () => {
+  it('shows Bitbucket source and the server PR URL for a Bitbucket run', () => {
+    const run: RunSession = {
+      ...baseRun,
+      provider: 'bitbucket',
+      pullRequest: {
+        ...baseRun.pullRequest,
+        provider: 'bitbucket',
+        repo: 'private-space/private-repo',
+        url: 'https://bitbucket.org/private-space/private-repo/pull-requests/34',
+      },
+    }
+    render(<RunHeader now={new Date()} run={run} />)
+    expect(screen.getByText('Bitbucket')).toBeTruthy()
+    expect(screen.getByRole('link', { name: /#34/ }).getAttribute('href')).toBe(run.pullRequest.url)
+  })
   it('marks the short commit as code with the monospace font hook', () => {
     render(<RunHeader now={new Date('2026-09-18T12:00:00.000Z')} run={baseRun} />)
     const hash = screen.getByText('abcdef1')
@@ -237,6 +254,7 @@ describe('RunHeader PR metadata', () => {
         run={{
           ...baseRun,
           pullRequest: {
+            provider: 'github',
             repo: baseRun.pullRequest.repo,
             number: baseRun.pullRequest.number,
             title: baseRun.pullRequest.title,

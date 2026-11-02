@@ -16,6 +16,7 @@ import { apiClient } from '../../../shared/api/client'
 function run(n: number): RunListPage['items'][number] {
   const id = `11111111-1111-4111-8111-${String(n).padStart(12, '0')}`
   return {
+    provider: 'github',
     id,
     engine: 'fast',
     model: null,
@@ -28,6 +29,7 @@ function run(n: number): RunListPage['items'][number] {
     createdAt: '2026-09-18T11:00:00.000Z',
     summaryOnly: false,
     pullRequest: {
+      provider: 'github',
       repo: 'org/repo',
       number: n,
       title: `pr ${String(n)}`,

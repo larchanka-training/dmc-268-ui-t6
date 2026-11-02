@@ -1,4 +1,5 @@
 import { auth } from './auth'
+import { bitbucket } from './bitbucket'
 import { common } from './common'
 import { layout } from './layout'
 import { reasons } from './reasons'
@@ -11,6 +12,7 @@ import { settings } from './settings'
 export const en = {
   common,
   auth,
+  bitbucket,
   layout,
   repositories,
   settings,

@@ -2,10 +2,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 
 import type { RulesDiagnostic, RulesStatus } from '../../../entities/repository'
-import { RulesStatusPanel } from './RulesStatusPanel'
+import type { VcsProvider } from '../../../shared/model/provider'
+import type { RulesStatusDetailsProps } from './RulesStatusDetails'
+import { RulesStatusPanel, type RulesStatusPanelProps } from './RulesStatusPanel'
 
 const REPO_A = 'a1b2c3d4-e5f6-4890-abcd-ef1234567890'
 const REPO_B = 'b2c3d4e5-f6a7-4901-bcde-f12345678901'
@@ -126,11 +128,14 @@ function Providers({ client, children }: { client: QueryClient; children: ReactN
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>
 }
 
-function renderPanel(props: { repoId?: string } = {}, client = newClient()) {
-  const { repoId = REPO_A } = props
+function renderPanel(
+  props: { repoId?: string; provider?: VcsProvider } = {},
+  client = newClient(),
+) {
+  const { repoId = REPO_A, provider = 'github' } = props
   const view = render(
     <Providers client={client}>
-      <RulesStatusPanel repoId={repoId} />
+      <RulesStatusPanel provider={provider} repoId={repoId} />
     </Providers>,
   )
   return {
@@ -139,7 +144,7 @@ function renderPanel(props: { repoId?: string } = {}, client = newClient()) {
     rerenderFor(next: { repoId?: string }) {
       view.rerender(
         <Providers client={client}>
-          <RulesStatusPanel repoId={next.repoId ?? repoId} />
+          <RulesStatusPanel provider={provider} repoId={next.repoId ?? repoId} />
         </Providers>,
       )
     },
@@ -157,6 +162,31 @@ afterEach(() => {
 })
 
 describe('RulesStatusPanel', () => {
+  it('requires the repository provider on panel and details', () => {
+    expectTypeOf<RulesStatusPanelProps>().toExtend<{ provider: VcsProvider }>()
+    expectTypeOf<RulesStatusDetailsProps>().toExtend<{ provider: VcsProvider }>()
+  })
+
+  it.each([
+    ['gitlab', 'GitLab'],
+    ['bitbucket', 'Bitbucket Cloud'],
+  ] as const)('shows %s in unavailable file and rate-limit states', async (provider, access) => {
+    const client = newClient()
+    stubBackend({ [REPO_A]: [json(unavailable(false, 'policy_revision_unavailable'))] })
+    const view = renderPanel({ provider }, client)
+    expect(
+      await within(panel()).findByText(
+        `Ревизия default branch недоступна: ${access} не подтвердил, есть ли файл правил.`,
+      ),
+    ).toBeTruthy()
+    view.unmount()
+    client.clear()
+
+    stubBackend({ [REPO_A]: [json(unavailable(false, 'policy_rate_limited'))] })
+    renderPanel({ provider })
+    expect(await within(panel()).findByText(`${access} ограничил число запросов`)).toBeTruthy()
+  })
+
   it('shows a skeleton while the status loads', () => {
     stubBackend({ [REPO_A]: [new Promise<Response>(() => undefined)] })
 

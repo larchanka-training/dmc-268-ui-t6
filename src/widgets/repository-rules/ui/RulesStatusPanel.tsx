@@ -3,11 +3,13 @@ import { useCallback, useEffect, useRef, type FC } from 'react'
 
 import { useRepositoryRulesStatus } from '../../../entities/repository'
 import { useTranslation } from '../../../shared/i18n'
+import type { VcsProvider } from '../../../shared/model/provider'
 import { RulesStatusDetails } from './RulesStatusDetails'
 import styles from './RulesStatusPanel.module.css'
 
 export interface RulesStatusPanelProps {
   repoId: string
+  provider: VcsProvider
 }
 
 /**
@@ -22,7 +24,7 @@ export interface RulesStatusPanelProps {
  * has one now (the retry of an `unavailable` status failed with an HTTP error), else to the
  * heading of the block, not to `<body>`.
  */
-export const RulesStatusPanel: FC<RulesStatusPanelProps> = ({ repoId }) => {
+export const RulesStatusPanel: FC<RulesStatusPanelProps> = ({ repoId, provider }) => {
   const { t } = useTranslation()
   const query = useRepositoryRulesStatus(repoId)
 
@@ -86,6 +88,7 @@ export const RulesStatusPanel: FC<RulesStatusPanelProps> = ({ repoId }) => {
     }
     return (
       <RulesStatusDetails
+        provider={provider}
         onRetry={retry}
         retryRef={trackRetry}
         retrying={query.isFetching}

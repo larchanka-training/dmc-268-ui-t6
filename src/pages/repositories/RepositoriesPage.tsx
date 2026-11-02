@@ -9,6 +9,8 @@ import {
   useUpdateRepository,
   type UpdateRepositoryVariables,
 } from '../../entities/repository'
+import { useMe } from '../../entities/user'
+import { BitbucketConnectionsPanel } from '../../features/bitbucket-connections'
 import { saveAccessRefreshIntent, saveAuthReturnTo, useAuthStore } from '../../features/auth'
 import { useTranslation } from '../../shared/i18n'
 import { RepositoryList, resolveAccessRefreshPresentation } from '../../widgets/repository-list'
@@ -22,6 +24,8 @@ export const RepositoriesPage: FC = () => {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const loginWithGitHub = useAuthStore((state) => state.loginWithGitHub)
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
+  const { data: me } = useMe(isAuthenticated)
 
   const handleSyncAccess = () => {
     saveAccessRefreshIntent()
@@ -127,6 +131,7 @@ export const RepositoriesPage: FC = () => {
           updatingRepoIds={updatingRepoIds}
         />
       ) : null}
+      {me ? <BitbucketConnectionsPanel workspaces={me.workspaces} /> : null}
     </Flex>
   )
 }
