@@ -31,7 +31,7 @@ describe('bitbucketErrorMessage', () => {
     [
       422,
       'repository_inaccessible',
-      'Репозиторий Bitbucket недоступен этому API token. Проверьте права доступа.',
+      'Репозиторий Bitbucket недоступен этому API token. Проверьте доступ к репозиторию и права токена: read:repository:bitbucket, read:pullrequest:bitbucket, read:user:bitbucket.',
     ],
     [
       404,
@@ -54,6 +54,26 @@ describe('bitbucketErrorMessage', () => {
     const message = bitbucketErrorMessage(new ApiError(status, 'Provider error', { detail }))
     expect(message).toBe(expected)
     expect(message).not.toContain(detail)
+  })
+
+  it('explains all required token scopes in both languages without exposing provider details', async () => {
+    const error = new ApiError(422, 'private provider detail', {
+      detail: 'repository_inaccessible',
+    })
+    const russian = bitbucketErrorMessage(error)
+    expect(russian).toBe(
+      'Репозиторий Bitbucket недоступен этому API token. Проверьте доступ к репозиторию и права токена: read:repository:bitbucket, read:pullrequest:bitbucket, read:user:bitbucket.',
+    )
+    expect(russian).not.toContain('private provider detail')
+
+    try {
+      await i18n.changeLanguage('en')
+      expect(bitbucketErrorMessage(error)).toBe(
+        'This Bitbucket repository is inaccessible to the API token. Check repository access and token scopes: read:repository:bitbucket, read:pullrequest:bitbucket, read:user:bitbucket.',
+      )
+    } finally {
+      await i18n.changeLanguage('ru')
+    }
   })
 
   it('never renders unknown server detail or the ApiError message', () => {

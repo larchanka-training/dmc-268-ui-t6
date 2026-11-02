@@ -1059,7 +1059,7 @@ describe('Bitbucket connections panel', () => {
 
     expect(
       await screen.findByText(
-        'Репозиторий Bitbucket недоступен этому API token. Проверьте права доступа.',
+        'Репозиторий Bitbucket недоступен этому API token. Проверьте доступ к репозиторию и права токена: read:repository:bitbucket, read:pullrequest:bitbucket, read:user:bitbucket.',
       ),
     ).toBeTruthy()
     expect(screen.queryByText('repository_inaccessible')).toBeNull()

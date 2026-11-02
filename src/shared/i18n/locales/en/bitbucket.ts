@@ -58,7 +58,7 @@ export const bitbucket = {
     invalidCredential: 'The Bitbucket API token is invalid. Check the token and its permissions.',
     rotationRequired: 'First update the shared Bitbucket API token for this connection.',
     repositoryInaccessible:
-      'This Bitbucket repository is inaccessible to the API token. Check its permissions.',
+      'This Bitbucket repository is inaccessible to the API token. Check repository access and token scopes: read:repository:bitbucket, read:pullrequest:bitbucket, read:user:bitbucket.',
     sessionExpired: 'Your session expired. Sign in again.',
     forbidden: 'You do not have permission to connect Bitbucket.',
     notFound: 'Bitbucket repository or connection not found. Refresh the list.',

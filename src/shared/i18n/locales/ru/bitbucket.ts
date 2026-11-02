@@ -58,7 +58,7 @@ export const bitbucket = {
     invalidCredential: 'API token Bitbucket недействителен. Проверьте token и его права.',
     rotationRequired: 'Сначала обновите общий API token Bitbucket для этого подключения.',
     repositoryInaccessible:
-      'Репозиторий Bitbucket недоступен этому API token. Проверьте права доступа.',
+      'Репозиторий Bitbucket недоступен этому API token. Проверьте доступ к репозиторию и права токена: read:repository:bitbucket, read:pullrequest:bitbucket, read:user:bitbucket.',
     sessionExpired: 'Сессия истекла. Войдите повторно.',
     forbidden: 'Недостаточно прав для подключения Bitbucket.',
     notFound: 'Репозиторий или подключение Bitbucket не найдено. Обновите список.',
