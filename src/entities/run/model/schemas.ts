@@ -51,6 +51,14 @@ export const PullRequestRefSchema = z.object({
 })
 export type PullRequestRef = z.infer<typeof PullRequestRefSchema>
 
+/** Sum of `usage_events` for the run. Always present; zeros when the run has no events. */
+export const RunUsageSchema = z.object({
+  tokensIn: z.int().nonnegative(),
+  tokensOut: z.int().nonnegative(),
+  costUsd: z.number().nonnegative(),
+})
+export type RunUsage = z.infer<typeof RunUsageSchema>
+
 export const RunSessionSchema = z
   .object({
     id: z.uuid(),
@@ -68,6 +76,9 @@ export const RunSessionSchema = z
     pullRequest: PullRequestRefSchema,
     actionCount: z.int().nonnegative(),
     errorCode: z.string().nullable(),
+    // api#310: `usage` is an object, never null; `triggeredBy` is a login or null, never an object.
+    usage: RunUsageSchema,
+    triggeredBy: z.string().nullable(),
   })
   .superRefine((value, ctx) => {
     if (value.provider !== value.pullRequest.provider) {

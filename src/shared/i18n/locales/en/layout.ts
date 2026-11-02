@@ -4,6 +4,8 @@ export const layout = {
     label: 'Sections',
     repositories: 'Repositories',
     runs: 'Runs',
+    audit: 'Audit',
+    analytics: 'Analytics',
     review: 'Review',
   },
   expandMenu: 'Expand menu',

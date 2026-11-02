@@ -50,17 +50,27 @@ describe('runApi', () => {
     expect(() => runListEndpoint({ limit: 101 })).toThrow()
   })
 
-  it('keys the list by repo', () => {
+  it('keys the list by repo and status', () => {
     expect(runQueryKeys.list()).toEqual(['runs', 'list'])
-    expect(runQueryKeys.listFiltered({})).toEqual(['runs', 'list', { repo: null }])
+    expect(runQueryKeys.listFiltered({})).toEqual(['runs', 'list', { repo: null, status: null }])
     expect(runQueryKeys.listFiltered({ repo: 'org/repo' })).toEqual([
       'runs',
       'list',
-      { repo: 'org/repo' },
+      { repo: 'org/repo', status: null },
     ])
-    expect(runQueryKeys.listFiltered({ repo: 'org/a' })).not.toEqual(
-      runQueryKeys.listFiltered({ repo: 'org/b' }),
+    expect(runQueryKeys.listFiltered({ repo: 'org/repo', status: 'failed' })).toEqual([
+      'runs',
+      'list',
+      { repo: 'org/repo', status: 'failed' },
+    ])
+    expect(runQueryKeys.listFiltered({ repo: 'org/repo' })).not.toEqual(
+      runQueryKeys.listFiltered({ repo: 'org/repo', status: 'failed' }),
     )
+  })
+
+  it('puts status on the list path only when it is passed', () => {
+    expect(runListEndpoint({}).path).toBe('/runs')
+    expect(runListEndpoint({ status: 'failed' }).path).toBe('/runs?status=failed')
   })
 
   it('invalidates every filtered list through the list prefix', async () => {

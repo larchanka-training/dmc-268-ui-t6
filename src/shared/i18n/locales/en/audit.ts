@@ -1,0 +1,27 @@
+/** The audit journal of review runs. */
+export const audit = {
+  title: 'Audit',
+  description: 'Who started a review, and what it spent',
+  descriptionForRepo: 'Review runs of {{repo}}',
+  resetFilter: 'Reset filter',
+  statusFilter: 'Status',
+  statusAll: 'All',
+  columns: {
+    started: 'Started',
+    repository: 'Repository',
+    pullRequest: 'PR',
+    trigger: 'Trigger',
+    startedBy: 'Started by',
+    status: 'Status',
+    duration: 'Duration',
+    tokensIn: 'Input tokens',
+    tokensOut: 'Output tokens',
+    cost: 'Cost',
+  },
+  empty: 'No review runs',
+  loadFailedTitle: 'Could not load',
+  loadFailed: 'Could not load the journal',
+  nextPageFailed: 'Could not load the next page',
+  retry: 'Retry',
+  showMore: 'Show more',
+}

@@ -1,7 +1,13 @@
 import type { JSX, ReactNode } from 'react'
 import { Card, Spin } from 'antd'
 
-import type { RunAction, RunSession, SeverityCounts, Verdict } from '../../../entities/run'
+import type {
+  RunAction,
+  RunBudget,
+  RunSession,
+  SeverityCounts,
+  Verdict,
+} from '../../../entities/run'
 import { useTranslation } from '../../../shared/i18n'
 import { ActionTree } from './ActionTree'
 import { RunHeader } from './RunHeader'
@@ -23,6 +29,8 @@ interface RunInspectorProps {
   actionsLoading?: boolean
   /** Shown next to the action log: the diff with the findings. */
   children?: ReactNode
+  /** Spending and limits from the run detail. `null` is shown as dashes. */
+  budget?: RunBudget | null
 }
 
 /** A run on one screen: the card with its metadata, the action log and, next to it, the diff. */
@@ -39,12 +47,14 @@ export function RunInspector(props: RunInspectorProps): JSX.Element {
     headerExtra = null,
     actionsLoading = false,
     children = null,
+    budget = null,
   } = props
   return (
     <section className={styles.root}>
       <Card>
         <RunHeader
           droppedFindings={droppedFindings}
+          budget={budget}
           loggedActions={actions.length}
           now={now}
           run={run}

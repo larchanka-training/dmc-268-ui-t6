@@ -116,6 +116,7 @@ const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
         actions={actions}
         actionsLoading={actionsQuery.isLoading && actionsQuery.errorUpdateCount === 0}
         actionsUnavailable={actionsQuery.errorUpdateCount > 0 && !actionsQuery.data}
+        budget={run.budget}
         droppedFindings={run.droppedFindings}
         now={now}
         run={run}

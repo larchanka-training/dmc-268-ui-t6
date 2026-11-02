@@ -1,6 +1,14 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 
-import { IconRepositories, IconReview, IconRuns, IconSettings, IconSidebar } from './icons'
+import {
+  IconAnalytics,
+  IconAudit,
+  IconRepositories,
+  IconReview,
+  IconRuns,
+  IconSettings,
+  IconSidebar,
+} from './icons'
 
 const meta: Meta = { title: 'Свои компоненты/Icons' }
 
@@ -19,6 +27,14 @@ export const Navigation: StoryObj = {
       <span style={cell}>
         <IconRuns />
         IconRuns
+      </span>
+      <span style={cell}>
+        <IconAudit />
+        IconAudit
+      </span>
+      <span style={cell}>
+        <IconAnalytics />
+        IconAnalytics
       </span>
       <span style={cell}>
         <IconReview />

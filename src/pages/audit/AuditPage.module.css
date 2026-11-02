@@ -1,0 +1,33 @@
+.pullRequest {
+  display: grid;
+}
+
+.loading {
+  min-height: 160px;
+}
+
+.more {
+  margin-top: 16px;
+}
+
+.filters {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.runLink {
+  justify-self: start;
+  border-radius: var(--rv-radius-xs);
+  color: var(--rv-text);
+  font-weight: 600;
+}
+
+.runLink:hover {
+  color: var(--rv-link);
+}
+
+.runLink:focus-visible {
+  outline: 2px solid var(--rv-link);
+  outline-offset: 2px;
+}
