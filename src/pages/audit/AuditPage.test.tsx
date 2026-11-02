@@ -32,6 +32,7 @@ function requestedUrls(fetchMock: ReturnType<typeof stubFetch>): URL[] {
 function session(overrides: Partial<RunSession> = {}): RunSession {
   return {
     id: '11111111-1111-4111-8111-000000000301',
+    provider: 'github',
     engine: 'fast',
     model: null,
     status: 'failed',
@@ -43,6 +44,7 @@ function session(overrides: Partial<RunSession> = {}): RunSession {
     createdAt: '2026-09-18T11:00:00.000Z',
     summaryOnly: false,
     pullRequest: {
+      provider: 'github',
       repo: 'org/repo',
       number: 7,
       title: 'feat: audit row',
@@ -126,6 +128,7 @@ describe('AuditPage', () => {
           id: '11111111-1111-4111-8111-000000000302',
           errorCode: 'not_a_limit',
           pullRequest: {
+            provider: 'github',
             repo: 'org/repo',
             number: 8,
             title: 'unknown',
@@ -137,6 +140,7 @@ describe('AuditPage', () => {
           id: '11111111-1111-4111-8111-000000000303',
           errorCode: null,
           pullRequest: {
+            provider: 'github',
             repo: 'org/repo',
             number: 9,
             title: 'none',
@@ -165,6 +169,7 @@ describe('AuditPage', () => {
           usage: { tokensIn: 0, tokensOut: 0, costUsd: 0 },
           errorCode: null,
           pullRequest: {
+            provider: 'github',
             repo: 'org/repo',
             number: 11,
             title: 'zeros',
@@ -232,6 +237,7 @@ describe('AuditPage', () => {
     const second = session({
       id: '11111111-1111-4111-8111-000000000306',
       pullRequest: {
+        provider: 'github',
         repo: 'org/repo',
         number: 12,
         title: 'next page',
@@ -268,6 +274,7 @@ describe('AuditPage', () => {
     const second = session({
       id: '11111111-1111-4111-8111-000000000307',
       pullRequest: {
+        provider: 'github',
         repo: 'org/repo',
         number: 13,
         title: 'focused row',
