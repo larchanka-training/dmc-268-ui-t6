@@ -1372,7 +1372,7 @@ describe('initMockTransport', () => {
       initMockTransport()
     })
 
-    it('serves a 7d series with zero days and the three workspace budgets', async () => {
+    it('serves a 7d series with zero days, a failed-only day, and the three workspace budgets', async () => {
       const summary = MetricsSummarySchema.parse(
         await apiClient<unknown>(metricsSummaryEndpoint({ range: '7d' })),
       )
@@ -1381,7 +1381,10 @@ describe('initMockTransport', () => {
       expect(
         summary.series.some((day) => day.runCount === 0 && day.averageDurationSeconds === 0),
       ).toBe(true)
-      expect(summary.series.some((day) => day.runCount > 0)).toBe(true)
+      expect(
+        summary.series.some((day) => day.runCount > 0 && day.averageDurationSeconds === 0),
+      ).toBe(true)
+      expect(summary.series.some((day) => day.averageDurationSeconds > 0)).toBe(true)
       expect(summary.workspaces.map((workspace) => workspace.dailyBudgetUsd)).toEqual([25, 0, 10])
       expect(summary.workspaces.map((workspace) => workspace.paused)).toEqual([false, false, true])
     })

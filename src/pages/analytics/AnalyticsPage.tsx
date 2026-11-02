@@ -202,7 +202,9 @@ export function AnalyticsPage(): JSX.Element {
               performance: point.findingsByCategory.performance,
               style: point.findingsByCategory.readability,
               duration:
-                point.runCount === 0 ? '—' : formatDuration(point.averageDurationSeconds * 1000),
+                point.averageDurationSeconds === 0
+                  ? '—'
+                  : formatDuration(point.averageDurationSeconds * 1000),
               cost: formatUsd(point.costUsd),
             }))}
             pagination={false}

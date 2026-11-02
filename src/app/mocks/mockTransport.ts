@@ -788,7 +788,10 @@ const MOCK_WORKSPACES = [
   { name: 'paused-team', dailyBudgetUsd: 10, spentTodayUsd: 10, paused: true },
 ]
 
-/** `GET /metrics/summary` in the api#310 shape. `30d` is an empty selection; `7d` and `24h` include zero days. */
+/**
+ * `GET /metrics/summary` in the api#310 shape. `30d` is an empty selection.
+ * `7d` and `24h` include empty days and one day that had runs but no successful duration.
+ */
 function mockMetricsSummary(search: string) {
   const range = new URLSearchParams(search).get('range')
   if (range !== '24h' && range !== '7d' && range !== '30d') {
@@ -842,15 +845,16 @@ function mockMetricsSummary(search: string) {
       costUsd: 0.5,
     },
     series: days.map((day, index) => {
-      const hasRuns = index === 1 || index === 4
+      const succeeded = index === 1
+      const failedOnly = index === 4
       return {
         day,
-        findingsByCategory: hasRuns
+        findingsByCategory: succeeded
           ? { security: 1, correctness: index, performance: 0, readability: 0 }
           : EMPTY_CATEGORY,
-        runCount: hasRuns ? 1 : 0,
-        averageDurationSeconds: hasRuns ? 90 : 0,
-        costUsd: hasRuns ? 0.25 : 0,
+        runCount: succeeded || failedOnly ? 1 : 0,
+        averageDurationSeconds: succeeded ? 90 : 0,
+        costUsd: succeeded ? 0.25 : 0,
       }
     }),
     workspaces: MOCK_WORKSPACES,

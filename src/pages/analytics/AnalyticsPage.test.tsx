@@ -356,6 +356,69 @@ describe('AnalyticsPage', () => {
     expect(average?.textContent).toBe('—')
   })
 
+  it('omits a day that had runs but no successful duration', async () => {
+    stubFetch((url) =>
+      url.pathname.endsWith('/repos')
+        ? { status: 200, body: [REPO] }
+        : {
+            status: 200,
+            body: summary({
+              totals: { ...summary().totals, succeededAverageDurationSeconds: 10 },
+              series: [
+                {
+                  day: '2026-10-25',
+                  findingsByCategory: {
+                    security: 0,
+                    correctness: 0,
+                    performance: 0,
+                    readability: 0,
+                  },
+                  runCount: 2,
+                  averageDurationSeconds: 10,
+                  costUsd: 0,
+                },
+                {
+                  day: '2026-10-26',
+                  findingsByCategory: {
+                    security: 0,
+                    correctness: 0,
+                    performance: 0,
+                    readability: 0,
+                  },
+                  runCount: 3,
+                  averageDurationSeconds: 0,
+                  costUsd: 0,
+                },
+                {
+                  day: '2026-10-27',
+                  findingsByCategory: {
+                    security: 0,
+                    correctness: 0,
+                    performance: 0,
+                    readability: 0,
+                  },
+                  runCount: 1,
+                  averageDurationSeconds: 4,
+                  costUsd: 0,
+                },
+              ],
+            }),
+          },
+    )
+    const { container } = renderPage()
+    expect(await screen.findByText('Критические')).toBeTruthy()
+    const duration = [...container.querySelectorAll('figure')].find((figure) =>
+      figure.textContent.includes('Средняя длительность по дням'),
+    )
+    expect(duration?.querySelectorAll('polyline')).toHaveLength(2)
+    const circles = [...(duration?.querySelectorAll('circle') ?? [])]
+    expect(circles).toHaveLength(2)
+    expect(circles.every((node) => Number(node.getAttribute('cy')) < 196)).toBe(true)
+    const row = screen.getByRole('row', { name: /2026-10-26/ })
+    expect(row.textContent).toContain('—')
+    expect(row.textContent).not.toContain('<1')
+  })
+
   it('paints series with theme tokens and no hex', () => {
     const root = join(process.cwd(), 'src/pages/analytics')
     const css = [
