@@ -33,9 +33,9 @@ newline):
     }
 
 The bodies are verbatim ("" when GitHub has none): the Spec axis reads the issue's Scope from
-them, and the AC axis the pull request's own claims. They are untrusted: the brief pastes each
-between two `fence` lines, a run of `~` one longer than the longest run in any body (at least
-six), so no line of a body can close the block.
+them, and the AC axis the pull request's own claims. The titles, bodies and criteria are
+untrusted: the brief pastes them only between two `fence` lines, a run of `~` one longer than the
+longest run in any title or body (at least six), so no line of them can close the block.
 
 The criteria are the checkboxes of the issue's `## Acceptance Criteria`, numbered AC1.. in
 the issue's order (the ids of accept-issue's table). When the pull request names parts of an
@@ -243,7 +243,7 @@ def select(
 
 
 def fence_for(bodies: list[str]) -> str:
-    """A `~` fence no line of these bodies can close: longer than any `~` run in them."""
+    """A `~` fence no line of these texts can close: longer than any `~` run in them."""
     longest = max((len(m.group()) for body in bodies for m in TILDES.finditer(body)), default=0)
     return "~" * max(MIN_FENCE, longest + 1)
 
@@ -296,7 +296,7 @@ def collect(repo: str, number: int) -> dict[str, Any]:
             " name the spec"
         )
     return {
-        "fence": fence_for([body, *(i["body"] for i in issues)]),
+        "fence": fence_for([title, body, *(i[k] for i in issues for k in ("title", "body"))]),
         "issues": issues,
         "pr": pr,
         "reasons": reasons,
