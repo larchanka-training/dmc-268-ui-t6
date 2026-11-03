@@ -35,6 +35,7 @@ export function useFindingFiltersParams(): {
    * component. The search box uses it to drop pending text when no subscription is supplied.
    */
   navigationKey: number
+  /** Notifies the search box before an external navigation commits so it drops pending text. */
   subscribeToNavigation: SubscribeFilterNavigation
 } {
   const [params, setSearchParams] = useSearchParams()

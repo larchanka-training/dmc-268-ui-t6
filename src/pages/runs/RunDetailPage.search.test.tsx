@@ -213,9 +213,7 @@ describe('RunDetailPage search box on the app router', () => {
       fireEvent.change(input, { target: { value: 'stale pending' } })
       expect(input.value).toBe('stale pending')
       blocked = true
-      await act(async () => {
-        await router.navigate(-1)
-      })
+      await back(router)
       expect(router.state.location.search).toBe('?q=target')
       expect(screen.getByTestId('run-detail-page')).toBeTruthy()
       expect(screen.getByTestId('committed-search').textContent).toBe('?q=old')
@@ -367,8 +365,8 @@ describe('RunDetailPage search box on the app router', () => {
     expect(searchInput().value).toBe('abc')
   })
 
-  // The uncommitted window itself (a write built before a slow commit lands) needs a slow render;
-  // it is covered by the hook test in useFindingFiltersParams.test.tsx. This one checks the outcome.
+  // The hook test in useFindingFiltersParams.test.tsx covers a local write during a slow commit;
+  // this test checks its outcome. The slow-commit page test above covers external POP instead.
   it('typing right after a severity change ends with both in the URL', async () => {
     const { router } = renderApp(DEMO)
     const input = await ready()
