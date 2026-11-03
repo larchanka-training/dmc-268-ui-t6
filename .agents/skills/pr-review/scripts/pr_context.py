@@ -21,6 +21,7 @@ newline):
       "verdict": "go" | "stop",
       "reasons": [str],              # why the run stops; empty on go
       "warnings": [str],
+      "fence": "~~~~~~",             # the brief's data fence, longer than any `~` run
       "pr": {"repo", "number", "url", "title", "author", "draft",
              "state": "open" | "closed" | "merged",
              "base_ref", "base_sha", "head_ref", "head_sha", "body"},
@@ -31,7 +32,9 @@ newline):
     }
 
 The bodies are verbatim ("" when GitHub has none): the Spec axis reads the issue's Scope from
-them, and the AC axis the pull request's own claims.
+them, and the AC axis the pull request's own claims. They are untrusted: the brief pastes each
+between two `fence` lines, a run of `~` one longer than the longest run in any body (at least
+six), so no line of a body can close the block.
 
 The criteria are the checkboxes of the issue's `## Acceptance Criteria`, numbered AC1.. in
 the issue's order (the ids of accept-issue's table). When the pull request names parts of an
@@ -69,6 +72,7 @@ import argparse
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -85,6 +89,9 @@ PR_FIELDS = (
     " base: {ref: .base.ref, sha: .base.sha}, head: {ref: .head.ref, sha: .head.sha}}"
 )
 ISSUE_FIELDS = "{number, title, body, state, html_url, pull_request: (.pull_request != null)}"
+
+MIN_FENCE = 6
+TILDES = re.compile(r"~+")
 
 MERGED = "the pull request is merged: the review reads its final head"
 CLOSED = "the pull request is closed without a merge"
@@ -231,6 +238,12 @@ def select(
     return [c for c in criteria if c["part"] is None or c["part"] in parts]
 
 
+def fence_for(bodies: list[str]) -> str:
+    """A `~` fence no line of these bodies can close: longer than any `~` run in them."""
+    longest = max((len(m.group()) for body in bodies for m in TILDES.finditer(body)), default=0)
+    return "~" * max(MIN_FENCE, longest + 1)
+
+
 # ─── the run ────────────────────────────────────────────────────────────────
 def collect(repo: str, number: int) -> dict[str, Any]:
     raw = fetch("pr", f"repos/{repo}/pulls/{number}", PR_FIELDS)
@@ -276,6 +289,7 @@ def collect(repo: str, number: int) -> dict[str, Any]:
             " name the spec"
         )
     return {
+        "fence": fence_for([body, *(i["body"] for i in issues)]),
         "issues": issues,
         "pr": pr,
         "reasons": reasons,
