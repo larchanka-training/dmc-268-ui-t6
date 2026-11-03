@@ -324,6 +324,7 @@ def test_the_pull_request_facts(tmp_path: Path) -> None:
         "author": "someone",
         "base_ref": "main",
         "base_sha": BASE,
+        "body": "Refs #9",
         "draft": False,
         "head_ref": "feat/9-x",
         "head_sha": HEAD,
@@ -334,6 +335,21 @@ def test_the_pull_request_facts(tmp_path: Path) -> None:
         "url": f"https://github.com/{API}/pull/5",
     }
     assert doc["issues"][0]["ref"] == f"{API}#9"
+
+
+def test_the_bodies_are_passed_verbatim(tmp_path: Path) -> None:
+    """The Spec axis reads the issue's Scope, the AC axis the pull request's own claims."""
+    pr = pr_json("## What\n\nPart 2 of #9: x.\n\nRefs #9\n")
+    doc = doc_of(run("ui#5", fixtures=case(tmp_path, pr, issue_json(AC_PARTS))))
+    assert doc["pr"]["body"] == "## What\n\nPart 2 of #9: x.\n\nRefs #9\n"
+    assert doc["issues"][0]["body"] == AC_PARTS
+
+
+def test_a_null_body_is_empty(tmp_path: Path) -> None:
+    pr = pr_json(None, title="Refs #9")  # a title is read for `Refs` lines too
+    doc = doc_of(run("ui#5", fixtures=case(tmp_path, pr, issue_json(None))))
+    assert doc["pr"]["body"] == ""
+    assert doc["issues"][0]["body"] == ""
 
 
 # ─── errors ─────────────────────────────────────────────────────────────────

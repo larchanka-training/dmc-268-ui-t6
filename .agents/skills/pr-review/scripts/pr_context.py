@@ -23,11 +23,15 @@ newline):
       "warnings": [str],
       "pr": {"repo", "number", "url", "title", "author", "draft",
              "state": "open" | "closed" | "merged",
-             "base_ref", "base_sha", "head_ref", "head_sha"},
+             "base_ref", "base_sha", "head_ref", "head_sha", "body"},
       "issues": [{"ref": "owner/name#N", "url", "title", "state": "open" | "closed",
                   "parts": [K],      # the parts the pull request names for this issue
-                  "acceptance_criteria": [{"id": "AC<k>", "part": K | null, "text"}]}]
+                  "acceptance_criteria": [{"id": "AC<k>", "part": K | null, "text"}],
+                  "body"}]
     }
+
+The bodies are verbatim ("" when GitHub has none): the Spec axis reads the issue's Scope from
+them, and the AC axis the pull request's own claims.
 
 The criteria are the checkboxes of the issue's `## Acceptance Criteria`, numbered AC1.. in
 the issue's order (the ids of accept-issue's table). When the pull request names parts of an
@@ -172,6 +176,7 @@ def pr_facts(raw: dict[str, Any], repo: str, number: int) -> dict[str, Any]:
     return {
         "author": field(raw, "user", str, where),
         "base_ref": field(base, "ref", str, f"{where} base"),
+        "body": body_of(raw, where),
         "base_sha": field(base, "sha", str, f"{where} base"),
         "draft": field(raw, "draft", bool, where),
         "head_ref": field(head, "ref", str, f"{where} head"),
@@ -231,7 +236,7 @@ def collect(repo: str, number: int) -> dict[str, Any]:
     raw = fetch("pr", f"repos/{repo}/pulls/{number}", PR_FIELDS)
     pr = pr_facts(raw, repo, number)
     title = pr["title"]
-    body = body_of(raw, f"{repo}#{number}")
+    body = pr["body"]
     warnings: list[str] = []
     if pr["state"] == "merged":
         warnings.append(MERGED)
@@ -248,10 +253,12 @@ def collect(repo: str, number: int) -> dict[str, Any]:
             continue
         named, _ = preflight.parts_named(title, body, repo, (ref_repo, ref_number))
         parts = sorted(set(named))
-        criteria = select(criteria_of(body_of(issue, ref)), parts, ref, warnings)
+        issue_body = body_of(issue, ref)
+        criteria = select(criteria_of(issue_body), parts, ref, warnings)
         issues.append(
             {
                 "acceptance_criteria": criteria,
+                "body": issue_body,
                 "parts": parts,
                 "ref": ref,
                 "state": field(issue, "state", str, ref),
