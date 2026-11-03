@@ -265,6 +265,34 @@ def test_several_refs_each_with_its_own_criteria(tmp_path: Path) -> None:
     assert criteria(doc, 1) == [("AC1", None, "ui criterion")]
 
 
+@pytest.mark.parametrize(
+    ("refs", "issues", "keys"),
+    [
+        (
+            f"Refs #9, {API}#7",
+            [(UI, 9), (API, 7)],
+            ["api#7 AC1", "api#7 AC2", "ui#9 AC1", "ui#9 AC2"],
+        ),
+        (
+            "Refs #9, octo/elsewhere#3",
+            [(UI, 9), ("octo/elsewhere", 3)],
+            ["ui#9 AC1", "ui#9 AC2", "octo/elsewhere#3 AC1", "octo/elsewhere#3 AC2"],
+        ),
+    ],
+    ids=["api-and-ui", "another-owner"],
+)
+def test_the_key_names_the_issue(
+    tmp_path: Path, refs: str, issues: list[tuple[str, int]], keys: list[str]
+) -> None:
+    """Every issue numbers its criteria from AC1; the AC table's key tells them apart."""
+    body = "## Acceptance Criteria\n\n- [ ] one\n- [ ] two\n"
+    fixtures = case(
+        tmp_path, pr_json(refs), *(issue_json(body, repo=r, number=n) for r, n in issues)
+    )
+    doc = doc_of(run("ui#5", fixtures=fixtures))
+    assert [c["key"] for i in doc["issues"] for c in i["acceptance_criteria"]] == keys
+
+
 def test_a_ref_to_a_pull_request_is_skipped(tmp_path: Path) -> None:
     pr = pr_json("Refs #8, #9")
     other = issue_json(None, number=8, pull_request=True)

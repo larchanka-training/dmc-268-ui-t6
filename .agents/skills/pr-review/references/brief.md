@@ -19,7 +19,8 @@ commit; never read a `.env` file; no network.
   working tree is not the pull request.
 - Spec: <ref> — <title> (<url>), parts the pull request names: <parts, or "none">. One line per
   issue; each body is at the end of this file.
-- Acceptance criteria to check, with the issue's ids: <one line per criterion: `ACk` (Part K) text>.
+- Acceptance criteria to check, in the JSON's order: <one line per criterion: its `key` (the issue
+  and its id: `api#N ACk`), (Part K) and the text>.
 - Standards sources: `AGENTS.md`, the stack rules in `.agents/rules/` and `docs/CONTRIBUTING.md`
   where it exists, read as of the base (`git show origin/<base_ref>:<path>`), and the smell
   baseline in step 3 of `.agents/skills/code-review/SKILL.md` (read it).

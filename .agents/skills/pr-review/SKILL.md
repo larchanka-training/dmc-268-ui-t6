@@ -38,7 +38,7 @@ numbered sequence.
 
 `scripts/pr_context.py REF` — read-only: the pull request (state, base ref, head SHA), the issues
 its `Refs` lines name, their acceptance criteria as `AC1..` in the issue's order (the ids of
-accept-issue's table). When the pull request names a part (its title, else the first line of its
+accept-issue's table) with a `key` that names the issue too (`api#N AC1`). When the pull request names a part (its title, else the first line of its
 `## What`: `Part K of #N`), only that part's criteria (`Ч.K:` / `Part K:`) and the common ones are
 kept. The `Refs` and part rules are implement-issue's: the script loads them from
 `implement-issue/scripts/preflight.py`. The full contract is the script's docstring.
@@ -100,8 +100,8 @@ on `.agents/agents/*.md` (Codex does not load them).
    be the code the finding talks about. Fix a line number that is off by a few, drop a finding
    whose code is not there, and say so.
 3. Report under `## Standards`, `## Spec` (as `code-review` §5: verbatim or lightly cleaned, not
-   merged, not reranked) and `## AC`: one row per criterion of the JSON, in its order, none added
-   or dropped. Name the head SHA the report is about.
+   merged, not reranked) and `## AC`: one row per criterion of the JSON, keyed by its `key`, in its
+   order, none added, merged or dropped. Name the head SHA the report is about.
 4. End with one summary line: the count per severity and the worst finding of each axis, and the
    count per AC status.
 

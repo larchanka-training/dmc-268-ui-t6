@@ -27,7 +27,8 @@ newline):
              "base_ref", "base_sha", "head_ref", "head_sha", "body"},
       "issues": [{"ref": "owner/name#N", "url", "title", "state": "open" | "closed",
                   "parts": [K],      # the parts the pull request names for this issue
-                  "acceptance_criteria": [{"id": "AC<k>", "part": K | null, "text"}],
+                  "acceptance_criteria": [{"id": "AC<k>", "key": "<ref> AC<k>",
+                                           "part": K | null, "text"}],
                   "body"}]
     }
 
@@ -40,7 +41,9 @@ The criteria are the checkboxes of the issue's `## Acceptance Criteria`, numbere
 the issue's order (the ids of accept-issue's table). When the pull request names parts of an
 issue — in its title, else in the first mention in the first line of its `## What`, as
 implement-issue reads it — only the criteria of those parts (`Ч.K:` / `Part K:`, the prefix
-cut off) and the criteria without a prefix are kept, with their ids.
+cut off) and the criteria without a prefix are kept, with their ids. `key` is the row of the
+AC table: the issue as `api#N` / `ui#N` (`owner/name#N` for any other repo) and the id, so the
+criteria of two issues never share one.
 
 `stop` (exit 1): no `Refs` line names an issue; a ref that is a pull request is skipped with a
 warning. Warnings: the pull request is merged or closed; an issue has no acceptance criteria;
@@ -119,6 +122,7 @@ def load(relative: str, name: str) -> ModuleType:
 
 preflight = load("implement-issue/scripts/preflight.py", "pr_review_preflight")
 issue_facts = load("accept-issue/scripts/issue_facts.py", "pr_review_issue_facts")
+SHORT = {repo: alias for alias, repo in preflight.ALIASES.items()}
 
 
 # ─── transport ──────────────────────────────────────────────────────────────
@@ -268,6 +272,9 @@ def collect(repo: str, number: int) -> dict[str, Any]:
         parts = sorted(set(named))
         issue_body = body_of(issue, ref)
         criteria = select(criteria_of(issue_body), parts, ref, warnings)
+        label = f"{SHORT.get(ref_repo, ref_repo)}#{ref_number}"
+        for criterion in criteria:
+            criterion["key"] = f"{label} {criterion['id']}"
         issues.append(
             {
                 "acceptance_criteria": criteria,

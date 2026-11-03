@@ -30,15 +30,15 @@ Standards and Spec do that.
 ## Answer
 
 The first line as every axis: `Reviewed: <n> files, <m> commits, head <sha>`. Then one row per
-criterion of the brief, in its order, with its id — none added, merged or dropped — and a totals
-line. No other text.
+criterion of the brief, in its order, with its key (`api#N ACk`: the issue and its id, so two
+issues' `AC1` stay apart) — none added, merged or dropped — and a totals line. No other text.
 
 ```markdown
-| AC  | Status      | Proof                                                                         |
-| --- | ----------- | ----------------------------------------------------------------------------- |
-| AC1 | covered     | `src/a.ts:12` (diff); test `src/a.test.ts:40` «rejects an empty name» (diff)  |
-| AC2 | not covered | `src/b.ts:30` (diff) sets the limit, but no test checks it                    |
-| AC3 | can't tell  | «all gates green» is a CI run, not in the repo: see the pull request's checks |
+| AC         | Status      | Proof                                                                         |
+| ---------- | ----------- | ----------------------------------------------------------------------------- |
+| ui#9 AC1   | covered     | `src/a.ts:12` (diff); test `src/a.test.ts:40` «rejects an empty name» (diff)  |
+| ui#9 AC2   | not covered | `src/b.ts:30` (diff) sets the limit, but no test checks it                    |
+| api#54 AC1 | can't tell  | «all gates green» is a CI run, not in the repo: see the pull request's checks |
 
 covered 1 · not covered 1 · can't tell 1
 ```
