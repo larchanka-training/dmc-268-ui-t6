@@ -98,13 +98,16 @@ on `.agents/agents/*.md` (Codex does not load them).
 
 1. Each answer starts `Reviewed: <n> files, <m> commits, head <sha>`. A `sha` other than `head_sha`
    means that axis read something else: run it again.
-2. Tie every finding to its line: `git show <head_sha>:<path>` must have the line, and the line must
+2. The AC table has exactly one row per `key` of the JSON, in its order: the same keys, none
+   merged into a range (`AC5–AC12`), none missing or added. Otherwise send the AC axis back once
+   with the list of keys; never fill or split rows yourself.
+3. Tie every finding to its line: `git show <head_sha>:<path>` must have the line, and the line must
    be the code the finding talks about. Fix a line number that is off by a few, drop a finding
    whose code is not there, and say so.
-3. Report under `## Standards`, `## Spec` (as `code-review` §5: verbatim or lightly cleaned, not
+4. Report under `## Standards`, `## Spec` (as `code-review` §5: verbatim or lightly cleaned, not
    merged, not reranked) and `## AC`: one row per criterion of the JSON, keyed by its `key`, in its
    order, none added, merged or dropped. Name the head SHA the report is about.
-4. End with one summary line: the count per severity and the worst finding of each axis, and the
+5. End with one summary line: the count per severity and the worst finding of each axis, and the
    count per AC status.
 
 ## Golden examples and tests
