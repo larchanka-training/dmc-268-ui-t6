@@ -38,9 +38,9 @@ numbered sequence.
 
 `scripts/pr_context.py REF` — read-only: the pull request (state, base ref, head SHA), the issues
 its `Refs` lines name, their acceptance criteria as `AC1..` in the issue's order (the ids of
-accept-issue's table) with a `key` that names the issue too (`api#N AC1`). When the pull request names a part (its title, else the first line of its
-`## What`: `Part K of #N`), only that part's criteria (`Ч.K:` / `Part K:`) and the common ones are
-kept. The `Refs` and part rules are implement-issue's: the script loads them from
+accept-issue's table) with a `key` that names the issue too (`api#N AC1`). When the pull request
+names a part (its title, else the first line of its `## What`: `Part K of #N`), only that part's
+criteria (`Ч.K:` / `Part K:`) and the common ones are kept. The `Refs` and part rules are implement-issue's: the script loads them from
 `implement-issue/scripts/preflight.py`. The full contract is the script's docstring.
 
 Exit codes: `0` go · `1` stop (the JSON is still on stdout) · `2` usage or bad REF · `3` gh or API
@@ -64,10 +64,13 @@ python3 .agents/skills/pr-review/scripts/pr_context.py REF
 
 1. `git remote get-url origin` must name `pr.repo` (ssh or https, with or without `.git`). It does
    not: stop and say which clone to run in.
-2. `git fetch origin <base_ref> pull/<number>/head`, then `git cat-file -e <head_sha>^{commit}`
-   and `git cat-file -e <base_sha>^{commit}`. Missing: the pull request moved after step 1 — run
-   step 1 again. The standards are read at `base_sha`, the base the pull request records, not at
-   `origin/<base_ref>`: an older pull request is held to the rules of its time.
+2. `git fetch origin <base_ref> pull/<number>/head`, then `git cat-file -e <head_sha>^{commit}`.
+   Missing: the head moved after step 1 — run step 1 again. Then
+   `git cat-file -e <base_sha>^{commit}`; missing (a rewritten or deleted base branch):
+   `git fetch origin <base_sha>`, and if it is still missing, stop and say that the standards
+   cannot be read at the pull request's base. The standards are read at `base_sha`, the base the
+   pull request records, not at `origin/<base_ref>`: an older pull request is held to the rules of
+   its time.
 3. The diff is `git diff origin/<base_ref>...<head_sha>`, as `code-review` §1 says for a pull
    request. Empty (the head is already in the base: a merge commit): use `pr.base_sha` in place of
    `origin/<base_ref>`. Never a checkout, `HEAD` or `FETCH_HEAD`, and no local branch or
@@ -100,8 +103,11 @@ on `.agents/agents/*.md` (Codex does not load them).
 1. Each answer starts `Reviewed: <n> files, <m> commits, head <sha>`. A `sha` other than `head_sha`
    means that axis read something else: run it again.
 2. The AC table has exactly one row per `key` of the JSON, in its order: the same keys, none
-   merged into a range (`AC5–AC12`), none missing or added. Otherwise send the AC axis back once
-   with the list of keys; never fill or split rows yourself.
+   merged into a range (`AC5–AC12`), none missing or added. And no row is `not covered` while its
+   reason puts the work or the proof outside this clone (the other repo, CI, the board, a deploy):
+   by step 1 of `ac-axis.md` that row is `can't tell`. Either broken: send the AC axis back once,
+   naming the keys and the rule. Still broken: report the AC axis as it came, say which rows break
+   which rule, and end; never fill, split or restate rows yourself.
 3. Tie every finding to its line: `git show <head_sha>:<path>` must have the line, and the line must
    be the code the finding talks about. Fix a line number that is off by a few, drop a finding
    whose code is not there, and say so.

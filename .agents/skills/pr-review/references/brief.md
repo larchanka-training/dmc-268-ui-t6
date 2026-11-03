@@ -30,7 +30,7 @@ commit; never read a `.env` file; no network.
   - Standards — does the code follow the documented standards? The questions are in step 4 of
     `.agents/skills/code-review/SKILL.md` (read it).
   - Spec — does it do what the issue (its Scope for the parts named, its Kickoff) and the criteria
-    listed above ask, no more, no less? A part the pull request does not name is not its job. Step 4 of
+    (keys above, texts at the end) ask, no more, no less? A part the pull request does not name is not its job. Step 4 of
     the same file.
   - AC — `.agents/skills/pr-review/references/ac-axis.md` (read it).
 

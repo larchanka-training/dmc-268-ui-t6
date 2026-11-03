@@ -14,7 +14,8 @@ Decide each criterion in two steps, in this order:
    other's code only in their own pull requests), or its proof is a CI run, the board, an issue
    comment, a deploy or a manual run, or the criterion is too vague to check: `can't tell`, and say
    where the proof lives or what would settle it. Stop there: never `not covered` for what this
-   clone cannot see.
+   clone cannot see. One exception: a criterion about the pull request itself (it attaches a run,
+   links a graph) is proved by its body, which the brief carries — go to step 2.
 2. **Otherwise read the head:** `covered` or `not covered` by the table.
 
 | Status        | When                                                                                                                                                                                                         |

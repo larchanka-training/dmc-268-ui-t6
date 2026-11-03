@@ -242,9 +242,9 @@ def select(
     return [c for c in criteria if c["part"] is None or c["part"] in parts]
 
 
-def fence_for(bodies: list[str]) -> str:
+def fence_for(texts: list[str]) -> str:
     """A `~` fence no line of these texts can close: longer than any `~` run in them."""
-    longest = max((len(m.group()) for body in bodies for m in TILDES.finditer(body)), default=0)
+    longest = max((len(m.group()) for text in texts for m in TILDES.finditer(text)), default=0)
     return "~" * max(MIN_FENCE, longest + 1)
 
 

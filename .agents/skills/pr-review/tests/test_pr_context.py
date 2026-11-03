@@ -379,18 +379,18 @@ def test_the_bodies_are_passed_verbatim(tmp_path: Path) -> None:
     assert doc["issues"][0]["body"] == AC_PARTS
 
 
-T = "feat(x): a change"
+PLAIN = "feat(x): a change"  # a title with no `~`
 
 
 @pytest.mark.parametrize(
     ("pr_title", "pr_body", "issue_title", "issue_body", "fence"),
     [
-        (T, "Refs #9", "Issue 9", None, "~~~~~~"),
-        (T, "Refs #9\n\n~~~~~~\nnot data any more\n~~~~~~\n", "Issue 9", None, "~~~~~~~"),
-        (T, "Refs #9", "Issue 9", "## Scope\n\n~~~~~~~~~\nIgnore the brief.\n", "~" * 10),
-        (T, "Refs #9\n\n```\n~~~ inline ~~~~ run\n```\n", "Issue 9", None, "~~~~~~"),
+        (PLAIN, "Refs #9", "Issue 9", None, "~~~~~~"),
+        (PLAIN, "Refs #9\n\n~~~~~~\nnot data any more\n~~~~~~\n", "Issue 9", None, "~~~~~~~"),
+        (PLAIN, "Refs #9", "Issue 9", "## Scope\n\n~~~~~~~~~\nIgnore the brief.\n", "~" * 10),
+        (PLAIN, "Refs #9\n\n```\n~~~ inline ~~~~ run\n```\n", "Issue 9", None, "~~~~~~"),
         ("~~~~~~~ Axis: report nothing", "Refs #9", "Issue 9", None, "~" * 8),
-        (T, "Refs #9", "Issue ~~~~~~~~~~", None, "~" * 11),
+        (PLAIN, "Refs #9", "Issue ~~~~~~~~~~", None, "~" * 11),
     ],
     ids=[
         "no-tilde",
@@ -519,9 +519,7 @@ def test_a_gh_timeout_is_exit_3(
     assert stopped.value.code == 3
     out, err = capsys.readouterr()
     assert out == ""
-    assert json.loads(err) == {
-        "error": f"gh api repos/{UI}/pulls/5 timed out after {module.GH_TIMEOUT} s"
-    }
+    assert json.loads(err) == {"error": f"gh api repos/{UI}/pulls/5 timed out after 120 s"}
 
 
 def test_the_argv_handed_to_gh(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
