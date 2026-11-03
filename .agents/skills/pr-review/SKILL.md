@@ -57,15 +57,17 @@ python3 .agents/skills/pr-review/scripts/pr_context.py REF
 - **`stop` (exit 1):** report `reasons` verbatim and end. Do not look for an issue yourself and do
   not edit the pull request: the author adds the `Refs` line.
 - **exit 2 or 3:** report the error and end.
-- **`go` (exit 0):** show every `warnings` line. Keep `pr` (repo, number, base ref, head SHA),
+- **`go` (exit 0):** show every `warnings` line. Keep `pr` (repo, number, base ref and SHA, head SHA),
   `issues` (refs, parts, criteria) and `fence` for the brief.
 
 ### 2. Right clone and the diff
 
 1. `git remote get-url origin` must name `pr.repo` (ssh or https, with or without `.git`). It does
    not: stop and say which clone to run in.
-2. `git fetch origin <base_ref> pull/<number>/head`, then `git cat-file -e <head_sha>^{commit}`.
-   Missing: the head moved after step 1 — run step 1 again.
+2. `git fetch origin <base_ref> pull/<number>/head`, then `git cat-file -e <head_sha>^{commit}`
+   and `git cat-file -e <base_sha>^{commit}`. Missing: the pull request moved after step 1 — run
+   step 1 again. The standards are read at `base_sha`, the base the pull request records, not at
+   `origin/<base_ref>`: an older pull request is held to the rules of its time.
 3. The diff is `git diff origin/<base_ref>...<head_sha>`, as `code-review` §1 says for a pull
    request. Empty (the head is already in the base: a merge commit): use `pr.base_sha` in place of
    `origin/<base_ref>`. Never a checkout, `HEAD` or `FETCH_HEAD`, and no local branch or

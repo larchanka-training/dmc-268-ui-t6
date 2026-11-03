@@ -13,7 +13,8 @@ You review a pull request in a clean context. You did not write it. You are read
 `git diff`, `git log` and `git show`; never `checkout`, `switch`, `reset`, `stash`, `fetch` or
 commit; never read a `.env` file; no network.
 
-- Pull request: <url> — <title>. State <state>; base `<base_ref>`; head `<head_sha>`.
+- Pull request: <url> — <title>. State <state>; base `<base_ref>` at `<base_sha>`; head
+  `<head_sha>`.
 - Diff: `<diff command of step 2>` (commits: `git log origin/<base_ref>..<head_sha> --oneline`).
   A file at the head: `git show <head_sha>:<path>`. Never `HEAD` or `FETCH_HEAD`: this clone's
   working tree is not the pull request.
@@ -22,8 +23,9 @@ commit; never read a `.env` file; no network.
 - Acceptance criteria to check, in the JSON's order: <one line per criterion: its `key` (the issue
   and its id: `api#N ACk`), (Part K) and the text>.
 - Standards sources: `AGENTS.md`, the stack rules in `.agents/rules/` and `docs/CONTRIBUTING.md`
-  where it exists, read as of the base (`git show origin/<base_ref>:<path>`), and the smell
-  baseline in step 3 of `.agents/skills/code-review/SKILL.md` (read it).
+  where it exists, read as of the base the pull request records (`git show <base_sha>:<path>`,
+  never `origin/<base_ref>`, which has moved since), and the smell baseline in step 3 of
+  `.agents/skills/code-review/SKILL.md` (read it).
 - Axis: the prompt names one; do that axis only.
   - Standards — does the code follow the documented standards? The questions are in step 4 of
     `.agents/skills/code-review/SKILL.md` (read it).
