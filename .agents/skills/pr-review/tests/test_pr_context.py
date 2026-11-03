@@ -126,3 +126,287 @@ def test_the_examples_cover_go_and_stop() -> None:
         for case in CASES
     }
     assert verdicts == {"go", "stop"}
+
+
+# ─── synthetic cases ────────────────────────────────────────────────────────
+HEAD = "a" * 40
+BASE = "b" * 40
+
+
+def pr_json(
+    body: str | None,
+    *,
+    repo: str = UI,
+    number: int = 5,
+    title: str = "feat(x): a change",
+    state: str = "open",
+    merged: bool = False,
+) -> dict[str, Any]:
+    return {
+        "base": {"ref": "main", "sha": BASE},
+        "body": body,
+        "draft": False,
+        "head": {"ref": "feat/9-x", "sha": HEAD},
+        "html_url": f"https://github.com/{repo}/pull/{number}",
+        "merged": merged,
+        "number": number,
+        "state": state,
+        "title": title,
+        "user": "someone",
+    }
+
+
+def issue_json(
+    body: str | None, *, repo: str = UI, number: int = 9, pull_request: bool = False
+) -> dict[str, Any]:
+    return {
+        "body": body,
+        "html_url": f"https://github.com/{repo}/issues/{number}",
+        "number": number,
+        "pull_request": pull_request,
+        "state": "open",
+        "title": f"Issue {number}",
+    }
+
+
+def case(tmp_path: Path, pr: dict[str, Any], *issues: dict[str, Any]) -> Path:
+    """A fixture dir: `pr.json` plus one `issue-<owner>_<name>-<n>.json` per issue."""
+    folder = tmp_path / "fixtures"
+    folder.mkdir()
+    (folder / "pr.json").write_text(json.dumps(pr), encoding="utf-8")
+    for issue in issues:
+        repo = issue["html_url"].split("/issues/")[0].removeprefix("https://github.com/")
+        name = f"issue-{repo.lower().replace('/', '_')}-{issue['number']}.json"
+        (folder / name).write_text(json.dumps(issue), encoding="utf-8")
+    return folder
+
+
+AC_PARTS = """## Scope
+
+- Ч.1 (PR): the first part
+- Ч.2 (PR): the second part
+
+## Acceptance Criteria
+
+- [ ] Ч.1: first part criterion
+- [x] Ч.2: second part criterion
+- [ ] Part 2: an English prefix
+- [ ] a common criterion
+
+## DoD Checklist
+
+- [ ] not a criterion
+"""
+
+
+def criteria(doc: dict[str, Any], index: int = 0) -> list[tuple[str, int | None, str]]:
+    return [(c["id"], c["part"], c["text"]) for c in doc["issues"][index]["acceptance_criteria"]]
+
+
+def test_a_part_keeps_its_criteria_and_the_common_ones(tmp_path: Path) -> None:
+    pr = pr_json("## What\n\nPart 2 of #9: the second part.\n\n## Refs\n\nRefs #9\n")
+    r = run("ui#5", fixtures=case(tmp_path, pr, issue_json(AC_PARTS)))
+    doc = doc_of(r)
+    assert r.returncode == 0
+    assert doc["issues"][0]["parts"] == [2]
+    assert criteria(doc) == [
+        ("AC2", 2, "second part criterion"),
+        ("AC3", 2, "an English prefix"),
+        ("AC4", None, "a common criterion"),
+    ]
+    assert doc["warnings"] == []
+
+
+def test_the_title_names_the_part_before_what(tmp_path: Path) -> None:
+    pr = pr_json("## What\n\nPart 2 of #9: ignored.\n\nRefs #9\n", title="feat: Part 1 of #9 (#9)")
+    doc = doc_of(run("ui#5", fixtures=case(tmp_path, pr, issue_json(AC_PARTS))))
+    assert doc["issues"][0]["parts"] == [1]
+    assert [c[0] for c in criteria(doc)] == ["AC1", "AC4"]
+
+
+def test_no_part_named_lists_every_criterion_with_a_warning(tmp_path: Path) -> None:
+    pr = pr_json("## What\n\nA change.\n\nRefs #9\n")
+    doc = doc_of(run("ui#5", fixtures=case(tmp_path, pr, issue_json(AC_PARTS))))
+    assert [c[0] for c in criteria(doc)] == ["AC1", "AC2", "AC3", "AC4"]
+    assert doc["warnings"] == [
+        f"the pull request names no part of {UI}#9: every acceptance criterion is listed"
+    ]
+
+
+def test_a_part_no_criterion_carries_keeps_the_common_ones(tmp_path: Path) -> None:
+    pr = pr_json("## What\n\nPart 3 of #9: more.\n\nRefs #9\n")
+    doc = doc_of(run("ui#5", fixtures=case(tmp_path, pr, issue_json(AC_PARTS))))
+    assert [c[0] for c in criteria(doc)] == ["AC4"]
+    assert doc["warnings"] == [
+        f"the pull request names Part 3 of {UI}#9, but no acceptance criterion carries that part"
+    ]
+
+
+def test_an_issue_without_criteria_is_a_warning(tmp_path: Path) -> None:
+    pr = pr_json("Refs #9")
+    r = run("ui#5", fixtures=case(tmp_path, pr, issue_json(None)))
+    doc = doc_of(r)
+    assert r.returncode == 0
+    assert criteria(doc) == []
+    assert doc["warnings"] == [
+        f"{UI}#9 has no acceptance criteria: the AC axis has nothing to check"
+    ]
+
+
+def test_several_refs_each_with_its_own_criteria(tmp_path: Path) -> None:
+    pr = pr_json(f"## What\n\nPart 1 of {API}#7: x.\n\nRefs #9, {API}#7\n")
+    ui_issue = issue_json("## Acceptance Criteria\n\n- [ ] ui criterion\n")
+    api_issue = issue_json(AC_PARTS, repo=API, number=7)
+    doc = doc_of(run("ui#5", fixtures=case(tmp_path, pr, ui_issue, api_issue)))
+    assert [i["ref"] for i in doc["issues"]] == [f"{API}#7", f"{UI}#9"]
+    assert doc["issues"][0]["parts"] == [1]
+    assert [c[0] for c in criteria(doc, 0)] == ["AC1", "AC4"]
+    assert doc["issues"][1]["parts"] == []
+    assert criteria(doc, 1) == [("AC1", None, "ui criterion")]
+
+
+def test_a_ref_to_a_pull_request_is_skipped(tmp_path: Path) -> None:
+    pr = pr_json("Refs #8, #9")
+    other = issue_json(None, number=8, pull_request=True)
+    doc = doc_of(run("ui#5", fixtures=case(tmp_path, pr, other, issue_json(AC_PARTS))))
+    assert [i["ref"] for i in doc["issues"]] == [f"{UI}#9"]
+    assert doc["warnings"][0] == f"`Refs` names {UI}#8, a pull request, not an issue: skipped"
+
+
+def test_refs_that_name_only_pull_requests_stop(tmp_path: Path) -> None:
+    pr = pr_json("Refs #8")
+    r = run("ui#5", fixtures=case(tmp_path, pr, issue_json(None, number=8, pull_request=True)))
+    doc = doc_of(r)
+    assert r.returncode == 1
+    assert doc["verdict"] == "stop"
+    assert doc["reasons"][0].startswith(f"{UI}#5 has no `Refs` line naming an issue")
+
+
+@pytest.mark.parametrize(
+    "body",
+    [None, "", "Refs #", "```\nRefs #9\n```\n", "<!-- Refs #9 -->\n", "Closes #9"],
+    ids=["null", "empty", "bare-hash", "fenced", "comment", "closing-keyword"],
+)
+def test_no_issue_named_stops(tmp_path: Path, body: str | None) -> None:
+    r = run("ui#5", fixtures=case(tmp_path, pr_json(body)))
+    doc = doc_of(r)
+    assert r.returncode == 1
+    assert doc["issues"] == []
+    assert len(doc["reasons"]) == 1
+
+
+@pytest.mark.parametrize(
+    ("state", "merged", "warning"),
+    [
+        ("open", False, None),
+        ("closed", False, "the pull request is closed without a merge"),
+        ("closed", True, "the pull request is merged: the review reads its final head"),
+    ],
+)
+def test_the_state_of_the_pull_request(
+    tmp_path: Path, state: str, merged: bool, warning: str | None
+) -> None:
+    pr = pr_json("Refs #9", state=state, merged=merged)
+    issue = issue_json("## Acceptance Criteria\n\n- [ ] a criterion\n")
+    doc = doc_of(run("ui#5", fixtures=case(tmp_path, pr, issue)))
+    assert doc["pr"]["state"] == ("merged" if merged else state)
+    assert doc["warnings"] == ([warning] if warning else [])
+
+
+def test_the_pull_request_facts(tmp_path: Path) -> None:
+    doc = doc_of(
+        run(
+            f"{API}#5",
+            fixtures=case(tmp_path, pr_json("Refs #9", repo=API), issue_json(None, repo=API)),
+        )
+    )
+    assert doc["pr"] == {
+        "author": "someone",
+        "base_ref": "main",
+        "base_sha": BASE,
+        "draft": False,
+        "head_ref": "feat/9-x",
+        "head_sha": HEAD,
+        "number": 5,
+        "repo": API,
+        "state": "open",
+        "title": "feat(x): a change",
+        "url": f"https://github.com/{API}/pull/5",
+    }
+    assert doc["issues"][0]["ref"] == f"{API}#9"
+
+
+# ─── errors ─────────────────────────────────────────────────────────────────
+@pytest.mark.parametrize("ref", ["ui#0", "pr#5", "ui#", "5x", "ui#1234567890"])
+def test_a_bad_ref_is_exit_2(ref: str) -> None:
+    r = run(ref)
+    assert r.returncode == 2
+    assert "bad REF" in error_of(r)
+
+
+def test_no_ref_is_exit_2() -> None:
+    r = run()
+    assert r.returncode == 2
+    error_of(r)
+
+
+def test_an_empty_seam_is_exit_3(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(SEAM, "")
+    r = run("ui#5")
+    assert r.returncode == 3
+    assert error_of(r) == f"{SEAM} is set but empty"
+
+
+def test_a_missing_fixture_is_exit_3(tmp_path: Path) -> None:
+    r = run("ui#5", fixtures=case(tmp_path, pr_json("Refs #9")))
+    assert r.returncode == 3
+    assert "cannot read fixture" in error_of(r)
+
+
+def test_a_response_of_the_wrong_shape_is_exit_3(tmp_path: Path) -> None:
+    pr = pr_json("Refs #9")
+    del pr["head"]
+    r = run("ui#5", fixtures=case(tmp_path, pr))
+    assert r.returncode == 3
+    assert error_of(r) == f"{UI}#5: `head` is not a dict"
+
+
+def test_a_gh_failure_is_exit_3(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    failing = fake_gh(
+        tmp_path / "bin",
+        'import sys\nsys.stderr.write("gh: Not Found (HTTP 404)\\n")\nsys.exit(1)\n',
+    )
+    prepend_path(monkeypatch, failing)
+    r = run("ui#5")
+    assert r.returncode == 3
+    assert error_of(r) == f"gh api repos/{UI}/pulls/5 exited 1: gh: Not Found (HTTP 404)"
+
+
+def test_the_argv_handed_to_gh(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Live mode: one read of the pull request, one per issue; nothing else, never a write."""
+    log = tmp_path / "gh.log"
+    responses = {
+        f"repos/{UI}/pulls/5": pr_json(f"Refs {API}#7"),
+        f"repos/{API}/issues/7": issue_json(None, repo=API, number=7),
+    }
+    (tmp_path / "responses.json").write_text(json.dumps(responses), encoding="utf-8")
+    logging_gh = fake_gh(
+        tmp_path / "bin",
+        "import json, sys\n"
+        f"open({str(log)!r}, 'a', encoding='utf-8').write(json.dumps(sys.argv[1:]) + '\\n')\n"
+        f"responses = json.load(open({str(tmp_path / 'responses.json')!r}, encoding='utf-8'))\n"
+        "print(json.dumps(responses[sys.argv[2]]))\n",
+    )
+    prepend_path(monkeypatch, logging_gh)
+    r = run("ui#5")
+    assert r.returncode == 0, r.stderr
+    calls = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+    pr_fields = (
+        "{number, title, body, state, draft, merged, html_url, user: .user.login,"
+        " base: {ref: .base.ref, sha: .base.sha}, head: {ref: .head.ref, sha: .head.sha}}"
+    )
+    issue_fields = "{number, title, body, state, html_url, pull_request: (.pull_request != null)}"
+    assert calls == [
+        ["api", f"repos/{UI}/pulls/5", "--jq", pr_fields],
+        ["api", f"repos/{API}/issues/7", "--jq", issue_fields],
+    ]
