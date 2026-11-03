@@ -15,6 +15,7 @@ argv the script hands to `gh` (read-only REST calls).
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import re
@@ -441,15 +442,59 @@ def test_a_response_of_the_wrong_shape_is_exit_3(tmp_path: Path) -> None:
     assert error_of(r) == f"{UI}#5: `head` is not a dict"
 
 
-def test_a_gh_failure_is_exit_3(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    failing = fake_gh(
-        tmp_path / "bin",
-        'import sys\nsys.stderr.write("gh: Not Found (HTTP 404)\\n")\nsys.exit(1)\n',
-    )
-    prepend_path(monkeypatch, failing)
+@pytest.mark.parametrize(
+    ("gh_body", "error"),
+    [
+        (
+            'import sys\nsys.stderr.write("gh: Not Found (HTTP 404)\\n")\nsys.exit(1)\n',
+            f"gh api repos/{UI}/pulls/5 exited 1: gh: Not Found (HTTP 404)",
+        ),
+        (None, "cannot run gh: "),
+        (
+            'import sys\nsys.stdout.buffer.write(b"\\xff\\xfe")\n',
+            f"gh api repos/{UI}/pulls/5: cannot read the output: ",
+        ),
+        ('print("not json")\n', f"repos/{UI}/pulls/5: response is not JSON: "),
+        ('print("[]")\n', f"repos/{UI}/pulls/5: response is not a JSON object"),
+    ],
+    ids=["gh-fails", "no-gh", "not-utf-8", "not-json", "json-array"],
+)
+def test_a_bad_gh_answer_is_exit_3(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, gh_body: str | None, error: str
+) -> None:
+    """Exit 3 with one `{"error"}` line on stderr, whatever goes wrong with gh."""
+    if gh_body is None:
+        empty = tmp_path / "empty-bin"
+        empty.mkdir()
+        monkeypatch.setenv("PATH", str(empty))  # no gh at all
+    else:
+        prepend_path(monkeypatch, fake_gh(tmp_path / "bin", gh_body))
     r = run("ui#5")
     assert r.returncode == 3
-    assert error_of(r) == f"gh api repos/{UI}/pulls/5 exited 1: gh: Not Found (HTTP 404)"
+    assert error_of(r).startswith(error)
+
+
+def test_a_gh_timeout_is_exit_3(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """In process: a real timeout would wait GH_TIMEOUT seconds."""
+    spec = importlib.util.spec_from_file_location("pr_context_under_test", SCRIPT)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    def timed_out(argv: list[str], **kwargs: Any) -> None:
+        raise subprocess.TimeoutExpired(argv, kwargs["timeout"])
+
+    monkeypatch.setattr(module.subprocess, "run", timed_out)
+    with pytest.raises(SystemExit) as stopped:
+        module.main(["ui#5"])
+    assert stopped.value.code == 3
+    out, err = capsys.readouterr()
+    assert out == ""
+    assert json.loads(err) == {
+        "error": f"gh api repos/{UI}/pulls/5 timed out after {module.GH_TIMEOUT} s"
+    }
 
 
 def test_the_argv_handed_to_gh(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
