@@ -3,9 +3,18 @@
 # 01 — a known defect: found and tied to a line
 
 **Source:** a live snapshot of ui#130 and ui#111, recorded on 2026-11-03 by saving the output of
-the two `gh api … --jq` calls `pr_context.py` makes, with no edits. The defect is known from
-ui#131: when a cancel ends the run, the focused «Отменить» button unmounts and the focus falls to
-the page; ui#139 fixed it later. The merged diff of ui#130 still has it.
+the two `gh api … --jq` calls `pr_context.py` makes, with no edits.
+
+**The known defect.** `RunControls.tsx:41` (a line the diff adds) builds Ant Design's internal
+disabled-button class, `${getPrefixCls('btn')}-disabled`, on a screen. `.agents/rules/frontend.md`
+§3a (rules 1, 3 and 5) and `AGENTS.md` («Do not restyle a base component on a screen») keep the look
+of a base component inside `src/shared/ui`. ui#139 (`4917c70a`, under ui#131) later moved it into
+`useDisabledButtonClass` in `src/shared/ui/lib`, with a guard in `antd.button.test.tsx`.
+
+**Not the target.** The same head drops the focus to the page when a cancel ends the run (§3b
+rule 3); ui#139 fixed that too. The pull request body declares it under «Known, not changed here»
+as present on `main` before the change, so the brief ranks it `info` at most. The first version of
+this case aimed at it; both manual runs passed it over, as the brief's rule says.
 
 ## Input
 
@@ -28,11 +37,10 @@ Run in the ui clone. This part is behaviour, not compared byte by byte: the manu
 Code and Codex are attached to the pull request that added the skill.
 
 - The reviewers' first line names `head 21b8d99b895956a7c0dcd2ee809b401552aad806`.
-- **Standards** reports the defect on `src/widgets/run-inspector/ui/RunControls.tsx`, at a line of
-  the cancel branch (37–58) or of the rerun branch that should take the focus (59–76), and cites
-  `.agents/rules/frontend.md` §3b rule 3 «Focus survives the action»: when a cancel ends the run,
-  `canCancel` turns false, the focused button unmounts and nothing moves the focus to
-  «Перезапустить». Severity medium or higher.
+- **Standards** reports the known defect at `src/widgets/run-inspector/ui/RunControls.tsx:41` (the
+  `ConfigContext` read at `:24` may be named with it) and cites `.agents/rules/frontend.md` §3a or
+  the `AGENTS.md` rule against restyling a base component on a screen. Severity medium or higher.
+  The focus drop may show up as `info`; it is not required.
 - **AC** has one row per criterion, AC1–AC3, each `covered`, `not covered` or `can't tell` with a
   `path:line` at the head or a reason. AC3 (the gates) is `can't tell`: a CI run is not in the
   diff. No row is `covered` without a link.
