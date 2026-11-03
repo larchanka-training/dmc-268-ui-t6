@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { Suspense } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMemoryRouter } from 'react-router'
+import { createMemoryRouter, useLocation } from 'react-router'
 // The router component of the app (`src/App.tsx`): it commits router state in `startTransition`,
 // which `RouterProvider` from `react-router` (used by the other page tests) does not.
 import { RouterProvider } from 'react-router/dom'
@@ -121,6 +122,7 @@ describe('RunDetailPage search box on the app router', () => {
 
   afterEach(() => {
     cleanup()
+    vi.useRealTimers()
     vi.restoreAllMocks()
     setAccessToken(null)
     setMockTransport(null)
@@ -167,6 +169,78 @@ describe('RunDetailPage search box on the app router', () => {
     await waitFor(() => {
       expect(router.state.location.search).toBe('?q=abc')
     })
+  })
+
+  it('drops pending text on same-run POP before the destination page commits', async () => {
+    const target = `${DEMO}?q=target`
+    const current = `${DEMO}?q=old`
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    let blocked = false
+    let release: () => void
+    const pending = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    function Page() {
+      const location = useLocation()
+      if (blocked && location.key !== initialKey) {
+        // eslint-disable-next-line @typescript-eslint/only-throw-error -- React Suspense requires a pending promise.
+        throw pending
+      }
+      return (
+        <>
+          <output data-testid="committed-search">{location.search}</output>
+          <RunDetailPage />
+        </>
+      )
+    }
+    const router = createMemoryRouter([{ path: '/runs/:runId', element: <Page /> }], {
+      initialEntries: [target, current],
+      initialIndex: 1,
+    })
+    const initialKey = router.state.location.key
+    render(
+      <QueryClientProvider client={client}>
+        <Suspense fallback="Loading">
+          <RouterProvider router={router} />
+        </Suspense>
+      </QueryClientProvider>,
+    )
+    const input = await ready()
+    expect(input.value).toBe('old')
+
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      fireEvent.change(input, { target: { value: 'stale pending' } })
+      expect(input.value).toBe('stale pending')
+      blocked = true
+      await act(async () => {
+        await router.navigate(-1)
+      })
+      expect(router.state.location.search).toBe('?q=target')
+      expect(screen.getByTestId('run-detail-page')).toBeTruthy()
+      expect(screen.getByTestId('committed-search').textContent).toBe('?q=old')
+      expect(searchInput().value).toBe('target')
+
+      await act(async () => {
+        vi.advanceTimersByTime(300)
+        await Promise.resolve()
+      })
+      expect(router.state.location.search).toBe('?q=target')
+      expect(router.state.historyAction).toBe('POP')
+      expect(screen.getByTestId('committed-search').textContent).toBe('?q=old')
+      expect(searchInput().value).toBe('target')
+
+      blocked = false
+      await act(async () => {
+        release()
+        await pending
+      })
+      expect(router.state.location.search).toBe('?q=target')
+      expect(screen.getByTestId('committed-search').textContent).toBe('?q=target')
+      expect(searchInput().value).toBe('target')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('keeps the caret of an insert in the middle of the text', async () => {

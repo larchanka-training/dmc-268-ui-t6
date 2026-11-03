@@ -31,8 +31,8 @@ export function useFindingFiltersParams(): {
   setQuery: (query: string) => void
   resetFilters: () => void
   /**
-   * Changes each time the committed location changes by a navigation this hook did not make: back
-   * or forward, a link, another component. The search box drops its pending text on it.
+   * Changes after a committed navigation this hook did not make: back or forward, a link, another
+   * component. The search box uses it to drop pending text when no subscription is supplied.
    */
   navigationKey: number
   subscribeToNavigation: SubscribeFilterNavigation
