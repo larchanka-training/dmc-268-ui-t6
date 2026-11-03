@@ -1,0 +1,47 @@
+{
+  "issues": [
+    {
+      "acceptance_criteria": [
+        {
+          "id": "AC1",
+          "part": null,
+          "text": "FRONTEND_ARCHITECTURE.md описывает 409 rerun четырьмя причинами со ссылкой на openapi; утверждения, что rerun нет в endpoints.ts, не осталось."
+        },
+        {
+          "id": "AC2",
+          "part": null,
+          "text": "`runMutationErrorMessage(error, 'cancel')` при 409 не говорит об активном прогоне или закрытом PR. Тесты в fetchRunActions.test.ts и RunControls.test.tsx проверяют выбранный текст литералом; литерал 409 для rerun из #105 не изменён."
+        },
+        {
+          "id": "AC3",
+          "part": null,
+          "text": "Пройдены все gates UI из AGENTS.md."
+        }
+      ],
+      "parts": [],
+      "ref": "larchanka-training/dmc-268-ui-t6#111",
+      "state": "closed",
+      "title": "[runs][105] Сверьте FRONTEND_ARCHITECTURE и ветку cancel 409 с контрактом API",
+      "url": "https://github.com/larchanka-training/dmc-268-ui-t6/issues/111"
+    }
+  ],
+  "pr": {
+    "author": "axyi",
+    "base_ref": "main",
+    "base_sha": "b9f8c42b4f388af43ce1e10b04635b9e695d3b1c",
+    "draft": false,
+    "head_ref": "fix/111-cancel-requested-state",
+    "head_sha": "21b8d99b895956a7c0dcd2ee809b401552aad806",
+    "number": 130,
+    "repo": "larchanka-training/dmc-268-ui-t6",
+    "state": "merged",
+    "title": "fix(run-inspector): show and keep the focus on a requested cancel (#111)",
+    "url": "https://github.com/larchanka-training/dmc-268-ui-t6/pull/130"
+  },
+  "reasons": [],
+  "schema": 1,
+  "verdict": "go",
+  "warnings": [
+    "the pull request is merged: the review reads its final head"
+  ]
+}

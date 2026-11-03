@@ -1,0 +1,39 @@
+{
+  "issues": [
+    {
+      "acceptance_criteria": [
+        {
+          "id": "AC4",
+          "part": 2,
+          "text": "`docs/CONTRIBUTING.md` описывает старт спринта: задачи → граф (#268) → issue «Спринт N» → проверка блокеров; к PR приложен первый опубликованный граф"
+        }
+      ],
+      "parts": [
+        2
+      ],
+      "ref": "larchanka-training/dmc-268-api-t6#273",
+      "state": "closed",
+      "title": "[process] Спринты: майлстоун на каждый спринт и граф зависимостей на старте",
+      "url": "https://github.com/larchanka-training/dmc-268-api-t6/issues/273"
+    }
+  ],
+  "pr": {
+    "author": "axyi",
+    "base_ref": "main",
+    "base_sha": "a1b79476f4fe133563b904b880eacbdeabb307a5",
+    "draft": false,
+    "head_ref": "docs/273-sprint-start-graph",
+    "head_sha": "21f397492a7bed3cf40a23f09235dba7dab6df19",
+    "number": 358,
+    "repo": "larchanka-training/dmc-268-api-t6",
+    "state": "merged",
+    "title": "docs(contributing): describe the sprint start graph ritual (#273)",
+    "url": "https://github.com/larchanka-training/dmc-268-api-t6/pull/358"
+  },
+  "reasons": [],
+  "schema": 1,
+  "verdict": "go",
+  "warnings": [
+    "the pull request is merged: the review reads its final head"
+  ]
+}
