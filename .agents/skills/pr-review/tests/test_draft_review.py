@@ -583,6 +583,16 @@ def test_a_failed_read_back_is_partial(tmp_path: Path) -> None:
             id="severity",
         ),
         pytest.param(
+            {"findings": [finding(severity=["high"])]},
+            "findings[0].severity must be one of critical, high, medium, low, info",
+            id="severity-a-list",
+        ),
+        pytest.param(
+            {"findings": [finding(scope={"in": 1})]},
+            "findings[0].scope must be one of in, out",
+            id="scope-an-object",
+        ),
+        pytest.param(
             {"findings": [finding(scope="maybe")]},
             "findings[0].scope must be one of in, out",
             id="scope",

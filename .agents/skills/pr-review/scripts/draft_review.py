@@ -384,9 +384,9 @@ def check_finding(node: Any, where: str, complain: Complain) -> None:
         check_text(node, key, where, complain)
     if "\n" in node["title"]:
         complain(f"{where}title must be one line")
-    if node["severity"] not in PRIORITY:
+    if node["severity"] not in tuple(PRIORITY):  # a tuple: a list here must not raise
         complain(f"{where}severity must be one of {', '.join(PRIORITY)}")
-    if node["scope"] not in {"in", "out"}:
+    if node["scope"] not in ("in", "out"):
         complain(f"{where}scope must be one of in, out")
     if type(node["line"]) is not int or node["line"] < 1:
         complain(f"{where}line must be a positive integer")
