@@ -19,6 +19,11 @@ export const layout: Translation<typeof en> = {
     dark: 'Тёмная',
   },
   docs: 'Документация',
+  workspace: {
+    title: 'Workspace',
+    current: 'Workspace: {{name}}',
+    installation: 'ID установки: {{id}}',
+  },
   userMenu: {
     label: 'Меню пользователя',
     fallbackLogin: 'Пользователь',

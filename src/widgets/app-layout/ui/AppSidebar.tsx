@@ -8,9 +8,10 @@ import {
 import { Button, Layout, type MenuProps } from 'antd'
 import { useEffect, useRef, useState, type FC, type MouseEvent, type ReactNode } from 'react'
 
-import { UserMenu } from '../../../features/auth'
+import { useAuthStore, UserMenu } from '../../../features/auth'
 import { useLanguageStore } from '../../../features/language'
 import { useThemeStore, type ThemePreference } from '../../../features/theme'
+import { WorkspaceSwitcher } from '../../../features/workspace'
 import { mocksEnabledAtRuntime } from '../../../shared/config/buildFlags'
 import { DOCS_URL, isMockMode } from '../../../shared/config/env'
 import { LANGUAGE_NAMES, LANGUAGES, useTranslation } from '../../../shared/i18n'
@@ -48,6 +49,7 @@ export interface AppSidebarProps {
 
 export const AppSidebar: FC<AppSidebarProps> = ({ currentPath = HOME_PATH, onNavigate }) => {
   const [collapsed, setCollapsed] = useState(false)
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   const preference = useThemeStore((state) => state.preference)
   const setPreference = useThemeStore((state) => state.setPreference)
   const language = useLanguageStore((state) => state.language)
@@ -227,6 +229,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({ currentPath = HOME_PATH, onNav
         />
 
         <div className={styles.sidebarUser}>
+          <WorkspaceSwitcher compact={collapsed} enabled={isAuthenticated} />
           <UserMenu compact={collapsed} extraItems={themeItems} />
         </div>
       </div>

@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 
+import { AUTH_ME_QUERY_KEY } from '../../../entities/user'
+import { useAuthStore } from '../../../features/auth'
 import { useThemeStore } from '../../../features/theme'
 import { i18n, LANGUAGE_STORAGE_KEY } from '../../../shared/i18n'
 import { isMockMode } from '../../../shared/config/env'
@@ -229,6 +231,64 @@ describe('AppSidebar language switch', () => {
     expect(await screen.findByText('Прогоны')).toBeTruthy()
     expect(screen.queryByText('Runs')).toBeNull()
     localStorage.clear()
+  })
+})
+
+describe('AppSidebar workspace', () => {
+  const ME = {
+    id: 114473628,
+    login: 'skvertl',
+    name: null,
+    avatarUrl: null,
+    workspaces: [
+      {
+        id: '123e4567-e89b-12d3-a456-426614174000',
+        name: 'GitHub: skvertl',
+        installationId: 12345,
+      },
+      {
+        id: '223e4567-e89b-12d3-a456-426614174001',
+        name: 'GitHub: larchanka-training',
+        installationId: 67890,
+      },
+    ],
+  }
+
+  function renderWithMe(me: typeof ME) {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    client.setQueryData(AUTH_ME_QUERY_KEY, me)
+    return render(
+      <QueryClientProvider client={client}>
+        <AppSidebar currentPath="/runs" onNavigate={vi.fn()} />
+      </QueryClientProvider>,
+    )
+  }
+
+  it('puts the switcher right above the user menu', () => {
+    vi.mocked(isMockMode).mockReturnValue(false)
+    renderWithMe(ME)
+    const switcher = screen.getByRole('button', { name: 'Workspace: GitHub: skvertl' })
+    const userMenu = screen.getByRole('button', { name: 'Меню пользователя' })
+    expect(switcher.nextElementSibling).toBe(userMenu)
+  })
+
+  it('folds the switcher with the sidebar', () => {
+    vi.mocked(isMockMode).mockReturnValue(false)
+    renderWithMe(ME)
+    const switcher = screen.getByRole('button', { name: 'Workspace: GitHub: skvertl' })
+    expect(within(switcher).queryByText('GitHub: skvertl')).not.toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Свернуть меню' }))
+    const folded = screen.getByRole('button', { name: 'Workspace: GitHub: skvertl' })
+    expect(within(folded).queryByText('GitHub: skvertl')).toBeNull()
+  })
+
+  it('asks for the current user only when signed in', () => {
+    vi.mocked(isMockMode).mockReturnValue(false)
+    useAuthStore.setState({ isAuthenticated: false })
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    renderWithQuery(<AppSidebar currentPath="/runs" onNavigate={vi.fn()} />)
+    expect(fetchSpy).not.toHaveBeenCalled()
+    fetchSpy.mockRestore()
   })
 })
 

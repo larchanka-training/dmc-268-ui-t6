@@ -52,6 +52,7 @@ antd, TanStack Query и jsdom — патчи от 2026-09-24.
 | Ф-24 | Переключатель RAG — `PATCH { ragEnabled }` сразу, вне черновика формы; статус индекса — `ragIndex` из `['repos']`; опрос 5 с / 120 с                                 | Как у авто-ревью (Ф-17); тексты статусов — по api#145 (§5); копии в сторе нет (Ф-7). Опрос — только на `building` и после включения здесь (§2); мок строит индекс по числу GET (§8) (Refs ui#102).                         |
 | Ф-25 | SSE: одна инвалидация префикса прогона и объединение целей в пределах разобранного чанка (§2)                                                                        | Перекрывающиеся ключи отменяли и повторяли HTTP-запросы; следующий чанк сохраняет отмену старого refetch ради свежих данных (Refs ui#161).                                                                                 |
 | Ф-26 | Язык интерфейса: i18next, словари `en`/`ru` в `src/shared/i18n`, английский по умолчанию; переключатель: `features/language` (меню профиля, рядом с темой)           | #182: продукт открывается по-английски, выбор языка сохраняется (`dmc_language`). Полноту `ru` проверяет `check-types`, кириллицу вне словарей отклоняет `pnpm lint`; тесты идут на RU (`src/test/setup.ts`).              |
+| Ф-27 | Текущий workspace: один источник `useCurrentWorkspace` (`features/workspace`); в Zustand и localStorage (`dmc_current_workspace`) — только выбранный id              | ui#207: список — запрос `['auth', 'me']` (Ф-7), текущий вычисляется при рендере; выбор общий на всё приложение, как тема и язык, поэтому стор не в виджете (§2).                                                           |
 
 Ф-11 уточнено 2026-09-24 (#49): TypeScript поднят 5.9.3 → 6.0.3. Потолок — именно 6.0.x, а не
 «6.x»: у TypeScript 7.0 нет JS API компилятора, поэтому peer typescript-eslint остаётся
@@ -154,6 +155,7 @@ flowchart TD
 | Инспектор трейса (`RunSession → RunAction`)      | `entities/run`, `widgets/run-inspector`, `pages/runs`                                                   |
 | История прогонов (`/runs?repo=`)                 | `entities/run`, `features/run-list-filter`, `pages/runs/RunsPage`                                       |
 | Аутентификация и App Shell                       | `entities/user`, `features/auth`, `features/theme`, `widgets/app-layout`, `pages/{login,auth}`          |
+| Текущий workspace                                | `features/workspace`, `entities/user`                                                                   |
 | Репозитории и их настройки                       | `entities/repository`, `features/repository-settings`, `widgets/repository-list`, `pages/repositories`  |
 | Правила: статус `.review/rules.md` (мок)         | `entities/repository`, `widgets/repository-rules`, `pages/repositories/RepositorySettingsPage`          |
 | Журнал прогонов (`/audit`)                       | `entities/run`, `features/audit-filter`, `pages/audit`                                                  |
@@ -320,6 +322,14 @@ src/features/run-list-filter/model/useRunListFilterParams.ts
 src/features/theme/index.ts
 src/features/theme/model/store.test.ts
 src/features/theme/model/store.ts
+src/features/workspace/index.ts
+src/features/workspace/model/store.test.ts
+src/features/workspace/model/store.ts
+src/features/workspace/model/useCurrentWorkspace.test.tsx
+src/features/workspace/model/useCurrentWorkspace.ts
+src/features/workspace/ui/WorkspaceSwitcher.module.css
+src/features/workspace/ui/WorkspaceSwitcher.test.tsx
+src/features/workspace/ui/WorkspaceSwitcher.tsx
 src/main.tsx
 src/main.wiring.test.ts
 src/pages/auth/CallbackPage.module.css
@@ -553,9 +563,25 @@ src/widgets/run-inspector/ui/RunProgressBar.tsx
 | Фильтр истории прогонов               | URL search param `repo` (одно значение); хук `useRunListFilterParams` (`features/run-list-filter`)                         | — (источник — URL)                                                                                                                                                                                                                                                                                                                |
 | Фильтр журнала (`/audit`)             | URL `repo` и `status`; хук `useAuditFilterParams` (`features/audit-filter`)                                                | — (источник — URL)                                                                                                                                                                                                                                                                                                                |
 | Фильтр дашборда (`/analytics`)        | URL `range` (`7d` или `30d`) и `repo`; хук `useAnalyticsFilterParams` (`features/analytics-filter`)                        | — (источник — URL)                                                                                                                                                                                                                                                                                                                |
+| Текущий workspace                     | id в Zustand и localStorage (`dmc_current_workspace`), `features/workspace`; читать — `useCurrentWorkspace` (ниже)         | — (список — `['auth', 'me']`; выбранного id нет в ответе — текущий первый доступный)                                                                                                                                                                                                                                              |
 | Статус `.review/rules.md`             | TanStack Query, ключ `['repoRulesStatus', id]` — вне `['repos']` (ниже)                                                    | открытие (`'always'`), `gcTime: 0`, опрос раз в 3 с, пока ответ `pending` и до 60 с после «Повторить» у `unavailable`                                                                                                                                                                                                             |
 | Черновик настроек репозитория         | `useState` в `RepositorySettingsForm`: снимок на открытии (baseline) и правки пользователя, не копия кэша                  | — (живёт с формой; `key={repoId}`, `resetTo`)                                                                                                                                                                                                                                                                                     |
 | Черновики комментариев                | —                                                                                                                          | future (не реализовано в этом спринте)                                                                                                                                                                                                                                                                                            |
+
+**Текущий workspace (ui#207, Ф-27).** Где хранится: выбранный id — в `useWorkspaceStore`
+(`features/workspace/model/store.ts`) и в localStorage (`dmc_current_workspace`), поэтому выбор переживает
+перезагрузку; список — только в запросе `['auth', 'me']`. Читать текущий workspace можно одним способом:
+`useCurrentWorkspace(isAuthenticated)` возвращает `{ workspaces, current, select }`; `current` вычисляется при
+рендере: выбранный, иначе первый из ответа, `null` только без единого workspace. Экраны баланса, расхода и
+команды (ui#208, ui#209, ui#210) берут его отсюда на уровне `pages`/`widgets`; слайс `features` получает id
+пропом от страницы: импортировать соседний слайс нельзя (§1). Сохранённый id, которого нет в успешном ответе,
+заменяется первым доступным (эффект в хуке): вернувшийся позже workspace сам текущим не станет. Пока запрос
+грузится или завершился ошибкой, а также при пустом списке выбор не меняется. При выходе выбор остаётся, как тема
+и язык: чужой id заменится первым из списка другого пользователя. API сортирует
+список по `Workspace.id`, поэтому «первый» стабилен, но произволен. `WorkspaceSwitcher` стоит над меню
+пользователя: один workspace — имя текстом без действия, несколько — меню выбора. Отличить генерируемые имена
+помогает вторая строка с ID установки: аватара и типа установки в `/auth/me` нет. `/runs`, `/repositories` и блок
+бюджета на `/analytics` по текущему workspace не фильтруются: это решение техлида, вне ui#207.
 
 **Подключения Bitbucket Cloud (ui#195, api#333).** `BitbucketConnectionsPanel` на странице
 репозиториев получает доступные portal workspaces из `Me.workspaces` и требует явного выбора:
