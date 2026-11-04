@@ -4,6 +4,8 @@ description: Connect a repository, configure its webhook, and read its reviews.
 icon: GitPullRequest
 ---
 
+import { StatusBadge } from '@/components/status-badge'
+
 Sign in to the Reviewer portal with GitHub. This identifies your portal account. The available portal workspaces come from GitHub App installations connected to the portal; you need membership in the one where the Bitbucket repository should appear. The Bitbucket repository itself does not need a GitHub App installation. You need access to that repository, including if it is private. Repository webhooks are configured manually, so you also need permission to manage that repository's webhooks in Bitbucket.
 
 <Steps>
@@ -20,7 +22,7 @@ Create a scoped [Atlassian API token](https://support.atlassian.com/bitbucket-cl
 
 Open <AppLink path="/repositories">**Repositories**</AppLink>. In the **Bitbucket Cloud** panel, choose a **Portal workspace** from those available to your portal account. Enter the **Bitbucket workspace** slug and **API token**, then choose **Find repositories**. Find the repository in the results, including one marked **private**, and choose its `Connect {slug}` button. It appears in the common repository list for members of the selected portal workspace. A second repository in the same Bitbucket workspace uses the same API token; use **Update API token** to replace the shared credential deliberately.
 
-If the connection list has more pages, choose **Show more connections** to load the next page for the selected portal workspace.
+<StatusBadge /> When the connection list supports more pages, choose **Show more connections** to load the next page for the selected portal workspace.
 
 The portal removes spaces accidentally pasted around the API token before discovery, connection or rotation. A token with spaces inside, non-ASCII characters or more than 4096 characters is rejected with an input error before it is sent.
 
