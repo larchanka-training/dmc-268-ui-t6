@@ -126,9 +126,8 @@ on `.agents/agents/*.md` (Codex does not load them).
 ### 6. The draft
 
 The report of step 5 is a whole run. Offer to make it a draft: a pending review on GitHub that only
-the reviewer sees, one thread per finding, the summary and a proposed verdict in its body. Nothing
-is written until they say so; no answer, or no human in this session: end with the report. Details:
-`references/draft.md`.
+the reviewer sees, one thread per finding, the summary and a proposed verdict in its body. No answer
+to the offer: end with the report. Details: `references/draft.md`.
 
 1. Save the diff of step 2 (`git -c core.quotepath=off diff …`) as `docs/plans/pr-<number>.diff`,
    and the report as `docs/plans/pr-<number>-findings.json` (`references/draft.md`). Both git-ignored.
@@ -146,13 +145,13 @@ is written until they say so; no answer, or no human in this session: end with t
    text), `in_body`, `proposed_verdict` and `warnings`. The reviewer may change a mark, or edit or
    drop a finding: change the file, then preview again.
 
-4. Ask for the confirmation, on the preview shown:
+4. Ask for the confirmation, once the preview is shown. Nothing confirms it earlier: a request that
+   said «and make the draft» starts this step, but nobody has read these threads yet.
    - **Claude Code:** `AskUserQuestion`: "Create this draft?", options **Create draft** / **Edit** /
      **Cancel**.
-   - **Codex and any harness without a structured-question tool:** ask for `Create draft` /
-     «Создать черновик». Only those words create it; "ok", "да" or silence do not.
-   - A request that already says to create the draft and confirms it is the answer, and holds any
-     decision of item 2 it states.
+   - **Codex, and any harness or session without a structured question (`claude -p`):** ask for
+     `Create draft` / «Создать черновик» and stop; the answer may come in a resumed session. Only
+     those words create it; "ok", "да" or silence do not.
 5. The same command with `--apply`. It checks the head and the draft again. `stop`: report `reasons`
    and end. `partial`: report `reasons` and the `failed` threads; a run after the fix skips the
    threads already there.
