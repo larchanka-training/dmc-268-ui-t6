@@ -633,9 +633,7 @@ def collect(
     if draft is not None:
         doc["review"] = review_of(draft, True)
         if draft["body"] != summary:
-            doc["warnings"].append(
-                "your draft keeps its own text: add the summary on GitHub if you want it"
-            )
+            doc["warnings"].append(kept_text_warning(without))
     if not apply:
         return doc
 
@@ -655,6 +653,16 @@ def collect(
     add_threads(threads, review_id)
     read_back(doc, repo, number, draft is not None)
     return doc
+
+
+def kept_text_warning(without: list[dict[str, Any]]) -> str:
+    if not without:
+        return "your draft keeps its own text: add the summary on GitHub if you want it"
+    places = ", ".join(f"{f['path']}:{f['line']}" for f in without)
+    return (
+        "your draft keeps its own text, so these findings reach GitHub only if you add the "
+        f"summary there: {places}"
+    )
 
 
 def review_of(draft: dict[str, Any], existing: bool) -> dict[str, Any]:

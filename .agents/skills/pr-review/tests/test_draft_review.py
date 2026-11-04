@@ -461,6 +461,22 @@ def test_someone_elses_draft_is_not_used(tmp_path: Path) -> None:
     assert [t["status"] for t in doc["threads"]] == ["new"]
 
 
+def test_a_draft_keeping_its_text_names_the_findings_without_a_thread(tmp_path: Path) -> None:
+    follow_up = finding(scope="out", decision={"kind": "follow-up", "ref": "api#500"}, line=24)
+    elsewhere = finding(path="package.json", line=3, severity="low")
+    target, args = scenario(
+        tmp_path,
+        "05-preview",
+        findings=plan_of(follow_up, elsewhere),
+        state=example("07-existing-draft", "state"),
+    )
+    doc = doc_of(run(*args[:-1], fixtures=target))
+    assert doc["warnings"][-1] == (
+        "your draft keeps its own text, so these findings reach GitHub only if you add the "
+        f"summary there: {PATH}:24, package.json:3"
+    )
+
+
 # ─── a partial write ────────────────────────────────────────────────────────
 def test_a_thread_github_did_not_create_is_reported(tmp_path: Path) -> None:
     readback = copy.deepcopy(example("06-new-draft", "readback"))

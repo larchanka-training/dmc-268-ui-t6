@@ -94,7 +94,10 @@ Checked live on 2026-11-04 (`examples/05-*` to `10-*` keep the shapes):
 - A review without `event` is pending: only its author sees it, on GitHub and through the API.
 - One pending review per user per pull request: a second create is refused (`UNPROCESSABLE`). So an
   existing draft is appended to, its own text and comments untouched, and threads go on the commit
-  of the draft: on another commit the script stops.
+  of the draft: on another commit the script stops. Its body stays too, so what has no thread reaches
+  GitHub only if the reviewer adds `summary`; the warning names those findings.
+- A rerun knows a thread by its path, line and exact text: one edited on GitHub counts as new. Edit
+  after the last run.
 - A line outside the diff, or a file not in it, is **no error**: GraphQL answers `thread: null` with
   exit 0. The script checks that and reads the draft back; never trust the call alone.
 - A merged pull request takes a draft too.

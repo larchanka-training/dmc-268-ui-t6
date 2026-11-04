@@ -157,7 +157,8 @@ to the offer: end with the report. Details: `references/draft.md`.
    threads already there.
 6. Report `review.url` from the read-back and say: the draft is visible to the reviewer alone; they
    edit it on GitHub, press Submit and pick the verdict; after Submit they resolve the threads
-   marked `Вне скоупа`. Never submit, approve or dismiss for them, by any other command either.
+   marked `Вне скоупа`. When a warning says the draft kept its own text, also give them `summary` to
+   add. Never submit, approve or dismiss for them, by any other command either.
 
 ## Golden examples and tests
 
