@@ -173,7 +173,7 @@ REFS_TOKEN = re.compile(r"([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#([1-9][0-9]*)")
 # matched whole (`[0-9]+`) and turned into numbers by `to_int`, which returns None past
 # MAX_DIGITS: a regex that capped the run would let `Part 2 of #<5000 digits>` fall back to an
 # untied `Part 2`.
-_LABEL = r"(?:Ч\.[ \t]*|Part[ \t]+|Teil[ \t]+)"
+_LABEL = r"(?:Ч\.[ \t]*|Part[ \t]+|Teil[ \t]+|Часть[ \t]+)"
 _PART = rf"{_LABEL}([0-9]+)(?![0-9])"
 # The same in a pull request's prose: horizontal whitespace of any kind (a no-break space
 # included) after the label, and «Часть K» too (in any case form: «Части K», «Частью K»).
@@ -221,8 +221,12 @@ UNMET_LINE = "Итог: не выполнено"
 # set from On Review, In Progress or AC Check»): `accept` needs one of them.
 ACCEPT_CARDS = ("In Progress", "On Review", "AC Check")
 PART_START = re.compile(_PART, re.IGNORECASE)
-PART_BULLET = re.compile(rf"{_PART}[ \t]*(?:\((.*?)\)[ \t]*)?:[ \t]*(.*)", re.IGNORECASE)
-PART_CRITERION = re.compile(rf"{_PART}[ \t]*:[ \t]*(.*)", re.IGNORECASE)
+# What ends a part prefix: `:`, or a long dash with whitespace on both sides and no digit after it
+# («Часть 1 – 2: …» is a range). The lookahead sits right after the dash, so that `[ \t]+` cannot
+# give whitespace back to pass it.
+_SEP = r"(?::|(?<=[ \t])[—–](?![ \t]*[0-9])[ \t]+)"
+PART_BULLET = re.compile(rf"{_PART}[ \t]*(?:\((.*?)\)[ \t]*)?{_SEP}[ \t]*(.*)", re.IGNORECASE)
+PART_CRITERION = re.compile(rf"{_PART}[ \t]*{_SEP}[ \t]*(.*)", re.IGNORECASE)
 CHECKBOX_PREFIX = re.compile(r"\[[ xX]\][ \t]+")
 TOP_BULLET = re.compile(r"[-*+][ \t]+(.*)$")
 NESTED_BULLET = re.compile(r"[ \t]+[-*+][ \t]+(.*)$")

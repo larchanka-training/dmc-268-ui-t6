@@ -2609,6 +2609,9 @@ def test_held_is_null_when_nothing_holds_the_issue_back(tmp_path: Path) -> None:
         "## Scope" + " " * 65000 + "x",
         "- Part 1" + " " * 65000 + "x",
         "- Part 1 (label" + " " * 65000 + ":",
+        "- Часть 1 —" + " " * 65000 + "x",
+        "- Часть 1 —" + " " * 65000 + "1",
+        "- Часть 1 (label" + " " * 65000 + "—",
     ],
 )
 def test_the_line_regexes_are_linear(tmp_path: Path, line: str) -> None:
@@ -2616,6 +2619,7 @@ def test_the_line_regexes_are_linear(tmp_path: Path, line: str) -> None:
     pf.REFS_LINE.match(line)
     pf.HEADING.match(line)
     pf.PART_BULLET.fullmatch(line.lstrip("- "))
+    pf.PART_CRITERION.fullmatch(line.lstrip("- "))
     assert time.monotonic() - start < 1
     # ...and end to end: a pull request body and an issue body made of such lines
     body = f"## What\n\nPart 2 of #13: x\n\n## Refs\n\n{line}\nRefs #13\n"
@@ -2666,8 +2670,8 @@ def test_an_unparsable_range_end_names_nothing_and_an_ampersand_lists(
 
 
 # ─── criteria that name parts the Scope does not number readably (R3-1) ─────
-# api#245 and api#298 write their Scope bullets in bold, api#397 as «Часть N —»; every criterion
-# is «Ч.N:»-prefixed. No part is parsed, so the issue is not a whole task.
+# api#245 and api#298 write their Scope bullets in bold; every criterion is «Ч.N:»-prefixed. No
+# part is parsed, so the issue is not a whole task. api#397 writes «Часть N —», which is read.
 BOLD_SCOPE = (
     "## Scope\n\n"
     "- **Ч.1 (P2, тесты/CI). Флейк теста остановки.** Тест ждёт сообщение без опроса.\n"
@@ -2694,16 +2698,27 @@ UNREADABLE = (
 )
 
 
-@pytest.mark.parametrize("scope", [BOLD_SCOPE, CHASTI_SCOPE], ids=["bold", "chasti"])
-def test_criteria_with_part_prefixes_and_no_readable_part_are_a_stop(
-    tmp_path: Path, scope: str
-) -> None:
-    response = issue_response(body=scope + PREFIXED_AC + KICKOFF)
+def test_criteria_with_part_prefixes_and_no_readable_part_are_a_stop(tmp_path: Path) -> None:
+    response = issue_response(body=BOLD_SCOPE + PREFIXED_AC + KICKOFF)
     code, doc = facts(tmp_path, response)
     assert (code, doc["verdict"], doc["selected"]) == (1, "stop", None)
     assert doc["reasons"] == [UNREADABLE]
     assert doc["parts"] == []
     assert len(doc["warnings"]) == 4  # the per-criterion warnings are still there
+
+
+def test_long_dash_scope_bullets_with_prefixed_criteria_are_parts(tmp_path: Path) -> None:
+    response = issue_response(body=CHASTI_SCOPE + PREFIXED_AC + KICKOFF)  # api#397
+    code, doc = facts(tmp_path, response)
+    assert (code, doc["selected"]) == (0, {"part": 1, "reason": "first-todo"})
+    parts = parts_of(doc)
+    assert sorted(parts) == [1, 2, 3]
+    assert parts[2]["scope"] == "подписи панелей LLM."
+    assert parts[1]["acceptance_criteria"] == [
+        "тест ждёт возвращённое сообщение ограниченным опросом",
+        "Monitoring acceptance на `main` после мержа",
+    ]
+    assert doc["warnings"] == []
 
 
 @pytest.mark.parametrize(
@@ -2764,6 +2779,104 @@ def test_malformed_numbering_is_still_the_numbering_stop(tmp_path: Path) -> None
     body = "## Scope\n\n- Ч.1 (PR): first\n- Ч.3 (PR): third\n" + PREFIXED_AC + KICKOFF
     _, doc = facts(tmp_path, issue_response(body=body))
     assert doc["reasons"] == ["parts in Scope are not numbered 1..k contiguously (found: 1, 3)"]
+
+
+# ─── «Часть N» in the Scope and the criteria (api#420) ──────────────────────
+# Live shapes: api#225, api#238 «Часть N (P3, …):», api#239 «Часть N:» repeated. They used to
+# fall through to a whole-task go with the criteria of the parts in the common list.
+CHAST_BODY = (
+    "## Scope\n\n"
+    "- Часть 1 (P3, tests): тесты на выживших мутантов\n"
+    "  - Граница PR: только тесты\n"
+    "  - Готово, когда: pytest зелёный\n"
+    "- часть 2: потолок `Retry-After`\n"
+    "- Часть 2: перепривязка репозитория\n"
+    "- Вне объёма: UI-сторона контракта\n"
+    "\n## Acceptance Criteria\n\n"
+    "- [ ] Часть 1: тест падает на мутанте\n"
+    "- [ ] часть 2: `Retry-After` не роняет разбор\n"
+    "- [ ] PR не меняет static inputs\n"
+) + KICKOFF
+
+
+def test_chast_labels_are_parts_in_scope_and_criteria(tmp_path: Path) -> None:
+    code, doc = facts(tmp_path, issue_response(body=CHAST_BODY))
+    assert (code, doc["verdict"]) == (0, "go")
+    assert doc["selected"] == {"part": 1, "reason": "first-todo"}
+    parts = parts_of(doc)
+    assert sorted(parts) == [1, 2]
+    assert parts[1]["label"] == "P3, tests"
+    assert parts[1]["scope"] == "тесты на выживших мутантов"
+    assert parts[1]["boundary"] == "только тесты"
+    assert parts[1]["done_when"] == "pytest зелёный"
+    assert parts[1]["acceptance_criteria"] == ["тест падает на мутанте"]
+    assert parts[2]["label"] is None
+    assert parts[2]["scope"] == "потолок `Retry-After`\nперепривязка репозитория"
+    assert parts[2]["acceptance_criteria"] == ["`Retry-After` не роняет разбор"]
+    assert doc["common_acceptance_criteria"] == ["PR не меняет static inputs"]
+    assert doc["warnings"] == []
+
+
+@pytest.mark.parametrize(
+    "bullet",
+    ["Части 1–2 правят docs", "Часть данных хранится в кэше", "Частью 2 займётся другой PR"],
+)
+def test_other_forms_of_the_word_are_prose_in_scope(tmp_path: Path, bullet: str) -> None:
+    # api#208 «Части 1–2 правят …»: only the singular, followed by a number, is a label.
+    body = f"## Scope\n\n- {bullet}\n\n## Acceptance Criteria\n\n- [ ] one\n" + KICKOFF
+    code, doc = facts(tmp_path, issue_response(body=body))
+    assert (code, doc["selected"]) == (0, {"part": None, "reason": "whole-task"})
+    assert doc["parts"] == []
+
+
+def test_a_chast_bullet_with_no_separator_is_the_no_colon_stop(tmp_path: Path) -> None:
+    body = "## Scope\n\n- Часть 1. Тест нормализации\n" + KICKOFF  # api#258
+    _, doc = facts(tmp_path, issue_response(body=body))
+    assert doc["verdict"] == "stop"
+    assert doc["reasons"] == [
+        "Scope bullet 'Часть 1. Тест нормализации' starts with a part number but has no ':'"
+    ]
+
+
+@pytest.mark.parametrize(
+    ("bullet", "label", "scope"),
+    [
+        ("Часть 1 — тест: в тесте слота", None, "тест: в тесте слота"),  # ui#147
+        ("Часть 1 – тест", None, "тест"),  # an en dash
+        ("Часть 1 (P3) — тест", "P3", "тест"),
+        ("Ч.1 — сверка blob", None, "сверка blob"),  # api#349
+        ("Part 1 — x", None, "x"),
+        ("Teil 1 — x", None, "x"),
+    ],
+)
+def test_a_long_dash_ends_a_part_prefix(
+    tmp_path: Path, bullet: str, label: str | None, scope: str
+) -> None:
+    body = f"## Scope\n\n- {bullet}\n\n## Acceptance Criteria\n\n"
+    body += "- [ ] Часть 1 — работает\n- [ ] общий\n" + KICKOFF
+    code, doc = facts(tmp_path, issue_response(body=body))
+    assert (code, doc["selected"]) == (0, {"part": 1, "reason": "first-todo"})
+    part = parts_of(doc)[1]
+    assert (part["label"], part["scope"]) == (label, scope)
+    assert part["acceptance_criteria"] == ["работает"]
+    assert doc["common_acceptance_criteria"] == ["общий"]
+
+
+@pytest.mark.parametrize(
+    "bullet",
+    [
+        "Часть 1 - дефис",  # the ASCII hyphen is no separator: none in the live issues
+        "Часть 1-2: обе",
+        "Часть 1 – 2: обе",  # a digit after the dash is a range
+        "Часть 1 —   2: обе",
+        "Часть 1—без пробелов",
+        "Часть 1 —",
+    ],
+)
+def test_a_dash_that_is_no_separator_is_the_no_colon_stop(tmp_path: Path, bullet: str) -> None:
+    _, doc = facts(tmp_path, issue_response(body=f"## Scope\n\n- {bullet}\n" + KICKOFF))
+    assert doc["verdict"] == "stop"
+    assert doc["reasons"] == [f"Scope bullet {bullet!r} starts with a part number but has no ':'"]
 
 
 # ─── the branch pattern in the skill texts (7f) ─────────────────────────────
