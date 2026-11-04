@@ -60,8 +60,19 @@ describe('RunHeader metadata layout', () => {
     render(<RunHeader now={new Date('2026-09-18T12:00:00.000Z')} run={baseRun} />)
     const hash = screen.getByText('abcdef1')
     expect(hash.tagName).toBe('CODE')
-    expect(styles.commit).toBeTruthy()
     expect(hash.classList.contains(styles.commit ?? '')).toBe(true)
+  })
+
+  it('spans the findings metadata item across two columns when counts are shown', () => {
+    render(
+      <RunHeader
+        now={new Date('2026-09-18T12:00:00.000Z')}
+        run={baseRun}
+        severityCounts={{ critical: 1, high: 0, medium: 0, low: 0, info: 0 }}
+      />,
+    )
+    const findingsLabel = screen.getByText('Находки', { selector: 'dt' })
+    expect(findingsLabel.parentElement?.classList.contains(styles.wide ?? '')).toBe(true)
   })
 
   it('retains the run settings, timing, attempt and error values next to their labels', () => {
