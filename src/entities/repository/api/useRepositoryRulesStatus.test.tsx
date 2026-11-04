@@ -9,6 +9,7 @@ import {
   REPOSITORIES_QUERY_KEY,
   repoRulesStatusQueryKey,
   useRepositoryRulesStatus,
+  useRepositoryRulesStatusRetry,
   useUpdateRepository,
 } from './index'
 
@@ -83,12 +84,12 @@ function invalidStatus(): RulesStatus {
 }
 
 /** The one status that offers a retry: it is final for the polling all the same. */
-function retryableUnavailableStatus(): RulesStatus {
+function retryableUnavailableStatus(checkedAt = CHECKED_AT): RulesStatus {
   return {
     status: 'unavailable',
     branch: 'main',
     path: RULES_PATH,
-    checkedAt: CHECKED_AT,
+    checkedAt,
     sha: null,
     diagnostics: [
       {
@@ -149,6 +150,27 @@ function wrapper(client: QueryClient) {
   return function Wrapper({ children }: { children: ReactNode }) {
     return <QueryClientProvider client={client}>{children}</QueryClientProvider>
   }
+}
+
+/** One answer per request, the last one repeats; `'error'` is a 500. */
+function answers(...bodies: (RulesStatus | 'error')[]): Backend {
+  const backend: Backend = stubBackend(() => {
+    // The stub counts a request before it asks for the answer: the count is the request's number.
+    const body = bodies[Math.min(backend.rulesRequests.length, bodies.length) - 1]
+    return Promise.resolve(
+      body === 'error'
+        ? new Response('Server Error', { status: 500 })
+        : new Response(JSON.stringify(body)),
+    )
+  })
+  return backend
+}
+
+/** Lets the timers up to `ms` run, and the requests and renders they cause. */
+async function advance(ms: number): Promise<void> {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(ms)
+  })
 }
 
 afterEach(() => {
@@ -314,27 +336,6 @@ describe('useRepositoryRulesStatus', () => {
 })
 
 describe('useRepositoryRulesStatus: polling a pending status', () => {
-  /** One answer per request, the last one repeats; `'error'` is a 500. */
-  function answers(...bodies: (RulesStatus | 'error')[]): Backend {
-    const backend: Backend = stubBackend(() => {
-      // The stub counts a request before it asks for the answer: the count is the request's number.
-      const body = bodies[Math.min(backend.rulesRequests.length, bodies.length) - 1]
-      return Promise.resolve(
-        body === 'error'
-          ? new Response('Server Error', { status: 500 })
-          : new Response(JSON.stringify(body)),
-      )
-    })
-    return backend
-  }
-
-  /** Lets the timers up to `ms` run, and the requests and renders they cause. */
-  async function advance(ms: number): Promise<void> {
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(ms)
-    })
-  }
-
   function mount(client = appLikeClient()) {
     return renderHook(() => useRepositoryRulesStatus(FIRST_ID), {
       wrapper: wrapper(client),
@@ -422,5 +423,377 @@ describe('useRepositoryRulesStatus: polling a pending status', () => {
 
     await advance(60_000)
     expect(backend.rulesRequests).toHaveLength(2)
+  })
+})
+
+describe('useRepositoryRulesStatusRetry: waiting for a new result after a retry', () => {
+  const LATER = '2026-10-14T09:31:15.000Z'
+  // Far enough to be well past the window of any retry below.
+  const LONG_AFTER = 300_000
+
+  function deniedStatus(): RulesStatus {
+    return {
+      status: 'unavailable',
+      branch: 'main',
+      path: '.review/rules.md',
+      checkedAt: CHECKED_AT,
+      sha: null,
+      diagnostics: [
+        {
+          code: 'policy_access_denied',
+          message: 'No access',
+          line: null,
+          column: null,
+          retryable: false,
+        },
+      ],
+    }
+  }
+
+  function mount(client = appLikeClient()) {
+    return renderHook(({ id }) => useRepositoryRulesStatusRetry(id), {
+      initialProps: { id: FIRST_ID },
+      wrapper: wrapper(client),
+    })
+  }
+
+  /** Mounts on the first answer and presses "Retry"; the request of the press has been answered. */
+  async function mountAndRetry() {
+    const view = mount()
+    await advance(0)
+    act(() => {
+      view.result.current.retry()
+    })
+    await advance(1)
+    return view
+  }
+
+  it('does not poll a retryable unavailable status before the retry', async () => {
+    vi.useFakeTimers()
+    const backend = answers(retryableUnavailableStatus())
+
+    const { result } = mount()
+    await advance(0)
+    expect(result.current.awaitingResult).toBe(false)
+
+    await advance(LONG_AFTER)
+    expect(backend.rulesRequests).toHaveLength(1)
+  })
+
+  it('asks at once and then every 3 s after a retry, and says it is waiting', async () => {
+    vi.useFakeTimers()
+    const backend = answers(retryableUnavailableStatus())
+
+    const { result } = mount()
+    await advance(0)
+    act(() => {
+      result.current.retry()
+    })
+    await advance(0)
+    expect(backend.rulesRequests).toHaveLength(2)
+    expect(result.current.awaitingResult).toBe(true)
+
+    await advance(2999)
+    expect(backend.rulesRequests).toHaveLength(2)
+    await advance(1)
+    expect(backend.rulesRequests).toHaveLength(3)
+    await advance(3000)
+    expect(backend.rulesRequests).toHaveLength(4)
+    expect(result.current.awaitingResult).toBe(true)
+  })
+
+  it('stops when checkedAt changes, even though the status is the same', async () => {
+    vi.useFakeTimers()
+    const backend = answers(
+      retryableUnavailableStatus(),
+      retryableUnavailableStatus(),
+      retryableUnavailableStatus(LATER),
+    )
+
+    const { result } = await mountAndRetry()
+    expect(result.current.awaitingResult).toBe(true)
+
+    await advance(3000)
+    await advance(1)
+    expect(backend.rulesRequests).toHaveLength(3)
+    expect(result.current.query.data?.checkedAt).toBe(LATER)
+    expect(result.current.awaitingResult).toBe(false)
+
+    await advance(LONG_AFTER)
+    expect(backend.rulesRequests).toHaveLength(3)
+  })
+
+  it('stops when the status changes', async () => {
+    vi.useFakeTimers()
+    const backend = answers(
+      retryableUnavailableStatus(),
+      retryableUnavailableStatus(),
+      missingStatus(FIRST_SHA),
+    )
+
+    const { result } = await mountAndRetry()
+    await advance(3000)
+    await advance(1)
+    expect(result.current.query.data?.status).toBe('missing')
+    expect(result.current.awaitingResult).toBe(false)
+
+    await advance(LONG_AFTER)
+    expect(backend.rulesRequests).toHaveLength(3)
+  })
+
+  it('does not poll at all when the answer to the retry is already new', async () => {
+    vi.useFakeTimers()
+    const backend = answers(retryableUnavailableStatus(), retryableUnavailableStatus(LATER))
+
+    const { result } = await mountAndRetry()
+    expect(result.current.query.data?.checkedAt).toBe(LATER)
+    expect(result.current.awaitingResult).toBe(false)
+
+    await advance(LONG_AFTER)
+    expect(backend.rulesRequests).toHaveLength(2)
+  })
+
+  it('gives up 60 s after the retry and asks nothing more', async () => {
+    vi.useFakeTimers()
+    const backend = answers(retryableUnavailableStatus())
+
+    const { result } = await mountAndRetry()
+
+    await advance(59_998)
+    expect(result.current.awaitingResult).toBe(true)
+    await advance(1)
+    expect(result.current.awaitingResult).toBe(false)
+    const asked = backend.rulesRequests.length
+    // The first request, the retry, and a poll every 3 s up to the end of the window.
+    expect(asked).toBeGreaterThanOrEqual(1 + 1 + 19)
+
+    await advance(LONG_AFTER)
+    expect(backend.rulesRequests).toHaveLength(asked)
+  })
+
+  it('waits again on the next retry after the window', async () => {
+    vi.useFakeTimers()
+    const backend = answers(retryableUnavailableStatus())
+
+    const { result } = await mountAndRetry()
+    await advance(LONG_AFTER)
+    expect(result.current.awaitingResult).toBe(false)
+    const asked = backend.rulesRequests.length
+
+    act(() => {
+      result.current.retry()
+    })
+    await advance(1)
+    expect(result.current.awaitingResult).toBe(true)
+    expect(backend.rulesRequests).toHaveLength(asked + 1)
+    await advance(3000)
+    expect(backend.rulesRequests).toHaveLength(asked + 2)
+
+    await advance(LONG_AFTER)
+    expect(result.current.awaitingResult).toBe(false)
+  })
+
+  it.each([
+    ['missing', () => missingStatus(FIRST_SHA)],
+    ['present', presentStatus],
+    ['invalid', invalidStatus],
+    ['unavailable that cannot be retried', deniedStatus],
+  ])('asks once and does not wait after a retry of: %s', async (_name, body) => {
+    vi.useFakeTimers()
+    const backend = answers(body())
+
+    const { result } = await mountAndRetry()
+    expect(backend.rulesRequests).toHaveLength(2)
+    expect(result.current.awaitingResult).toBe(false)
+
+    await advance(LONG_AFTER)
+    expect(backend.rulesRequests).toHaveLength(2)
+  })
+
+  it('asks once and does not wait when the first load failed: there is no record to compare', async () => {
+    vi.useFakeTimers()
+    const backend = answers('error', retryableUnavailableStatus())
+
+    const { result } = await mountAndRetry()
+    expect(result.current.query.data?.status).toBe('unavailable')
+    expect(result.current.awaitingResult).toBe(false)
+
+    await advance(LONG_AFTER)
+    expect(backend.rulesRequests).toHaveLength(2)
+  })
+
+  it('polls a pending status as before and never calls that waiting for a retry', async () => {
+    vi.useFakeTimers()
+    const backend = answers(pendingStatus(), pendingStatus(), missingStatus(FIRST_SHA))
+
+    const { result } = mount()
+    await advance(0)
+    expect(result.current.awaitingResult).toBe(false)
+    await advance(3000)
+    expect(result.current.awaitingResult).toBe(false)
+    await advance(3000)
+    await advance(1)
+    expect(result.current.query.data?.status).toBe('missing')
+
+    await advance(LONG_AFTER)
+    expect(backend.rulesRequests).toHaveLength(3)
+  })
+
+  it('hands over to the pending polling when the retry brings pending', async () => {
+    vi.useFakeTimers()
+    const backend = answers(
+      retryableUnavailableStatus(),
+      pendingStatus(),
+      pendingStatus(),
+      missingStatus(FIRST_SHA),
+    )
+
+    const { result } = await mountAndRetry()
+    expect(result.current.query.data?.status).toBe('pending')
+    expect(result.current.awaitingResult).toBe(false)
+
+    await advance(3000)
+    await advance(3000)
+    await advance(1)
+    expect(result.current.query.data?.status).toBe('missing')
+
+    await advance(LONG_AFTER)
+    expect(backend.rulesRequests).toHaveLength(4)
+  })
+
+  it('goes on after a failed poll inside the window and stops at the result', async () => {
+    vi.useFakeTimers()
+    const backend = answers(
+      retryableUnavailableStatus(),
+      retryableUnavailableStatus(),
+      'error',
+      retryableUnavailableStatus(LATER),
+    )
+
+    const { result } = await mountAndRetry()
+    // Reading `isError` makes the hook watch it: TanStack re-renders only for the props it was asked.
+    expect(result.current.query.isError).toBe(false)
+
+    await advance(3000)
+    await advance(1)
+    expect(result.current.query.isError).toBe(true)
+    expect(result.current.awaitingResult).toBe(true)
+
+    await advance(3000)
+    await advance(1)
+    expect(result.current.query.isError).toBe(false)
+    expect(result.current.query.data?.checkedAt).toBe(LATER)
+    expect(result.current.awaitingResult).toBe(false)
+
+    await advance(LONG_AFTER)
+    expect(backend.rulesRequests).toHaveLength(4)
+  })
+
+  it('stops at the end of the window when every poll fails', async () => {
+    vi.useFakeTimers()
+    const backend = answers(retryableUnavailableStatus(), 'error')
+
+    const { result } = await mountAndRetry()
+    await advance(60_000)
+    expect(result.current.query.isError).toBe(true)
+    expect(result.current.awaitingResult).toBe(false)
+    const asked = backend.rulesRequests.length
+
+    await advance(LONG_AFTER)
+    expect(backend.rulesRequests).toHaveLength(asked)
+  })
+
+  it('waits again on a retry of the load error over a retryable status', async () => {
+    vi.useFakeTimers()
+    let answer: RulesStatus | 'error' = retryableUnavailableStatus()
+    const backend = stubBackend(() =>
+      Promise.resolve(
+        answer === 'error'
+          ? new Response('Server Error', { status: 500 })
+          : new Response(JSON.stringify(answer)),
+      ),
+    )
+
+    const { result } = mount()
+    await advance(0)
+    answer = 'error'
+    act(() => {
+      result.current.retry()
+    })
+    await advance(LONG_AFTER)
+    expect(result.current.query.isError).toBe(true)
+    expect(result.current.awaitingResult).toBe(false)
+    const asked = backend.rulesRequests.length
+
+    // The server answers again, with the same record: the read it was asked for is still to come.
+    answer = retryableUnavailableStatus()
+    act(() => {
+      result.current.retry()
+    })
+    await advance(1)
+    expect(result.current.query.isError).toBe(false)
+    expect(result.current.awaitingResult).toBe(true)
+    await advance(3000)
+    expect(backend.rulesRequests).toHaveLength(asked + 2)
+  })
+
+  it('starts the window over on a retry of the load error inside it', async () => {
+    vi.useFakeTimers()
+    let answer: RulesStatus | 'error' = retryableUnavailableStatus()
+    stubBackend(() =>
+      Promise.resolve(
+        answer === 'error'
+          ? new Response('Server Error', { status: 500 })
+          : new Response(JSON.stringify(answer)),
+      ),
+    )
+
+    const { result } = await mountAndRetry()
+    // Reading `isError` makes the hook watch it: TanStack re-renders only for the props it was asked.
+    expect(result.current.query.isError).toBe(false)
+    answer = 'error'
+    await advance(30_000)
+    expect(result.current.query.isError).toBe(true)
+
+    answer = retryableUnavailableStatus()
+    act(() => {
+      result.current.retry()
+    })
+    await advance(1)
+
+    // 89 s after the first retry, 59 s after this one.
+    await advance(59_000)
+    expect(result.current.awaitingResult).toBe(true)
+    await advance(1000)
+    expect(result.current.awaitingResult).toBe(false)
+  })
+
+  it('stops polling when the last viewer leaves', async () => {
+    vi.useFakeTimers()
+    const backend = answers(retryableUnavailableStatus())
+
+    const view = await mountAndRetry()
+    await advance(3000)
+    const asked = backend.rulesRequests.length
+    view.unmount()
+
+    await advance(LONG_AFTER)
+    expect(backend.rulesRequests).toHaveLength(asked)
+  })
+
+  it('does not wait for another repository with the same checkedAt', async () => {
+    vi.useFakeTimers()
+    const backend = answers(retryableUnavailableStatus())
+
+    const view = await mountAndRetry()
+    expect(view.result.current.awaitingResult).toBe(true)
+
+    view.rerender({ id: SECOND_ID })
+    await advance(1)
+    expect(view.result.current.query.data?.checkedAt).toBe(CHECKED_AT)
+    expect(view.result.current.awaitingResult).toBe(false)
+
+    await advance(LONG_AFTER)
+    expect(backend.rulesRequests.filter((id) => id === SECOND_ID)).toHaveLength(1)
   })
 })
