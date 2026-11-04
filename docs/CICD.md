@@ -54,6 +54,10 @@ flowchart TD
 
 Корневые permissions: `contents: read`, остальное — только у job, которому нужно. Все jobs работают на `ubuntu-latest`.
 
+Все три образа используют GitHub Actions cache для стадии `build`; `no-cache-filters: runtime` заставляет Buildx каждый раз выполнять стадию `runtime`, включая неизменённую команду `RUN apk update && apk upgrade --no-cache && apk add …`. Стадия `build` остаётся доступной для кэша, если её входные данные не изменились. Явные `pcre2`, `tiff` и ограничение `libexpat>=2.10.0-r0` сохраняют защиту от известных уязвимостей; `apk upgrade` подхватывает новые исправления остальных пакетов.
+
+Если Trivy всё ещё находит исправленную CVE в пакете базового образа, проверьте в логе **Docker image build**, что шаг `runtime` с `apk upgrade` выполнился без `CACHED`. Затем проверьте, есть ли исправленная версия в настроенном Alpine-репозитории и какая версия пакета установлена в собранном образе. Если исправления в репозитории нет, нужен доступный источник исправленного пакета или обновление базового образа; если `apk` завершился ошибкой, сначала устраните ошибку сборки.
+
 `UI quality` сразу после checkout падает, если в git есть файлы каталога `docs/plans` (`git ls-files docs/plans` не пуст: планы — локальные рабочие файлы и не коммитятся, api#265), затем ставит Node.js 24 (как build-стадия `Dockerfile`) и pnpm версии из `packageManager`, затем выполняет `pnpm install --frozen-lockfile` и шесть гейтов по порядку (последний, `pnpm verify:prod-bundle`, идёт после `pnpm build` и проверяет `dist/assets`: нет mock/demo-кода, а вызов zod `jitless` исполняется раньше первой схемы); первый упавший шаг делает job красным. Job стоит в `needs` у `Push Docker image`: с красными гейтами образ не пушится и staging не выкатывается. На PR job отменяется вместе со всем run при новом push в ветку (`cancel-in-progress` в `concurrency` workflow). Лимит job — 15 минут (`timeout-minutes`): зависший прогон не держит обязательную проверку и `Push Docker image` до стандартных шести часов.
 
 Шаги `Deploy staging`: **Resolve staging target** → копирование `deploy/` в `APP_DIR` (`appleboy/scp-action`; на курсовом VPS ещё файлы лендинга и документации, каждые в свой `APP_DIR`) → **Prepare host** → (курсовой VPS) ожидание TLS → **Deploy image** (`deploy.sh`) → **Health check** → (курсовой VPS) **Deploy landing image** → **Landing health check** → (курсовой VPS, независимо от лендинга) **Deploy docs image** → **Docs health check** → при ошибке лендинга **Rollback landing on failed deploy or health check**, при ошибке документации **Rollback docs on failed deploy or health check**, при ошибке UI **Rollback on failed deploy or health check** (все `ROLLBACK_MODE=auto`, каждый откатывает только свою часть) → job красный, в логе сообщение о том, что упало (у сбоя лендинга и документации это `::error::`). После сбоя лендинга `Promote staging tag` всё равно продвигает проверенный UI (`!cancelled()` и флаг `promote`), тег лендинга не двигается (`promote_landing=false`); так же с документацией (`promote_docs`). UI тогда уже выкачен; повторный выкат того же коммита (**Re-run failed jobs**) не трогает точку отката UI на VM: `deploy.sh` переносит `.deploy-state` в `.deploy-state.previous`, только если выкатывается другой образ. Что допустимо при повторе и что будет, если на нём упадёт проверка UI, — §2.1.
@@ -316,22 +320,24 @@ Ruleset `Protect Default Branch` меняет только администра�
 
 ## 9. Локальные команды
 
+Локальная сборка без GitHub Actions cache не воспроизводит повторное использование слоёв в CI: успешный `docker build` сам по себе не доказывает, что CI выполнил `apk upgrade`. Проверяйте шаг `runtime` в логе **Docker image build**.
+
 ```bash
 docker build -t dmc-268-ui:local .
-trivy image --severity CRITICAL,HIGH --exit-code 1 dmc-268-ui:local
+trivy image --severity CRITICAL,HIGH --ignore-unfixed --scanners vuln,secret,misconfig --exit-code 1 dmc-268-ui:local
 docker run --rm -p 8080:8080 dmc-268-ui:local
 curl -fsS http://127.0.0.1:8080/health
 
 # лендинг: контекст — корень репозитория, APP_URL обязателен
 docker build -f landing/Dockerfile -t dmc-268-landing:local .
-trivy image --severity CRITICAL,HIGH --exit-code 1 dmc-268-landing:local
+trivy image --severity CRITICAL,HIGH --ignore-unfixed --scanners vuln,secret,misconfig --exit-code 1 dmc-268-landing:local
 docker run --rm -p 8081:8080 -e APP_URL=https://staging-ui.dmc268-t6.axyi.ru dmc-268-landing:local
 curl -fsS http://127.0.0.1:8081/health
 curl -fsS http://127.0.0.1:8081/config.json
 
 # документация: контекст — корень репозитория, всё под /docs
 docker build -f docs-site/Dockerfile -t dmc-268-docs:local .
-trivy image --severity CRITICAL,HIGH --exit-code 1 dmc-268-docs:local
+trivy image --severity CRITICAL,HIGH --ignore-unfixed --scanners vuln,secret,misconfig --exit-code 1 dmc-268-docs:local
 docker run --rm -p 8082:8080 dmc-268-docs:local
 curl -fsS http://127.0.0.1:8082/docs/health
 curl -fsS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8082/docs/quickstart

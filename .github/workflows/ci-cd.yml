@@ -239,6 +239,7 @@ jobs:
             VITE_DOCS_URL=${{ vars.VITE_DOCS_URL }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          no-cache-filters: runtime
           provenance: false
 
       - name: Export image artifact
@@ -261,6 +262,7 @@ jobs:
           tags: ${{ env.LANDING_LOCAL_IMAGE }}
           cache-from: type=gha,scope=landing
           cache-to: type=gha,mode=max,scope=landing
+          no-cache-filters: runtime
           provenance: false
 
       - name: Export landing image artifact
@@ -283,6 +285,7 @@ jobs:
           tags: ${{ env.DOCS_LOCAL_IMAGE }}
           cache-from: type=gha,scope=docs
           cache-to: type=gha,mode=max,scope=docs
+          no-cache-filters: runtime
           provenance: false
 
       - name: Export docs image artifact
