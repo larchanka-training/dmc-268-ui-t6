@@ -472,6 +472,19 @@ def test_a_draft_keeping_its_text_names_the_findings_without_a_thread(tmp_path: 
             "Comment",
             id="in-scope-without-a-thread",
         ),
+        pytest.param(
+            plan_of(
+                finding(
+                    path="package.json",
+                    line=3,
+                    scope="out",
+                    decision={"kind": "rejected", "why": "нет"},
+                )
+            ),
+            "05-preview",
+            "Comment",
+            id="a-record-without-a-thread",
+        ),
         pytest.param(plan_of(), "07-existing-draft", "Comment", id="comments-already-in-the-draft"),
         pytest.param(
             plan_of(finding(scope="out", decision={"kind": "follow-up", "ref": "api#500"})),

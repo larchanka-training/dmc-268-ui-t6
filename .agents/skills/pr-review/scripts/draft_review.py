@@ -40,7 +40,7 @@ unfixed: P3, and anything out of scope.
 
 The proposed verdict is text for the reviewer: Request changes for a critical, high or medium
 finding in scope or a criterion `not covered`; else Comment when there is a thread, a comment in
-the viewer's draft or a finding in scope without a thread; else Approve.
+the viewer's draft or a finding without a thread other than a follow-up; else Approve.
 The author of the pull request gets Comment: GitHub takes no other verdict from them.
 
 Contract
@@ -510,9 +510,13 @@ def stop_reasons(state: dict[str, Any], plan: dict[str, Any]) -> list[str]:
 
 
 # ─── the run ────────────────────────────────────────────────────────────────
-def place(finding: dict[str, Any], lines: dict[str, set[int]]) -> str:
+def is_follow_up(finding: dict[str, Any]) -> bool:
     decision = finding["decision"]
-    if decision is not None and decision["kind"] == "follow-up":
+    return decision is not None and decision["kind"] == "follow-up"
+
+
+def place(finding: dict[str, Any], lines: dict[str, set[int]]) -> str:
+    if is_follow_up(finding):
         return "body"
     in_file = lines.get(finding["path"])
     if in_file is None:
@@ -626,7 +630,7 @@ def collect(
     draft = state["draft"]
     findings, ac = plan["findings"], plan["ac"]
     threads, without = plan_threads(findings, lines, draft)
-    remarks = threads or threads_in(draft) or any(f["scope"] == "in" for f in without)
+    remarks = threads or threads_in(draft) or any(not is_follow_up(f) for f in without)
     verdict = proposed_verdict(findings, ac, bool(remarks), state["author"] == state["viewer"])
     summary = summary_of(state["head_sha"], findings, ac, verdict, [body_line(f) for f in without])
     doc.update(
