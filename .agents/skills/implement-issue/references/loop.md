@@ -151,20 +151,32 @@ request first, then the copy in api, both with the same `Refs`.
 ## 5. The stop report
 
 When round 3 still finds critical or high, or a gate cannot be made green, or three review
-attempts in a row fail the `Reviewed:` check, or the human declines a push: do not open the
-pull request, do not push, do not touch the board. Report:
+attempts in a row fail the `Reviewed:` check, or the human declines a push, or a rebase stops on a
+conflict (§6), or the harness refuses a command (SKILL.md, Harness notes): do not open the pull
+request, do not push, do not touch the board. Report:
 
 ```
-STOPPED — <ref> Part <K>, <reason: round 3 still has critical/high | gates red | no valid review | push declined>
-Branch: <name> — <n> commits ahead of origin/main, not pushed
+STOPPED — <ref> Part <K>, <reason: round 3 still has critical/high | gates red | no valid review | push declined | rebase conflict | git write refused | sandbox refused a command>
+Branch: <name — <n> commits ahead of origin/main, not pushed | none, refused before the branch was cut>
 Pull requests: <none | SYNC part, the api copy stopped: <ui PR URL> stays open, the card stays In Progress>
+Conflict: <only for a rebase conflict: the files, the commit of origin/main it stopped on, `git rebase --abort` done>
+Refused: <only for a refusal: the command, the harness's message verbatim>
 Open findings (round <R>):
   1. [critical] path:line — title — why it matters — suggested fix
 Rounds: 1: <c>/<h>/<m>/<l>/<i> · 2: … · 3: …   (critical/high/medium/low/info)
 Medium, low, info so far: <list>
 Gates: <command: green|red, …>
-Next: the human decides — fix by hand, change the plan, or discard the branch.
+Next: <by reason, below>
 ```
+
+`Next` by reason:
+
+- **rebase conflict:** the human resolves it or says how; a resolution goes through review before
+  any push (§6).
+- **git write refused:** re-run with git write access.
+- **sandbox refused a command:** it is not a git write, so that advice does not help. The human
+  allows the command, or runs it and gives the output.
+- **any other reason:** the human decides — fix by hand, change the plan, or discard the branch.
 
 The branch is left as it is. The preflight of the next run sees no pull request and offers the same
 part again; a taken branch name is never reused (SKILL.md step 3).
@@ -172,7 +184,7 @@ part again; a taken branch name is never reused (SKILL.md step 3).
 ## 6. The pull request body
 
 Before it: `git fetch origin && git rebase origin/main`; if that changed anything, run the gates
-again. If the rebase stops on a conflict: `git rebase --abort`, stop and ask the user — never
+again. If the rebase stops on a conflict: `git rebase --abort`, stop and ask the user (§5) — never
 `git rebase --skip`, `-X`, or a push of a resolution nobody reviewed. The work is committed
 already (steps 2 and 5, and the SYNC copy of §4), so the `pull-request` skill commits only what is
 left and then pushes (`git push -u origin HEAD`).
