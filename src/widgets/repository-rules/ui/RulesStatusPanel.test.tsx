@@ -310,7 +310,37 @@ describe('RulesStatusPanel', () => {
               ...diagnostic,
               code: 'policy_new_rule',
               message:
-                'New <script>alert(1)</script> rule. Где: файл `.review/rules.md`, строка 9.',
+                'New <script>alert(1)</script> rule. Where: file `.review/rules.md`, line 9, column 3.',
+              line: 9,
+              column: 3,
+            },
+          ],
+        }),
+      ],
+    })
+
+    renderPanel()
+
+    const item = (await within(panel()).findByText('policy_new_rule')).closest('li')
+    expect(item?.textContent).toBe(
+      'policy_new_rule New <script>alert(1)</script> rule. Where: file .review/rules.md, line 9, column 3.',
+    )
+    expect(item?.querySelectorAll('code')[1]?.textContent).toBe('.review/rules.md')
+    expect(item?.textContent).not.toContain('`')
+    expect(item?.querySelector('script')).toBeNull()
+  })
+
+  it('renders escaped backticks from an unknown message as safe inline code', async () => {
+    stubBackend({
+      [REPO_A]: [
+        json({
+          ...invalid('# Rules'),
+          diagnostics: [
+            {
+              ...diagnostic,
+              code: 'policy_new_rule',
+              message:
+                'Unsafe <script>alert(1)</script>. Where: file \\`.review/rules.md\\`, line 9.',
               line: 9,
               column: null,
             },
@@ -323,9 +353,37 @@ describe('RulesStatusPanel', () => {
 
     const item = (await within(panel()).findByText('policy_new_rule')).closest('li')
     expect(item?.textContent).toBe(
-      'policy_new_rule New <script>alert(1)</script> rule. Где: файл .review/rules.md, строка 9.',
+      'policy_new_rule Unsafe <script>alert(1)</script>. Where: file .review/rules.md, line 9.',
     )
     expect(item?.querySelectorAll('code')[1]?.textContent).toBe('.review/rules.md')
+    expect(item?.textContent).not.toMatch(/[\\`]/)
+    expect(item?.querySelector('script')).toBeNull()
+  })
+
+  it('keeps useful unknown-message text when a single backtick is unmatched', async () => {
+    stubBackend({
+      [REPO_A]: [
+        json({
+          ...invalid('# Rules'),
+          diagnostics: [
+            {
+              ...diagnostic,
+              code: 'policy_new_rule',
+              message: 'Unexpected `token near <script>alert(1)</script>.',
+              line: null,
+              column: null,
+            },
+          ],
+        }),
+      ],
+    })
+
+    renderPanel()
+
+    const item = (await within(panel()).findByText('policy_new_rule')).closest('li')
+    expect(item?.textContent).toBe(
+      'policy_new_rule Unexpected token near <script>alert(1)</script>.',
+    )
     expect(item?.textContent).not.toContain('`')
     expect(item?.querySelector('script')).toBeNull()
   })

@@ -53,7 +53,7 @@ describe('describeDiagnosticLocation', () => {
     ).toBe('9')
   })
 
-  it.each(['Found at line: 9.', 'Где: файл `.review/rules.md`, на строке 9.'])(
+  it.each(['Found at line: 9.', 'Where: file `.review/rules.md`, line 9.'])(
     'does not repeat a line already named by an unknown message: %s',
     (message) => {
       expect(
@@ -61,6 +61,41 @@ describe('describeDiagnosticLocation', () => {
       ).toBeNull()
     },
   )
+
+  it('does not repeat an unknown diagnostic location with a matching line and column', () => {
+    expect(
+      describeDiagnosticLocation({
+        ...base,
+        code: 'policy_new_rule',
+        message: 'Where: file `.review/rules.md`, line 9, column 3.',
+        line: 9,
+        column: 3,
+      }),
+    ).toBeNull()
+  })
+
+  it('keeps the structured location when the message names a different line', () => {
+    expect(
+      describeDiagnosticLocation({
+        ...base,
+        code: 'policy_new_rule',
+        message: 'Where: file `.review/rules.md`, line 90, column 3.',
+        line: 9,
+        column: 3,
+      }),
+    ).toBe('9:3')
+  })
+
+  it('keeps the structured location for a known code with localized text', () => {
+    expect(
+      describeDiagnosticLocation({
+        ...base,
+        message: 'Where: file `.review/rules.md`, line 9, column 3.',
+        line: 9,
+        column: 3,
+      }),
+    ).toBe('9:3')
+  })
 })
 
 describe('describeDiagnosticLimit', () => {
