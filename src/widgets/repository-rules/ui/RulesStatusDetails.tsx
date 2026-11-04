@@ -110,6 +110,17 @@ const Meta: FC<{ status: Exclude<RulesStatus, { status: 'pending' }>; tag?: Reac
   )
 }
 
+/** The file is being read: for a `pending` status, and for a retry waiting for its result. */
+export const Checking: FC<{ branch: string }> = ({ branch }) => {
+  const { t } = useTranslation()
+  return (
+    <Flex align="center" gap={8} role="status">
+      <Spinner label={null} size="sm" />
+      <Text type="secondary">{t('rules.checking', { branch })}</Text>
+    </Flex>
+  )
+}
+
 export interface RulesStatusDetailsProps {
   status: RulesStatus
   provider: VcsProvider
@@ -158,12 +169,7 @@ export const RulesStatusDetails: FC<RulesStatusDetailsProps> = ({
         </Flex>
       )
     case 'pending':
-      return (
-        <Flex align="center" gap={8} role="status">
-          <Spinner label={null} size="sm" />
-          <Text type="secondary">{t('rules.checking', { branch: status.branch })}</Text>
-        </Flex>
-      )
+      return <Checking branch={status.branch} />
     case 'missing':
       return (
         <Flex gap={12} vertical>

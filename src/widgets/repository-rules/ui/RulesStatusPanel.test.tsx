@@ -552,8 +552,191 @@ describe('RulesStatusPanel', () => {
     })
     await new Promise((resolve) => setTimeout(resolve, 20))
 
-    expect(within(panel()).getByRole('button', { name: 'Повторить' })).toBe(retry)
+    // Waiting for the new result the button is busy, and antd adds its icon's label to the name.
+    expect(within(panel()).getByRole('button', { name: /Повторить/ })).toBe(retry)
     expect(document.activeElement).toBe(retry)
+  })
+
+  describe('after «Повторить» of a retryable unavailable file', () => {
+    const LATER = '2026-10-14T09:31:15.000Z'
+    const CHECKING_TEXT = 'Проверяем .review/rules.md в ветке master…'
+    const stale = unavailable(true, 'policy_fetch_transient')
+    const fresh = { ...stale, checkedAt: LATER }
+
+    /** Bodies are read once: a polled answer needs a `Response` per request. */
+    const repeated = (body: unknown, times = 40): Response[] =>
+      Array.from({ length: times }, () => json(body))
+    // A busy antd button is named after its icon too: "loading Повторить".
+    const retryButton = (): HTMLElement =>
+      within(panel()).getByRole('button', { name: /Повторить/ })
+    const heading = (): HTMLElement =>
+      within(panel()).getByRole('heading', { name: 'Правила ревью' })
+    const advance = async (ms: number): Promise<void> => {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(ms)
+      })
+    }
+
+    /** Renders the stale record, and presses a focused «Повторить»; the press has its answer. */
+    async function pressRetry(): Promise<HTMLElement> {
+      vi.useFakeTimers()
+      renderPanel()
+      await advance(0)
+      const retry = retryButton()
+      retry.focus()
+      fireEvent.click(retry)
+      await advance(1)
+      return retry
+    }
+
+    it('says the check is running and keeps the last result on screen, the button busy', async () => {
+      stubBackend({ [REPO_A]: repeated(stale) })
+      vi.useFakeTimers()
+      renderPanel()
+      await advance(0)
+      expect(within(panel()).queryByRole('status')).toBeNull()
+      expect(retryButton().classList.contains('ant-btn-loading')).toBe(false)
+
+      fireEvent.click(retryButton())
+      await advance(1)
+
+      expect(within(panel()).getByRole('status').textContent).toBe(CHECKING_TEXT)
+      expect(within(panel()).getByText('Не удалось прочитать файл правил')).toBeTruthy()
+      expect(within(panel()).getByText('Проверено: 14.10.2026, 09:30:15')).toBeTruthy()
+      expect(retryButton().classList.contains('ant-btn-loading')).toBe(true)
+    })
+
+    it('shows the new checkedAt by itself, and keeps the focus on the same button', async () => {
+      stubBackend({ [REPO_A]: [json(stale), json(stale), json(fresh)] })
+      const retry = await pressRetry()
+
+      await advance(3000)
+      await advance(1)
+
+      expect(within(panel()).getByText('Проверено: 14.10.2026, 09:31:15')).toBeTruthy()
+      expect(within(panel()).queryByRole('status')).toBeNull()
+      expect(retryButton()).toBe(retry)
+      expect(retry.classList.contains('ant-btn-loading')).toBe(false)
+      expect(document.activeElement).toBe(retry)
+    })
+
+    it('shows another status by itself and moves the focus to the heading', async () => {
+      stubBackend({ [REPO_A]: [json(stale), json(stale), json(present())] })
+      await pressRetry()
+      expect(document.activeElement).toBe(retryButton())
+
+      await advance(3000)
+      await advance(1)
+
+      expect(within(panel()).getByText('Файл найден')).toBeTruthy()
+      expect(within(panel()).queryByRole('status')).toBeNull()
+      expect(document.activeElement).toBe(heading())
+    })
+
+    it('moves the focus to the heading when the new result cannot be retried', async () => {
+      const denied = { ...unavailable(false), checkedAt: LATER }
+      stubBackend({ [REPO_A]: [json(stale), json(stale), json(denied)] })
+      await pressRetry()
+
+      await advance(3000)
+      await advance(1)
+
+      expect(within(panel()).queryByRole('button', { name: /Повторить/ })).toBeNull()
+      expect(within(panel()).queryByRole('status')).toBeNull()
+      expect(document.activeElement).toBe(heading())
+    })
+
+    it('gives the button back after the window, with the focus on it, and it works again', async () => {
+      const backend = stubBackend({ [REPO_A]: repeated(stale) })
+      const retry = await pressRetry()
+
+      await advance(59_998)
+      expect(within(panel()).getByRole('status').textContent).toBe(CHECKING_TEXT)
+
+      await advance(2)
+      await advance(1)
+      expect(within(panel()).queryByRole('status')).toBeNull()
+      expect(retryButton()).toBe(retry)
+      expect(retry.classList.contains('ant-btn-loading')).toBe(false)
+      expect(document.activeElement).toBe(retry)
+      const asked = backend.requests.length
+
+      await advance(60_000)
+      expect(backend.requests).toHaveLength(asked)
+
+      fireEvent.click(retry)
+      await advance(1)
+      expect(backend.requests).toHaveLength(asked + 1)
+      expect(within(panel()).getByRole('status').textContent).toBe(CHECKING_TEXT)
+    })
+
+    it('keeps saying the check is running on a failed poll, the load error «Повторить» busy between requests', async () => {
+      stubBackend({
+        [REPO_A]: [json(stale), json(stale), json({ detail: 'boom' }, 500), ...repeated(stale)],
+      })
+      const retry = await pressRetry()
+      const checking = within(panel()).getByRole('status')
+
+      await advance(3000)
+      await advance(1)
+      expect(within(panel()).getByText(LOAD_ERROR)).toBeTruthy()
+      expect(within(panel()).getByRole('status')).toBe(checking)
+      expect(checking.textContent).toBe(CHECKING_TEXT)
+      const onError = retryButton()
+      expect(onError).not.toBe(retry)
+      expect(onError.classList.contains('ant-btn-loading')).toBe(true)
+      expect(document.activeElement).toBe(onError)
+
+      await advance(1500)
+      expect(onError.classList.contains('ant-btn-loading')).toBe(true)
+
+      await advance(1500)
+      await advance(1)
+      expect(within(panel()).queryByText(LOAD_ERROR)).toBeNull()
+      expect(within(panel()).getByRole('status')).toBe(checking)
+      expect(retryButton().classList.contains('ant-btn-loading')).toBe(true)
+      expect(document.activeElement).toBe(retryButton())
+    })
+
+    it('gives the load error «Повторить» back when the window ends on a failed poll', async () => {
+      const failures = Array.from({ length: 40 }, () => json({ detail: 'boom' }, 500))
+      const backend = stubBackend({ [REPO_A]: [json(stale), json(stale), ...failures] })
+      await pressRetry()
+
+      await advance(60_000)
+      await advance(1)
+      expect(within(panel()).getByText(LOAD_ERROR)).toBeTruthy()
+      expect(within(panel()).queryByRole('status')).toBeNull()
+      const onError = retryButton()
+      expect(onError.classList.contains('ant-btn-loading')).toBe(false)
+      expect(document.activeElement).toBe(onError)
+      const asked = backend.requests.length
+
+      await advance(60_000)
+      expect(backend.requests).toHaveLength(asked)
+
+      fireEvent.click(onError)
+      await advance(1)
+      expect(backend.requests).toHaveLength(asked + 1)
+      expect(within(panel()).getByRole('status').textContent).toBe(CHECKING_TEXT)
+    })
+
+    it('does not take the focus from where the user took it', async () => {
+      stubBackend({ [REPO_A]: [json(stale), json(stale), json(present())] })
+      await pressRetry()
+      const elsewhere = document.body.appendChild(document.createElement('button'))
+      try {
+        elsewhere.focus()
+
+        await advance(3000)
+        await advance(1)
+
+        expect(within(panel()).getByText('Файл найден')).toBeTruthy()
+        expect(document.activeElement).toBe(elsewhere)
+      } finally {
+        elsewhere.remove()
+      }
+    })
   })
 
   describe('when «Повторить» goes away', () => {
@@ -647,7 +830,7 @@ describe('RulesStatusPanel', () => {
       fireEvent.click(retry)
 
       await within(panel()).findByText(LOAD_ERROR)
-      const swapped = within(panel()).getByRole('button', { name: 'Повторить' })
+      const swapped = within(panel()).getByRole('button', { name: /Повторить/ })
       expect(swapped).not.toBe(retry)
       await waitFor(() => {
         expect(document.activeElement).toBe(swapped)
@@ -685,6 +868,9 @@ describe('RulesStatusPanel', () => {
       const retry = within(panel()).getByRole('button', { name: 'Повторить' })
       retry.focus()
       expect(document.activeElement).toBe(retry)
+      // Not a wait after a retry: nothing says a check is running, the button is live between polls.
+      expect(within(panel()).queryByRole('status')).toBeNull()
+      expect(retry.classList.contains('ant-btn-loading')).toBe(false)
 
       // The next poll brings the result, nobody clicked.
       await advance(3000)

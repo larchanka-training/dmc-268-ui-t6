@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
 import { z } from 'zod'
 
 import { apiClient } from '../../../shared/api/client'
@@ -84,8 +85,15 @@ export function useRepository(id: string) {
   })
 }
 
-/** How often a `pending` rules status is asked again: the worker reads the file in seconds. */
-export const RULES_STATUS_PENDING_POLL_MS = 3000
+/** How often a rules status is asked again while a read is awaited: the worker reads in seconds. */
+export const RULES_STATUS_POLL_MS = 3000
+
+/**
+ * How long a retry waits for a new result. The server asks for a read only 30 s after the failure
+ * (later with `Retry-After`), and the read itself takes seconds, up to tens of seconds on a slow
+ * GitHub. A longer `Retry-After` is not waited for: the retry comes back.
+ */
+export const RULES_STATUS_RETRY_WINDOW_MS = 60_000
 
 /**
  * Status of `.review/rules.md` of one repository. The answer is kept only while someone shows it
@@ -95,18 +103,64 @@ export const RULES_STATUS_PENDING_POLL_MS = 3000
  * while loading.
  *
  * While the last answer is `pending` (the file is not read yet) it asks again every
- * `RULES_STATUS_PENDING_POLL_MS`, and stops with the first result. A request that fails keeps the
- * last answer, so a polling that began goes on until a result or the page is left.
+ * `RULES_STATUS_POLL_MS`, and stops with the first result. It does the same while the last answer
+ * is the `unavailable` record stamped `awaitedCheckedAt` (`useRepositoryRulesStatusRetry`). A
+ * request that fails keeps the last answer, so a polling that began goes on until a result or the
+ * page is left.
  */
-export function useRepositoryRulesStatus(id: string) {
+export function useRepositoryRulesStatus(id: string, awaitedCheckedAt: string | null = null) {
   return useQuery({
     queryKey: repoRulesStatusQueryKey(id),
     queryFn: ({ signal }) => fetchRepositoryRulesStatus(id, signal),
-    refetchInterval: (query) =>
-      query.state.data?.status === 'pending' ? RULES_STATUS_PENDING_POLL_MS : false,
+    refetchInterval: (query) => {
+      const status = query.state.data
+      const polled = status?.status === 'pending' || isAwaitedRecord(status, awaitedCheckedAt)
+      return polled ? RULES_STATUS_POLL_MS : false
+    },
     refetchOnMount: 'always',
     gcTime: 0,
   })
+}
+
+function isAwaitedRecord(
+  status: RulesStatus | undefined,
+  awaitedCheckedAt: string | null,
+): boolean {
+  return status?.status === 'unavailable' && status.checkedAt === awaitedCheckedAt
+}
+
+/**
+ * The rules status with its "Retry". A GET only queues a new read of an `unavailable` file and
+ * answers the stored record at once (api#150), so a retry of a retryable status asks again every
+ * `RULES_STATUS_POLL_MS` until the record changes (a new `checkedAt` or another status), but no
+ * longer than `RULES_STATUS_RETRY_WINDOW_MS`. For any other status a retry is one request.
+ */
+export function useRepositoryRulesStatusRetry(id: string) {
+  const [awaited, setAwaited] = useState<{ repoId: string; checkedAt: string } | null>(null)
+  const awaitedCheckedAt = awaited?.repoId === id ? awaited.checkedAt : null
+  const query = useRepositoryRulesStatus(id, awaitedCheckedAt)
+  const { data } = query
+
+  useEffect(() => {
+    if (awaited === null) {
+      return
+    }
+    const timer = setTimeout(() => {
+      setAwaited(null)
+    }, RULES_STATUS_RETRY_WINDOW_MS)
+    return () => {
+      clearTimeout(timer)
+    }
+  }, [awaited])
+
+  const retry = (): void => {
+    if (data?.status === 'unavailable' && data.diagnostics.some((item) => item.retryable)) {
+      setAwaited({ repoId: id, checkedAt: data.checkedAt })
+    }
+    void query.refetch()
+  }
+
+  return { query, awaitingResult: isAwaitedRecord(data, awaitedCheckedAt), retry }
 }
 
 export interface UpdateRepositoryVariables {
