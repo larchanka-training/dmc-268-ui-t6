@@ -481,21 +481,6 @@ def test_someone_elses_draft_is_not_used(tmp_path: Path) -> None:
     assert [t["status"] for t in doc["threads"]] == ["new"]
 
 
-def test_a_draft_keeping_its_text_names_the_findings_without_a_thread(tmp_path: Path) -> None:
-    follow_up = finding(scope="out", decision={"kind": "follow-up", "ref": "api#500"}, line=24)
-    target, args = scenario(
-        tmp_path,
-        "05-preview",
-        findings=plan_of(follow_up),
-        state=example("07-existing-draft", "state"),
-    )
-    doc = doc_of(run(*args[:-1], fixtures=target))
-    assert doc["warnings"][-1] == (
-        "your draft keeps its own text, so these findings reach GitHub only if you add the "
-        f"summary there: {PATH}:24"
-    )
-
-
 def test_a_finding_on_a_file_outside_the_diff_is_a_thread_on_the_first_file(
     tmp_path: Path,
 ) -> None:
@@ -516,7 +501,7 @@ def test_a_finding_on_a_file_outside_the_diff_is_a_thread_on_the_first_file(
             plan_of(finding(path="package.json", line=3, severity="low")),
             "05-preview",
             "Comment",
-            id="in-scope-without-a-thread",
+            id="in-scope-on-a-file-outside-the-diff",
         ),
         pytest.param(
             plan_of(
@@ -529,7 +514,7 @@ def test_a_finding_on_a_file_outside_the_diff_is_a_thread_on_the_first_file(
             ),
             "05-preview",
             "Comment",
-            id="a-record-without-a-thread",
+            id="record-on-a-file-outside-the-diff",
         ),
         pytest.param(plan_of(), "07-existing-draft", "Comment", id="comments-already-in-the-draft"),
         pytest.param(
@@ -633,6 +618,7 @@ def test_a_failed_read_back_is_partial(tmp_path: Path, answer: dict[str, Any] | 
     doc = doc_of(r)
     assert doc["verdict"] == "partial"
     assert doc["reasons"][0].startswith("cannot read the draft back: ")
+    assert [t["status"] for t in doc["threads"]] == ["created"]
 
 
 # ─── the findings file: exit 2 ──────────────────────────────────────────────

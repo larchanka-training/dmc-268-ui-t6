@@ -67,7 +67,8 @@ stdout carries one JSON document (`sort_keys`, indent 2, no ASCII escaping, one 
 `applied` and `review` report the read-back after the writes, never what was sent. `stop` (exit 1,
 no write): the head moved past `head_sha`; the viewer's draft sits on another commit or has over
 100 comments; a finding out of scope has no decision. `partial` (exit 1): the writes ended with a
-thread or the draft missing; run again, the threads already there are skipped.
+thread or the draft missing, or the draft could not be read back (its threads then stay `created`,
+unverified); run again, the threads already there are skipped.
 
 Exit 0 go; 1 stop or partial; 2 usage, bad REF, or a bad findings or diff file; 3 gh / API /
 fixture error, or GitHub refused the draft itself. On 2 and 3 stdout is empty and stderr holds one
@@ -536,6 +537,7 @@ def plan_threads(
     draft: dict[str, Any] | None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     present = threads_in(draft)
+    first_file = next(iter(lines))  # in the diff's order; load_diff keeps `lines` from being empty
     threads = []
     without = []
     for finding in findings:
@@ -544,7 +546,7 @@ def plan_threads(
             without.append(finding)
             continue
         line = finding["line"] if kind == "line" else None
-        path = next(iter(lines)) if kind == "other" else finding["path"]
+        path = first_file if kind == "other" else finding["path"]
         body = thread_body(finding, kind)
         status = "exists" if thread_key(path, line, body) in present else "new"
         threads.append(
@@ -655,23 +657,13 @@ def collect(
     if draft is not None:
         doc["review"] = review_of(draft, True)
         if draft["body"] != summary:
-            doc["warnings"].append(kept_text_warning(without))
+            doc["warnings"].append("your draft keeps its own text; paste the summary on Submit")
     if not apply:
         return doc
 
     add_threads(threads, create_draft(state, summary) if draft is None else draft["id"])
     read_back(doc, repo, number, draft is not None)
     return doc
-
-
-def kept_text_warning(without: list[dict[str, Any]]) -> str:
-    if not without:
-        return "your draft keeps its own text: add the summary on GitHub if you want it"
-    places = ", ".join(f"{f['path']}:{f['line']}" for f in without)
-    return (
-        "your draft keeps its own text, so these findings reach GitHub only if you add the "
-        f"summary there: {places}"
-    )
 
 
 def review_of(draft: dict[str, Any], existing: bool) -> dict[str, Any]:
@@ -682,7 +674,7 @@ def read_back(doc: dict[str, Any], repo: str, number: int, existing: bool) -> No
     """Report only what GitHub holds now."""
     doc["review"] = None
     reasons: list[str] = []
-    present: set[tuple[str, int | None, str]] = set()
+    present: set[tuple[str, int | None, str]] | None = None
     try:
         draft = read_state("readback", repo, number)["draft"]
         present = threads_in(draft)
@@ -691,12 +683,13 @@ def read_back(doc: dict[str, Any], repo: str, number: int, existing: bool) -> No
         else:
             doc.update(applied=True, review=review_of(draft, existing))
     except (GhError, KeyError, TypeError, AttributeError) as exc:
-        present = set()
+        present = None  # nothing is known: the threads stay `created`, unverified
         reasons.append(f"cannot read the draft back: {exc}")
-    for thread in doc["threads"]:
-        missing = thread_key(thread["path"], thread["line"], thread["body"]) not in present
-        if thread["status"] == "created" and missing:
-            thread.update(status="failed", error="not in the read-back")
+    if present is not None:
+        for thread in doc["threads"]:
+            missing = thread_key(thread["path"], thread["line"], thread["body"]) not in present
+            if thread["status"] == "created" and missing:
+                thread.update(status="failed", error="not in the read-back")
     failed = sum(t["status"] == "failed" for t in doc["threads"])
     if failed:
         reasons.append(
