@@ -624,6 +624,11 @@ function handleMockTransport(
           name: 'larchanka-training',
           installationId: 12345,
         },
+        {
+          id: '223e4567-e89b-12d3-a456-426614174001',
+          name: `GitHub: ${mockCurrentUser.login}`,
+          installationId: 67890,
+        },
       ],
     }
   }

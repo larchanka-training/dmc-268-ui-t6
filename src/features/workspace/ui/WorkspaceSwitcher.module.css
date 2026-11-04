@@ -1,0 +1,78 @@
+/* Sits right above the user menu, in the same column. */
+.trigger:global(.ant-btn.ant-btn-lg) {
+  margin-bottom: 4px;
+}
+
+/* Folded: the icon is the whole row, centred like the avatar below it. */
+.triggerCompact:global(.ant-btn.ant-btn-lg) {
+  justify-content: center;
+  margin-bottom: 4px;
+  padding-inline: 0;
+}
+
+/* With one workspace there is no button: the same row as text, so the two read as one column. */
+.static,
+.staticCompact {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-height: var(--rv-ctl-lg);
+  margin-bottom: 4px;
+  padding: 6px 8px;
+}
+
+.staticCompact {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+/* A flex item shrinks to fit: a long name must not squeeze the icon. */
+.icon {
+  flex: none;
+  color: var(--rv-text-2);
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--rv-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Hidden from the eye, kept for assistive tech. */
+.clipped {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.chevron {
+  flex: none;
+  color: var(--rv-text-3);
+  font-size: var(--rv-fs-xs);
+}
+
+.option {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Generated names look alike, so the menu shows them whole: a long one wraps, never cuts. */
+.optionText {
+  display: grid;
+  max-width: 280px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.optionText small {
+  color: var(--rv-text-2);
+  font-size: var(--rv-fs-xs);
+}

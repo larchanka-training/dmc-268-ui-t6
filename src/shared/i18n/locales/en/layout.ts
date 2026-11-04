@@ -17,6 +17,11 @@ export const layout = {
     dark: 'Dark',
   },
   docs: 'Documentation',
+  workspace: {
+    title: 'Workspace',
+    current: 'Workspace: {{name}}',
+    installation: 'Installation ID: {{id}}',
+  },
   userMenu: {
     label: 'User menu',
     fallbackLogin: 'User',
