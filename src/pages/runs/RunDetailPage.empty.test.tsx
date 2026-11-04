@@ -30,8 +30,9 @@ afterEach(() => {
   setMockTransport(null)
 })
 
-function renderPage(): QueryClient {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+function renderPage(
+  queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+): QueryClient {
   client = queryClient
   router = createMemoryRouter([{ path: '/runs/:runId', element: <RunDetailPage /> }], {
     initialEntries: [`/runs/${DEMO_RUN_ID}`],
@@ -81,6 +82,17 @@ it('shows the run without a reload when the network returns', async () => {
     onlineManager.setOnline(true)
   })
   expect(await screen.findByTestId('run-detail-page')).toBeTruthy()
+  expect(screen.queryByTestId('run-detail-run-offline')).toBeNull()
+})
+
+it('keeps a cached run on screen while its refetch is paused', () => {
+  onlineManager.setOnline(false)
+  setMockTransport(() => [])
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  queryClient.setQueryData(runQueryKeys.detail(DEMO_RUN_ID), { ...run, droppedFindings: 0 })
+  renderPage(queryClient)
+  expect(queryClient.getQueryState(runQueryKeys.detail(DEMO_RUN_ID))?.fetchStatus).toBe('paused')
+  expect(screen.getByTestId('run-detail-page')).toBeTruthy()
   expect(screen.queryByTestId('run-detail-run-offline')).toBeNull()
 })
 
