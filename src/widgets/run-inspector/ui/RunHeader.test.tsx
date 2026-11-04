@@ -63,7 +63,7 @@ describe('RunHeader metadata layout', () => {
     expect(hash.classList.contains(styles.commit ?? '')).toBe(true)
   })
 
-  it('spans the findings metadata item across two columns when counts are shown', () => {
+  it('marks the findings item as wide when counts are shown', () => {
     render(
       <RunHeader
         now={new Date('2026-09-18T12:00:00.000Z')}
@@ -73,6 +73,17 @@ describe('RunHeader metadata layout', () => {
     )
     const findingsLabel = screen.getByText('Находки', { selector: 'dt' })
     expect(findingsLabel.parentElement?.classList.contains(styles.wide ?? '')).toBe(true)
+  })
+
+  it('marks the reason item as wide when it has an error code', () => {
+    render(
+      <RunHeader
+        now={new Date('2026-09-18T12:00:00.000Z')}
+        run={{ ...baseRun, status: 'failed', errorCode: 'provider_timeout' }}
+      />,
+    )
+    const reasonLabel = screen.getByText('Причина', { selector: 'dt' })
+    expect(reasonLabel.parentElement?.classList.contains(styles.wide ?? '')).toBe(true)
   })
 
   it('retains the run settings, timing, attempt and error values next to their labels', () => {

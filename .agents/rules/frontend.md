@@ -138,9 +138,11 @@ numbers are.
    `docs/DESIGN_SYSTEM.md` §5. Measure with `getBoundingClientRect()`.
 8. **Narrow screen.** At the narrow-screen width of `docs/DESIGN_SYSTEM.md` §5 (390px) the page
    has no horizontal scroll: `document.documentElement.scrollWidth` equals the viewport width.
-   For each horizontally scrollable table, set the inner scroll container's `scrollLeft` to
-   `scrollWidth - clientWidth`; then use `getBoundingClientRect()` to check that the last column
-   header's right edge is at or inside the container's right edge (allow 1px for rounding).
+   For each table, set the `scrollLeft` of its inner container (`.ant-table-content`, or
+   `.ant-table-body` with `scroll.y`) to `scrollWidth - clientWidth`; then use
+   `getBoundingClientRect()` to check that the last column header's right edge is at or inside the
+   container's right edge (allow 1px for rounding). A table clipped without a working scroll
+   keeps `scrollLeft` at 0 and fails this check.
 9. **Reduced motion.** With `prefers-reduced-motion: reduce` nothing essential depends on an
    animation.
 10. **No new shortcut** of a single key without a way to turn it off.
