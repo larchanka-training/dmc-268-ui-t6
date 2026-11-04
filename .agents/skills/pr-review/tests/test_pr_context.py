@@ -91,7 +91,12 @@ def error_of(r: subprocess.CompletedProcess[str]) -> str:
 
 
 # ─── the examples ───────────────────────────────────────────────────────────
-CASES = sorted(p.name for p in EXAMPLES.iterdir() if p.is_dir())
+# The other examples are of draft_review.py (test_draft_review.py).
+CASES = sorted(
+    p.parent.name
+    for p in EXAMPLES.glob("*/README.md")
+    if "\npr_context.py " in p.read_text(encoding="utf-8")
+)
 
 
 def invocation(case: str) -> list[str]:
