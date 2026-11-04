@@ -286,6 +286,9 @@ src/features/auth/ui/UserMenu.tsx
 src/features/finding-filters/index.ts
 src/features/finding-filters/model/findingFilters.test.ts
 src/features/finding-filters/model/findingFilters.ts
+src/features/finding-filters/model/queryNavigation.test.tsx
+src/features/finding-filters/model/routerLocationAdapter.test.tsx
+src/features/finding-filters/model/routerLocationAdapter.ts
 src/features/finding-filters/model/useFindingFiltersParams.test.tsx
 src/features/finding-filters/model/useFindingFiltersParams.ts
 src/features/finding-filters/model/useQueryText.ts
@@ -673,11 +676,12 @@ GET может снова добавить сообщение — примерн
   `UNSAFE_DataRouterContext`, приватным `router.state` и `router.subscribe`. POP всегда внешний;
   PUSH / REPLACE свои только при совпадении ожидаемых pathname и search. Внешний переход сразу
   меняет базу записи и через `subscribeToNavigation` отменяет таймер поля, подставляя `q` нового
-  адреса. Ввод после POP пишет поверх нового адреса, сохраняя чужие параметры и не возвращая
-  снятые фильтры. При отсутствии `subscribeToNavigation` синхронизация после коммита выполняется
-  через `navigationKey`. При переданной подписке этот механизм пропускается, чтобы повторный
-  сброс не стёр ввод после навигации. Собственные записи (`q` по паузе, селекты, сброс) не
-  сбрасывают текст и каретку.
+  адреса. `RunDetailPage` передаёт подписку в `RunDiff` как `subscribeToFiltersNavigation`, тот —
+  в `FindingFiltersBar` как `subscribeToNavigation`, а панель — в `useQueryText`. Ввод после POP
+  пишет поверх нового адреса, сохраняя чужие параметры и не возвращая снятые фильтры. При
+  отсутствии подписки синхронизация после коммита выполняется через `navigationKey`. При переданной
+  подписке этот механизм пропускается, чтобы повторный сброс не стёр ввод после навигации.
+  Собственные записи (`q` по паузе, селекты, сброс) не сбрасывают текст и каретку.
 - Другой прогон начинает с чистых фильтров: содержимое `RunDetailPage` ключуется `runId`, а
   `/runs/<другой>` приходит без query. Отфильтрованный URL переживает вход: `ProtectedLayout`
   сохраняет `pathname + search` в `returnTo`, редирект на `/login` и возврат из OAuth приводят на тот
@@ -698,7 +702,9 @@ Upgrade canary в `routerLocationAdapter.test.tsx` проверяет досту
 реальном `RouterProvider`, синхронный callback и cleanup; обновление роутера не может молча
 перевести тесты в fallback. `queryNavigation.test.tsx` удерживает коммит ручным Suspense promise
 и проверяет фактический URL при ещё видимом старом поле: переход на другой прогон, POP и ввод,
-а также отмену старого pending текста на внешних POP / PUSH / REPLACE (Refs #86).
+а также отмену старого pending текста на внешних POP / PUSH / REPLACE. Сценарий
+`RunDetailPage.search.test.tsx` проверяет тот же медленный POP через настоящую страницу, дифф и
+панель фильтров (Refs #86, #144).
 
 **Фильтр истории прогонов (Refs ui#93).** `/runs?repo=<owner/name>` показывает прогоны одного
 репозитория; ссылку «История проверок» на странице настроек строит
@@ -1631,13 +1637,13 @@ PATCH с переключателя, ничем другим не дополня
 
 Компоненты (`src/widgets/diff-viewer/`):
 
-| Компонент         | Файл                     | Props                                                                                                                                                                                                                                                                                                                                                                            |
-| ----------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DiffViewer`      | `ui/DiffViewer.tsx`      | `file: FileDiff`, `findings?: FindingView[]`, `comments?: ReviewComment[]`, `totalLines?: number`, `diffTotalLines?: number`, `searchActive?: boolean`, `onLoadMore?: (gap: ContextGap) => void`                                                                                                                                                                                 |
-| `InlineComment`   | `ui/InlineComment.tsx`   | `finding: FindingView`, `file?: FileDiff`, `defaultExpanded?: boolean`, `showFile?: boolean` — находка или комментарий, привязанный к строке диффа (виджет `react-diff-view`); свёрнут, пока не раскрыт или не задан `defaultExpanded`; `showFile` называет файл в шапке карточки                                                                                                |
-| `DiffSuggestion`  | `ui/DiffSuggestion.tsx`  | `filename: string`, `removedLines: string[]`, `addedText: string` — правка из `suggestion` находки, через `<Diff>`                                                                                                                                                                                                                                                               |
-| `LoadMoreContext` | `ui/LoadMoreContext.tsx` | кнопка дочитывания контекста в зазоре между хунками                                                                                                                                                                                                                                                                                                                              |
-| `RunDiff`         | `ui/RunDiff.tsx`         | `summaryOnly: boolean`, `files: FileDiff[]`, `findings: FindingView[]`, `comments?: ReviewComment[]`, `budgetFiles?: FileDiff[]`, `fileTotalLines?`, `onLoadMore?`, `filters?: FindingFilters`, `onFiltersChange?`, `onFiltersQueryChange?`, `onFiltersReset?`, `commentsPending?: boolean`, `findingsPending?: boolean`, `filtersNavigationKey?: number` — дифф прогона целиком |
+| Компонент         | Файл                     | Props                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ----------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DiffViewer`      | `ui/DiffViewer.tsx`      | `file: FileDiff`, `findings?: FindingView[]`, `comments?: ReviewComment[]`, `totalLines?: number`, `diffTotalLines?: number`, `searchActive?: boolean`, `onLoadMore?: (gap: ContextGap) => void`                                                                                                                                                                                                                                             |
+| `InlineComment`   | `ui/InlineComment.tsx`   | `finding: FindingView`, `file?: FileDiff`, `defaultExpanded?: boolean`, `showFile?: boolean` — находка или комментарий, привязанный к строке диффа (виджет `react-diff-view`); свёрнут, пока не раскрыт или не задан `defaultExpanded`; `showFile` называет файл в шапке карточки                                                                                                                                                            |
+| `DiffSuggestion`  | `ui/DiffSuggestion.tsx`  | `filename: string`, `removedLines: string[]`, `addedText: string` — правка из `suggestion` находки, через `<Diff>`                                                                                                                                                                                                                                                                                                                           |
+| `LoadMoreContext` | `ui/LoadMoreContext.tsx` | кнопка дочитывания контекста в зазоре между хунками                                                                                                                                                                                                                                                                                                                                                                                          |
+| `RunDiff`         | `ui/RunDiff.tsx`         | `summaryOnly: boolean`, `files: FileDiff[]`, `findings: FindingView[]`, `comments?: ReviewComment[]`, `budgetFiles?: FileDiff[]`, `fileTotalLines?`, `onLoadMore?`, `filters?: FindingFilters`, `onFiltersChange?`, `onFiltersQueryChange?`, `onFiltersReset?`, `commentsPending?: boolean`, `findingsPending?: boolean`, `filtersNavigationKey?: number`, `subscribeToFiltersNavigation?: SubscribeFilterNavigation` — дифф прогона целиком |
 
 Поток данных:
 
@@ -1730,16 +1736,19 @@ next.newStart - startLine }`; хвостовой зазор после посл�
 фильтрация включаются только вместе с `onFiltersChange`: без него проп `filters` игнорируется, а
 прогон рисуется как раньше. Состояние — в URL (§2 «Состояние в URL»); `RunDetailPage` берёт его
 хуком `useFindingFiltersParams` и передаёт `filters` / `onFiltersChange` / `onFiltersQueryChange` /
-`onFiltersReset` / `filtersNavigationKey` (его `navigationKey`, §2) (без `onFiltersReset` сброс — `onFiltersChange(EMPTY_FINDING_FILTERS)`; без
-`onFiltersQueryChange` текст поиска уходит в `onFiltersChange({ ...filters, query }, { replace: true })`)
-и два независимых признака: `commentsPending` — `/comments` ещё не ответил; `findingsPending` —
+`onFiltersReset` / `filtersNavigationKey` (его `navigationKey`, §2) /
+`subscribeToFiltersNavigation` (его `subscribeToNavigation`, §2). `RunDiff` передаёт подписку дальше
+в `FindingFiltersBar` как `subscribeToNavigation`; `filtersNavigationKey` служит fallback после
+коммита, если подписки нет. Без `onFiltersReset` сброс — `onFiltersChange(EMPTY_FINDING_FILTERS)`; без
+`onFiltersQueryChange` текст поиска уходит в `onFiltersChange({ ...filters, query }, { replace: true })`.
+Кроме того, страница передаёт два независимых признака: `commentsPending` — `/comments` ещё не ответил; `findingsPending` —
 прогон ещё активен (`isActive(run.status)`). Если ссылка содержит `file` для файла,
 известного только из комментария, до ответа этот файл неизвестен и его фильтр не действует;
 после ответа файл входит в варианты и фильтр начинает сужать результат. Значение в URL
 сохраняется, пока загружаются комментарии.
 
 Панель (`FindingFiltersBar`, props: `filters`, `fileOptions: { file; count }[]`, `shown`, `total`,
-`empty?`, `findingsPending?`, `navigationKey?`, `onChange(change: Partial<FindingFilters>, { replace? })`,
+`empty?`, `findingsPending?`, `navigationKey?`, `subscribeToNavigation?: SubscribeFilterNavigation`, `onChange(change: Partial<FindingFilters>, { replace? })`,
 `onQueryChange(query)`, `onReset`) — antd `Form layout="inline"` без своего состояния: поля
 по-прежнему ведут хуки URL, экземпляра `form` и `name` у полей нет. У каждого поля видимая подпись
 (DESIGN_SYSTEM §8 «Поля»): `Form.Item label` «Файлы», «Критичность», «Поиск», связанная с контролом
@@ -1860,7 +1869,8 @@ summary-only, сохранение ручного сворачивания пр�
 с severity/search URL, переход к успеху, неизвестные и смешанные файлы без переписывания URL),
 `pages/runs/RunDetailPage.search.test.tsx` (поле поиска на `RouterProvider` из `react-router/dom` —
 роутер приложения: два нативных `input` подряд без `act`, каретка при вставке в середину, «назад»,
-сброс, выбор при ещё не записанном тексте, «назад» / «вперёд» и чужая навигация при наборе) и
+сброс, выбор при ещё не записанном тексте, медленный POP в том же прогоне,
+«назад» / «вперёд» и чужая навигация при наборе) и
 `model/useFindingFiltersParams.test.tsx` (запись поверх ещё не доехавшего URL, слияние выборов,
 `navigationKey`).
 

@@ -41,8 +41,9 @@ interface RunDiffProps {
   commentsPending?: boolean
   /** The active run has not finished producing findings; content filters must keep its files visible. */
   findingsPending?: boolean
-  /** Changes when the URL was changed by a navigation the page did not make (back, a link). */
+  /** Fallback after commit for navigation the page did not make when no subscription is supplied. */
   filtersNavigationKey?: number
+  /** Notifies the search box before an external navigation commits so it drops pending text. */
   subscribeToFiltersNavigation?: SubscribeFilterNavigation
 }
 

@@ -43,8 +43,9 @@ export interface FindingFiltersBarProps {
   /** The search text, debounced; the owner writes only `q` and replaces the history entry. */
   onQueryChange: (query: string) => void
   onReset: () => void
-  /** Changes when the URL was changed by a navigation the owner did not make (back, a link). */
+  /** Fallback after commit for navigation the owner did not make when no subscription is supplied. */
   navigationKey?: number
+  /** Notifies the search box before an external navigation commits so it drops pending text. */
   subscribeToNavigation?: SubscribeFilterNavigation
 }
 

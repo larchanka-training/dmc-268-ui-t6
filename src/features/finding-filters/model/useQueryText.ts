@@ -12,9 +12,10 @@ const QUERY_WRITE_DEBOUNCE_MS = 250
  *
  * The URL query is written `QUERY_WRITE_DEBOUNCE_MS` after the last keystroke through `writeQuery`.
  * The text follows the URL again when the URL query becomes a value this hook did not write (back and
- * forward, a link); the URL catching up with what was typed does not touch it. A change of
- * `navigationKey` (a navigation the owner of the URL did not make) does the same even when the query
- * is the same: the pending text and its write belong to a page state that is gone.
+ * forward, a link); the URL catching up with what was typed does not touch it. A
+ * `subscribeToNavigation` notification drops pending text before an external navigation commits.
+ * Without that subscription, `navigationKey` drops it after commit, even when the query is the
+ * same: the pending text and its write belong to a page state that is gone.
  */
 export function useQueryText(
   urlQuery: string,
