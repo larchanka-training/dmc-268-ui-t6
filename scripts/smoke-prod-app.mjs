@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process'
 import { readdir, readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
+import { stripVTControlCharacters } from 'node:util'
 
 import { chromium } from 'playwright'
 
@@ -60,7 +61,9 @@ function waitForPreview() {
       finish(new Error(`vite preview did not become ready: ${serverOutput}`))
     }, 10_000)
     const onOutput = () => {
-      if (/Local:\s+http:\/\/127\.0\.0\.1:4173\//.test(serverOutput)) finish()
+      if (/Local:\s+http:\/\/127\.0\.0\.1:4173\//.test(stripVTControlCharacters(serverOutput))) {
+        finish()
+      }
     }
     const onExit = (code) => {
       finish(new Error(`vite preview exited before ready (${code}): ${serverOutput}`))
