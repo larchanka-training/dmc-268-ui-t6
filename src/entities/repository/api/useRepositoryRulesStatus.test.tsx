@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -175,6 +175,7 @@ async function advance(ms: number): Promise<void> {
 
 afterEach(() => {
   cleanup()
+  focusManager.setFocused(undefined)
   vi.useRealTimers()
   vi.unstubAllGlobals()
 })
@@ -362,6 +363,7 @@ describe('useRepositoryRulesStatus: polling a pending status', () => {
     // TanStack hands the answer to the hook from a zero-delay timer set once the request is over.
     await advance(1)
     expect(result.current.data?.status).toBe('missing')
+    expect(result.current.getPendingPollDeadline()).toBeNull()
 
     // The result is final: no request however long we wait.
     await advance(60_000)
@@ -409,6 +411,110 @@ describe('useRepositoryRulesStatus: polling a pending status', () => {
 
     await advance(60_000)
     expect(backend.rulesRequests).toHaveLength(3)
+  })
+
+  it('stops a still-pending poll after a 60 s window', async () => {
+    vi.useFakeTimers()
+    const backend = answers(pendingStatus())
+
+    const { result } = mount()
+    await advance(0)
+    expect(result.current.data?.status).toBe('pending')
+
+    await advance(60_000)
+    expect(backend.rulesRequests).toHaveLength(20)
+    await advance(60_000)
+    expect(backend.rulesRequests).toHaveLength(20)
+  })
+
+  it('does not extend the pending window when a poll fails', async () => {
+    vi.useFakeTimers()
+    const backend = answers(pendingStatus(), 'error', pendingStatus())
+
+    const { result } = mount()
+    await advance(0)
+    const deadline = result.current.getPendingPollDeadline()
+
+    await advance(3000)
+    expect(backend.rulesRequests).toHaveLength(2)
+    expect(result.current.data?.status).toBe('pending')
+
+    await advance(60_000)
+    expect(result.current.getPendingPollDeadline()).toBe(deadline)
+    expect(backend.rulesRequests).toHaveLength(20)
+    await advance(30_000)
+    expect(backend.rulesRequests).toHaveLength(20)
+  })
+
+  it('starts a new pending window when the user retries after it expires', async () => {
+    vi.useFakeTimers()
+    const backend = answers(pendingStatus())
+
+    const { result } = mount()
+    await advance(0)
+    const firstDeadline = result.current.getPendingPollDeadline()
+    await advance(60_000)
+    expect(backend.rulesRequests).toHaveLength(20)
+
+    await act(async () => {
+      await result.current.refetch()
+    })
+    await advance(1)
+    expect(backend.rulesRequests).toHaveLength(21)
+    expect(result.current.getPendingPollDeadline()).toBe((firstDeadline ?? 0) + 60_000)
+
+    await advance(3000)
+    expect(backend.rulesRequests).toHaveLength(22)
+  })
+
+  it('does not send an expired pending request when a hidden tab regains focus', async () => {
+    vi.useFakeTimers()
+    const backend = answers(pendingStatus())
+
+    const { result } = mount()
+    await advance(0)
+    expect(result.current.data?.status).toBe('pending')
+
+    focusManager.setFocused(false)
+    await advance(60_000)
+    expect(backend.rulesRequests).toHaveLength(1)
+
+    focusManager.setFocused(true)
+    await advance(3000)
+    expect(backend.rulesRequests).toHaveLength(1)
+    await advance(60_000)
+    expect(backend.rulesRequests).toHaveLength(1)
+  })
+
+  it('starts a retried window when the delayed pending answer arrives', async () => {
+    vi.useFakeTimers()
+    let releaseRetry: (response: Response) => void = () => undefined
+    const backend = stubBackend(() =>
+      backend.rulesRequests.length <= 20
+        ? Promise.resolve(new Response(JSON.stringify(pendingStatus())))
+        : new Promise<Response>((resolve) => {
+            releaseRetry = resolve
+          }),
+    )
+    const { result } = mount()
+    await advance(0)
+    await advance(60_000)
+    expect(backend.rulesRequests).toHaveLength(20)
+
+    let retry: ReturnType<typeof result.current.refetch> | undefined
+    act(() => {
+      retry = result.current.refetch()
+    })
+    expect(backend.rulesRequests).toHaveLength(21)
+    await advance(5000)
+
+    const answeredAt = Date.now()
+    await act(async () => {
+      releaseRetry(new Response(JSON.stringify(pendingStatus())))
+      await retry
+    })
+    await advance(1)
+    expect(result.current.getPendingPollDeadline()).toBe(answeredAt + 60_000)
   })
 
   it('stops polling when the last viewer leaves', async () => {
@@ -659,6 +765,29 @@ describe('useRepositoryRulesStatusRetry: waiting for a new result after a retry'
 
     await advance(LONG_AFTER)
     expect(backend.rulesRequests).toHaveLength(4)
+  })
+
+  it('bounds pending after an unavailable retry and starts a new pending window on Retry', async () => {
+    vi.useFakeTimers()
+    const backend = answers(retryableUnavailableStatus(), pendingStatus())
+
+    const { result } = await mountAndRetry()
+    expect(result.current.query.data?.status).toBe('pending')
+    expect(result.current.awaitingResult).toBe(false)
+    const firstDeadline = result.current.query.getPendingPollDeadline()
+    if (firstDeadline === null) throw new Error('Pending must start a polling window')
+
+    await advance(60_000)
+    const asked = backend.rulesRequests.length
+    await advance(30_000)
+    expect(backend.rulesRequests).toHaveLength(asked)
+
+    act(() => {
+      result.current.retry()
+    })
+    await advance(1)
+    expect(backend.rulesRequests).toHaveLength(asked + 1)
+    expect(result.current.query.getPendingPollDeadline()).toBeGreaterThan(firstDeadline)
   })
 
   it('goes on after a failed poll inside the window and stops at the result', async () => {

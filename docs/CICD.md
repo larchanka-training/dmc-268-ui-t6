@@ -15,6 +15,7 @@
 ```mermaid
 flowchart TD
   pr["PR / push"] --> quality["lint, check-types, format:check, test, build<br/>(required check)"]
+  pr --> smoke["production browser smoke<br/>(пока не required)"]
   pr --> build["docker build UI + лендинг + docs (один раз)<br/>(required check)"]
   build --> scan["trivy: vuln / secret / misconfig"]
   quality --> gate{"main?"}
@@ -44,6 +45,7 @@ flowchart TD
 | Job                           | Когда                              | Permissions                                                                                            | Что делает                                                                                                                                                                                                                                                                                                                                                   |
 | ----------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `UI quality`                  | PR и `main`                        | `contents: read`                                                                                       | гейты качества: пустой в git `docs/plans`, `pnpm lint`, `pnpm check-types`, `pnpm format:check`, `pnpm test`, `pnpm build`, `pnpm verify:prod-bundle`, затем `pnpm --dir landing` check-types / test / build и `pnpm --dir docs-site` check-types / build; required check в правилах `main` (§8)                                                             |
+| `Production browser smoke`    | PR и `main`                        | `contents: read`                                                                                       | отдельная сборка UI без моков и `pnpm smoke:prod-app` в Chromium; пока не required, решение об этом check остаётся за техлидом (§8)                                                                                                                                                                                                                          |
 | `PR size label`               | только PR                          | `contents: read`, `pull-requests: write`                                                               | добавленные плюс удалённые строки PR (merge-коммит против `HEAD^1`) без `PR_SIZE_EXCLUDE`: `pnpm-lock.yaml`, `docs/evidence/**`; одна метка `size/S` (< 300), `size/M` (< 1000), `size/L` (< 3000) или `size/XL`, пересчёт на каждый push; от 1000 строк — warning с правилом нарезки. Только информирует, не required; та же job в api (api#378)            |
 | `Docker image build`          | PR и `main`                        | `contents: read`                                                                                       | по одному build UI (`Dockerfile`), лендинга (`landing/Dockerfile`) и документации (`docs-site/Dockerfile`), artifacts для scan/push                                                                                                                                                                                                                          |
 | `Docker image security scan`  | после сборки                       | `contents: read`                                                                                       | Trivy тех же artifacts, всех трёх образов                                                                                                                                                                                                                                                                                                                    |
@@ -319,16 +321,17 @@ Jobs `deploy-staging`, `promote-staging` (CI/CD) и workflow Rollback ссыла
 
 Ruleset `Protect Default Branch` меняет только администратор репозитория. Правило `required_status_checks` не даёт смёржить PR, пока не зелёные обе проверки:
 
-| Required check       | Job в `ci-cd.yml` | Что не пропускает в `main`                                                                                                                                                                 |
-| -------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `UI quality`         | `ui-quality`      | файл в `docs/plans`, ошибку eslint или stylelint, ошибку типов, неотформатированный файл, падающий тест, сломанную сборку, бандл с mock/demo-кодом или с нарушенным порядком zod `jitless` |
-| `Docker image build` | `docker-build`    | образ UI, лендинга или документации, который не собирается                                                                                                                                 |
+| Required check       | Job в `ci-cd.yml` | Что не пропускает в `main`                                                                                                                                                               |
+| -------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `UI quality`         | `ui-quality`      | файл в `docs/plans`, ошибку eslint или stylelint, ошибку типов, неотформатированный файл, падающий тест, сломанную сборку, бандл с mock/demo-кодом или нарушенным порядком zod `jitless` |
+| `Docker image build` | `docker-build`    | образ UI, лендинга или документации, который не собирается                                                                                                                               |
 
 - Ruleset сверяет check по имени: оно должно буквально совпадать с `name:` у job. Переименовали job без правки ruleset — проверка с прежним именем не приходит, и все PR блокируются. Имя job и ruleset меняются вместе.
 - Check добавляется в ruleset с источником GitHub Actions, как `Docker image build`: без источника требование закроет любой commit status с тем же именем.
 - Включён `strict_required_status_checks_policy`: ветка PR должна быть актуальна относительно `main`, иначе merge недоступен даже с зелёными проверками.
 - `[skip ci]` в сообщении head-коммита PR пропускает workflow целиком: обязательные проверки остаются в ожидании, и merge заблокирован до следующего коммита без этой метки.
-- Те же гейты локально: `pnpm lint && pnpm check-types && pnpm format:check && pnpm test && pnpm build && pnpm verify:prod-bundle`.
+- `Production browser smoke` отдельно собирает приложение с `VITE_USE_MOCKS=false`, запускает `pnpm smoke:prod-app` после сборки и проверяет production bundle в Chromium через Vite preview. Проверяются `/` и `/repositories`: ошибка страницы (`pageerror`) или пустой React root краснит этот job. Добавлять его в `required_status_checks` может только техлид после решения по ui#160; сейчас имя check в ruleset отсутствует. Для локального запуска после `pnpm build` установите Chromium shell командой `pnpm exec playwright install --only-shell chromium`.
+- Те же гейты локально: `pnpm lint && pnpm check-types && pnpm format:check && pnpm test && pnpm build && pnpm verify:prod-bundle && pnpm smoke:prod-app`.
 
 ---
 

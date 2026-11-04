@@ -50,6 +50,22 @@ const FileText: FC<{ text: string | null }> = ({ text }) => {
   )
 }
 
+/** The API message stays text; backtick spans and the known rules path get inline-code styling. */
+function renderDiagnosticText(text: string): ReactNode[] {
+  return text
+    .replace(/\\`/g, '`')
+    .split(/(`[^`]+`|\.review\/rules\.md)/g)
+    .map((part, index) => {
+      if (part.startsWith('`') && part.endsWith('`')) {
+        return <code key={index}>{part.slice(1, -1)}</code>
+      }
+      if (part === '.review/rules.md') {
+        return <code key={index}>{part}</code>
+      }
+      return part.replace(/`/g, '')
+    })
+}
+
 const DiagnosticList: FC<{ diagnostics: RulesDiagnostic[] }> = ({ diagnostics }) => {
   // Subscribes to the language: the text and the limit below come from the dictionary.
   const { t } = useTranslation()
@@ -67,7 +83,7 @@ const DiagnosticList: FC<{ diagnostics: RulesDiagnostic[] }> = ({ diagnostics })
                 <span className={styles.position}>{location}</span>
               </>
             ) : null}{' '}
-            <span>{diagnosticText(diagnostic)}</span>
+            <span>{renderDiagnosticText(diagnosticText(diagnostic))}</span>
             {limit !== null ? <span> ({limit})</span> : null}
             {/* The server message of an unknown code already quotes the mask. */}
             {diagnostic.excerpt !== undefined && isKnownDiagnosticCode(diagnostic.code) ? (

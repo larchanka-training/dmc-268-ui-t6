@@ -41,6 +41,26 @@ describe('describeDiagnosticLocation', () => {
     expect(describeDiagnosticLocation(base)).toBeNull()
     expect(describeDiagnosticLocation({ ...base, column: 5 })).toBeNull()
   })
+
+  it('does not mistake baseline text for a reported line', () => {
+    expect(
+      describeDiagnosticLocation({
+        ...base,
+        code: 'policy_new_rule',
+        message: 'The baseline 9 was rejected.',
+        line: 9,
+      }),
+    ).toBe('9')
+  })
+
+  it.each(['Found at line: 9.', 'Где: файл `.review/rules.md`, на строке 9.'])(
+    'does not repeat a line already named by an unknown message: %s',
+    (message) => {
+      expect(
+        describeDiagnosticLocation({ ...base, code: 'policy_new_rule', message, line: 9 }),
+      ).toBeNull()
+    },
+  )
 })
 
 describe('describeDiagnosticLimit', () => {

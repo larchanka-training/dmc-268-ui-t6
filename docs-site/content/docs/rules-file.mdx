@@ -62,6 +62,10 @@ the `AI Review` check names the problem, and the file and line when one file is 
 latest commit of the default branch. It does not show problems in `AGENTS.md`, or in the rules
 of a pull request into another branch; the check does.
 
+While the first read is pending, Review rules checks again every 3 seconds for up to one minute.
+If it still has no result, the panel shows a timeout and a **Retry** button. Retry starts a
+fresh check with a new one-minute window.
+
 <Accordions>
 <Accordion title="Common errors">
 
