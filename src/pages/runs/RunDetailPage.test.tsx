@@ -18,7 +18,7 @@ import { z } from 'zod'
 import { RawFileDiffSchema } from '../../entities/diff'
 import { mockRunsListPage } from '../../app/mocks/mockRunsList.fixture'
 import { buildMockRunDetail, mockRawDiffForRun } from '../../app/mocks/mockRunReview'
-import { mockSummaryOnlyDiff } from '../../app/mocks/app-state'
+import { mockSummaryOnlyDiff, mockSummaryOnlyRun } from '../../app/mocks/app-state'
 
 const RERUN_RUN_ID = '11111111-1111-4111-8111-000000000099'
 import { initMockTransport, withMockTransportOverlay } from '../../app/mocks/mockTransport'
@@ -202,6 +202,15 @@ describe('RunDetailPage', () => {
       expect(screen.getByTestId('findings-outside-diff')).toBeTruthy()
     })
     expect(screen.getByText('Outside diff')).toBeTruthy()
+  })
+
+  it('shows a patched-file finding outside a summary-only diff without line rows', async () => {
+    const { container } = renderRunDetail(mockSummaryOnlyRun.id)
+    const outsideBlock = await screen.findByTestId('findings-outside-diff')
+
+    expect(within(outsideBlock).getAllByText('Critical: patched summary finding')).toHaveLength(1)
+    expect(screen.getAllByText('Critical: patched summary finding')).toHaveLength(1)
+    expect(container.querySelector('table.diff-unified, table.diff-split')).toBeNull()
   })
 
   it('shows outside-diff findings when /diff returns patch null for that file', async () => {

@@ -146,10 +146,11 @@ run later.
 
 ### The review has no line comments
 
-A pull request with more than 3,000 changed lines may use a summary-only run. Its page shows a file
-list instead of a line-by-line diff. Any findings, including those for files with a stored patch,
-appear in **Findings outside the diff** and obey the file, severity and search filters. Findings
-that cannot be tied to changed lines appear in the GitHub review body.
+The pull request may have more than 3,000 changed lines, so only the file list was reviewed: the run
+page shows that list instead of a line-by-line diff. If such a run has findings (older runs can),
+they appear in **Findings outside the diff** and obey the file, severity and search filters.
+
+Or the findings could not be tied to changed lines; then they are in the review body.
 
 ### My rules change did nothing
 
