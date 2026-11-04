@@ -638,6 +638,48 @@ describe('RunDetailPage filters in the URL', () => {
     },
   )
 
+  it.each(['finding', 'comment'] as const)(
+    'applies an untouched link once a %s makes its unknown file known, without rewriting the URL',
+    async (way) => {
+      const becomeKnown = fileKnownLater(way)
+      const initial = '?tab=x&file=later.ts'
+      const { client, container, router } = renderRunDetail(`${DEMO}${initial}`)
+      await findBar()
+      await waitFor(() => {
+        expect(container.querySelectorAll('.diff-theme')).toHaveLength(4)
+      })
+      expect(selectedTags('Файлы')).toEqual([])
+      expect(router.state.location.search).toBe(initial)
+
+      await becomeKnown(client)
+
+      await waitFor(() => {
+        expect(selectedTags('Файлы')).toEqual(['later.ts'])
+      })
+      expect(container.querySelectorAll('.diff-theme')).toHaveLength(0)
+      expect(screen.getByText(counter(1, 1))).toBeTruthy()
+      expect(router.state.location.search).toBe(initial)
+    },
+  )
+
+  it('enables the reset for a selected file known only from /comments', async () => {
+    const becomeKnown = fileKnownLater('comment')
+    const { client, container, router } = renderRunDetail(`${DEMO}?file=later.ts`)
+    const reset = () => screen.getByRole('button', { name: 'Сбросить фильтры' })
+    await findBar()
+    expect(reset()).toHaveProperty('disabled', true)
+
+    await becomeKnown(client)
+    expect(reset()).toHaveProperty('disabled', false)
+
+    fireEvent.click(reset())
+    await waitFor(() => {
+      expect(router.state.location.search).toBe('')
+    })
+    expect(container.querySelectorAll('.diff-theme')).toHaveLength(4)
+    expect(selectedTags('Файлы')).toEqual([])
+  })
+
   it('writes a file selection to the URL as a repeatable file param', async () => {
     const { router } = renderRunDetail(DEMO)
 
