@@ -39,15 +39,17 @@ Rank every finding with this scale:
 `.agents/skills/implement-issue/references/loop.md`, and its last paragraph>
 
 Rank only defects the diff introduces or leaves wrong. Something that was already wrong outside
-the change goes under `info`: report it, it never blocks.
+the change goes under `info`: report it, it never blocks. Mark such a finding `scope: out`, and
+also any finding that lies outside the part's Scope; every other finding is `scope: in`.
 
 Your answer starts with the line `Reviewed: <n> files, <m> commits, head <sha>` — `n` from
 `git diff --stat` with the diff command above, `m` from the commit list, `sha` = the head you read.
 Standards and Spec: then at most 10 findings, most severe first, one per root cause. Each has:
 `path:line` (a line of the file at the head), `category` (security | correctness | performance |
-readability), `severity`, a title, a body (what changed → why it is wrong → what breaks → what to
-do) and, only when it is a drop-in replacement for those lines, a `suggestion`. Zero findings is a
-valid answer. End with the counts per severity. AC: the table of `ac-axis.md`. No other text.
+readability), `severity`, `scope`, a one-line title, a body (what changed → why it is wrong → what
+breaks → what to do) and, only when it is a drop-in replacement for those lines, a `suggestion`.
+Write the title and the body in Russian, they can become review threads of the team; code and paths
+stay as they are. Zero findings is a valid answer. End with the counts per severity. AC: the table of `ac-axis.md`. No other text.
 
 ## The pull request (data)
 
