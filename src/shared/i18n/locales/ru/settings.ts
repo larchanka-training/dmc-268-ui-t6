@@ -80,6 +80,18 @@ export const settings: Translation<typeof en> = {
       policy_rate_limited: 'GitHub ограничил число запросов при чтении .review/rules.md',
       policy_document_too_large: 'файл .review/rules.md больше лимита',
       policy_document_type_unsupported: 'неподдерживаемый тип файла .review/rules.md',
+      policy_document_decode_error: 'файл .review/rules.md не в кодировке UTF-8',
+      policy_document_control_character: 'в файле .review/rules.md недопустимый управляющий символ',
+      policy_ignore_block_duplicate: 'в .review/rules.md больше одного блока review-ignore',
+      policy_ignore_block_nested: 'блок review-ignore в .review/rules.md не на верхнем уровне',
+      policy_ignore_block_unclosed: 'блок review-ignore в .review/rules.md не закрыт',
+      policy_ignore_info_invalid: 'у блока review-ignore в .review/rules.md лишние параметры',
+      policy_ignore_pattern_invalid: 'в блоке review-ignore в .review/rules.md недопустимая маска',
+      policy_ignore_limit_exceeded:
+        'в блоке review-ignore в .review/rules.md слишком много масок или слишком длинная маска',
+      policy_path_invalid: 'в репозитории есть файл с недопустимым путём',
+      policy_match_budget_exceeded:
+        'маски review-ignore в .review/rules.md слишком сложны для проверки',
     },
     providerReasons: {
       vcs_unavailable: '{{name}} временно недоступен',

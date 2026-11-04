@@ -208,6 +208,31 @@ describe('ragIndexView: the reason of the last build', () => {
     ['policy_rate_limited', 'GitHub ограничил число запросов при чтении .review/rules.md'],
     ['policy_document_too_large', 'файл .review/rules.md больше лимита'],
     ['policy_document_type_unsupported', 'неподдерживаемый тип файла .review/rules.md'],
+    // The errors of the file itself: what the owner can fix in `.review/rules.md`.
+    ['policy_document_decode_error', 'файл .review/rules.md не в кодировке UTF-8'],
+    [
+      'policy_document_control_character',
+      'в файле .review/rules.md недопустимый управляющий символ',
+    ],
+    ['policy_ignore_block_duplicate', 'в .review/rules.md больше одного блока review-ignore'],
+    ['policy_ignore_block_nested', 'блок review-ignore в .review/rules.md не на верхнем уровне'],
+    ['policy_ignore_block_unclosed', 'блок review-ignore в .review/rules.md не закрыт'],
+    ['policy_ignore_info_invalid', 'у блока review-ignore в .review/rules.md лишние параметры'],
+    [
+      'policy_ignore_pattern_invalid',
+      'в блоке review-ignore в .review/rules.md недопустимая маска',
+    ],
+    [
+      'policy_ignore_limit_exceeded',
+      'в блоке review-ignore в .review/rules.md слишком много масок или слишком длинная маска',
+    ],
+    // About a path in the repository, not about the rules file.
+    ['policy_path_invalid', 'в репозитории есть файл с недопустимым путём'],
+    // The index applies the masks to every path of the archive, so it can use up this budget too.
+    [
+      'policy_match_budget_exceeded',
+      'маски review-ignore в .review/rules.md слишком сложны для проверки',
+    ],
   ])('explains %s and keeps the code', (code, text) => {
     expect(
       ragIndexView(index({ status: 'failed', lastErrorCode: code }), true, 'github').reason,
@@ -216,6 +241,59 @@ describe('ragIndexView: the reason of the last build', () => {
       text,
     })
   })
+
+  it.each([
+    ['policy_document_decode_error', 'the .review/rules.md file is not valid UTF-8'],
+    [
+      'policy_document_control_character',
+      'the .review/rules.md file has a control character that is not allowed',
+    ],
+    ['policy_ignore_block_duplicate', '.review/rules.md has more than one review-ignore block'],
+    [
+      'policy_ignore_block_nested',
+      'the review-ignore block in .review/rules.md is not at the top level',
+    ],
+    ['policy_ignore_block_unclosed', 'the review-ignore block in .review/rules.md is not closed'],
+    [
+      'policy_ignore_info_invalid',
+      'the review-ignore block in .review/rules.md has extra parameters',
+    ],
+    [
+      'policy_ignore_pattern_invalid',
+      'the review-ignore block in .review/rules.md has a mask that is not allowed',
+    ],
+    [
+      'policy_ignore_limit_exceeded',
+      'the review-ignore block in .review/rules.md has too many masks, or a mask is too long',
+    ],
+    ['policy_path_invalid', 'a file in the repository has a path that is not allowed'],
+    [
+      'policy_match_budget_exceeded',
+      'the review-ignore masks in .review/rules.md are too costly to check',
+    ],
+  ])('explains %s in English', async (code, text) => {
+    try {
+      await i18n.changeLanguage('en')
+      expect(
+        ragIndexView(index({ status: 'failed', lastErrorCode: code }), true, 'github').reason,
+      ).toEqual({ code, text })
+    } finally {
+      await i18n.changeLanguage('ru')
+    }
+  })
+
+  it.each(['gitlab', 'bitbucket'] as const)(
+    'explains a mistake in the rules file the same way for %s',
+    (provider) => {
+      expect(
+        ragIndexView(
+          index({ status: 'failed', lastErrorCode: 'policy_ignore_pattern_invalid' }),
+          true,
+          provider,
+        ).reason?.text,
+      ).toBe('в блоке review-ignore в .review/rules.md недопустимая маска')
+    },
+  )
 
   it('names Bitbucket in repository access and rate-limit failures', () => {
     expect(
@@ -285,6 +363,8 @@ describe('ragIndexView: the reason of the last build', () => {
     'limit_exceeded:future_limit',
     'unknown_code',
     'constructor',
+    // A code only a review writes: the dictionaries have a run text for it, the index has none.
+    'policy_context_violation',
   ])('keeps the unknown code %s with no text', (code) => {
     expect(
       ragIndexView(index({ status: 'failed', lastErrorCode: code }), true, 'github').reason,

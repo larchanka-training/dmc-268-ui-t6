@@ -958,8 +958,9 @@ Upgrade canary в `routerLocationAdapter.test.tsx` проверяет досту
   не показываются, ошибки нет.
   `lastErrorCode` при включённом RAG показан у любого статуса (`reason` из `ragIndexView`; api ставит его, когда
   последняя попытка сборки кончилась без публикации, у `disabled` он всегда `null`). Известный код — текстом и
-  кодом в скобках в `<code>`, по образцу `UNAVAILABLE_REASONS` блока правил (карта `ERROR_REASONS` в
-  `ragIndexView.ts`; код ищется только среди собственных ключей карты, поэтому `constructor` — не известный код):
+  кодом в скобках в `<code>`, по образцу `UNAVAILABLE_REASONS` блока правил (карта `ERROR_REASON_KEYS` в
+  `ragIndexView.ts`, тексты в словарях `settings.rag.reasons`; код ищется только среди собственных ключей карты,
+  поэтому `constructor` — не известный код):
   `archive_unsafe` — «архив репозитория отклонён проверкой безопасности»; `limit_exceeded:download_bytes` —
   «превышен лимит размера архива», `limit_exceeded:unpacked_bytes` — «превышен лимит распакованного размера»,
   `limit_exceeded:archive_entries` — «превышен лимит числа файлов в архиве», `limit_exceeded:parsed_files` —
@@ -975,11 +976,28 @@ Upgrade canary в `routerLocationAdapter.test.tsx` проверяет досту
   `vcs_access_denied` — «у GitHub App нет доступа к репозиторию» (каталог api, `code_index/domain/codes.py`);
   коды чтения `.review/rules.md`, которые индекс пишет на любом статусе (api#228/#242): `policy_access_denied` —
   «у GitHub App нет доступа к репозиторию» и `policy_revision_unavailable` — «ревизия default branch
-  недоступна: GitHub не подтвердил, есть ли файл правил» (RAG даёт свой текст; межслайсовый импорт
-  из блока правил запрещён), `policy_fetch_transient` — «GitHub временно не отвечает при чтении
+  недоступна: GitHub не подтвердил, есть ли файл правил» (та же формулировка, что в `rules.reasons` блока правил,
+  но оба текста начинаются со строчной буквы, а точка в конце убрана только у `policy_revision_unavailable`: у
+  `policy_access_denied` её нет и в `rules.reasons`; ключи словаря свои, межслайсовый импорт из блока правил запрещён),
+  `policy_fetch_transient` — «GitHub временно не отвечает при чтении
   .review/rules.md», `policy_rate_limited` — «GitHub ограничил число запросов при чтении .review/rules.md»,
   `policy_document_too_large` — «файл .review/rules.md больше лимита», `policy_document_type_unsupported` —
-  «неподдерживаемый тип файла .review/rules.md».
+  «неподдерживаемый тип файла .review/rules.md»; ошибки самого файла правил (тексты написаны для статуса индекса,
+  а `reasons.*` говорят о прогоне): `policy_document_decode_error` — «файл .review/rules.md не в кодировке UTF-8»,
+  `policy_document_control_character` — «в файле .review/rules.md недопустимый управляющий символ»,
+  `policy_ignore_block_duplicate` — «в .review/rules.md больше одного блока review-ignore»,
+  `policy_ignore_block_nested` — «блок review-ignore в .review/rules.md не на верхнем уровне»,
+  `policy_ignore_block_unclosed` — «блок review-ignore в .review/rules.md не закрыт»,
+  `policy_ignore_info_invalid` — «у блока review-ignore в .review/rules.md лишние параметры»,
+  `policy_ignore_pattern_invalid` — «в блоке review-ignore в .review/rules.md недопустимая маска»,
+  `policy_ignore_limit_exceeded` — «в блоке review-ignore в .review/rules.md слишком много масок или слишком длинная
+  маска», `policy_match_budget_exceeded` — «маски review-ignore в .review/rules.md слишком сложны для проверки»
+  (api применяет те же маски ко всем путям архива, `code_index/application/exclusions.py`, так что бюджет
+  сопоставления может кончиться и у сборки индекса). `policy_path_invalid` — «в репозитории есть файл с недопустимым
+  путём»: код о пути в репозитории, а не о файле правил, поэтому не «В изменениях…» из `reasons.*`; сейчас индекс
+  отсекает такие пути раньше (`UNSUPPORTED_PATH` там же), текст нужен на случай, если код всё же придёт.
+  `policy_prompt_budget_exceeded`, `policy_snapshot_integrity_error` и `policy_context_violation` пишет только ревью,
+  в карте их нет.
   Любой другой код, в том числе `limit_exceeded:<x>` не из каталога, — один код, без текста, ничего по виду
   кода не достраивается; так код (AC3) виден в любом случае. У `failed` причина стоит в строке статуса после «Ошибка»; у `empty`,
   `building`, `ready` и `stale` — отдельной строкой внутри той же `role="status"`: «Последняя сборка не
