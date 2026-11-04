@@ -382,6 +382,10 @@ src/shared/ui/DataTable/DataTable.module.css
 src/shared/ui/DataTable/DataTable.stories.tsx
 src/shared/ui/DataTable/DataTable.test.tsx
 src/shared/ui/DataTable/DataTable.tsx
+src/shared/ui/FilePath/FilePath.module.css
+src/shared/ui/FilePath/FilePath.stories.tsx
+src/shared/ui/FilePath/FilePath.test.tsx
+src/shared/ui/FilePath/FilePath.tsx
 src/shared/ui/Logo/Logo.stories.tsx
 src/shared/ui/Logo/Logo.test.tsx
 src/shared/ui/Logo/Logo.tsx
@@ -1183,9 +1187,9 @@ sequenceDiagram
 (`theme/buildTheme.ts`), CSS-токены (`styles/tokens.css`), правки поверх antd (`styles/antd.css`)
 и свои компоненты
 (`Tag`, `Segmented`, `Spinner`, `PageLoader`, `PageHeader`, `DataTable`, `NavMenu`, `RowButton`,
-`TraceTree`, `ProgressSteps`, `CodeBlock`, `Logo`). Всё включается одним `DesignSystemProvider`.
-`Segmented` экраны берут из `src/shared/ui`, а не из antd: обёртка даёт один Tab-стоп и требует
-`aria-label`.
+`TraceTree`, `ProgressSteps`, `CodeBlock`, `FilePath`, `Logo`). Всё включается одним
+`DesignSystemProvider`. `Segmented` экраны берут из `src/shared/ui`, а не из antd: обёртка даёт
+один Tab-стоп и требует `aria-label`.
 Числа, правила и чеклист для нового компонента antd: [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md).
 Витрина: `pnpm storybook`. Правило: базовые компоненты берутся только из antd в нашей теме и из
 `src/shared/ui`; на экране их не перекрашивают. Вид компонента antd меняется только внутри
@@ -1630,7 +1634,7 @@ PATCH с переключателя, ничем другим не дополня
 | Компонент         | Файл                     | Props                                                                                                                                                                                                                                                                                                                                                                            |
 | ----------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `DiffViewer`      | `ui/DiffViewer.tsx`      | `file: FileDiff`, `findings?: FindingView[]`, `comments?: ReviewComment[]`, `totalLines?: number`, `diffTotalLines?: number`, `searchActive?: boolean`, `onLoadMore?: (gap: ContextGap) => void`                                                                                                                                                                                 |
-| `InlineComment`   | `ui/InlineComment.tsx`   | `finding: FindingView`, `file?: FileDiff`, `defaultExpanded?: boolean` — находка или комментарий, привязанный к строке диффа (виджет `react-diff-view`); свёрнут, пока не раскрыт или не задан `defaultExpanded`                                                                                                                                                                 |
+| `InlineComment`   | `ui/InlineComment.tsx`   | `finding: FindingView`, `file?: FileDiff`, `defaultExpanded?: boolean`, `showFile?: boolean` — находка или комментарий, привязанный к строке диффа (виджет `react-diff-view`); свёрнут, пока не раскрыт или не задан `defaultExpanded`; `showFile` называет файл в шапке карточки                                                                                                |
 | `DiffSuggestion`  | `ui/DiffSuggestion.tsx`  | `filename: string`, `removedLines: string[]`, `addedText: string` — правка из `suggestion` находки, через `<Diff>`                                                                                                                                                                                                                                                               |
 | `LoadMoreContext` | `ui/LoadMoreContext.tsx` | кнопка дочитывания контекста в зазоре между хунками                                                                                                                                                                                                                                                                                                                              |
 | `RunDiff`         | `ui/RunDiff.tsx`         | `summaryOnly: boolean`, `files: FileDiff[]`, `findings: FindingView[]`, `comments?: ReviewComment[]`, `budgetFiles?: FileDiff[]`, `fileTotalLines?`, `onLoadMore?`, `filters?: FindingFilters`, `onFiltersChange?`, `onFiltersQueryChange?`, `onFiltersReset?`, `commentsPending?: boolean`, `findingsPending?: boolean`, `filtersNavigationKey?: number` — дифф прогона целиком |
@@ -1665,6 +1669,9 @@ Summary-only прогон рисует `RunDiff`: при `summaryOnly: true` —
 В обычном прогоне сливаются все комментарии: если файла нет в `/diff`, `hasPatch: false` или
 чанки пусты, карточка попадает в общий блок «Замечания вне диффа» ровно один раз (#114).
 У файлов с чанками сохраняются инлайн-карточки и отдельный блок вне строк конкретного файла.
+Карточка общего блока называет свой файл (`showFile`, `FilePath` в строке-заголовке, #150): над ней
+нет шапки этого файла, а файла вне `/diff` на странице больше нигде не видно. Инлайн-карточки и блок
+конкретного файла стоят под его шапкой и пути не показывают.
 `RunDiff` получает флаг, а не весь `RunSession`, — виджет не зависит от
 `entities/run`. Страница `RunDetailPage` (`/runs/:runId`) передаёт `run.summaryOnly` и
 `findings` из `RunDetail` в `RunDiff` (TanStack Query, ключи §2).
