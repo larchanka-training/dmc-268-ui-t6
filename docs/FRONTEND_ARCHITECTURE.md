@@ -1903,11 +1903,13 @@ flowchart LR
 | `function`            | `cyan7`             | `function`, `class-name`, `builtin`                                              |
 | `tag`                 | `volcano7`          | `tag`, `selector`                                                                |
 | `attribute`           | `geekblue7`         | `attr-name`, `property`, `key`                                                   |
-| `special`             | `purple7`           | `decorator`, `annotation`, `regex`                                               |
+| `special`             | `purple8`           | `decorator`, `annotation`, `regex`                                               |
 | `comment`             | `colorTextTertiary` | `comment`                                                                        |
 
-Индекс 7 пресет-палитры — единственный шаг, читаемый на обоих фонах: тёмный и насыщенный под
-`defaultAlgorithm`, под `darkAlgorithm` antd пересчитывает палитры светлее. Остальные классы
+Цветные слоты, кроме `special`, берут шаг 7 пресет-палитры: тёмный и насыщенный под
+`defaultAlgorithm`, под `darkAlgorithm` antd пересчитывает палитры светлее. `special` берёт
+`purple8`: `purple7` даёт 2.824:1 на тёмном insert-фоне `#132a2c`, ниже порога 3:1 в
+`diffTheme.test.ts` ([`DESIGN_SYSTEM.md` §3](DESIGN_SYSTEM.md#3-цвет)). Остальные классы
 (`punctuation`, `null`, `interpolation`, `atrule`, `title`, …) остаются цветом текста;
 `punctuation` не стилизуется намеренно: Prism алиасит его на декораторы и интерполяцию, а те
 должны сохранить свой цвет.
