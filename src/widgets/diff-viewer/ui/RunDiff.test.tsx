@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { diffApi, expandContext, fromPatch, toHunks, type FileDiff } from '../../../entities/diff'
 import type { FindingView, ReviewComment } from '../../../entities/review'
 import { RunSessionSchema } from '../../../entities/run'
+import { EMPTY_FINDING_FILTERS } from '../../../features/finding-filters'
 import { SAMPLE_PATCH_A, SAMPLE_PATCHES } from '../../../shared/fixtures/sample.patch'
 import {
   countDiffSideLines,
@@ -344,6 +345,132 @@ describe('RunDiff', () => {
     fireEvent.click(within(outside).getByText('Comment outside the available patch'))
     expect(within(outside).getByText('Comment body outside the available patch')).toBeTruthy()
     expect(within(outside).getByText('правило: outside-comment')).toBeTruthy()
+    expect(within(outside).getByText('src/comment-only.ts')).toBeTruthy()
+  })
+
+  describe('file path in the cards of the run-level outside block', () => {
+    function pathFinding(id: string, file: string, overrides?: Partial<FindingView>): FindingView {
+      return {
+        id: `66666666-6666-4666-8666-${id}`,
+        file,
+        oldLine: null,
+        newLine: 99,
+        endLine: null,
+        side: 'RIGHT',
+        severity: 'high',
+        category: 'security',
+        title: `Finding in ${file}`,
+        body: `Body of ${file}`,
+        suggestion: null,
+        confidence: 0.5,
+        ruleName: null,
+        ...overrides,
+      }
+    }
+
+    function card(root: HTMLElement, title: string): HTMLElement {
+      const found = within(root).getByText(title).closest<HTMLElement>('.inline-comment')
+      if (found === null) {
+        throw new Error(`no card with the title "${title}"`)
+      }
+      return found
+    }
+
+    function runLevelBlock(container: HTMLElement): HTMLElement {
+      const block = container.querySelector<HTMLElement>(
+        '.run-diff > [data-testid="findings-outside-diff"]',
+      )
+      if (block === null) {
+        throw new Error('no run-level outside block')
+      }
+      return block
+    }
+
+    it('every card shows its own file: absent from /diff, no patch, empty chunks', () => {
+      const paths = ['src/absent.ts', 'src/no-patch.ts', 'src/no-chunks.ts']
+      const { container } = render(
+        <RunDiff
+          files={[
+            { filename: 'src/no-patch.ts', hasPatch: false, chunks: [] },
+            { filename: 'src/no-chunks.ts', hasPatch: true, chunks: [] },
+          ]}
+          findings={paths.map((path, index) => pathFinding(String(index).padStart(12, '0'), path))}
+          summaryOnly={false}
+        />,
+      )
+
+      const block = runLevelBlock(container)
+      expect(within(block).getAllByTestId('inline-comment')).toHaveLength(paths.length)
+      for (const path of paths) {
+        const shown = card(block, `Finding in ${path}`)
+        expect(within(within(shown).getByRole('button')).getByText(path)).toBeTruthy()
+        for (const other of paths.filter((candidate) => candidate !== path)) {
+          expect(within(shown).queryByText(other)).toBeNull()
+        }
+      }
+    })
+
+    it('shows the file in the summary-only branch too', () => {
+      const { container } = render(
+        <RunDiff
+          files={[{ filename: 'src/big.ts', hasPatch: false, chunks: [] }]}
+          findings={[pathFinding('000000000001', 'src/big.ts')]}
+          summaryOnly
+        />,
+      )
+
+      const shown = card(runLevelBlock(container), 'Finding in src/big.ts')
+      expect(within(within(shown).getByRole('button')).getByText('src/big.ts')).toBeTruthy()
+    })
+
+    it('keeps the file visible in a card the active search expanded', () => {
+      const { container } = render(
+        <RunDiff
+          files={[]}
+          filters={{ ...EMPTY_FINDING_FILTERS, query: 'needle' }}
+          findings={[
+            pathFinding('000000000001', 'src/absent.ts', { body: 'A needle in the body' }),
+          ]}
+          onFiltersChange={vi.fn()}
+          summaryOnly={false}
+        />,
+      )
+
+      const shown = card(runLevelBlock(container), 'Finding in src/absent.ts')
+      const button = within(shown).getByRole('button')
+      expect(button.getAttribute('aria-expanded')).toBe('true')
+      expect(within(shown).getByText('A needle in the body')).toBeTruthy()
+      expect(within(button).getByText('src/absent.ts')).toBeTruthy()
+    })
+
+    it('adds no path to an inline card or to the outside block of one file', () => {
+      const files = diffApi.diff.response.parse([SAMPLE_PATCH_A]).map(fromPatch)
+      const { container } = render(
+        <RunDiff
+          files={files}
+          findings={[
+            pathFinding('000000000001', 'src/a.ts', { newLine: 2, title: 'Inline one' }),
+            pathFinding('000000000002', 'src/a.ts', { newLine: 99, title: 'Outside lines one' }),
+            pathFinding('000000000003', 'src/absent.ts'),
+          ]}
+          summaryOnly={false}
+        />,
+      )
+
+      const fileFrame = container.querySelector<HTMLElement>('.diff-theme')
+      if (fileFrame === null) {
+        throw new Error('no diff of src/a.ts')
+      }
+      const fileBlock = within(fileFrame).getByTestId('findings-outside-diff')
+      const outsideLines = card(fileBlock, 'Outside lines one')
+      const inline = card(fileFrame, 'Inline one')
+      expect(fileBlock.contains(inline)).toBe(false)
+      for (const shown of [inline, outsideLines]) {
+        expect(within(shown).queryByText('src/a.ts')).toBeNull()
+      }
+      const runLevel = card(runLevelBlock(container), 'Finding in src/absent.ts')
+      expect(within(runLevel).getByText('src/absent.ts')).toBeTruthy()
+    })
   })
 
   it('keeps the outside finding for a repeated id and a distinct comment at the same anchor', () => {

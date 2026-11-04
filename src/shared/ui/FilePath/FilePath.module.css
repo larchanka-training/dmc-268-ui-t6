@@ -1,0 +1,6 @@
+.path {
+  overflow-wrap: anywhere;
+  color: var(--rv-text-2);
+  font-family: var(--rv-font-mono);
+  font-size: var(--rv-fs-xs);
+}

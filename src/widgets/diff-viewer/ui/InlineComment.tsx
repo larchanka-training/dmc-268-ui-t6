@@ -5,7 +5,7 @@ import { extractNewSideLines, type FileDiff } from '../../../entities/diff'
 import type { FindingView, Severity } from '../../../entities/review'
 import { findingLineRangeLabel, SEVERITY_LABEL } from '../../../entities/review'
 import { useTranslation } from '../../../shared/i18n'
-import { RowButton, Tag, type TagProps } from '../../../shared/ui'
+import { FilePath, RowButton, Tag, type TagProps } from '../../../shared/ui'
 import { DiffSuggestion } from './DiffSuggestion'
 
 /** Each finding keeps its exact severity; only critical is filled (UI #127). */
@@ -22,10 +22,12 @@ interface InlineCommentProps {
   file?: FileDiff
   /** Initial state only; changing it later does not re-expand (the caller remounts via `key`). */
   defaultExpanded?: boolean
+  /** Names the file in the header row, for a card that does not stand under the header of its file. */
+  showFile?: boolean
 }
 
 export function InlineComment(props: InlineCommentProps): JSX.Element {
-  const { finding, file, defaultExpanded = false } = props
+  const { finding, file, defaultExpanded = false, showFile = false } = props
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(defaultExpanded)
   const badge = SEVERITY_TAG[finding.severity]
@@ -56,6 +58,7 @@ export function InlineComment(props: InlineCommentProps): JSX.Element {
             {range}
           </Typography.Text>
         ) : null}
+        {showFile ? <FilePath className="inline-comment-file" path={finding.file} /> : null}
       </RowButton>
       {expanded ? (
         <div className="inline-comment-body">

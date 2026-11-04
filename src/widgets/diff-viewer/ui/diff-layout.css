@@ -139,3 +139,9 @@
   flex: none;
   white-space: nowrap;
 }
+
+/* Half the row gap to its own title, the other half added towards the next card. */
+.inline-comment-row > .inline-comment-file {
+  flex: 0 0 100%;
+  margin-block: -4px 4px;
+}
