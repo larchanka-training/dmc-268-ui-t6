@@ -111,6 +111,11 @@
   width: calc(8ch + 4px);
 }
 
+/* The empty half of Split stays empty, as in the mockup: react-diff-view draws a line there. */
+.diff-theme .diff-gutter-omit::before {
+  content: none;
+}
+
 /* Markers belong to DiffViewer's custom gutter, leaving suggestion diffs unchanged. */
 .diff-gutter-with-marker {
   display: flex;
