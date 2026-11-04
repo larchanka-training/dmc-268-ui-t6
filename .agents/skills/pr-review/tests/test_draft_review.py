@@ -423,6 +423,7 @@ def state_with_draft(**changes: Any) -> dict[str, Any]:
 EARLIER = "Итог на `21b8d99b`: прежний итог."
 EARLIER_TEXT = f"{EARLIER}\n\n<!-- pr-review f0402fa3c9aed1e2 -->"
 
+
 # ─── stops ──────────────────────────────────────────────────────────────────
 @pytest.mark.parametrize(
     ("fixtures", "findings", "reason"),
@@ -488,7 +489,8 @@ def test_text_the_reviewer_changed_stops_the_run(
     doc = doc_of(r)
     assert doc["verdict"] == "stop"
     assert doc["reasons"] == [
-        "your draft review has text of its own: submit or delete it on GitHub, then run again"
+        "your draft review has text of its own: keep what you need of it, then submit "
+        f"or delete the draft on GitHub and run again. The text: {body}"
     ]
     assert doc["summary"] == ""
     assert not log.exists()

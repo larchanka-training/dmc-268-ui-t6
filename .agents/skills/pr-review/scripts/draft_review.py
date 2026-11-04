@@ -11,7 +11,8 @@ it the script checks the same things again, then creates the viewer's pending re
 threads. A pending review is visible to the viewer alone. The script has no way to submit it or to
 set a verdict: that stays with the reviewer, on GitHub. It never edits or removes a comment of a
 draft, and replaces a draft's text only when that is empty or exactly an earlier summary of this
-script: what it writes ends in a hidden checksum of the summary, which any edit breaks.
+script: what it writes ends in a hidden `<!-- pr-review <checksum> -->`, the first 16 hex digits of
+the SHA-256 of the summary, which any edit breaks.
 
 Input
 -----
@@ -69,8 +70,8 @@ stdout carries one JSON document (`sort_keys`, indent 2, no ASCII escaping, one 
 
 `applied` and `review` report the read-back after the writes, never what was sent. `stop` (exit 1,
 no write): the head moved past `head_sha`; the viewer's draft sits on another commit, has over 100
-comments or has text of its own (anything but an earlier summary, unchanged); a finding out of
-scope has no decision. `partial` (exit 1): the
+comments or has text of its own (anything but an earlier summary, unchanged; the reason quotes it,
+as GitHub's pages do not show it); a finding out of scope has no decision. `partial` (exit 1): the
 read-back found a thread or the draft missing, another text, or the head or the draft on another
 commit than `head_sha`, or the draft could not be read back (its threads then stay `created`,
 unverified); run again, the threads already there are skipped.
@@ -539,8 +540,8 @@ def stop_reasons(state: dict[str, Any], plan: dict[str, Any]) -> list[str]:
             )
         if draft["body"] and not is_earlier_summary(draft["body"]):
             reasons.append(
-                "your draft review has text of its own: submit or delete it on GitHub, "
-                "then run again"
+                "your draft review has text of its own: keep what you need of it, then submit "
+                f"or delete the draft on GitHub and run again. The text: {draft['body']}"
             )
     undecided = [
         f"{f['path']}:{f['line']}"
