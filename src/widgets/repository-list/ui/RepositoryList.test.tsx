@@ -186,6 +186,8 @@ describe('RepositoryList', () => {
     const { container, rerender } = render(<RepositoryList {...props} />)
     const getSlot = () => container.querySelector(`.${String(styles.accessRefreshStatus)}`)
     expect(getSlot()).toBeNull()
+    rerender(<RepositoryList {...props} refreshing />)
+    expect(getSlot()).toBeNull()
 
     rerender(<RepositoryList {...props} accessRefreshStatus="waiting" refreshing />)
     const slot = getSlot()
