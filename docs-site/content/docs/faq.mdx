@@ -152,12 +152,13 @@ they appear in **Findings outside the diff** and obey the file, severity and sea
 
 Or the findings could not be tied to changed lines; then they are in the review body.
 
-### Checked files does not list the files
+### Checked files says the list is not shown
 
-If the section says `(список не показывается: имена файлов в этом ревью скрыты)`, the list is
-hidden on purpose. A changed file matches `review-ignore` in your [rules file](/rules-file), and
-its name stays out of the review, or Reviewer has no reliable record of what the run covered.
-**Done well** still gives the number of analyzed files.
+The section shows `(список не показывается: имена файлов в этом ревью скрыты)` when the pull
+request changes a file that is not reviewed: a lock file, build output or a file that matches
+`review-ignore` in your [rules file](/rules-file). Reviewer keeps the names of such files out of
+the review, so it hides the whole list. The same happens when it has no reliable record of what
+the run covered.
 
 ### My rules change did nothing
 
