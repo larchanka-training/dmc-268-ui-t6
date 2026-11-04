@@ -1063,13 +1063,14 @@ def decide(
     unreadable: str | None,
     stray_open: list[dict[str, Any]],
     held: dict[str, Any] | None,
+    on_board: bool,
 ) -> tuple[dict[str, Any] | None, list[str], str]:
     """(selected, reasons, verdict): the verdict is go, stop or accept; reasons non-empty
     means it is not a go. `unreadable` is set when the criteria carry part prefixes but the
     Scope has no part the script can read. `stray_open` are the OPEN pull requests with `Refs`
     that name no part of an issue that has parts; `held` is the accept-issue comment that holds
     the issue back from acceptance (returned, or a table with unmet rows), if no pull request
-    was merged after it."""
+    was merged after it. `on_board`: the issue has a card on board 12, Status or none."""
     if facts["issue"]["state"] == "CLOSED":
         return (
             None,
@@ -1091,6 +1092,15 @@ def decide(
         return None, [f"blocked by {b['ref']} — {b['title']}" for b in open_blockers], "stop"
     if numbering_error:
         return None, [numbering_error], "stop"
+    if not on_board:
+        return (
+            None,
+            [
+                f"the issue is not on board {BOARD_NUMBER}: a person adds the card, then run "
+                "again (this run never adds it)"
+            ],
+            "stop",
+        )
     parts = facts["parts"]
     if part is not None:
         if not any(p["n"] == part for p in parts):
@@ -1197,8 +1207,6 @@ def collect(repo: str, number: int, part: int | None) -> dict[str, Any]:
     if not kickoff_text:
         warnings.append("the issue has no Kickoff section: read its Background and References")
     item = board_item(issue)
-    if item is None:
-        warnings.append(f"the issue is not on board {BOARD_NUMBER}: the Status step will fail")
 
     facts: dict[str, Any] = {
         "schema": SCHEMA,
@@ -1220,7 +1228,9 @@ def collect(repo: str, number: int, part: int | None) -> dict[str, Any]:
     }
     stray_open = [pr for pr in unnamed if pr["state"] == "OPEN"]
     held = held_at_acceptance(acceptance_comments(comments), prs)
-    selected, reasons, verdict = decide(facts, part, numbering_error, unreadable, stray_open, held)
+    selected, reasons, verdict = decide(
+        facts, part, numbering_error, unreadable, stray_open, held, item is not None
+    )
     if selected is not None and selected["reason"] == "explicit":
         chosen = next(p for p in parts if p["n"] == selected["part"])
         if chosen["status"] != "todo":

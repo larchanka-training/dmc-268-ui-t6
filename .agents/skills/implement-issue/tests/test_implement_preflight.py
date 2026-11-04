@@ -1297,12 +1297,52 @@ def test_the_board_status_is_read_from_board_12_of_the_org(tmp_path: Path) -> No
     assert doc["warnings"] == []
 
 
-def test_not_on_the_board_is_null_and_a_warning(tmp_path: Path) -> None:
-    for items in ([], [project_item("Done", number=3)]):
-        code, doc = facts(tmp_path, issue_response(body=KICKOFF, items=items))
-        assert code == 0
-        assert doc["issue"]["board_status"] is None
-        assert doc["warnings"] == ["the issue is not on board 12: the Status step will fail"]
+NOT_ON_BOARD = (
+    "the issue is not on board 12: a person adds the card, then run again (this run never adds it)"
+)
+OFF_BOARD = ([], [project_item("Done", number=3), project_item("On Review", login="someone")])
+
+
+@pytest.mark.parametrize("items", OFF_BOARD)
+def test_not_on_the_board_is_a_stop_before_a_branch(
+    tmp_path: Path, items: list[dict[str, Any]]
+) -> None:
+    code, doc = facts(tmp_path, issue_response(body=TWO_PARTS, items=items))
+    assert (code, doc["verdict"], doc["selected"]) == (1, "stop", None)
+    assert doc["issue"]["board_status"] is None
+    assert doc["reasons"] == [NOT_ON_BOARD]
+    assert doc["warnings"] == []
+
+
+@pytest.mark.parametrize("args", [("--part", "1"), ("--part", "99")])
+def test_not_on_the_board_is_not_passed_with_a_part(tmp_path: Path, args: tuple[str, str]) -> None:
+    response = issue_response(body=TWO_PARTS, items=[])
+    code, doc = facts(tmp_path, response, *args)
+    assert (code, doc["verdict"]) == (1, "stop")
+    assert doc["reasons"] == [NOT_ON_BOARD]
+
+
+@pytest.mark.parametrize("items", OFF_BOARD)
+def test_not_on_the_board_is_a_stop_where_accept_would_be_next(
+    tmp_path: Path, items: list[dict[str, Any]]
+) -> None:
+    whole = issue_response(body=KICKOFF, timeline=[refs_pr(50, "x")], items=items)
+    parts = issue_response(body=TWO_PARTS, timeline=merged_parts(), items=items)
+    for response in (whole, parts):
+        _, doc = facts(tmp_path, response)
+        assert (doc["verdict"], doc["reasons"]) == ("stop", [NOT_ON_BOARD])
+
+
+def test_not_on_the_board_comes_after_closed_blockers_and_numbering(tmp_path: Path) -> None:
+    closed = issue_response(body=TWO_PARTS, items=[], state="CLOSED")
+    _, doc = facts(tmp_path, closed)
+    assert doc["reasons"] == [f"issue {API}#13 is CLOSED"]
+    blocked = issue_response(body=TWO_PARTS, items=[], blocked=[blocker(5)])
+    _, doc = facts(tmp_path, blocked)
+    assert doc["reasons"] == [f"blocked by {API}#5 — blocker 5"]
+    body = "## Scope\n\n- Ч.1: a\n- Ч.3: c\n" + KICKOFF
+    _, doc = facts(tmp_path, issue_response(body=body, items=[]))
+    assert doc["reasons"] == ["parts in Scope are not numbered 1..k contiguously (found: 1, 3)"]
 
 
 def test_on_the_board_without_a_status_is_null_without_a_warning(tmp_path: Path) -> None:
@@ -2495,11 +2535,6 @@ def test_accept_needs_a_card_in_progress_on_review_or_ac_check(tmp_path: Path, c
     [
         ([project_item("Todo")], "the card is in Todo"),
         ([project_item(None)], f"the issue has no Status on board {pf.BOARD_NUMBER}"),
-        ([], f"the issue has no Status on board {pf.BOARD_NUMBER}"),
-        (
-            [project_item("On Review", number=7)],
-            f"the issue has no Status on board {pf.BOARD_NUMBER}",
-        ),
     ],
 )
 def test_any_other_card_is_a_stop_for_parts_and_for_a_whole_task(
