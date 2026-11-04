@@ -1,7 +1,7 @@
 import { Alert, Button, Skeleton } from 'antd'
 import { useCallback, useEffect, useRef, type FC } from 'react'
 
-import { useRepositoryRulesStatus } from '../../../entities/repository'
+import { useRepositoryRulesStatusRetry } from '../../../entities/repository'
 import { useTranslation } from '../../../shared/i18n'
 import type { VcsProvider } from '../../../shared/model/provider'
 import { RulesStatusDetails } from './RulesStatusDetails'
@@ -19,18 +19,15 @@ export interface RulesStatusPanelProps {
  * the server re-reads the file by itself (on connect, on a push to the default branch, on a GET
  * once its copy is old), reopening the page asks again, and a `pending` status is polled by the
  * hook. "Retry" is offered only for a load error and for an `unavailable` status the server
- * called retryable. When that button goes away while it has the focus (the retry succeeded, or a
- * poll brought the result under it), the focus goes to the block's other "Retry" if the block
- * has one now (the retry of an `unavailable` status failed with an HTTP error), else to the
- * heading of the block, not to `<body>`.
+ * called retryable; the retry of such a status also waits for the new result, for a bounded time
+ * (`useRepositoryRulesStatusRetry`), with the button in place and busy. When that button goes away
+ * while it has the focus (the retry succeeded, or a poll brought the result under it), the focus
+ * goes to the block's other "Retry" if the block has one now (the retry of an `unavailable` status
+ * failed with an HTTP error), else to the heading of the block, not to `<body>`.
  */
 export const RulesStatusPanel: FC<RulesStatusPanelProps> = ({ repoId, provider }) => {
   const { t } = useTranslation()
-  const query = useRepositoryRulesStatus(repoId)
-
-  const retry = (): void => {
-    void query.refetch()
-  }
+  const { query, awaitingResult, retry } = useRepositoryRulesStatusRetry(repoId)
 
   // A retry button that held the focus is noted as its ref is released, while it is still in the
   // document: once it is gone the focus is on `<body>` already. The ref is released for a button
@@ -88,6 +85,7 @@ export const RulesStatusPanel: FC<RulesStatusPanelProps> = ({ repoId, provider }
     }
     return (
       <RulesStatusDetails
+        checking={awaitingResult}
         provider={provider}
         onRetry={retry}
         retryRef={trackRetry}

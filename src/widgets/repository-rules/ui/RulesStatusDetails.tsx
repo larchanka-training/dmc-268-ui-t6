@@ -110,9 +110,22 @@ const Meta: FC<{ status: Exclude<RulesStatus, { status: 'pending' }>; tag?: Reac
   )
 }
 
+/** The file is being read: for a `pending` status, and for a retry waiting for its result. */
+const Checking: FC<{ branch: string }> = ({ branch }) => {
+  const { t } = useTranslation()
+  return (
+    <Flex align="center" gap={8} role="status">
+      <Spinner label={null} size="sm" />
+      <Text type="secondary">{t('rules.checking', { branch })}</Text>
+    </Flex>
+  )
+}
+
 export interface RulesStatusDetailsProps {
   status: RulesStatus
   provider: VcsProvider
+  /** A retry of this `unavailable` status is waiting for the new result. */
+  checking: boolean
   /** Asks the server again; offered only where the server said a retry can help. */
   onRetry: () => void
   /** For the owner of the focus: the retry button reports here when it comes and goes. */
@@ -124,6 +137,7 @@ export interface RulesStatusDetailsProps {
 export const RulesStatusDetails: FC<RulesStatusDetailsProps> = ({
   status,
   provider,
+  checking,
   onRetry,
   retryRef,
   retrying,
@@ -158,12 +172,7 @@ export const RulesStatusDetails: FC<RulesStatusDetailsProps> = ({
         </Flex>
       )
     case 'pending':
-      return (
-        <Flex align="center" gap={8} role="status">
-          <Spinner label={null} size="sm" />
-          <Text type="secondary">{t('rules.checking', { branch: status.branch })}</Text>
-        </Flex>
-      )
+      return <Checking branch={status.branch} />
     case 'missing':
       return (
         <Flex gap={12} vertical>
@@ -201,7 +210,12 @@ export const RulesStatusDetails: FC<RulesStatusDetailsProps> = ({
           <Alert
             action={
               status.diagnostics.some((diagnostic) => diagnostic.retryable) ? (
-                <Button loading={retrying} onClick={onRetry} ref={retryRef} size="small">
+                <Button
+                  loading={retrying || checking}
+                  onClick={onRetry}
+                  ref={retryRef}
+                  size="small"
+                >
                   {t('rules.retry')}
                 </Button>
               ) : undefined
@@ -226,6 +240,7 @@ export const RulesStatusDetails: FC<RulesStatusDetailsProps> = ({
             type="error"
           />
           <Meta status={status} />
+          {checking ? <Checking branch={status.branch} /> : null}
         </Flex>
       )
   }
