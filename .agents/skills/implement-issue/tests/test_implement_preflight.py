@@ -1301,7 +1301,10 @@ def test_the_board_status_is_read_from_board_12_of_the_org(tmp_path: Path) -> No
 NOT_ON_BOARD = (
     "the issue is not on board 12: a person adds the card, then run again (this run never adds it)"
 )
-OFF_BOARD = ([], [project_item("Done", number=3), project_item("On Review", login="someone")])
+OFF_BOARD: list[list[dict[str, Any]]] = [
+    [],
+    [project_item("Done", number=3), project_item("On Review", login="someone")],
+]
 
 
 @pytest.mark.parametrize("items", OFF_BOARD)
