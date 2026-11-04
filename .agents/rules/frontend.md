@@ -107,7 +107,7 @@ for a new component are in `docs/DESIGN_SYSTEM.md`; the showcase is `pnpm storyb
    `styles/antd.css` or the CSS Module of a wrapper component. In the CSS Module of a screen
    `:global(.ant-…)` is allowed only to place a component in the layout of that screen (outer
    margin, width, grid position).
-6. `Tag` and `Spinner` come from `src/shared/ui`, not from Ant Design.
+6. `Tag`, `Spinner` and `Segmented` come from `src/shared/ui`, not from Ant Design.
 
 ## 3b. Before you open a UI pull request
 
