@@ -52,6 +52,7 @@ export const bitbucket = {
     privateSuffix: 'приватный',
     connectRepository: 'Подключить {{repository}}',
     showMore: 'Показать ещё',
+    showMoreConnections: 'Показать ещё подключения',
   },
   errors: {
     responseFormat: 'Неожиданный формат ответа сервера. Обновите страницу и повторите попытку.',

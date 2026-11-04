@@ -252,9 +252,13 @@ describe('Bitbucket connections panel', () => {
     expect(await screen.findByText('private-space/first-repo')).toBeTruthy()
     await waitFor(() => {
       const connectionPage = client.getQueryData<{
-        connections: { credentialGeneration: number }[]
+        pages: { connections: { credentialGeneration: number }[] }[]
       }>(['bitbucketConnections', FIRST])
-      expect(connectionPage?.connections.map((item) => item.credentialGeneration)).toEqual([2, 2])
+      expect(
+        connectionPage?.pages.flatMap((page) =>
+          page.connections.map((item) => item.credentialGeneration),
+        ),
+      ).toEqual([2, 2])
     })
   })
 

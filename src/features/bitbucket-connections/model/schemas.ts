@@ -78,7 +78,7 @@ export type BitbucketConnectionItem = z.infer<typeof BitbucketConnectionItemSche
 
 export const BitbucketConnectionListSchema = z.object({
   connections: z.array(BitbucketConnectionItemSchema),
-  nextCursor: z.null(),
+  nextCursor: z.string().nullable(),
 })
 export type BitbucketConnectionList = z.infer<typeof BitbucketConnectionListSchema>
 

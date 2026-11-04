@@ -20,6 +20,8 @@ Create a scoped [Atlassian API token](https://support.atlassian.com/bitbucket-cl
 
 Open <AppLink path="/repositories">**Repositories**</AppLink>. In the **Bitbucket Cloud** panel, choose a **Portal workspace** from those available to your portal account. Enter the **Bitbucket workspace** slug and **API token**, then choose **Find repositories**. Find the repository in the results, including one marked **private**, and choose its `Connect {slug}` button. It appears in the common repository list for members of the selected portal workspace. A second repository in the same Bitbucket workspace uses the same API token; use **Update API token** to replace the shared credential deliberately.
 
+If the connection list has more pages, choose **Show more connections** to load the next page for the selected portal workspace.
+
 The portal removes spaces accidentally pasted around the API token before discovery, connection or rotation. A token with spaces inside, non-ASCII characters or more than 4096 characters is rejected with an input error before it is sent.
 
 </Step>

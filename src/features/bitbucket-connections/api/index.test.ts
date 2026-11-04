@@ -194,19 +194,30 @@ describe('Bitbucket workspace connection API', () => {
     )
   })
 
-  it('uses an unpaged connection endpoint and rejects a fabricated next cursor', async () => {
+  it('requests the next connection page with an encoded cursor', async () => {
     const paths: string[] = []
     setMockTransport((endpoint) => {
       paths.push(endpoint.path)
-      return { connections: [CONNECTION], nextCursor: null }
+      return endpoint.path.includes('?cursor=')
+        ? { connections: [], nextCursor: null }
+        : { connections: [CONNECTION], nextCursor: 'opaque:next/page' }
     })
     await expect(listBitbucketConnections(WORKSPACE)).resolves.toEqual({
       connections: [CONNECTION],
+      nextCursor: 'opaque:next/page',
+    })
+    await expect(listBitbucketConnections(WORKSPACE, 'opaque:next/page')).resolves.toEqual({
+      connections: [],
       nextCursor: null,
     })
-    expect(paths).toEqual([`/workspaces/${WORKSPACE}/bitbucket/connections`])
+    expect(paths).toEqual([
+      `/workspaces/${WORKSPACE}/bitbucket/connections`,
+      `/workspaces/${WORKSPACE}/bitbucket/connections?cursor=opaque%3Anext%2Fpage`,
+    ])
+  })
 
-    setMockTransport(() => ({ connections: [CONNECTION], nextCursor: 'unsupported-cursor' }))
+  it('rejects a malformed next connection cursor', async () => {
+    setMockTransport(() => ({ connections: [CONNECTION], nextCursor: 42 }))
     await expect(listBitbucketConnections(WORKSPACE)).rejects.toThrow(/nextCursor/i)
   })
 

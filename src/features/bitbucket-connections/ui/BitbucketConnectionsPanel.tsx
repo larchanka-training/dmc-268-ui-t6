@@ -1,5 +1,5 @@
 import { Alert, App, Button, Flex, Input, Select, Typography } from 'antd'
-import { useRef, useState, type FC } from 'react'
+import { useMemo, useRef, useState, type FC } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
 import type { Workspace } from '../../../entities/user'
@@ -58,6 +58,18 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
   const setupSequence = useRef(0)
   const credentialOrigin = useRef<string | null>(null)
   const connections = useBitbucketConnections(workspaceId)
+  const visibleConnections = useMemo(() => {
+    const seen = new Set<string>()
+    return (
+      connections.data?.pages.flatMap((page) =>
+        page.connections.filter((connection) => {
+          if (seen.has(connection.repositoryId)) return false
+          seen.add(connection.repositoryId)
+          return true
+        }),
+      ) ?? []
+    )
+  }, [connections.data])
   const {
     workspaceInputRef,
     discoverySubmitRef,
@@ -408,7 +420,7 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
           {connections.isError ? (
             <Alert description={bitbucketErrorMessage(connections.error)} showIcon type="error" />
           ) : null}
-          {connections.data?.connections.map((connection) => (
+          {visibleConnections.map((connection) => (
             <Flex align="center" gap="small" key={connection.repositoryId} wrap>
               <Text>{`${connection.workspaceSlug}/${connection.repositorySlug}`}</Text>
               <Text type="secondary">
@@ -472,6 +484,15 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
               </Button>
             </Flex>
           ))}
+          {connections.hasNextPage ? (
+            <Button
+              disabled={busy || connections.isFetching}
+              loading={connections.isFetchingNextPage}
+              onClick={() => void connections.fetchNextPage()}
+            >
+              {t('bitbucket.panel.showMoreConnections')}
+            </Button>
+          ) : null}
           {rotationInstallation ? (
             <Flex gap="small" wrap>
               <Input.Password
