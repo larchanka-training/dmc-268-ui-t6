@@ -725,14 +725,14 @@ def build_criteria(
 
 def unreadable_parts(missing: list[int | None]) -> str:
     """The stop reason for an issue whose criteria name parts that its Scope does not number
-    in a way `build_parts` can read («- **Ч.1 (P2). …**», «Часть 1 — …»)."""
+    in a way `build_parts` can read («- **Ч.1 (P2). …**»)."""
     named = [str(n) for n in sorted({n for n in missing if n is not None})]
     if None in missing:
         named.append("a number out of range")
     return (
         f"the acceptance criteria name parts ({', '.join(named)}) but the Scope has no part "
-        "bullets this script can read — write the Scope parts as `- Ч.N (…): …` "
-        "(create-issue format) or ask the user"
+        "bullets this script can read — the issue's author or the tech lead rewrites them as "
+        "`- Ч.N (…): …` (create-issue format), numbered from 1; this run does not edit the issue"
     )
 
 

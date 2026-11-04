@@ -2698,7 +2698,8 @@ PREFIXED_AC = (
 )
 UNREADABLE = (
     "the acceptance criteria name parts (1, 2, 3) but the Scope has no part bullets this script "
-    "can read — write the Scope parts as `- Ч.N (…): …` (create-issue format) or ask the user"
+    "can read — the issue's author or the tech lead rewrites them as `- Ч.N (…): …` "
+    "(create-issue format), numbered from 1; this run does not edit the issue"
 )
 
 
@@ -2735,6 +2736,16 @@ def test_any_one_prefixed_criterion_is_enough(tmp_path: Path, prefix: str, numbe
     _, doc = facts(tmp_path, issue_response(body=body))
     assert doc["verdict"] == "stop"
     assert doc["reasons"] == [UNREADABLE.replace("(1, 2, 3)", f"({numbers})")]
+
+
+def test_the_unreadable_reason_says_parts_start_at_one(tmp_path: Path) -> None:
+    body = (  # api#282
+        "## Scope\n\n- **Ч.0 (можно отдельным PR).** Обновить `.test_durations`\n- Один раз\n"
+        "\n## Acceptance Criteria\n\n- [ ] Ч.0: содержит ровно собранные тесты\n- [ ] Быстрее\n"
+    ) + KICKOFF
+    code, doc = facts(tmp_path, issue_response(body=body))
+    assert (code, doc["verdict"]) == (1, "stop")
+    assert doc["reasons"] == [UNREADABLE.replace("(1, 2, 3)", "(0)")]
 
 
 def test_a_whole_task_whose_criteria_have_no_prefix_is_still_a_go(tmp_path: Path) -> None:
