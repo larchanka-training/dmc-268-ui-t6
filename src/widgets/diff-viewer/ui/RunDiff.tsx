@@ -82,6 +82,7 @@ function outsideCards(findings: FindingView[], searchActive: boolean): JSX.Eleme
       file={{ filename: finding.file, chunks: [], hasPatch: false }}
       finding={finding}
       key={findingCardKey(finding.id, searchActive)}
+      showFile
     />
   ))
 }
