@@ -54,9 +54,17 @@ flowchart TD
 
 Корневые permissions: `contents: read`, остальное — только у job, которому нужно. Все jobs работают на `ubuntu-latest`.
 
-Все три образа используют GitHub Actions cache для стадии `build`; `no-cache-filters: runtime` заставляет Buildx каждый раз выполнять стадию `runtime`, включая неизменённую команду `RUN apk update && apk upgrade --no-cache && apk add …`. Стадия `build` остаётся доступной для кэша, если её входные данные не изменились. Явные `pcre2`, `tiff` и ограничение `libexpat>=2.10.0-r0` сохраняют защиту от известных уязвимостей; `apk upgrade` подхватывает новые исправления остальных пакетов.
+### Обновление пакетов в runtime и диагностика CVE
 
-Если Trivy всё ещё находит исправленную CVE в пакете базового образа, проверьте в логе **Docker image build**, что шаг `runtime` с `apk upgrade` выполнился без `CACHED`. Затем проверьте, есть ли исправленная версия в настроенном Alpine-репозитории и какая версия пакета установлена в собранном образе. Если исправления в репозитории нет, нужен доступный источник исправленного пакета или обновление базового образа; если `apk` завершился ошибкой, сначала устраните ошибку сборки.
+Все три образа используют GitHub Actions cache для стадии `build`; `no-cache-filters: runtime` заставляет Buildx каждый раз выполнять стадию `runtime`, включая неизменённую команду `RUN apk update && apk upgrade --no-cache && apk add …`. Поэтому все три Dockerfile должны сохранять имя `AS runtime`: при переименовании стадии нужно изменить и фильтр в workflow. Стадия `build` остаётся доступной для кэша, если её входные данные не изменились. `apk upgrade` обновляет пакеты из настроенного Alpine-репозитория в целом; явный список `apk add --upgrade` сейчас содержит `pcre2`, `tiff`, `libexpat>=2.10.0-r0`, `brotli-libs` и `curl`. Нижняя граница версии `libexpat` прерывает сборку, если исправленная версия недоступна; остальные имена без ограничения версии сами по себе не доказывают наличие исправления. Новый пакет добавляйте в список только при подтверждённой необходимости, которую не покрывает `apk upgrade`; задавайте минимальную исправленную версию, если сборка должна падать при её отсутствии.
+
+Если Trivy всё ещё находит исправленную CVE в пакете базового образа, проверьте в логе **Docker image build**, что под шагом `RUN apk update …` стадии `runtime` есть вывод самого `apk`, например `OK: … distinct packages available` и, когда пакеты обновились, строки обновления. Отсутствия `CACHED` недостаточно: слой из кэша может показывать только `extracting sha256:…` без вывода команды. После загрузки artifact-образа, как в job сканирования (`gunzip -c docker-image.tar.gz | docker load`), проверьте установленную версию, например:
+
+```sh
+docker run --rm --entrypoint apk dmc-268-ui:ci info -v | grep '^libexpat-'
+```
+
+Для лендинга и документации используйте их загруженные artifact-образы `dmc-268-landing:ci` и `dmc-268-docs:ci`. Если исправления в настроенном Alpine-репозитории нет, нужен доступный источник исправленного пакета или обновление базового образа. Если `apk` завершился ошибкой из-за временного сбоя зеркала, проверьте лог и повторно запустите упавшую job.
 
 `UI quality` сразу после checkout падает, если в git есть файлы каталога `docs/plans` (`git ls-files docs/plans` не пуст: планы — локальные рабочие файлы и не коммитятся, api#265), затем ставит Node.js 24 (как build-стадия `Dockerfile`) и pnpm версии из `packageManager`, затем выполняет `pnpm install --frozen-lockfile` и шесть гейтов по порядку (последний, `pnpm verify:prod-bundle`, идёт после `pnpm build` и проверяет `dist/assets`: нет mock/demo-кода, а вызов zod `jitless` исполняется раньше первой схемы); первый упавший шаг делает job красным. Job стоит в `needs` у `Push Docker image`: с красными гейтами образ не пушится и staging не выкатывается. На PR job отменяется вместе со всем run при новом push в ветку (`cancel-in-progress` в `concurrency` workflow). Лимит job — 15 минут (`timeout-minutes`): зависший прогон не держит обязательную проверку и `Push Docker image` до стандартных шести часов.
 
@@ -189,6 +197,8 @@ GET /docs/<page>     страницы, /docs/mockups/<screen> (страницы 
 | Auth staging pull      | `GITHUB_TOKEN` с `packages: read`, только на время выката или отката                                                                         |
 | Теги                   | у каждого образа: `:<git-sha>` + `@sha256:…` (deploy), `:staging` (текущий), `:staging-previous` (точка отката)                              |
 
+Фильтр `no-cache-filters: runtime` выбран, чтобы обновлять Alpine-пакеты при каждой сборке и сохранять кэш стадии `build`. Полный `no-cache` заново собрал бы и зависимости приложения; сброс кэша по расписанию задержал бы доступное исправление до следующего сброса. Цена выбора: каждая сборка зависит от доступности Alpine-репозитория и может получить новый digest даже при том же исходном коде и тех же версиях пакетов. Если digest меняется, `deploy.sh` считает образ новым, пересоздаёт контейнер соответствующей части (UI, лендинг или документация) и сдвигает `.deploy-state.previous`; promotion сдвигает её `:staging-previous`. Поэтому точка отката может указывать на предыдущую сборку того же кода.
+
 На VM `deploy.sh` логинится в GHCR во временный `DOCKER_CONFIG` (`mktemp -d`), а не в `/root/.docker/config.json`: выкаты API и UI под общим root на курсовом VPS не мешают друг другу. Сразу после `compose up` — `docker logout`, при выходе каталог удаляется (trap). `rollback.sh`, запущенный из `deploy.sh`, использует тот же каталог и его логин; запущенный отдельно — создаёт и удаляет свой.
 
 ---
@@ -212,6 +222,8 @@ GET /docs/<page>     страницы, /docs/mockups/<screen> (страницы 
      - Сбой только лендинга (**Resolve requested landing ref**, `landing_digest`, **Upload landing deploy files**, его блок в **Prepare host**): откатите UI отдельно, `component=ui`, без `landing_image`.
      - Сбой общего шага (**Read previous deploy from VM**, **Upload deploy files**, общий блок **Prepare host** и остальные шаги подготовки): отдельный запуск упадёт там же, устраните причину и запустите откат снова.
    - Promotion `:staging` идёт по каждому образу отдельно: часть, которая откатилась и прошла проверку, синхронизирует свой тег, даже если другая часть упала.
+
+Пустые `image`, `landing_image` и `docs_image` выбирают предыдущую **сборку образа** соответствующей части, не обязательно предыдущий коммит с исправным содержимым (§5). Если предыдущая сборка содержит ту же ошибку, в **Rollback staging** выберите нужный `component` и укажите в его поле последний исправный immutable digest: `image=sha256:<digest>` для UI, `landing_image=sha256:<digest>` для лендинга или `docs_image=sha256:<digest>` для документации. Для `ui-and-landing` задайте оба поля с digest соответствующих образов. Полный 40-символьный SHA допустим после проверки, что его тег всё ещё указывает на нужный образ; **Re-run all jobs** может перезаписать `:<sha>` новой сборкой того же коммита (§7).
 
 На VM вручную (break-glass):
 
@@ -247,6 +259,8 @@ Runbook:
 
 2. Отменить лишний ожидающий run (например, deploy, который перезатрёт нужный rollback): Actions → run → **Cancel workflow** или `gh run cancel <run-id>`.
 3. Перезапустить run, отменённый до выката (`Deploy staging` в нём не выполнялся): Actions → run → **Re-run all jobs** или `gh run rerun <run-id>`; для Rollback можно запустить новый Run workflow. Если `Deploy staging` в этом run уже выполнялся, **Re-run all jobs** нельзя, только **Re-run failed jobs** (§2.1).
+
+Для **CI/CD** run из `main` повтор **Re-run all jobs** того же коммита заново собирает `runtime`: digest может измениться, `:<sha>` — перейти на новый образ, а следующий выкат — сдвинуть `.deploy-state.previous` и `:staging-previous` даже без изменения кода. Если выкат в этом run уже выполнялся, не перезапускайте все jobs. В PR-run jobs push и deploy пропускаются, поэтому повторная сборка PR не перезаписывает тег в GHCR и не выкатывает образ. **Re-run failed jobs** избегает новой сборки только тогда, когда среди повторяемых jobs нет **Docker image build**; проверьте состав повторного запуска перед выбором. Для точного отката храните digest последнего исправного образа (§6).
 
 На инцидент:
 
@@ -320,23 +334,23 @@ Ruleset `Protect Default Branch` меняет только администра�
 
 ## 9. Локальные команды
 
-Локальная сборка без GitHub Actions cache не воспроизводит повторное использование слоёв в CI: успешный `docker build` сам по себе не доказывает, что CI выполнил `apk upgrade`. Проверяйте шаг `runtime` в логе **Docker image build**.
+Локальная сборка без GitHub Actions cache не воспроизводит повторное использование слоёв в CI: повторный локальный Docker build тоже использует свой кэш и может пропустить `apk upgrade`. Команды ниже через Buildx отключают кэш только для стадии `runtime` и загружают образы в локальное хранилище для Trivy и `docker run`. Успешная локальная сборка сама по себе не доказывает, что CI выполнил `apk upgrade`: проверяйте вывод `apk` в шаге `runtime` лога **Docker image build** (§1).
 
 ```bash
-docker build -t dmc-268-ui:local .
+docker buildx build --load --no-cache-filter runtime -t dmc-268-ui:local .
 trivy image --severity CRITICAL,HIGH --ignore-unfixed --scanners vuln,secret,misconfig --exit-code 1 dmc-268-ui:local
 docker run --rm -p 8080:8080 dmc-268-ui:local
 curl -fsS http://127.0.0.1:8080/health
 
 # лендинг: контекст — корень репозитория, APP_URL обязателен
-docker build -f landing/Dockerfile -t dmc-268-landing:local .
+docker buildx build --load --no-cache-filter runtime -f landing/Dockerfile -t dmc-268-landing:local .
 trivy image --severity CRITICAL,HIGH --ignore-unfixed --scanners vuln,secret,misconfig --exit-code 1 dmc-268-landing:local
 docker run --rm -p 8081:8080 -e APP_URL=https://staging-ui.dmc268-t6.axyi.ru dmc-268-landing:local
 curl -fsS http://127.0.0.1:8081/health
 curl -fsS http://127.0.0.1:8081/config.json
 
 # документация: контекст — корень репозитория, всё под /docs
-docker build -f docs-site/Dockerfile -t dmc-268-docs:local .
+docker buildx build --load --no-cache-filter runtime -f docs-site/Dockerfile -t dmc-268-docs:local .
 trivy image --severity CRITICAL,HIGH --ignore-unfixed --scanners vuln,secret,misconfig --exit-code 1 dmc-268-docs:local
 docker run --rm -p 8082:8080 dmc-268-docs:local
 curl -fsS http://127.0.0.1:8082/docs/health
