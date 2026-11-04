@@ -2728,7 +2728,9 @@ def test_held_is_null_when_nothing_holds_the_issue_back(tmp_path: Path) -> None:
         "- Часть 1 (label" + " " * 65000 + "—",
         "- **Ч.1" + " " * 65000 + "x",
         "- **Ч.1**" + " " * 65000 + "x",
-        "- **Ч.1, " + "Ч." * 30000 + "**",
+        # An explicit id: pytest puts the id in the environment of `run`, and this one, escaped,
+        # would be over the 128 KB limit of one variable.
+        pytest.param("- **Ч.1, " + "Ч." * 30000 + "**", id="bold-many-labels"),
     ],
 )
 def test_the_line_regexes_are_linear(tmp_path: Path, line: str) -> None:
