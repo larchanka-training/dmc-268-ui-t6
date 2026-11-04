@@ -15,7 +15,6 @@
   ],
   "findings": [
     {
-      "axis": "Standards",
       "body": "`className` копирует внутренний класс Ant Design. `AGENTS.md` запрещает менять базовый компонент на экране: исправить в `src/shared/ui`.",
       "category": "correctness",
       "decision": null,
@@ -26,7 +25,6 @@
       "title": "Кнопка рестайлится прямо на экране"
     },
     {
-      "axis": "Spec",
       "body": "Сообщение не доходит до пользователя при 409.",
       "category": "correctness",
       "decision": null,

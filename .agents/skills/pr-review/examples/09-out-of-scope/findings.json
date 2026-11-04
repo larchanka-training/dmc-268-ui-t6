@@ -2,7 +2,6 @@
   "ac": [],
   "findings": [
     {
-      "axis": "Standards",
       "body": "Чтение можно вынести.",
       "category": "correctness",
       "decision": {
@@ -16,7 +15,6 @@
       "title": "Контекст читается дважды"
     },
     {
-      "axis": "Standards",
       "body": "Было до этого PR.",
       "category": "correctness",
       "decision": {
@@ -30,7 +28,6 @@
       "title": "Старая проблема рядом"
     },
     {
-      "axis": "Standards",
       "body": "Строка не менялась.",
       "category": "readability",
       "decision": {
@@ -44,7 +41,6 @@
       "title": "Длинный импорт"
     },
     {
-      "axis": "Standards",
       "body": "Файл вне этого PR.",
       "category": "readability",
       "decision": {
@@ -58,7 +54,6 @@
       "title": "Лишний скрипт"
     },
     {
-      "axis": "Standards",
       "body": "Можно короче.",
       "category": "readability",
       "decision": null,
@@ -69,7 +64,6 @@
       "title": "Имя переменной"
     },
     {
-      "axis": "Spec",
       "body": "Ошибка не показана.",
       "category": "correctness",
       "decision": null,

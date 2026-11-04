@@ -165,11 +165,19 @@ def test_the_script_has_no_way_to_submit_or_change_a_review(word: str) -> None:
     assert word not in SCRIPT.read_text(encoding="utf-8")
 
 
-def test_a_preview_writes_nothing_and_needs_no_log(tmp_path: Path) -> None:
+def test_a_preview_writes_nothing(tmp_path: Path) -> None:
+    folder = EXAMPLES / "05-preview"
+    log = tmp_path / "writes.jsonl"
+    r = run(*invocation("05-preview"), fixtures=folder / "fixtures", log=log, cwd=folder)
+    assert r.returncode == 0
+    assert doc_of(r)["applied"] is False
+    assert not log.exists()
+
+
+def test_a_preview_needs_no_write_log() -> None:
     folder = EXAMPLES / "05-preview"
     r = run(*invocation("05-preview"), fixtures=folder / "fixtures", cwd=folder)
     assert r.returncode == 0
-    assert doc_of(r)["applied"] is False
 
 
 def test_apply_under_the_seam_needs_a_write_log() -> None:
@@ -248,7 +256,6 @@ def test_commentable_lines_of_a_real_diff() -> None:
 
 def finding(**changes: Any) -> dict[str, Any]:
     return {
-        "axis": "Standards",
         "body": "Тело.",
         "category": "correctness",
         "decision": None,
@@ -437,6 +444,25 @@ def test_a_reviewer_who_is_the_author_is_warned(tmp_path: Path) -> None:
         "you are the author of this pull request: GitHub accepts only a comment from you"
         in (doc["warnings"])
     )
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        pytest.param("OPEN", [], id="open"),
+        pytest.param(
+            "MERGED",
+            ["the pull request is merged: the draft comments on its final head"],
+            id="merged",
+        ),
+        pytest.param("CLOSED", ["the pull request is closed without a merge"], id="closed"),
+    ],
+)
+def test_the_state_warnings(tmp_path: Path, value: str, expected: list[str]) -> None:
+    state = copy.deepcopy(example("05-preview", "state"))
+    pull(state)["state"] = value
+    target, args = scenario(tmp_path, "05-preview", state=state)
+    assert doc_of(run(*args[:-1], fixtures=target))["warnings"] == expected
 
 
 def test_someone_elses_draft_is_not_used(tmp_path: Path) -> None:
@@ -666,8 +692,7 @@ def test_a_failed_read_back_is_partial(tmp_path: Path, answer: dict[str, Any] | 
         ),
         pytest.param(
             {"findings": [{**finding(), "extra": 1}]},
-            "findings[0] keys must be axis, body, category, decision, line, path, scope, "
-            "severity, title",
+            "findings[0] keys must be body, category, decision, line, path, scope, severity, title",
             id="finding-unknown-key",
         ),
     ],

@@ -15,7 +15,6 @@ Step 6 of `SKILL.md`: how a report becomes the reviewer's pending review. The sc
   "head_sha": "<head_sha of step 1>",
   "findings": [
     {
-      "axis": "Standards",
       "path": "src/a.tsx",
       "line": 41,
       "severity": "high",

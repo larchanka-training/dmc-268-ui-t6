@@ -20,7 +20,7 @@ thread can sit on. `--findings` is one JSON object:
     {
       "schema": 1,
       "head_sha": "<the commit the review read>",
-      "findings": [{"axis": "Standards" | "Spec", "path": str, "line": int,
+      "findings": [{"path": str, "line": int,
                     "severity": "critical" | "high" | "medium" | "low" | "info",
                     "category": str, "title": str, "body": str,
                     "scope": "in" | "out",
@@ -102,7 +102,7 @@ BLOCKING = {"critical", "high", "medium"}
 STATUSES = ("covered", "not covered", "can't tell")
 KINDS = ("follow-up", "accepted", "rejected")
 RECORD = {"accepted": "принято", "rejected": "отклонено"}
-FINDING_KEYS = "axis, body, category, decision, line, path, scope, severity, title"
+FINDING_KEYS = ("body", "category", "decision", "line", "path", "scope", "severity", "title")
 HUNK = re.compile(r"@@ -\d+(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
 ISSUE_REF = re.compile(r"(?:api|ui|[\w.-]+/[\w.-]+)#\d+")
 
@@ -362,29 +362,29 @@ def check_text(node: dict[str, Any], key: str, where: str, complain: Complain) -
 
 
 def check_finding(node: Any, where: str, complain: Complain) -> None:
-    if not isinstance(node, dict) or ", ".join(sorted(node)) != FINDING_KEYS:
-        complain(f"{where[:-1]} keys must be {FINDING_KEYS}")
-    for key in ("axis", "category", "path", "title", "body"):
-        check_text(node, key, where, complain)
+    if not isinstance(node, dict) or sorted(node) != list(FINDING_KEYS):
+        complain(f"{where} keys must be {', '.join(FINDING_KEYS)}")
+    for key in ("category", "path", "title", "body"):
+        check_text(node, key, f"{where}.", complain)
     if "\n" in node["title"]:
-        complain(f"{where}title must be one line")
+        complain(f"{where}.title must be one line")
     if node["severity"] not in tuple(PRIORITY):  # a tuple: a list here must not raise
-        complain(f"{where}severity must be one of {', '.join(PRIORITY)}")
+        complain(f"{where}.severity must be one of {', '.join(PRIORITY)}")
     if node["scope"] not in ("in", "out"):
-        complain(f"{where}scope must be one of in, out")
+        complain(f"{where}.scope must be one of in, out")
     if type(node["line"]) is not int or node["line"] < 1:
-        complain(f"{where}line must be a positive integer")
+        complain(f"{where}.line must be a positive integer")
     decision = node["decision"]
     if decision is None:
         return
     if node["scope"] == "in":
-        complain(f"{where}decision must be null for a finding in scope")
+        complain(f"{where}.decision must be null for a finding in scope")
     if not isinstance(decision, dict) or decision.get("kind") not in KINDS:
-        complain(f"{where}decision.kind must be one of {', '.join(KINDS)}")
+        complain(f"{where}.decision.kind must be one of {', '.join(KINDS)}")
     if decision["kind"] != "follow-up":
-        check_text(decision, "why", f"{where}decision.", complain)
+        check_text(decision, "why", f"{where}.decision.", complain)
     elif not ISSUE_REF.fullmatch(str(decision.get("ref"))):
-        complain(f"{where}decision.ref must name an issue: api#N, ui#N or owner/name#N")
+        complain(f"{where}.decision.ref must name an issue: api#N, ui#N or owner/name#N")
 
 
 def load_findings(path: str) -> dict[str, Any]:
@@ -410,7 +410,7 @@ def load_findings(path: str) -> dict[str, Any]:
         if not isinstance(plan[key], list):
             complain(f"{key} must be a list")
     for k, node in enumerate(plan["findings"]):
-        check_finding(node, f"findings[{k}].", complain)
+        check_finding(node, f"findings[{k}]", complain)
     for k, row in enumerate(plan["ac"]):
         if not isinstance(row, dict):
             complain(f"ac[{k}] must be an object")
