@@ -226,6 +226,8 @@ describe('ragIndexView: the reason of the last build', () => {
       'policy_ignore_limit_exceeded',
       'в блоке review-ignore в .review/rules.md слишком много масок или слишком длинная маска',
     ],
+    // About a path in the repository, not about the rules file.
+    ['policy_path_invalid', 'в репозитории есть файл с недопустимым путём'],
   ])('explains %s and keeps the code', (code, text) => {
     expect(
       ragIndexView(index({ status: 'failed', lastErrorCode: code }), true, 'github').reason,
@@ -259,6 +261,7 @@ describe('ragIndexView: the reason of the last build', () => {
       'policy_ignore_limit_exceeded',
       'the review-ignore block in .review/rules.md has too many masks, or a mask is too long',
     ],
+    ['policy_path_invalid', 'a file in the repository has a path that is not allowed'],
   ])('explains %s in English', async (code, text) => {
     try {
       await i18n.changeLanguage('en')
