@@ -271,7 +271,8 @@ def finding(**changes: Any) -> dict[str, Any]:
 def test_a_finding_on_a_file_outside_the_diff_names_its_place() -> None:
     assert draft.thread_body(finding(path="package.json", line=3), "other") == (
         "**P1 · high · correctness.** Заголовок\n\n"
-        "Замечание к `package.json:3`: этого файла нет в диффе, тред на первом файле PR.\n\nТело."
+        "Замечание к `package.json:3`: в диффе нет строк этого файла, тред на первом файле PR.\n\n"
+        "Тело."
     )
 
 

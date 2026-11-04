@@ -301,7 +301,7 @@ def thread_body(finding: dict[str, Any], kind: str) -> str:
     elif kind == "other":
         parts.append(
             f"Замечание к `{finding['path']}:{finding['line']}`: "
-            "этого файла нет в диффе, тред на первом файле PR."
+            "в диффе нет строк этого файла, тред на первом файле PR."
         )
     parts.append(finding["body"])
     if tail := decided(finding):

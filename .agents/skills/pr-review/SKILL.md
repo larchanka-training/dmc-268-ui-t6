@@ -129,10 +129,15 @@ The report of step 5 is a whole run. Offer to make it a draft: a pending review 
 the reviewer sees, one thread per finding, plus the summary and a proposed verdict. No answer to the
 offer: end with the report. Details: `references/draft.md`.
 
-1. Save the diff of step 2 as `docs/plans/pr-<number>.diff`, with the flags that keep it GitHub's
-   whatever the local git config says (`git -c core.quotepath=off diff --no-color --no-ext-diff
---unified=3 --src-prefix=a/ --dst-prefix=b/ …`), and the report as
-   `docs/plans/pr-<number>-findings.json` (`references/draft.md`). Both git-ignored.
+1. Save the diff of step 2, with the flags that keep it GitHub's whatever the local git config says,
+   and the report as `docs/plans/pr-<number>-findings.json` (`references/draft.md`). Both git-ignored.
+
+   ```bash
+   git -c core.quotepath=off diff --no-color --no-ext-diff --no-textconv --unified=3 \
+     --diff-algorithm=myers --inter-hunk-context=0 --src-prefix=a/ --dst-prefix=b/ \
+     origin/<base_ref>...<head_sha> > docs/plans/pr-<number>.diff
+   ```
+
 2. Each finding with `scope: out` needs the reviewer's decision: a follow-up (run the `create-issue`
    skill, write the ref) or «принято» / «отклонено» with the reason. Never decide for them; the
    script stops while one has none.
@@ -144,7 +149,7 @@ offer: end with the report. Details: `references/draft.md`.
    ```
 
    `stop`: report `reasons` verbatim and end. Otherwise show every thread (`path:line` and the
-   text), `in_body`, `proposed_verdict` and `warnings`. The reviewer may change a mark, or edit or
+   text), `summary`, `proposed_verdict` and `warnings`. The reviewer may change a mark, or edit or
    drop a finding: change the file, then preview again.
 
 4. Ask for the confirmation, once the preview is shown. Nothing confirms it earlier: a request that
@@ -158,8 +163,7 @@ offer: end with the report. Details: `references/draft.md`.
    and end. `partial`: report `reasons` and the `failed` threads; a run after the fix skips the
    threads already there.
 6. Report `review.url` from the read-back and show `summary` in full: GitHub's Submit window starts
-   empty and does not show the draft's text, so it reaches the pull request only if they paste it
-   there. Say: the draft is visible to the reviewer alone; they edit it on GitHub, press Submit and
+   empty and does not show the draft's text, so they paste it there. Say: the draft is visible to the reviewer alone; they edit it on GitHub, press Submit and
    pick the verdict; after Submit they resolve the threads marked `Вне скоупа`. Never submit, approve
    or dismiss for them, by any other command either.
 

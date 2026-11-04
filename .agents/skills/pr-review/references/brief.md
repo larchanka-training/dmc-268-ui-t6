@@ -41,7 +41,8 @@ Rank every finding with this scale:
 Rank only defects the diff introduces or leaves wrong. Something that was already wrong outside
 the change goes under `info`: report it, it never blocks. Mark such a finding `scope: out`, and
 also one that asks for work beyond this pull request. A defect in lines the diff adds or changes is
-`scope: in`, even when that code goes beyond the part's Scope.
+`scope: in`, even when that code goes beyond the part's Scope; so is a defect the diff causes in lines
+it does not touch, and a requirement of the issue it leaves undone.
 
 Your answer starts with the line `Reviewed: <n> files, <m> commits, head <sha>` — `n` from
 `git diff --stat` with the diff command above, `m` from the commit list, `sha` = the head you read.

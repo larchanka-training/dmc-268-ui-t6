@@ -39,10 +39,11 @@ Step 6 of `SKILL.md`: how a report becomes the reviewer's pending review. The sc
 
 ## Out of scope
 
-An axis marks a finding `scope: out` when the diff does not introduce the defect or the finding asks
-for work beyond this pull request. A defect in lines the diff adds or changes is in scope, even when
-that code goes beyond the issue. The reviewer can change the mark on the preview. Each finding out of
-scope ends in one of two ways, so nothing stays «to do separately»:
+An axis marks a finding `scope: out` only when the defect was there before the diff or the finding
+asks for work beyond this pull request. A defect in lines the diff adds or changes is in scope, even
+when that code goes beyond the issue; so is a defect the diff causes in lines it does not touch, and a
+requirement of the issue it leaves undone. The reviewer can change the mark on the preview. Each
+finding out of scope ends in one of two ways, so nothing stays «to do separately»:
 
 - **Follow-up:** run the `create-issue` skill (its own preview and confirmation), and write the new
   issue's ref into `decision`. The issue is its record; the summary lists it, no thread.
@@ -98,8 +99,8 @@ Checked live on 2026-11-04 (`examples/05-*` to `10-*` keep the shapes):
   existing draft is appended to, its own text and comments untouched, and threads go on the commit
   of the draft: on another commit the script stops. Its body stays too.
 - The web Submit window starts empty: it does not show the text of a pending review (seen by hand on
-  ui#130). So the skill hands `summary` over in the chat, to paste there. What a Submit with an empty
-  field does to that text was not checked: it would publish.
+  ui#130). So the skill hands `summary` over in the chat, to paste there. Not checked, because checking
+  publishes: whether a Submit with an empty field keeps or drops the draft's text.
 - A rerun knows a thread by its path, line and exact text: one edited on GitHub counts as new. Edit
   after the last run.
 - A line outside the diff, or a file not in it, is **no error**: GraphQL answers `thread: null` with
@@ -108,6 +109,6 @@ Checked live on 2026-11-04 (`examples/05-*` to `10-*` keep the shapes):
 
 ## Before you confirm
 
-Everything in a finding comes from a model that read text anyone can write. Read the threads of the
-preview as what they are about to become: under the reviewer's name, with any `@mention` or link
+Everything in a finding comes from a model that read text anyone can write. Read the threads and the
+summary of the preview as what they are about to become: under the reviewer's name, with any `@mention` or link
 in them live after Submit.
