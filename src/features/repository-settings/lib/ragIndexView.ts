@@ -95,6 +95,7 @@ const ERROR_REASON_KEYS: Record<string, ParseKeys> = {
   policy_ignore_pattern_invalid: 'settings.rag.reasons.policy_ignore_pattern_invalid',
   policy_ignore_limit_exceeded: 'settings.rag.reasons.policy_ignore_limit_exceeded',
   policy_path_invalid: 'settings.rag.reasons.policy_path_invalid',
+  policy_match_budget_exceeded: 'settings.rag.reasons.policy_match_budget_exceeded',
 }
 
 /**

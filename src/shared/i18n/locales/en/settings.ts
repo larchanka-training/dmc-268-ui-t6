@@ -91,6 +91,8 @@ export const settings = {
       policy_ignore_limit_exceeded:
         'the review-ignore block in .review/rules.md has too many masks, or a mask is too long',
       policy_path_invalid: 'a file in the repository has a path that is not allowed',
+      policy_match_budget_exceeded:
+        'the review-ignore masks in .review/rules.md are too costly to check',
     },
     providerReasons: {
       vcs_unavailable: '{{name}} is temporarily unavailable',

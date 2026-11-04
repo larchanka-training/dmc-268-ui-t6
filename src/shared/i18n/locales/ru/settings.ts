@@ -90,6 +90,8 @@ export const settings: Translation<typeof en> = {
       policy_ignore_limit_exceeded:
         'в блоке review-ignore в .review/rules.md слишком много масок или слишком длинная маска',
       policy_path_invalid: 'в репозитории есть файл с недопустимым путём',
+      policy_match_budget_exceeded:
+        'маски review-ignore в .review/rules.md слишком сложны для проверки',
     },
     providerReasons: {
       vcs_unavailable: '{{name}} временно недоступен',
