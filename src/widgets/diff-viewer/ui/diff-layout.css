@@ -139,3 +139,7 @@
   flex: none;
   white-space: nowrap;
 }
+
+.inline-comment-row > .inline-comment-file {
+  flex: 0 0 100%;
+}

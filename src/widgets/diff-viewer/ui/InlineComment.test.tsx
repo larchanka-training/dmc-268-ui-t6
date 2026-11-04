@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { fromPatch } from '../../../entities/diff'
@@ -30,6 +30,20 @@ afterEach(() => {
 })
 
 describe('InlineComment', () => {
+  it('shows no file path by default: the header of the file already names it', () => {
+    render(<InlineComment defaultExpanded file={FILE} finding={{ ...finding, suggestion: null }} />)
+    expect(screen.queryByText(FILE.filename)).toBeNull()
+  })
+
+  it('showFile names the file of the finding in the button, collapsed and expanded', () => {
+    render(<InlineComment finding={{ ...finding, file: 'docs/only-here.md' }} showFile />)
+    const button = screen.getByRole('button', { name: /XSS probe\s*L2\s*docs\/only-here\.md/ })
+    expect(within(button).getByText('docs/only-here.md')).toBeTruthy()
+    fireEvent.click(button)
+    expect(button.getAttribute('aria-expanded')).toBe('true')
+    expect(within(button).getByText('docs/only-here.md')).toBeTruthy()
+  })
+
   it('keeps one native finding button with title and range layout hooks', () => {
     render(
       <InlineComment
