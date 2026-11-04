@@ -2612,6 +2612,9 @@ def test_held_is_null_when_nothing_holds_the_issue_back(tmp_path: Path) -> None:
         "- Часть 1 —" + " " * 65000 + "x",
         "- Часть 1 —" + " " * 65000 + "1",
         "- Часть 1 (label" + " " * 65000 + "—",
+        "- **Ч.1" + " " * 65000 + "x",
+        "- **Ч.1**" + " " * 65000 + "x",
+        "- **Ч.1, " + "Ч." * 30000 + "**",
     ],
 )
 def test_the_line_regexes_are_linear(tmp_path: Path, line: str) -> None:
@@ -2620,6 +2623,7 @@ def test_the_line_regexes_are_linear(tmp_path: Path, line: str) -> None:
     pf.HEADING.match(line)
     pf.PART_BULLET.fullmatch(line.lstrip("- "))
     pf.PART_CRITERION.fullmatch(line.lstrip("- "))
+    pf.criterion_of(line.lstrip("- "))
     assert time.monotonic() - start < 1
     # ...and end to end: a pull request body and an issue body made of such lines
     body = f"## What\n\nPart 2 of #13: x\n\n## Refs\n\n{line}\nRefs #13\n"
@@ -2877,6 +2881,107 @@ def test_a_dash_that_is_no_separator_is_the_no_colon_stop(tmp_path: Path, bullet
     _, doc = facts(tmp_path, issue_response(body=f"## Scope\n\n- {bullet}\n" + KICKOFF))
     assert doc["verdict"] == "stop"
     assert doc["reasons"] == [f"Scope bullet {bullet!r} starts with a part number but has no ':'"]
+
+
+# ─── criteria with a bold part prefix, and part prefixes nobody reads (api#420) ─
+def with_criterion(item: str) -> str:
+    return TWO_PARTS.replace("- [ ] common one\n", f"- [ ] common one\n- [ ] {item}\n")
+
+
+@pytest.mark.parametrize(
+    ("item", "part", "text"),
+    [
+        ("**Ч.1, state.** После остановки", 1, "state. После остановки"),  # ui#171
+        ("**Ч.2.** `docs/CICD.md` описывает", 2, "`docs/CICD.md` описывает"),  # ui#171
+        ("**Часть 1.** Ответ с `usage`", 1, "Ответ с `usage`"),  # api#66
+        ("**Часть 1:** x", 1, "x"),
+        ("**Ч.1**: x", 1, "x"),
+        ("**Ч.1** x", 1, "x"),
+        ("**Ч.1 — state.** x", 1, "state. x"),
+        ("**Part 2, foo.** x", 2, "foo. x"),
+        ("**Ч.1: всё работает**", 1, "всё работает"),
+        ("**Ч.2.** x **жирное** y", 2, "x **жирное** y"),
+    ],
+)
+def test_a_bold_prefix_names_the_part(tmp_path: Path, item: str, part: int, text: str) -> None:
+    _, doc = facts(tmp_path, issue_response(body=with_criterion(item)))
+    assert text in parts_of(doc)[part]["acceptance_criteria"]
+    assert doc["common_acceptance_criteria"] == ["common one"]
+    assert doc["warnings"] == []
+
+
+@pytest.mark.parametrize("item", ["Ч.1, Ч.2: x", "**Ч.1, Ч.2.** x", "**Часть 1, часть 2:** x"])
+def test_a_criterion_of_several_parts_stays_common(tmp_path: Path, item: str) -> None:
+    # api#378: the run of each part must see it, so it never goes to the first one alone.
+    _, doc = facts(tmp_path, issue_response(body=with_criterion(item)))
+    assert doc["common_acceptance_criteria"] == ["common one", item]
+    parts = parts_of(doc)
+    assert parts[1]["acceptance_criteria"] == ["first works"]
+    assert parts[2]["acceptance_criteria"] == ["second works"]
+    assert doc["warnings"] == []
+
+
+@pytest.mark.parametrize("item", ["**Важно.** x", "**Часть работы.** x", "Важно: Ч.1 и Ч.2"])
+def test_a_bold_start_without_a_part_is_a_plain_criterion(tmp_path: Path, item: str) -> None:
+    body = f"## Scope\n\n- one thing\n\n## Acceptance Criteria\n\n- [ ] {item}\n" + KICKOFF
+    code, doc = facts(tmp_path, issue_response(body=body))
+    assert (code, doc["selected"]) == (0, {"part": None, "reason": "whole-task"})
+    assert doc["common_acceptance_criteria"] == [item]
+
+
+@pytest.mark.parametrize(
+    "item",
+    [
+        "Ч.1. x",
+        "Ч.1, Ч.2: x",
+        "Ч.1 (state): x",
+        "Часть 1 и 2: x",
+        "*Ч.1* x",
+        "__Ч.1__ x",
+        "`Ч.1` x",
+        "**Ч.1a.** x",
+        "Part 1 of the pipeline works",  # a false stop, and a safe one: none in the live issues
+    ],
+)
+def test_an_unread_part_prefix_and_no_parts_is_a_stop(tmp_path: Path, item: str) -> None:
+    body = "## Scope\n\n- one thing\n\n## Acceptance Criteria\n\n"
+    body += f"- [ ] plain one\n- [ ] {item}\n" + KICKOFF
+    code, doc = facts(tmp_path, issue_response(body=body))
+    assert (code, doc["verdict"], doc["selected"]) == (1, "stop", None)
+    assert doc["reasons"] == [UNREADABLE.replace("(1, 2, 3)", "(1)")]
+    assert doc["common_acceptance_criteria"] == ["plain one", item]
+
+
+def test_an_unread_prefix_of_a_part_outside_the_scope_is_a_warning(tmp_path: Path) -> None:
+    code, doc = facts(tmp_path, issue_response(body=with_criterion("Ч.9. x")))
+    assert (code, doc["selected"]) == (0, {"part": 1, "reason": "first-todo"})
+    assert doc["common_acceptance_criteria"] == ["common one", "Ч.9. x"]
+    assert doc["warnings"] == ["acceptance criterion names Part 9, not in Scope"]
+
+
+@pytest.mark.parametrize(
+    ("scope", "criteria"),
+    [
+        (
+            "- **Часть 1 (P2, CI).** Гейт\n- **Часть 2 (P3).** Тест\n",
+            "Часть 1: x\n- [ ] Часть 2: y",
+        ),
+        (
+            "- **Часть 1 (P3) — края.**\n  - **Упавший образ.** z\n- **Часть 2.** y\n",
+            "**Ч.1, a.** x\n- [ ] **Ч.2.** y",
+        ),
+    ],
+    ids=["ui-160", "ui-171"],
+)
+def test_bold_scope_bullets_stay_unread_and_their_criteria_stop_the_run(
+    tmp_path: Path, scope: str, criteria: str
+) -> None:
+    body = f"## Scope\n\n{scope}\n## Acceptance Criteria\n\n- [ ] {criteria}\n" + KICKOFF
+    code, doc = facts(tmp_path, issue_response(body=body))
+    assert (code, doc["verdict"], doc["selected"]) == (1, "stop", None)
+    assert doc["reasons"] == [UNREADABLE.replace("(1, 2, 3)", "(1, 2)")]
+    assert doc["parts"] == []
+    assert doc["common_acceptance_criteria"] == []
 
 
 # ─── the branch pattern in the skill texts (7f) ─────────────────────────────

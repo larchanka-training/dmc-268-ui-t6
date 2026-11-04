@@ -227,6 +227,12 @@ PART_START = re.compile(_PART, re.IGNORECASE)
 _SEP = r"(?::|(?<=[ \t])[—–](?![ \t]*[0-9])[ \t]+)"
 PART_BULLET = re.compile(rf"{_PART}[ \t]*(?:\((.*?)\)[ \t]*)?{_SEP}[ \t]*(.*)", re.IGNORECASE)
 PART_CRITERION = re.compile(rf"{_PART}[ \t]*{_SEP}[ \t]*(.*)", re.IGNORECASE)
+# A criterion whose prefix is bold: «**Ч.1.** …», «**Ч.1, state.** …», «**Часть 1:** …»,
+# «**Ч.1**: …». What the bold holds after the number is the start of the criterion.
+BOLD_CRITERION = re.compile(rf"\*\*{_PART}(?![^\W_])(.*?)\*\*[ \t]*:?[ \t]*(.*)", re.IGNORECASE)
+# A criterion that starts with a part in a form the two above do not read («Ч.1. …»,
+# «Ч.1, Ч.2: …»).
+PART_LEAD = re.compile(rf"[*_`]*{_PART}", re.IGNORECASE)
 CHECKBOX_PREFIX = re.compile(r"\[[ xX]\][ \t]+")
 TOP_BULLET = re.compile(r"[-*+][ \t]+(.*)$")
 NESTED_BULLET = re.compile(r"[ \t]+[-*+][ \t]+(.*)$")
@@ -672,30 +678,48 @@ def build_parts(body: str) -> tuple[list[dict[str, Any]], str | None]:
     return parts, None
 
 
+def criterion_of(text: str) -> tuple[str, str] | None:
+    """(the part's digits, the text without the prefix) of a criterion with a part prefix, plain
+    or bold. None when it has none, or when the bold names a second part: a criterion of several
+    parts stays common, so that the run of each of them sees it."""
+    plain = PART_CRITERION.fullmatch(text)
+    if plain:
+        return plain.group(1), plain.group(2).strip()
+    bold = BOLD_CRITERION.fullmatch(text)
+    if not bold or PART_START.search(bold.group(2)):
+        return None
+    head = bold.group(2).lstrip(" \t.,:—–")
+    return bold.group(1), f"{head} {bold.group(3)}".strip()
+
+
 def build_criteria(
     body: str, parts: list[dict[str, Any]], warnings: list[str]
 ) -> tuple[list[str], list[int | None]]:
-    """Fill `acceptance_criteria` of each part; return the criteria without a prefix and the
-    part numbers (None: out of range) that prefixed criteria name outside the parsed parts."""
+    """Fill `acceptance_criteria` of each part; return the common criteria and the part numbers
+    (None: out of range) that criteria name outside the parsed parts. A criterion that starts
+    with a part in a form `criterion_of` does not read is common, and still names that part."""
     by_number = {p["n"]: p for p in parts}
     common: list[str] = []
     missing: list[int | None] = []
     section = section_lines(body, named("acceptance criteria"), skip_quotes=True)
     for item in bullets(section or []):
         text = CHECKBOX_PREFIX.sub("", item["text"], count=1)
-        m = PART_CRITERION.fullmatch(text)
-        if not m:
+        found = criterion_of(text)
+        if found is None:
             common.append(text)
+        lead = PART_LEAD.match(text)
+        digits = found[0] if found else lead.group(1) if lead else None
+        if digits is None:
             continue
-        n = to_int(m.group(1))
+        n = to_int(digits)
         if n is None:
             warnings.append("acceptance criterion names a part number out of range")
             missing.append(None)
-        elif n in by_number:
-            by_number[n]["acceptance_criteria"].append(m.group(2).strip())
-        else:
+        elif n not in by_number:
             warnings.append(f"acceptance criterion names Part {n}, not in Scope")
             missing.append(n)
+        elif found:
+            by_number[n]["acceptance_criteria"].append(found[1])
     return common, missing
 
 
