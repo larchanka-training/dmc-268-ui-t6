@@ -45,7 +45,7 @@ that code goes beyond the issue. The reviewer can change the mark on the preview
 scope ends in one of two ways, so nothing stays «to do separately»:
 
 - **Follow-up:** run the `create-issue` skill (its own preview and confirmation), and write the new
-  issue's ref into `decision`. The review body lists it; no thread.
+  issue's ref into `decision`. The issue is its record; the summary lists it, no thread.
 - **A record:** «принято» or «отклонено» with the reason, as a `nit:` thread. The reviewer resolves
   it after Submit: the script cannot resolve a thread of a draft.
 
@@ -53,12 +53,12 @@ The script stops while a finding out of scope has no decision.
 
 ## Where a finding goes
 
-| The finding                                                | Where                               |
-| ---------------------------------------------------------- | ----------------------------------- |
-| A follow-up                                                | A line of the review body           |
-| Its line is in the diff                                    | A thread on the line (side `RIGHT`) |
-| Its file is in the diff, the line is not                   | A thread on the file                |
-| Its file is not in the diff (or is only renamed or binary) | A line of the review body           |
+| The finding                                                | Where                                                    |
+| ---------------------------------------------------------- | -------------------------------------------------------- |
+| A follow-up                                                | A line of the review body                                |
+| Its line is in the diff                                    | A thread on the line (side `RIGHT`)                      |
+| Its file is in the diff, the line is not                   | A thread on the file                                     |
+| Its file is not in the diff (or is only renamed or binary) | A thread on the first file of the diff, naming its place |
 
 ## The text
 
@@ -78,12 +78,12 @@ with `Вне скоупа — отклонено: почему`.
 
 By `docs/CONTRIBUTING.md` §4, as text in the review body. The reviewer decides.
 
-| The review                                                                               | Proposed        |
-| ---------------------------------------------------------------------------------------- | --------------- |
-| Critical, high or medium in scope, or a criterion `not covered`                          | Request changes |
-| Otherwise, a thread, a comment in the draft or a remark with no thread, follow-ups aside | Comment         |
-| Nothing of that                                                                          | Approve         |
-| The viewer is the author of the pull request                                             | Comment         |
+| The review                                                      | Proposed        |
+| --------------------------------------------------------------- | --------------- |
+| Critical, high or medium in scope, or a criterion `not covered` | Request changes |
+| Otherwise, a thread or a comment in the draft                   | Comment         |
+| Nothing of that                                                 | Approve         |
+| The viewer is the author of the pull request                    | Comment         |
 
 The review body names the keys `not covered` and, under «Проверить руками», those `can't tell`;
 `can't tell` does not change the verdict. A review with only `nit:` threads proposes Comment on
@@ -96,8 +96,10 @@ Checked live on 2026-11-04 (`examples/05-*` to `10-*` keep the shapes):
 - A review without `event` is pending: only its author sees it, on GitHub and through the API.
 - One pending review per user per pull request: a second create is refused (`UNPROCESSABLE`). So an
   existing draft is appended to, its own text and comments untouched, and threads go on the commit
-  of the draft: on another commit the script stops. Its body stays too, so what has no thread reaches
-  GitHub only if the reviewer adds `summary`; the warning names those findings.
+  of the draft: on another commit the script stops. Its body stays too.
+- The web Submit window starts empty: it does not show the text of a pending review (seen by hand on
+  ui#130). So the skill hands `summary` over in the chat, to paste there. What a Submit with an empty
+  field does to that text was not checked: it would publish.
 - A rerun knows a thread by its path, line and exact text: one edited on GitHub counts as new. Edit
   after the last run.
 - A line outside the diff, or a file not in it, is **no error**: GraphQL answers `thread: null` with

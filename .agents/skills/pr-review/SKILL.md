@@ -126,8 +126,8 @@ on `.agents/agents/*.md` (Codex does not load them).
 ### 6. The draft
 
 The report of step 5 is a whole run. Offer to make it a draft: a pending review on GitHub that only
-the reviewer sees, one thread per finding, the summary and a proposed verdict in its body. No answer
-to the offer: end with the report. Details: `references/draft.md`.
+the reviewer sees, one thread per finding, plus the summary and a proposed verdict. No answer to the
+offer: end with the report. Details: `references/draft.md`.
 
 1. Save the diff of step 2 as `docs/plans/pr-<number>.diff`, with the flags that keep it GitHub's
    whatever the local git config says (`git -c core.quotepath=off diff --no-color --no-ext-diff
@@ -157,10 +157,11 @@ to the offer: end with the report. Details: `references/draft.md`.
 5. The same command with `--apply`. It checks the head and the draft again. `stop`: report `reasons`
    and end. `partial`: report `reasons` and the `failed` threads; a run after the fix skips the
    threads already there.
-6. Report `review.url` from the read-back and say: the draft is visible to the reviewer alone; they
-   edit it on GitHub, press Submit and pick the verdict; after Submit they resolve the threads
-   marked `Вне скоупа`. When a warning says the draft kept its own text, also give them `summary` to
-   add. Never submit, approve or dismiss for them, by any other command either.
+6. Report `review.url` from the read-back and show `summary` in full: GitHub's Submit window starts
+   empty and does not show the draft's text, so it reaches the pull request only if they paste it
+   there. Say: the draft is visible to the reviewer alone; they edit it on GitHub, press Submit and
+   pick the verdict; after Submit they resolve the threads marked `Вне скоупа`. Never submit, approve
+   or dismiss for them, by any other command either.
 
 ## Golden examples and tests
 

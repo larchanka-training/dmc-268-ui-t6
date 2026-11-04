@@ -33,14 +33,14 @@ thread can sit on. `--findings` is one JSON object:
 Where a finding goes
 --------------------
 A follow-up: one line of the review body. Any other finding: a thread on the line when the line
-is in the diff, a thread on the file when only the file is, one line of the review body when the
-file is not in the diff either. A thread opens with `**P1 · high · correctness.** <title>`
-(P1 critical and high, P2 medium, P3 low and info) and starts with `nit:` when it can stay
-unfixed: P3, and anything out of scope.
+is in the diff, a thread on the file when only the file is, and when the file is not in the diff
+either, a thread on the first file of the diff that names the place. A thread opens with
+`**P1 · high · correctness.** <title>` (P1 critical and high, P2 medium, P3 low and info) and
+starts with `nit:` when it can stay unfixed: P3, and anything out of scope.
 
 The proposed verdict is text for the reviewer: Request changes for a critical, high or medium
-finding in scope or a criterion `not covered`; else Comment when there is a thread, a comment in
-the viewer's draft or a finding without a thread other than a follow-up; else Approve.
+finding in scope or a criterion `not covered`; else Comment when there is a thread or a comment in
+the viewer's draft; else Approve.
 The author of the pull request gets Comment: GitHub takes no other verdict from them.
 
 Contract
@@ -56,7 +56,8 @@ stdout carries one JSON document (`sort_keys`, indent 2, no ASCII escaping, one 
       "pr": {"repo", "number", "state", "head_sha", "author", "viewer"},
       "review": {"id", "url", "state", "existing": bool} | null,
       "proposed_verdict": "Request changes" | "Comment" | "Approve" | null,
-      "summary": str,                # the review body; empty on a stop
+      "summary": str,                # the review body; empty on a stop. GitHub's Submit
+                                     # window does not show it: the skill hands it over
       "threads": [{"path", "line": int | null, "kind": "line" | "file", "body",
                    "status": "new" | "exists" | "created" | "failed",
                    "error": str}],   # `error` on `failed` only
@@ -297,6 +298,11 @@ def thread_body(finding: dict[str, Any], kind: str) -> str:
     parts = [label(finding)]
     if kind == "file":
         parts.append(f"Строка {finding['line']} не входит в дифф.")
+    elif kind == "other":
+        parts.append(
+            f"Замечание к `{finding['path']}:{finding['line']}`: "
+            "этого файла нет в диффе, тред на первом файле PR."
+        )
     parts.append(finding["body"])
     if tail := decided(finding):
         parts.append(tail)
@@ -520,7 +526,7 @@ def place(finding: dict[str, Any], lines: dict[str, set[int]]) -> str:
         return "body"
     in_file = lines.get(finding["path"])
     if in_file is None:
-        return "body"
+        return "other"
     return "line" if finding["line"] in in_file else "file"
 
 
@@ -538,10 +544,17 @@ def plan_threads(
             without.append(finding)
             continue
         line = finding["line"] if kind == "line" else None
+        path = next(iter(lines)) if kind == "other" else finding["path"]
         body = thread_body(finding, kind)
-        status = "exists" if thread_key(finding["path"], line, body) in present else "new"
+        status = "exists" if thread_key(path, line, body) in present else "new"
         threads.append(
-            {"path": finding["path"], "line": line, "kind": kind, "body": body, "status": status}
+            {
+                "path": path,
+                "line": line,
+                "kind": "line" if kind == "line" else "file",
+                "body": body,
+                "status": status,
+            }
         )
     return threads, without
 
@@ -630,7 +643,7 @@ def collect(
     draft = state["draft"]
     findings, ac = plan["findings"], plan["ac"]
     threads, without = plan_threads(findings, lines, draft)
-    remarks = threads or threads_in(draft) or any(not is_follow_up(f) for f in without)
+    remarks = threads or threads_in(draft)
     verdict = proposed_verdict(findings, ac, bool(remarks), state["author"] == state["viewer"])
     summary = summary_of(state["head_sha"], findings, ac, verdict, [body_line(f) for f in without])
     doc.update(

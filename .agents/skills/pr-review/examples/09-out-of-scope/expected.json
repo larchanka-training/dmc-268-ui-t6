@@ -5,11 +5,6 @@
       "line": 24,
       "path": "src/widgets/run-inspector/ui/RunControls.tsx",
       "title": "Контекст читается дважды"
-    },
-    {
-      "line": 3,
-      "path": "package.json",
-      "title": "Лишний скрипт"
     }
   ],
   "pr": {
@@ -29,7 +24,7 @@
     "url": "https://github.com/larchanka-training/dmc-268-ui-t6/pull/130#pullrequestreview-5768205857"
   },
   "schema": 1,
-  "summary": "Итог на `21b8d99b`: critical 0, high 0, medium 2, low 3, info 1. AC: covered 0, not covered 0, can't tell 0.\n\nПредложенный вердикт: Request changes. Вердикт и Submit — решение ревьюера.\n\nБез треда:\n- `src/widgets/run-inspector/ui/RunControls.tsx:24` **P3 · info · correctness.** Контекст читается дважды — Чтение можно вынести. Вне скоупа — follow-up api#500.\n- `package.json:3` **P3 · low · readability.** Лишний скрипт — Файл вне этого PR. Вне скоупа — отклонено: не относится к задаче.",
+  "summary": "Итог на `21b8d99b`: critical 0, high 0, medium 2, low 3, info 1. AC: covered 0, not covered 0, can't tell 0.\n\nПредложенный вердикт: Request changes. Вердикт и Submit — решение ревьюера.\n\nБез треда:\n- `src/widgets/run-inspector/ui/RunControls.tsx:24` **P3 · info · correctness.** Контекст читается дважды — Чтение можно вынести. Вне скоупа — follow-up api#500.",
   "threads": [
     {
       "body": "nit: **P2 · medium · correctness.** Старая проблема рядом\n\nБыло до этого PR.\n\nВне скоупа — отклонено: не трогаем в этой задаче.",
@@ -43,6 +38,13 @@
       "kind": "file",
       "line": null,
       "path": "src/widgets/run-inspector/ui/RunControls.tsx",
+      "status": "created"
+    },
+    {
+      "body": "nit: **P3 · low · readability.** Лишний скрипт\n\nЗамечание к `package.json:3`: этого файла нет в диффе, тред на первом файле PR.\n\nФайл вне этого PR.\n\nВне скоупа — отклонено: не относится к задаче.",
+      "kind": "file",
+      "line": null,
+      "path": "docs/FRONTEND_ARCHITECTURE.md",
       "status": "created"
     },
     {

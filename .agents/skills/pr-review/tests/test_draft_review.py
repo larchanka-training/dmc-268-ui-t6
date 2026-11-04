@@ -268,6 +268,13 @@ def finding(**changes: Any) -> dict[str, Any]:
     }
 
 
+def test_a_finding_on_a_file_outside_the_diff_names_its_place() -> None:
+    assert draft.thread_body(finding(path="package.json", line=3), "other") == (
+        "**P1 · high · correctness.** Заголовок\n\n"
+        "Замечание к `package.json:3`: этого файла нет в диффе, тред на первом файле PR.\n\nТело."
+    )
+
+
 @pytest.mark.parametrize(
     ("severity", "expected"),
     [
@@ -475,18 +482,30 @@ def test_someone_elses_draft_is_not_used(tmp_path: Path) -> None:
 
 def test_a_draft_keeping_its_text_names_the_findings_without_a_thread(tmp_path: Path) -> None:
     follow_up = finding(scope="out", decision={"kind": "follow-up", "ref": "api#500"}, line=24)
-    elsewhere = finding(path="package.json", line=3, severity="low")
     target, args = scenario(
         tmp_path,
         "05-preview",
-        findings=plan_of(follow_up, elsewhere),
+        findings=plan_of(follow_up),
         state=example("07-existing-draft", "state"),
     )
     doc = doc_of(run(*args[:-1], fixtures=target))
     assert doc["warnings"][-1] == (
         "your draft keeps its own text, so these findings reach GitHub only if you add the "
-        f"summary there: {PATH}:24, package.json:3"
+        f"summary there: {PATH}:24"
     )
+
+
+def test_a_finding_on_a_file_outside_the_diff_is_a_thread_on_the_first_file(
+    tmp_path: Path,
+) -> None:
+    target, args = scenario(
+        tmp_path, "05-preview", findings=plan_of(finding(path="package.json", line=3))
+    )
+    doc = doc_of(run(*args[:-1], fixtures=target))
+    assert doc["in_body"] == []
+    assert [(t["path"], t["line"], t["kind"]) for t in doc["threads"]] == [
+        ("docs/FRONTEND_ARCHITECTURE.md", None, "file")
+    ]
 
 
 @pytest.mark.parametrize(
