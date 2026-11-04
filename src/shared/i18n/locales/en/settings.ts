@@ -77,6 +77,19 @@ export const settings = {
       policy_rate_limited: 'GitHub limited the number of requests while reading .review/rules.md',
       policy_document_too_large: 'the .review/rules.md file is over the limit',
       policy_document_type_unsupported: 'unsupported file type of .review/rules.md',
+      policy_document_decode_error: 'the .review/rules.md file is not valid UTF-8',
+      policy_document_control_character:
+        'the .review/rules.md file has a control character that is not allowed',
+      policy_ignore_block_duplicate: '.review/rules.md has more than one review-ignore block',
+      policy_ignore_block_nested:
+        'the review-ignore block in .review/rules.md is not at the top level',
+      policy_ignore_block_unclosed: 'the review-ignore block in .review/rules.md is not closed',
+      policy_ignore_info_invalid:
+        'the review-ignore block in .review/rules.md has extra parameters',
+      policy_ignore_pattern_invalid:
+        'the review-ignore block in .review/rules.md has a mask that is not allowed',
+      policy_ignore_limit_exceeded:
+        'the review-ignore block in .review/rules.md has too many masks, or a mask is too long',
     },
     providerReasons: {
       vcs_unavailable: '{{name}} is temporarily unavailable',

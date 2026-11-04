@@ -424,6 +424,18 @@ describe('RagSection: the index status', () => {
     )
   })
 
+  it('explains a mistake in the rules file next to an index that is not built', () => {
+    renderSection({
+      ragEnabled: true,
+      ragIndex: { ...EMPTY_WITH_ERROR, lastErrorCode: 'policy_ignore_pattern_invalid' },
+    })
+
+    expect(within(statusLine()).getByText('policy_ignore_pattern_invalid').tagName).toBe('CODE')
+    expect(statusLine().textContent).toContain(
+      'Последняя сборка не удалась: в блоке review-ignore в .review/rules.md недопустимая маска (policy_ignore_pattern_invalid)',
+    )
+  })
+
   it('shows the raw code of the last build alone next to a ready index when it has no text', () => {
     renderSection({
       ragEnabled: true,

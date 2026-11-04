@@ -60,10 +60,11 @@ export function formatIndexedAt(iso: string): string {
 
 // The api catalog of `lastErrorCode` (`app/modules/code_index/domain/codes.py`, api#228/#242): the
 // codes of a `failed` index first, then the soft ones, left by a job that ended without a
-// publication, then the `policy_*` codes of reading `.review/rules.md` (healable
-// `policy_fetch_transient` and `policy_rate_limited`; the rest terminal). The texts live in the
-// dictionaries (`settings.rag.reasons`); the first two `policy_*` ones repeat the rules block's
-// own (`rules.reasons`) in lower case.
+// publication, then the `policy_*` codes of reading `.review/rules.md`
+// (`app/modules/reviews/application/policy_errors.py`; healable `policy_fetch_transient` and
+// `policy_rate_limited`; the rest terminal). The texts live in the dictionaries
+// (`settings.rag.reasons`); the first two `policy_*` ones repeat the rules block's own
+// (`rules.reasons`) in lower case and with no final period.
 const ERROR_REASON_KEYS: Record<string, ParseKeys> = {
   archive_unsafe: 'settings.rag.reasons.archive_unsafe',
   'limit_exceeded:download_bytes': 'settings.rag.reasons.limit_exceeded.download_bytes',
@@ -85,6 +86,14 @@ const ERROR_REASON_KEYS: Record<string, ParseKeys> = {
   policy_rate_limited: 'settings.rag.reasons.policy_rate_limited',
   policy_document_too_large: 'settings.rag.reasons.policy_document_too_large',
   policy_document_type_unsupported: 'settings.rag.reasons.policy_document_type_unsupported',
+  policy_document_decode_error: 'settings.rag.reasons.policy_document_decode_error',
+  policy_document_control_character: 'settings.rag.reasons.policy_document_control_character',
+  policy_ignore_block_duplicate: 'settings.rag.reasons.policy_ignore_block_duplicate',
+  policy_ignore_block_nested: 'settings.rag.reasons.policy_ignore_block_nested',
+  policy_ignore_block_unclosed: 'settings.rag.reasons.policy_ignore_block_unclosed',
+  policy_ignore_info_invalid: 'settings.rag.reasons.policy_ignore_info_invalid',
+  policy_ignore_pattern_invalid: 'settings.rag.reasons.policy_ignore_pattern_invalid',
+  policy_ignore_limit_exceeded: 'settings.rag.reasons.policy_ignore_limit_exceeded',
 }
 
 /**
