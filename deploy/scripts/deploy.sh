@@ -65,8 +65,10 @@ cleanup_registry() {
 trap cleanup_registry EXIT
 
 # A redeploy of the running image (e.g. "Re-run failed jobs" after a landing-only failure) must
-# keep the rollback target: only a different image moves the current release into .previous.
-if [[ -f "${STATE_FILE}" && "$(awk -F= '/^current_image=/{print $2}' "${STATE_FILE}")" != "${IMAGE}" ]]; then
+# keep the rollback target: only a different image moves the current release into .previous. A
+# release marked stop_failed never moves: it failed, and rollback.sh could not stop it.
+if [[ -f "${STATE_FILE}" && "$(awk -F= '/^current_image=/{print $2}' "${STATE_FILE}")" != "${IMAGE}" ]] \
+  && ! grep -q '^stop_failed=true$' "${STATE_FILE}"; then
   cp "${STATE_FILE}" "${STATE_FILE}.previous"
 fi
 
