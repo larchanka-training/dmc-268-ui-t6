@@ -282,6 +282,19 @@ describe('ragIndexView: the reason of the last build', () => {
     }
   })
 
+  it.each(['gitlab', 'bitbucket'] as const)(
+    'explains a mistake in the rules file the same way for %s',
+    (provider) => {
+      expect(
+        ragIndexView(
+          index({ status: 'failed', lastErrorCode: 'policy_ignore_pattern_invalid' }),
+          true,
+          provider,
+        ).reason?.text,
+      ).toBe('в блоке review-ignore в .review/rules.md недопустимая маска')
+    },
+  )
+
   it('names Bitbucket in repository access and rate-limit failures', () => {
     expect(
       ragIndexView(
@@ -350,6 +363,8 @@ describe('ragIndexView: the reason of the last build', () => {
     'limit_exceeded:future_limit',
     'unknown_code',
     'constructor',
+    // A code only a review writes: the dictionaries have a run text for it, the index has none.
+    'policy_context_violation',
   ])('keeps the unknown code %s with no text', (code) => {
     expect(
       ragIndexView(index({ status: 'failed', lastErrorCode: code }), true, 'github').reason,
