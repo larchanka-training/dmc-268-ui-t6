@@ -64,7 +64,7 @@ export function formatIndexedAt(iso: string): string {
 // (`app/modules/reviews/application/policy_errors.py`; healable `policy_fetch_transient` and
 // `policy_rate_limited`; the rest terminal). The texts live in the dictionaries
 // (`settings.rag.reasons`); the first two `policy_*` ones repeat the rules block's own
-// (`rules.reasons`) in lower case and with no final period.
+// (`rules.reasons`) in lower case, and `policy_revision_unavailable` also drops the final period.
 const ERROR_REASON_KEYS: Record<string, ParseKeys> = {
   archive_unsafe: 'settings.rag.reasons.archive_unsafe',
   'limit_exceeded:download_bytes': 'settings.rag.reasons.limit_exceeded.download_bytes',

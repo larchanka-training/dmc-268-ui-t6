@@ -977,7 +977,8 @@ Upgrade canary в `routerLocationAdapter.test.tsx` проверяет досту
   коды чтения `.review/rules.md`, которые индекс пишет на любом статусе (api#228/#242): `policy_access_denied` —
   «у GitHub App нет доступа к репозиторию» и `policy_revision_unavailable` — «ревизия default branch
   недоступна: GitHub не подтвердил, есть ли файл правил» (та же формулировка, что в `rules.reasons` блока правил,
-  но со строчной буквы и без точки в конце; ключи словаря свои, межслайсовый импорт из блока правил запрещён),
+  но оба текста начинаются со строчной буквы, а точка в конце убрана только у `policy_revision_unavailable`: у
+  `policy_access_denied` её нет и в `rules.reasons`; ключи словаря свои, межслайсовый импорт из блока правил запрещён),
   `policy_fetch_transient` — «GitHub временно не отвечает при чтении
   .review/rules.md», `policy_rate_limited` — «GitHub ограничил число запросов при чтении .review/rules.md»,
   `policy_document_too_large` — «файл .review/rules.md больше лимита», `policy_document_type_unsupported` —
