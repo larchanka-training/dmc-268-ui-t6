@@ -341,6 +341,9 @@ def summary_of(
         f"Итог на `{head_sha[:8]}`: {severities}. AC: {statuses}.",
         f"Предложенный вердикт: {verdict}. Вердикт и Submit — решение ревьюера.",
     ]
+    not_covered = [row["key"] for row in ac if row["status"] == "not covered"]
+    if not_covered:
+        parts.append(f"Не покрыто (not covered): {', '.join(not_covered)}")
     by_hand = [row["key"] for row in ac if row["status"] == "can't tell"]
     if by_hand:
         parts.append(f"Проверить руками (can't tell): {', '.join(by_hand)}")

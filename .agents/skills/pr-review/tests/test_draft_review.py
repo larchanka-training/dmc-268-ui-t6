@@ -490,6 +490,23 @@ def test_the_verdict_sees_every_remark(
     assert doc_of(run(*args[:-1], fixtures=target))["proposed_verdict"] == expected
 
 
+def test_the_summary_names_the_criteria_not_covered(tmp_path: Path) -> None:
+    plan = plan_of()
+    plan["ac"] = [
+        {"key": "ui#111 AC1", "status": "not covered"},
+        {"key": "ui#111 AC2", "status": "can't tell"},
+    ]
+    target, args = scenario(tmp_path, "05-preview", findings=plan)
+    doc = doc_of(run(*args[:-1], fixtures=target))
+    assert doc["summary"] == (
+        "Итог на `21b8d99b`: critical 0, high 0, medium 0, low 0, info 0. "
+        "AC: covered 0, not covered 1, can't tell 1.\n\n"
+        "Предложенный вердикт: Request changes. Вердикт и Submit — решение ревьюера.\n\n"
+        "Не покрыто (not covered): ui#111 AC1\n\n"
+        "Проверить руками (can't tell): ui#111 AC2"
+    )
+
+
 # ─── a partial write ────────────────────────────────────────────────────────
 @pytest.mark.parametrize(
     "answer",

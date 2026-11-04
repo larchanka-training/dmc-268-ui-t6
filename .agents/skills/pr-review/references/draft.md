@@ -85,7 +85,9 @@ By `docs/CONTRIBUTING.md` §4, as text in the review body. The reviewer decides.
 | Nothing of that                                                                  | Approve         |
 | The viewer is the author of the pull request                                     | Comment         |
 
-`can't tell` does not change it; the review body lists those keys under «Проверить руками».
+The review body names the keys `not covered` and, under «Проверить руками», those `can't tell`;
+`can't tell` does not change the verdict. A review with only `nit:` threads proposes Comment on
+purpose: the threads stay open until the reviewer resolves them.
 
 ## What GitHub does
 
