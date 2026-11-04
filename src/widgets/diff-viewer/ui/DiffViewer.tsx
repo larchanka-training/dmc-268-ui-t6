@@ -121,10 +121,12 @@ export function DiffViewer(props: DiffViewerProps): JSX.Element {
       <div className="diff-file">
         <div className="diff-file-head">
           <FileOutlined />
-          <Typography.Text className="diff-file-name" strong>
-            {file.filename}
-          </Typography.Text>
-          <Typography.Text type="secondary">{t('runs.diff.noDiff')}</Typography.Text>
+          <div className="diff-file-head-text">
+            <Typography.Text className="diff-file-name" strong>
+              {file.filename}
+            </Typography.Text>
+            <Typography.Text type="secondary">{t('runs.diff.noDiff')}</Typography.Text>
+          </div>
         </div>
       </div>
     )
@@ -135,10 +137,12 @@ export function DiffViewer(props: DiffViewerProps): JSX.Element {
       <div className="diff-file">
         <div className="diff-file-head">
           <FileOutlined />
-          <Typography.Text className="diff-file-name" strong>
-            {file.filename}
-          </Typography.Text>
-          <Typography.Text type="secondary">{t('runs.diff.binary')}</Typography.Text>
+          <div className="diff-file-head-text">
+            <Typography.Text className="diff-file-name" strong>
+              {file.filename}
+            </Typography.Text>
+            <Typography.Text type="secondary">{t('runs.diff.binary')}</Typography.Text>
+          </div>
         </div>
       </div>
     )

@@ -337,6 +337,29 @@ describe('DiffViewer', () => {
     expect(within(head).getByText('Бинарный файл или пустой дифф')).toBeTruthy()
   })
 
+  it.each([
+    [
+      'a patch but no chunks',
+      fromPatch(SAMPLE_PATCH_NO_CHUNKS),
+      'scripts/run.sh',
+      'Бинарный файл или пустой дифф',
+    ],
+    ['no patch', { ...FILE, chunks: [], hasPatch: false }, FILE.filename, 'Без диффа'],
+  ])(
+    'groups the name and the note of a file with %s, so the note can wrap',
+    (_, file, name, note) => {
+      render(<DiffViewer file={file} comments={[]} />)
+      const group = screen.getByText(name).closest('.diff-file-head-text')
+      expect(group?.contains(screen.getByText(note))).toBe(true)
+    },
+  )
+
+  it('keeps the name of a file with a diff out of the wrapping group', () => {
+    const { container } = render(<DiffViewer file={FILE} comments={[]} />)
+    expect(screen.getByText(FILE.filename).closest('.diff-file-head')).toBeTruthy()
+    expect(container.querySelector('.diff-file-head-text')).toBeNull()
+  })
+
   it('renders a "no diff" placeholder for a summary-only file (hasPatch: false)', () => {
     render(<DiffViewer file={{ ...FILE, chunks: [], hasPatch: false }} comments={[]} />)
     expect(screen.getByText('Без диффа')).toBeTruthy()
