@@ -579,7 +579,8 @@ def add_threads(threads: list[dict[str, Any]], review_id: str) -> None:
             thread.update(status="failed", error=str(exc))
             continue
         # A line outside the diff is no GraphQL error: the answer is a null thread.
-        if data["addPullRequestReviewThread"]["thread"] is None:
+        answer = data.get("addPullRequestReviewThread")
+        if not isinstance(answer, dict) or answer.get("thread") is None:
             thread.update(status="failed", error="GitHub did not create the thread")
         else:
             thread["status"] = "created"

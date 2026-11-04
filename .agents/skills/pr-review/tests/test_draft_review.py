@@ -478,10 +478,18 @@ def test_a_draft_keeping_its_text_names_the_findings_without_a_thread(tmp_path: 
 
 
 # ─── a partial write ────────────────────────────────────────────────────────
-def test_a_thread_github_did_not_create_is_reported(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "answer",
+    [
+        pytest.param(NULL_THREAD, id="a-null-thread"),
+        pytest.param({"data": {"addPullRequestReviewThread": None}}, id="a-null-answer"),
+        pytest.param({"data": {}}, id="no-answer"),
+    ],
+)
+def test_a_thread_github_did_not_create_is_reported(tmp_path: Path, answer: dict[str, Any]) -> None:
     readback = copy.deepcopy(example("06-new-draft", "readback"))
     pull(readback)["reviews"]["nodes"][0]["comments"]["nodes"] = []
-    target, args = scenario(tmp_path, thread_1=NULL_THREAD, readback=readback)
+    target, args = scenario(tmp_path, thread_1=answer, readback=readback)
     r = run(*args, fixtures=target, log=tmp_path / "writes.jsonl")
     assert r.returncode == 1
     doc = doc_of(r)
