@@ -27,6 +27,7 @@ export const runs: Translation<typeof en> = {
     title: 'Прогон PR #{{number}}',
     breadcrumb: 'PR #{{number}}',
     notFound: 'Прогон не найден',
+    offline: 'Нет подключения к сети. Прогон откроется, когда связь вернётся',
     noId: 'Не указан id прогона',
     diffAndFindings: 'Дифф и замечания',
     contextLoadFailed: 'Не удалось дочитать контекст файла',
