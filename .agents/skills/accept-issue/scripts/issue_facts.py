@@ -101,10 +101,12 @@ CHECKBOX = re.compile(r"^\s*[-*+] \[([ xX])\](.*)$")
 SECTIONS = {"acceptance criteria": "ac", "dod checklist": "dod"}
 
 # A `Refs` line: the keyword, then a list of references (`#12`, `owner/repo#12`)
-# separated by commas / `and` / `&` / blanks; text after the list is ignored.
+# separated by commas / `and` / `&` / blanks; text after the list is ignored. The separator is
+# one of two alternatives, never two adjacent `\s*` around an optional word: that is quadratic
+# on `Refs #1` followed by many blanks.
 _TOKEN = r"(?:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#[1-9][0-9]*"
 REFS_LINE = re.compile(
-    rf"^\s*(?:[-*+]\s+)?Refs?\b:?\s*({_TOKEN}(?:\s*(?:,|;|&|\band\b)?\s*{_TOKEN})*)",
+    rf"^\s*(?:[-*+]\s+)?Refs?\b:?\s*({_TOKEN}(?:(?:\s*(?:,|;|&|\band\b)\s*|\s+){_TOKEN})*)",
     re.IGNORECASE,
 )
 REFS_TOKEN = re.compile(r"([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#([1-9][0-9]*)")

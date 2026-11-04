@@ -436,6 +436,25 @@ def test_a_hash_inside_a_heading_stays_in_its_name() -> None:
     assert facts.build_checkboxes("## Acceptance # Criteria\n- [ ] a\n")["outside"] == 1
 
 
+@pytest.mark.parametrize(
+    ("line", "named"),
+    [
+        ("Refs #12 #13", True),
+        ("Refs #12, #13", True),
+        ("Refs #12,#13", True),
+        ("Refs #12 , #13", True),
+        ("Refs #12; #13", True),
+        ("Refs #12 & #13", True),
+        ("Refs #12 and #13", True),
+        ("Refs #12 and#13", True),
+        # No separator: the list ends at the first reference, as in preflight.py.
+        ("Refs #12#13", False),
+    ],
+)
+def test_references_of_a_refs_line_need_a_separator(line: str, named: bool) -> None:
+    assert facts.names_issue({"title": "x", "body": line}, API, (API, 13)) is named
+
+
 BUDGET = 5  # seconds for one run of the script on a hostile body; a fixed pattern takes ~0.1 s
 
 
@@ -446,6 +465,10 @@ BUDGET = 5  # seconds for one run of the script on a hostile body; a fixed patte
     [
         pytest.param("# a" + " " * 65000 + "x", id="heading-blanks-then-a-word"),
         pytest.param("# #" + " " * 65000 + "# #", id="heading-only-blanks-and-hashes"),
+        # Names another issue, then blanks: the quadratic form, it needs a first reference.
+        pytest.param("Refs #1" + " " * 65000 + "x", id="refs-other-issue-then-blanks"),
+        # No reference at all: linear before the fix too, kept so that it stays linear.
+        pytest.param("Refs" + " " * 65000 + "x", id="refs-no-reference"),
     ],
 )
 def test_a_hostile_line_stays_within_the_time_budget(tmp_path: Path, line: str) -> None:
