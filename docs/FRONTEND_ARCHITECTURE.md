@@ -1165,10 +1165,14 @@ sequenceDiagram
 | Нейтральность к CSS-парадигме | antd тянет свою систему токенов/`css-in-js`; сосуществование с Tailwind потребует настройки           |
 
 Подтверждено техлидом 2026-09-24 ([комментарий в #46][tl-2026-09-24-46]). Цена отката при
-пересмотре — 29 нетестовых файлов с импортом `antd` (не считая 18 историй Storybook): 6 из них — сама
-дизайн-система в `shared/ui`, остальные — `app`, страницы, виджеты и фичи; плюс стабы
+пересмотре — 42 нетестовых файла с импортом `antd` в `src/` (не считая 22 историй Storybook): 10 из
+них — сама дизайн-система в `shared/ui`, остальные — `app`, страницы, виджеты и фичи; ещё 5 файлов —
+макеты `docs-site/components/dashboard/`; плюс стабы
 `matchMedia`/`ResizeObserver` в `src/test/setup.ts` и ширина для чипов `Select` в
-`src/test/responsiveSelectLayout.ts`. Тон тега статуса прогона задаёт `statusTone` в
+`src/test/responsiveSelectLayout.ts`. Счёт на `main` `6265f9d`:
+`git grep -l "from 'antd'" -- src ':!*.test.*' ':!*.stories.*' | wc -l`; `src/shared/ui` и
+`docs-site` считаются той же командой с этим путём вместо `src`, истории —
+`git grep -l "from 'antd'" -- 'src/*.stories.*' | wc -l`. Тон тега статуса прогона задаёт `statusTone` в
 `entities/run/lib/status.ts` для `Tag` дизайн-системы, цветов `Tag` из antd там больше нет.
 
 **Ф-20.** Вид всех экранов задаёт дизайн-система Flat Console в `src/shared/ui`: тема antd
