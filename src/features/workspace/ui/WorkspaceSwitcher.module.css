@@ -8,16 +8,15 @@
 .static,
 .staticCompact {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
   min-height: var(--rv-ctl-lg);
   margin-bottom: 4px;
-  padding: 6px 8px;
+  padding-inline: 8px;
 }
 
 .staticCompact {
   justify-content: center;
-  padding-inline: 0;
 }
 
 /* A flex item shrinks to fit: a long name must not squeeze the icon. */
