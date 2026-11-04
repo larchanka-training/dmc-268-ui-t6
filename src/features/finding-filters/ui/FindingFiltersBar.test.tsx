@@ -81,6 +81,20 @@ function openSelect(name: string): void {
   fireEvent.mouseDown(screen.getByRole('combobox', { name }))
 }
 
+/** The chips of `maxTagCount="responsive"` come after the first render. */
+async function removeChip(file: string): Promise<void> {
+  const remove = await waitFor(() => {
+    const button = document.querySelector(
+      `.ant-select-selection-item[title="${file}"] .ant-select-selection-item-remove`,
+    )
+    if (button === null) {
+      throw new Error(`chip "${file}" has no remove button`)
+    }
+    return button
+  })
+  fireEvent.click(remove)
+}
+
 function optionTexts(): string[] {
   return [...document.querySelectorAll('.ant-select-item-option')].map(
     (option) => option.textContent,
@@ -236,6 +250,33 @@ describe('FindingFiltersBar', () => {
       files: ['README.md', 'src/a.ts', 'gone.ts'],
       query: '',
     })
+  })
+
+  it('preserves unknown URL files when a removed chip leaves another one', async () => {
+    const { onChange } = renderBar({
+      filters: { ...EMPTY_FINDING_FILTERS, files: ['gone.ts', 'README.md', 'src/a.ts'] },
+    })
+    await removeChip('README.md')
+
+    expect(onChange).toHaveBeenCalledWith({ files: ['src/a.ts', 'gone.ts'], query: '' })
+  })
+
+  it('drops unknown URL files when the clear button empties the visible selection', () => {
+    const { onChange } = renderBar({
+      filters: { ...EMPTY_FINDING_FILTERS, files: ['gone.ts', 'README.md'] },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Очистить выбор файлов' }))
+
+    expect(onChange).toHaveBeenCalledWith({ files: [], query: '' })
+  })
+
+  it('drops unknown URL files when removing the last chip empties the visible selection', async () => {
+    const { onChange } = renderBar({
+      filters: { ...EMPTY_FINDING_FILTERS, files: ['gone.ts', 'README.md'] },
+    })
+    await removeChip('README.md')
+
+    expect(onChange).toHaveBeenCalledWith({ files: [], query: '' })
   })
 
   it('pushes a severity selection', () => {

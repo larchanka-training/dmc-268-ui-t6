@@ -146,11 +146,15 @@ export function FindingFiltersBar(props: FindingFiltersBarProps): JSX.Element {
             maxTagTextLength={FILE_TAG_MAX_LENGTH}
             mode="multiple"
             onChange={(files: string[]) => {
+              // A file the run does not know yet stays in the URL through a change of the visible
+              // selection, so that a link does not lose it. An empty selection is the user clearing
+              // the field (the clear button and the last chip both give `[]`): the hidden values go
+              // too, otherwise they would start filtering once their file becomes known.
               onChange({
-                files: [
-                  ...files,
-                  ...filters.files.filter((file) => !effectiveFiles.includes(file)),
-                ],
+                files:
+                  files.length === 0
+                    ? []
+                    : [...files, ...filters.files.filter((file) => !effectiveFiles.includes(file))],
                 query: takePending(),
               })
             }}

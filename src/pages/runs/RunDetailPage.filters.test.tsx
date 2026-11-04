@@ -109,6 +109,67 @@ function pick(name: string, optionText: string): void {
   fireEvent.click(option)
 }
 
+const LATE_TITLE = 'Late finding outside diff'
+
+/**
+ * `later.ts` is outside `/diff` and becomes a file of the run later, in one of the two ways the
+ * real api does it: the run finishes with a finding on it, or a late `/comments` answer of a
+ * finished run has a comment on it.
+ */
+function fileKnownLater(way: 'finding' | 'comment') {
+  const finding = mockReviewFindings[0]
+  const comment = mockReviewComments[0]
+  if (finding === undefined || comment === undefined) {
+    throw new Error('demo finding or comment is missing')
+  }
+  let run = runWithStatus(way === 'finding' ? 'running' : 'succeeded')
+  const release: { open: () => void } = { open: () => undefined }
+  const gate = new Promise<void>((resolve) => {
+    release.open = resolve
+  })
+  withMockTransportOverlay((endpoint) => {
+    if (endpoint.method === 'GET' && endpoint.path === `/runs/${DEMO_RUN_ID}`) {
+      return run
+    }
+    if (endpoint.method === 'GET' && endpoint.path === `/runs/${DEMO_RUN_ID}/comments`) {
+      return way === 'finding'
+        ? []
+        : gate.then(() => [{ ...comment, file: 'later.ts', title: LATE_TITLE }])
+    }
+    return undefined
+  })
+  return async (client: QueryClient) => {
+    if (way === 'comment') {
+      release.open()
+    } else {
+      run = {
+        ...run,
+        status: 'succeeded',
+        findings: [{ ...finding, file: 'later.ts', title: LATE_TITLE }],
+      }
+      await act(async () => {
+        await client.invalidateQueries({ queryKey: runQueryKeys.detail(DEMO_RUN_ID), exact: true })
+      })
+    }
+    await screen.findByText(LATE_TITLE)
+  }
+}
+
+/** Empties «Файлы» that show the one chip `README.md`. */
+function clearFiles(gesture: 'button' | 'chip'): void {
+  if (gesture === 'button') {
+    fireEvent.click(screen.getByRole('button', { name: 'Очистить выбор файлов' }))
+    return
+  }
+  const remove = document.querySelector(
+    '.ant-select-selection-item[title="README.md"] .ant-select-selection-item-remove',
+  )
+  if (remove === null) {
+    throw new Error('the README.md chip has no remove button')
+  }
+  fireEvent.click(remove)
+}
+
 async function back(router: ReturnType<typeof renderRunDetail>['router']): Promise<void> {
   await act(async () => {
     await router.navigate(-1)
@@ -377,7 +438,6 @@ describe('RunDetailPage filters in the URL', () => {
 
   it.each([
     { action: 'add', files: ['README.md', 'src/a.ts', 'gone.ts'], tags: ['README.md', 'a.ts'] },
-    { action: 'clear', files: ['gone.ts'], tags: [] },
     { action: 'severity', files: ['gone.ts', 'README.md'], tags: ['README.md'] },
   ])(
     'preserves unknown file params on a mixed URL when selecting $action',
@@ -388,8 +448,6 @@ describe('RunDetailPage filters in the URL', () => {
 
       if (action === 'add') {
         pick('Файлы', 'src/a.ts (8)')
-      } else if (action === 'clear') {
-        fireEvent.click(screen.getByRole('button', { name: 'Очистить выбор файлов' }))
       } else {
         pick('Критичность', 'Critical')
       }
@@ -401,15 +459,26 @@ describe('RunDetailPage filters in the URL', () => {
         expect(params.get('tab')).toBe('x')
         expect(selectedTags('Файлы')).toEqual(tags)
       })
-      if (action === 'clear') {
-        expect(screen.getByRole('button', { name: 'Сбросить фильтры' })).toHaveProperty(
-          'disabled',
-          true,
-        )
-        expect(screen.getByText(counter(TOTAL, TOTAL))).toBeTruthy()
-      }
     },
   )
+
+  it('drops unknown file params on a mixed URL when «Файлы» is cleared', async () => {
+    const { router } = renderRunDetail(`${DEMO}?tab=x&file=gone.ts&file=README.md`)
+    await findBar()
+    await screen.findByText(counter(2, TOTAL))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Очистить выбор файлов' }))
+
+    await waitFor(() => {
+      expect(router.state.location.search).toBe('?tab=x')
+      expect(selectedTags('Файлы')).toEqual([])
+    })
+    expect(screen.getByRole('button', { name: 'Сбросить фильтры' })).toHaveProperty(
+      'disabled',
+      true,
+    )
+    expect(screen.getByText(counter(TOTAL, TOTAL))).toBeTruthy()
+  })
 
   it('retains an unknown selected file through file changes until a finding makes it known', async () => {
     let run = runWithStatus('running')
@@ -533,10 +602,82 @@ describe('RunDetailPage filters in the URL', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Очистить выбор файлов' }))
     await waitFor(() => {
-      expect(new URLSearchParams(router.state.location.search).getAll('file')).toEqual(['gone.ts'])
+      expect(new URLSearchParams(router.state.location.search).getAll('file')).toEqual([])
       expect(selectedTags('Файлы')).toEqual([])
     })
     expect(screen.getByText(counter(1, 1))).toBeTruthy()
+  })
+
+  it.each([
+    { gesture: 'button', way: 'finding' },
+    { gesture: 'button', way: 'comment' },
+    { gesture: 'chip', way: 'finding' },
+    { gesture: 'chip', way: 'comment' },
+  ] as const)(
+    'stays cleared after the $gesture gesture when a $way makes the unknown file known',
+    async ({ gesture, way }) => {
+      const becomeKnown = fileKnownLater(way)
+      const { client, container, router } = renderRunDetail(
+        `${DEMO}?tab=x&file=later.ts&file=README.md`,
+      )
+      await findBar()
+      await waitFor(() => {
+        expect(selectedTags('Файлы')).toEqual(['README.md'])
+      })
+
+      clearFiles(gesture)
+      await waitFor(() => {
+        expect(selectedTags('Файлы')).toEqual([])
+      })
+      await becomeKnown(client)
+
+      expect(container.querySelectorAll('.diff-theme')).toHaveLength(4)
+      expect(selectedTags('Файлы')).toEqual([])
+      expect(screen.getByText(counter(1, 1))).toBeTruthy()
+      expect(router.state.location.search).toBe('?tab=x')
+    },
+  )
+
+  it.each(['finding', 'comment'] as const)(
+    'applies an untouched link once a %s makes its unknown file known, without rewriting the URL',
+    async (way) => {
+      const becomeKnown = fileKnownLater(way)
+      const initial = '?tab=x&file=later.ts'
+      const { client, container, router } = renderRunDetail(`${DEMO}${initial}`)
+      await findBar()
+      await waitFor(() => {
+        expect(container.querySelectorAll('.diff-theme')).toHaveLength(4)
+      })
+      expect(selectedTags('Файлы')).toEqual([])
+      expect(router.state.location.search).toBe(initial)
+
+      await becomeKnown(client)
+
+      await waitFor(() => {
+        expect(selectedTags('Файлы')).toEqual(['later.ts'])
+      })
+      expect(container.querySelectorAll('.diff-theme')).toHaveLength(0)
+      expect(screen.getByText(counter(1, 1))).toBeTruthy()
+      expect(router.state.location.search).toBe(initial)
+    },
+  )
+
+  it('enables the reset for a selected file known only from /comments', async () => {
+    const becomeKnown = fileKnownLater('comment')
+    const { client, container, router } = renderRunDetail(`${DEMO}?file=later.ts`)
+    const reset = () => screen.getByRole('button', { name: 'Сбросить фильтры' })
+    await findBar()
+    expect(reset()).toHaveProperty('disabled', true)
+
+    await becomeKnown(client)
+    expect(reset()).toHaveProperty('disabled', false)
+
+    fireEvent.click(reset())
+    await waitFor(() => {
+      expect(router.state.location.search).toBe('')
+    })
+    expect(container.querySelectorAll('.diff-theme')).toHaveLength(4)
+    expect(selectedTags('Файлы')).toEqual([])
   })
 
   it('writes a file selection to the URL as a repeatable file param', async () => {
