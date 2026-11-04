@@ -290,7 +290,7 @@ def test_the_thread_names_the_priority(severity: str, expected: str) -> None:
 
 
 @pytest.mark.parametrize(
-    ("findings", "statuses", "has_threads", "is_author", "expected"),
+    ("findings", "statuses", "has_remarks", "is_author", "expected"),
     [
         pytest.param([], [], False, False, "Approve", id="nothing"),
         pytest.param([], ["covered", "can't tell"], False, False, "Approve", id="can-t-tell-only"),
@@ -334,12 +334,12 @@ def test_the_thread_names_the_priority(severity: str, expected: str) -> None:
 def test_proposed_verdict(
     findings: list[dict[str, Any]],
     statuses: list[str],
-    has_threads: bool,
+    has_remarks: bool,
     is_author: bool,
     expected: str,
 ) -> None:
     ac = [{"key": f"ui#1 AC{k}", "status": s} for k, s in enumerate(statuses, 1)]
-    assert draft.proposed_verdict(findings, ac, has_threads, is_author) == expected
+    assert draft.proposed_verdict(findings, ac, has_remarks, is_author) == expected
 
 
 # ─── scenarios built on the examples ────────────────────────────────────────
@@ -475,6 +475,33 @@ def test_a_draft_keeping_its_text_names_the_findings_without_a_thread(tmp_path: 
         "your draft keeps its own text, so these findings reach GitHub only if you add the "
         f"summary there: {PATH}:24, package.json:3"
     )
+
+
+@pytest.mark.parametrize(
+    ("findings", "state_case", "expected"),
+    [
+        pytest.param(
+            plan_of(finding(path="package.json", line=3, severity="low")),
+            "05-preview",
+            "Comment",
+            id="in-scope-without-a-thread",
+        ),
+        pytest.param(plan_of(), "07-existing-draft", "Comment", id="comments-already-in-the-draft"),
+        pytest.param(
+            plan_of(finding(scope="out", decision={"kind": "follow-up", "ref": "api#500"})),
+            "05-preview",
+            "Approve",
+            id="only-a-follow-up",
+        ),
+    ],
+)
+def test_the_verdict_sees_every_remark(
+    tmp_path: Path, findings: dict[str, Any], state_case: str, expected: str
+) -> None:
+    target, args = scenario(
+        tmp_path, "05-preview", findings=findings, state=example(state_case, "state")
+    )
+    assert doc_of(run(*args[:-1], fixtures=target))["proposed_verdict"] == expected
 
 
 # ─── a partial write ────────────────────────────────────────────────────────

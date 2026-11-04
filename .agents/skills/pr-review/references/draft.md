@@ -78,12 +78,12 @@ with `Вне скоупа — отклонено: почему`.
 
 By `docs/CONTRIBUTING.md` §4, as text in the review body. The reviewer decides.
 
-| The review                                                      | Proposed        |
-| --------------------------------------------------------------- | --------------- |
-| Critical, high or medium in scope, or a criterion `not covered` | Request changes |
-| Otherwise, at least one thread                                  | Comment         |
-| No thread                                                       | Approve         |
-| The viewer is the author of the pull request                    | Comment         |
+| The review                                                                       | Proposed        |
+| -------------------------------------------------------------------------------- | --------------- |
+| Critical, high or medium in scope, or a criterion `not covered`                  | Request changes |
+| Otherwise, a thread, a comment in the draft or a finding in scope with no thread | Comment         |
+| Nothing of that                                                                  | Approve         |
+| The viewer is the author of the pull request                                     | Comment         |
 
 `can't tell` does not change it; the review body lists those keys under «Проверить руками».
 

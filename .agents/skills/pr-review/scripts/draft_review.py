@@ -39,7 +39,8 @@ file is not in the diff either. A thread opens with `**P1 · high · correctness
 unfixed: P3, and anything out of scope.
 
 The proposed verdict is text for the reviewer: Request changes for a critical, high or medium
-finding in scope or a criterion `not covered`; else Comment when there is a thread; else Approve.
+finding in scope or a criterion `not covered`; else Comment when there is a thread, a comment in
+the viewer's draft or a finding in scope without a thread; else Approve.
 The author of the pull request gets Comment: GitHub takes no other verdict from them.
 
 Contract
@@ -332,7 +333,7 @@ def body_line(finding: dict[str, Any]) -> str:
 def proposed_verdict(
     findings: list[dict[str, Any]],
     ac: list[dict[str, str]],
-    has_threads: bool,
+    has_remarks: bool,
     is_author: bool,
 ) -> str:
     if is_author:
@@ -341,7 +342,7 @@ def proposed_verdict(
         return "Request changes"
     if any(row["status"] == "not covered" for row in ac):
         return "Request changes"
-    return "Comment" if has_threads else "Approve"
+    return "Comment" if has_remarks else "Approve"
 
 
 def summary_of(
@@ -623,7 +624,8 @@ def collect(
     draft = state["draft"]
     findings, ac = plan["findings"], plan["ac"]
     threads, without = plan_threads(findings, lines, draft)
-    verdict = proposed_verdict(findings, ac, bool(threads), state["author"] == state["viewer"])
+    remarks = threads or threads_in(draft) or any(f["scope"] == "in" for f in without)
+    verdict = proposed_verdict(findings, ac, bool(remarks), state["author"] == state["viewer"])
     summary = summary_of(state["head_sha"], findings, ac, verdict, [body_line(f) for f in without])
     doc.update(
         proposed_verdict=verdict,
