@@ -868,6 +868,9 @@ describe('RulesStatusPanel', () => {
       const retry = within(panel()).getByRole('button', { name: 'Повторить' })
       retry.focus()
       expect(document.activeElement).toBe(retry)
+      // Not a wait after a retry: nothing says a check is running, the button is live between polls.
+      expect(within(panel()).queryByRole('status')).toBeNull()
+      expect(retry.classList.contains('ant-btn-loading')).toBe(false)
 
       // The next poll brings the result, nobody clicked.
       await advance(3000)
