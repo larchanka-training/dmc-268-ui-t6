@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, type FC } from 'react'
 import { useRepositoryRulesStatusRetry } from '../../../entities/repository'
 import { useTranslation } from '../../../shared/i18n'
 import type { VcsProvider } from '../../../shared/model/provider'
-import { RulesStatusDetails } from './RulesStatusDetails'
+import { Checking, RulesStatusDetails } from './RulesStatusDetails'
 import styles from './RulesStatusPanel.module.css'
 
 export interface RulesStatusPanelProps {
@@ -20,14 +20,17 @@ export interface RulesStatusPanelProps {
  * once its copy is old), reopening the page asks again, and a `pending` status is polled by the
  * hook. "Retry" is offered only for a load error and for an `unavailable` status the server
  * called retryable; the retry of such a status also waits for the new result, for a bounded time
- * (`useRepositoryRulesStatusRetry`), with the button in place and busy. When that button goes away
- * while it has the focus (the retry succeeded, or a poll brought the result under it), the focus
- * goes to the block's other "Retry" if the block has one now (the retry of an `unavailable` status
- * failed with an HTTP error), else to the heading of the block, not to `<body>`.
+ * (`useRepositoryRulesStatusRetry`), with the button busy and a line that the check is running,
+ * also while a failed poll shows the load error. When that button goes away while it has the focus
+ * (the retry succeeded, or a poll brought the result under it), the focus goes to the block's
+ * other "Retry" if the block has one now (the retry of an `unavailable` status failed with an HTTP
+ * error), else to the heading of the block, not to `<body>`.
  */
 export const RulesStatusPanel: FC<RulesStatusPanelProps> = ({ repoId, provider }) => {
   const { t } = useTranslation()
   const { query, awaitingResult, retry } = useRepositoryRulesStatusRetry(repoId)
+  // Through the whole wait, not only while a request runs: the wait goes on between the polls.
+  const busy = query.isFetching || awaitingResult
 
   // A retry button that held the focus is noted as its ref is released, while it is still in the
   // document: once it is gone the focus is on `<body>` already. The ref is released for a button
@@ -70,7 +73,7 @@ export const RulesStatusPanel: FC<RulesStatusPanelProps> = ({ repoId, provider }
       return (
         <Alert
           action={
-            <Button loading={query.isFetching} onClick={retry} ref={trackRetry} size="small">
+            <Button loading={busy} onClick={retry} ref={trackRetry} size="small">
               {t('rules.retry')}
             </Button>
           }
@@ -85,11 +88,10 @@ export const RulesStatusPanel: FC<RulesStatusPanelProps> = ({ repoId, provider }
     }
     return (
       <RulesStatusDetails
-        checking={awaitingResult}
         provider={provider}
         onRetry={retry}
         retryRef={trackRetry}
-        retrying={query.isFetching}
+        retrying={busy}
         status={query.data}
       />
     )
@@ -101,6 +103,8 @@ export const RulesStatusPanel: FC<RulesStatusPanelProps> = ({ repoId, provider }
         {t('rules.title')}
       </h2>
       {body}
+      {/* Outside `body`: a failed poll swaps the details for the load error, the check goes on. */}
+      {awaitingResult && query.data !== undefined ? <Checking branch={query.data.branch} /> : null}
     </section>
   )
 }

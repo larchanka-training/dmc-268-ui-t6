@@ -670,25 +670,55 @@ describe('RulesStatusPanel', () => {
       expect(within(panel()).getByRole('status').textContent).toBe(CHECKING_TEXT)
     })
 
-    it('hands the focus to the load error «Повторить» on a failed poll, and back on the next good one', async () => {
+    it('keeps saying the check is running on a failed poll, the load error «Повторить» busy between requests', async () => {
       stubBackend({
         [REPO_A]: [json(stale), json(stale), json({ detail: 'boom' }, 500), ...repeated(stale)],
       })
       const retry = await pressRetry()
+      const checking = within(panel()).getByRole('status')
 
       await advance(3000)
       await advance(1)
       expect(within(panel()).getByText(LOAD_ERROR)).toBeTruthy()
-      expect(within(panel()).queryByRole('status')).toBeNull()
+      expect(within(panel()).getByRole('status')).toBe(checking)
+      expect(checking.textContent).toBe(CHECKING_TEXT)
       const onError = retryButton()
       expect(onError).not.toBe(retry)
+      expect(onError.classList.contains('ant-btn-loading')).toBe(true)
       expect(document.activeElement).toBe(onError)
 
-      await advance(3000)
+      await advance(1500)
+      expect(onError.classList.contains('ant-btn-loading')).toBe(true)
+
+      await advance(1500)
       await advance(1)
       expect(within(panel()).queryByText(LOAD_ERROR)).toBeNull()
-      expect(within(panel()).getByRole('status').textContent).toBe(CHECKING_TEXT)
+      expect(within(panel()).getByRole('status')).toBe(checking)
+      expect(retryButton().classList.contains('ant-btn-loading')).toBe(true)
       expect(document.activeElement).toBe(retryButton())
+    })
+
+    it('gives the load error «Повторить» back when the window ends on a failed poll', async () => {
+      const failures = Array.from({ length: 40 }, () => json({ detail: 'boom' }, 500))
+      const backend = stubBackend({ [REPO_A]: [json(stale), json(stale), ...failures] })
+      await pressRetry()
+
+      await advance(60_000)
+      await advance(1)
+      expect(within(panel()).getByText(LOAD_ERROR)).toBeTruthy()
+      expect(within(panel()).queryByRole('status')).toBeNull()
+      const onError = retryButton()
+      expect(onError.classList.contains('ant-btn-loading')).toBe(false)
+      expect(document.activeElement).toBe(onError)
+      const asked = backend.requests.length
+
+      await advance(60_000)
+      expect(backend.requests).toHaveLength(asked)
+
+      fireEvent.click(onError)
+      await advance(1)
+      expect(backend.requests).toHaveLength(asked + 1)
+      expect(within(panel()).getByRole('status').textContent).toBe(CHECKING_TEXT)
     })
 
     it('does not take the focus from where the user took it', async () => {
@@ -800,7 +830,7 @@ describe('RulesStatusPanel', () => {
       fireEvent.click(retry)
 
       await within(panel()).findByText(LOAD_ERROR)
-      const swapped = within(panel()).getByRole('button', { name: 'Повторить' })
+      const swapped = within(panel()).getByRole('button', { name: /Повторить/ })
       expect(swapped).not.toBe(retry)
       await waitFor(() => {
         expect(document.activeElement).toBe(swapped)
