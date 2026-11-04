@@ -19,11 +19,17 @@ const ORGANIZATION: Workspace = {
   installationId: 67890,
 }
 const REMOVED_ID = '323e4567-e89b-12d3-a456-426614174002'
+const STORAGE_KEY = 'dmc_current_workspace'
 
 let client: QueryClient
 
 function wrapper(props: { children: ReactNode }) {
   return <QueryClientProvider client={client}>{props.children}</QueryClientProvider>
+}
+
+function saveChoice(id: string): void {
+  localStorage.setItem(STORAGE_KEY, id)
+  useWorkspaceStore.setState({ selectedId: id })
 }
 
 function seedMe(workspaces: Workspace[]): void {
@@ -86,18 +92,68 @@ describe('useCurrentWorkspace', () => {
     expect(result.current.current).toEqual(PERSONAL)
   })
 
-  it('keeps the saved id when the workspace is gone, and uses it when it comes back', async () => {
-    localStorage.setItem('dmc_current_workspace', ORGANIZATION.id)
-    useWorkspaceStore.setState({ selectedId: ORGANIZATION.id })
+  it('saves the first available in place of a workspace that is gone', () => {
+    saveChoice(ORGANIZATION.id)
+    seedMe([PERSONAL])
+    renderHook(() => useCurrentWorkspace(false), { wrapper })
+    expect(useWorkspaceStore.getState().selectedId).toBe(PERSONAL.id)
+    expect(localStorage.getItem(STORAGE_KEY)).toBe(PERSONAL.id)
+  })
+
+  it('stays on the first available when the workspace that was gone comes back', async () => {
+    saveChoice(ORGANIZATION.id)
     seedMe([PERSONAL])
     const { result } = renderHook(() => useCurrentWorkspace(false), { wrapper })
-    expect(result.current.current).toEqual(PERSONAL)
-    expect(localStorage.getItem('dmc_current_workspace')).toBe(ORGANIZATION.id)
 
     seedMe([PERSONAL, ORGANIZATION])
     await waitFor(() => {
-      expect(result.current.current).toEqual(ORGANIZATION)
+      expect(result.current.workspaces).toEqual([PERSONAL, ORGANIZATION])
     })
+    expect(result.current.current).toEqual(PERSONAL)
+    expect(localStorage.getItem(STORAGE_KEY)).toBe(PERSONAL.id)
+  })
+
+  it('keeps the choice while the answer has not come', () => {
+    saveChoice(ORGANIZATION.id)
+    renderHook(() => useCurrentWorkspace(false), { wrapper })
+    expect(useWorkspaceStore.getState().selectedId).toBe(ORGANIZATION.id)
+    expect(localStorage.getItem(STORAGE_KEY)).toBe(ORGANIZATION.id)
+  })
+
+  it('keeps the choice when the request failed, whatever an older answer says', () => {
+    saveChoice(ORGANIZATION.id)
+    seedMe([PERSONAL])
+    client
+      .getQueryCache()
+      .find({ queryKey: AUTH_ME_QUERY_KEY })
+      ?.setState({ status: 'error', error: new Error('request failed') })
+    const { result } = renderHook(() => useCurrentWorkspace(false), { wrapper })
+    expect(result.current.current).toEqual(PERSONAL)
+    expect(useWorkspaceStore.getState().selectedId).toBe(ORGANIZATION.id)
+    expect(localStorage.getItem(STORAGE_KEY)).toBe(ORGANIZATION.id)
+  })
+
+  it('keeps the choice when no workspace is available to replace it', () => {
+    saveChoice(ORGANIZATION.id)
+    seedMe([])
+    renderHook(() => useCurrentWorkspace(false), { wrapper })
+    expect(useWorkspaceStore.getState().selectedId).toBe(ORGANIZATION.id)
+    expect(localStorage.getItem(STORAGE_KEY)).toBe(ORGANIZATION.id)
+  })
+
+  it('leaves the saved choice alone while its workspace is available', () => {
+    saveChoice(ORGANIZATION.id)
+    seedMe([PERSONAL, ORGANIZATION])
+    renderHook(() => useCurrentWorkspace(false), { wrapper })
+    expect(useWorkspaceStore.getState().selectedId).toBe(ORGANIZATION.id)
+    expect(localStorage.getItem(STORAGE_KEY)).toBe(ORGANIZATION.id)
+  })
+
+  it('saves nothing until the user picks a workspace', () => {
+    seedMe([PERSONAL, ORGANIZATION])
+    renderHook(() => useCurrentWorkspace(false), { wrapper })
+    expect(useWorkspaceStore.getState().selectedId).toBeNull()
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
   })
 
   it('has no current workspace while the user is unknown', () => {
