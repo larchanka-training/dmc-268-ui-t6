@@ -152,6 +152,13 @@ they appear in **Findings outside the diff** and obey the file, severity and sea
 
 Or the findings could not be tied to changed lines; then they are in the review body.
 
+### Checked files does not list the files
+
+If the section says `(список не показывается: имена файлов в этом ревью скрыты)`, the list is
+hidden on purpose. A changed file matches `review-ignore` in your [rules file](/rules-file), and
+its name stays out of the review, or Reviewer has no reliable record of what the run covered.
+**Done well** still gives the number of analyzed files.
+
 ### My rules change did nothing
 
 Rules are read from the base commit, so merge the change first. Rules in plain words guide the
