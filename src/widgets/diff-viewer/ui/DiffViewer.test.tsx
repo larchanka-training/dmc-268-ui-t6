@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { fromPatch } from '../../../entities/diff'
 import type { ReviewComment } from '../../../entities/review'
-import { SAMPLE_PATCH_A } from '../../../shared/fixtures/sample.patch'
+import { SAMPLE_PATCH_A, SAMPLE_PATCH_NO_CHUNKS } from '../../../shared/fixtures/sample.patch'
 import { useDiffViewerStore } from '../model/store'
 import { DiffViewer } from './DiffViewer'
 
@@ -323,6 +323,41 @@ describe('DiffViewer', () => {
     render(<DiffViewer file={{ ...FILE, chunks: [] }} comments={[]} />)
     expect(screen.getByText('Бинарный файл или пустой дифф')).toBeTruthy()
     expect(screen.getByText(FILE.filename)).toBeTruthy()
+  })
+
+  it('shows the name and the note in the head of a file with a patch but no chunks', () => {
+    const { container } = render(
+      <DiffViewer file={fromPatch(SAMPLE_PATCH_NO_CHUNKS)} comments={[]} />,
+    )
+    const head = container.querySelector<HTMLElement>('.diff-file-head')
+    if (!head) {
+      throw new Error('no file head')
+    }
+    expect(within(head).getByText('scripts/run.sh')).toBeTruthy()
+    expect(within(head).getByText('Бинарный файл или пустой дифф')).toBeTruthy()
+  })
+
+  it.each([
+    [
+      'a patch but no chunks',
+      fromPatch(SAMPLE_PATCH_NO_CHUNKS),
+      'scripts/run.sh',
+      'Бинарный файл или пустой дифф',
+    ],
+    ['no patch', { ...FILE, chunks: [], hasPatch: false }, FILE.filename, 'Без диффа'],
+  ])(
+    'groups the name and the note of a file with %s, so the note can wrap',
+    (_, file, name, note) => {
+      render(<DiffViewer file={file} comments={[]} />)
+      const group = screen.getByText(name).closest('.diff-file-head-text')
+      expect(group?.contains(screen.getByText(note))).toBe(true)
+    },
+  )
+
+  it('keeps the name of a file with a diff out of the wrapping group', () => {
+    const { container } = render(<DiffViewer file={FILE} comments={[]} />)
+    expect(screen.getByText(FILE.filename).closest('.diff-file-head')).toBeTruthy()
+    expect(container.querySelector('.diff-file-head-text')).toBeNull()
   })
 
   it('renders a "no diff" placeholder for a summary-only file (hasPatch: false)', () => {

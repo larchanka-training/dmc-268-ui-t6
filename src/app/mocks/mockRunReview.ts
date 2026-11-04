@@ -3,6 +3,7 @@ import type { FindingView } from '../../entities/review'
 import type { RunDetail, RunSession, Verdict } from '../../entities/run'
 import { DEMO_RUN_ID } from '../../shared/config/demoRun'
 import { HIGHLIGHT_PATCHES } from '../../shared/fixtures/highlight.patch'
+import { SAMPLE_PATCH_NO_CHUNKS } from '../../shared/fixtures/sample.patch'
 
 export const REVIEW_DEMO_RUN_ID = DEMO_RUN_ID
 export const REVIEW_SUMMARY_ONLY_RUN_ID = '11111111-1111-4111-8111-000000000008'
@@ -276,6 +277,7 @@ export function mockRawDiffForRun(
     return [
       ...defaultDiff,
       ...HIGHLIGHT_PATCHES.map(({ filename, patch }) => ({ filename, patch })),
+      SAMPLE_PATCH_NO_CHUNKS,
       { filename: 'package.json', patch: null },
     ]
   }

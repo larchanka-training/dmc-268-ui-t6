@@ -153,7 +153,10 @@ describe.each(MODES)('diffThemeVars (%s Flat Console theme)', (mode) => {
     expect(vars['--diff-gutter-insert-background-color']).toBe(token.colorSuccessBgHover)
     expect(vars['--diff-gutter-delete-background-color']).toBe(token.colorErrorBgFilledHover)
     expect(vars['--diff-text-color']).toBe(token.colorText)
-    expect(vars['--diff-omit-gutter-line-color']).toBe(token.colorError)
+  })
+
+  it('gives the omit line no colour: the empty half of Split has no line (FA §6)', () => {
+    expect(vars).not.toHaveProperty('--diff-omit-gutter-line-color')
   })
 
   it('paints the line backgrounds distinctly from the container', () => {
@@ -323,6 +326,13 @@ describe('diff-theme.css', () => {
     const referenced = [...new Set(rules.flatMap(({ declarations }) => varsOfRule(declarations)))]
     expect(referenced.filter((name) => !emitted.includes(name))).toEqual([])
     expect(emitted.filter((name) => !referenced.includes(name))).toEqual([])
+  })
+})
+
+describe('diff-layout.css', () => {
+  it('removes the omit line of react-diff-view (jsdom loads no CSS, so only the source shows it)', () => {
+    const css = readFileSync(new URL('../ui/diff-layout.css', import.meta.url), 'utf8')
+    expect(css).toMatch(/^\.diff-theme \.diff-gutter-omit::before \{\n {2}content: none;\n\}$/m)
   })
 })
 

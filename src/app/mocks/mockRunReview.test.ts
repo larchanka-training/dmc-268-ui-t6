@@ -10,7 +10,7 @@ import {
 } from '../../entities/diff'
 import type { FileDiff, RawFileDiff } from '../../entities/diff'
 import { RunDetailSchema } from '../../entities/run'
-import { SAMPLE_PATCHES } from '../../shared/fixtures/sample.patch'
+import { SAMPLE_PATCHES, SAMPLE_PATCH_NO_CHUNKS } from '../../shared/fixtures/sample.patch'
 
 import {
   REVIEW_ATTENTION_RUN_ID,
@@ -125,9 +125,12 @@ function tokenClassesOf(filename: string): Set<string> {
 
 /** Demo-only files: real-code patches that are not part of the default diff. */
 function highlightFilenames(): string[] {
-  const defaults = new Set(DEFAULT_DIFF.map((raw) => raw.filename))
+  const others = new Set([
+    ...DEFAULT_DIFF.map((raw) => raw.filename),
+    SAMPLE_PATCH_NO_CHUNKS.filename,
+  ])
   return demoDiff()
-    .filter((raw) => raw.patch !== null && !defaults.has(raw.filename))
+    .filter((raw) => raw.patch !== null && !others.has(raw.filename))
     .map((raw) => raw.filename)
 }
 
@@ -153,6 +156,16 @@ describe('mockRawDiffForRun demo highlight fixtures', () => {
     const diff = demoDiff()
     expect(diff.slice(0, DEFAULT_DIFF.length)).toEqual(DEFAULT_DIFF)
     expect(diff[diff.length - 1]).toEqual({ filename: 'package.json', patch: null })
+  })
+
+  it('has a file with a patch but no chunks just before package.json in the demo diff', () => {
+    const diff = demoDiff()
+    expect(diff[diff.length - 2]).toEqual(SAMPLE_PATCH_NO_CHUNKS)
+    expect(fromPatch(SAMPLE_PATCH_NO_CHUNKS)).toEqual({
+      filename: 'scripts/run.sh',
+      chunks: [],
+      hasPatch: true,
+    })
   })
 
   it('adds exactly a .ts and a .py file with real patches to the demo diff', () => {

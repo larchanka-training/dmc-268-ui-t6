@@ -45,6 +45,12 @@ export const SAMPLE_PATCH_B: SamplePatch = {
 
 export const SAMPLE_PATCHES: SamplePatch[] = [SAMPLE_PATCH_A, SAMPLE_PATCH_B]
 
+// A mode-only change: a real patch with no hunks, so the file has a patch but no chunks.
+export const SAMPLE_PATCH_NO_CHUNKS: SamplePatch = {
+  filename: 'scripts/run.sh',
+  patch: 'diff --git a/scripts/run.sh b/scripts/run.sh\nold mode 100644\nnew mode 100755\n',
+}
+
 // 13 "new-side" lines of src/a.ts after applying SAMPLE_PATCH_A (used by T4 for the
 // load-more context slice) — the brief's own count comment ("12") undercounts by one;
 // this list is authoritative at 13 entries.

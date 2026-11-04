@@ -53,7 +53,6 @@ export function diffThemeVars(token: GlobalToken): DiffThemeVars {
     '--diff-code-delete-edit-text-color': text,
     '--diff-code-selected-background-color': token.colorWarningBg,
     '--diff-code-selected-text-color': text,
-    '--diff-omit-gutter-line-color': token.colorError,
     ...syntaxPalette(token),
   }
 }

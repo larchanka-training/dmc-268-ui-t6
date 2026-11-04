@@ -1958,7 +1958,11 @@ flowchart LR
 | `colorWarningBg`          | `--diff-code-selected-background-color`                                             | `.diff-code-selected` (приложение `selectedChanges` не передаёт — задано для полноты) |
 | `colorWarningBgHover`     | `--diff-gutter-selected-background-color`                                           | `.diff-gutter-selected` (так же)                                                      |
 | `colorPrimaryBgHover`     | `--diff-selection-background-color`                                                 | выделение мышью (`.diff::selection`)                                                  |
-| `colorError`              | `--diff-omit-gutter-line-color`                                                     | линия пропуска (`.diff-gutter-omit:before`)                                           |
+| — (был `colorError`)      | `--diff-omit-gutter-line-color` не задаётся                                         | линии нет, как в макете: `.diff-gutter-omit::before` снят в `diff-layout.css`         |
+
+Линию пропуска `react-diff-view` (2px на отступе 4,6ch) убрали: в макете пустая половина Split пустая,
+а эта линия стояла в колонке номеров и у нового файла читалась как удаление. Режим `monotonous` не
+подходит: он меняет раскладку Split целиком.
 
 Палитра подсветки — восемь слотов, классы refractor сгруппированы по слотам; каждый класс стоит
 ровно в одном правиле `diff-theme.css`, порядок правил цвет не решает:
@@ -2018,7 +2022,8 @@ React, без `innerHTML`.
 фон контейнера) в обеих темах: текст на каждой поверхности диффа (контейнер, строки, гаттеры,
 `-edit`, выделение) ≥ 4,5:1, цвет каждого слота на фоне контейнера и строк добавления / удаления
 ≥ 3:1, ни один слот не равен цвету текста; литеральные роли токенов (добавление — `colorSuccessBg*`,
-удаление — `colorErrorBg*`, текст — `colorText`, линия пропуска — `colorError`); набор из восьми
+удаление — `colorErrorBg*`, текст — `colorText`); у линии пропуска цвета нет, а правило, снимающее
+её, сверяется по исходнику `diff-layout.css`; набор из восьми
 слотов `--diff-token-*` задан в тесте литералом, и с ним сверяются и маппер, и CSS; согласованность
 `diff-theme.css` с `diffThemeVars` (нет цветовых литералов, у каждого класса ровно одно правило, на
 каждую переменную палитры есть ссылка и наоборот, пары `.token.keyword` / `string` / `comment` /
