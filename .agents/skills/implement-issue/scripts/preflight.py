@@ -3,7 +3,7 @@
 
 The pre-start check of the implement-issue skill. It collects what the skill needs
 before any branch is cut and states it as facts plus a verdict: the issue's state,
-its native blockers, its parts («Ч.N» / «Part N» / «Teil N») with the pull requests that
+its native blockers, its parts («Ч.N» / «Часть N» / «Part N» / «Teil N») with the pull requests that
 reference them, the Kickoff, the board Status, and the part a run should take — or that
 the work is done and acceptance is next.
 
@@ -20,22 +20,25 @@ trailing newline), schema 1:
     issue     {repo, number, title, url, state, assignees, board_status, sub_issues}
               board_status: the Status of the issue on board 12 of
               larchanka-training, null when it is not on that board.
-              sub_issues: {total, open}; an issue with any and no parts of its own is an epic.
+              sub_issues: {total, open}; for the epic rule see the decisions below.
     blockers  [{ref, title, state}] — the native `blockedBy` links, any repo,
               sorted by ref. Only state OPEN blocks.
     parts     [{n, label, scope, boundary, done_when, acceptance_criteria, prs,
               status}] — top-level bullets under `## Scope` that start with
-              `Ч.N` / `Part N` / `Teil N`, an optional `(label)`, then `:`.
+              `Ч.N` / `Часть N` / `Part N` / `Teil N`, an optional `(label)`, then
+              `:` or a long dash (`—`, `–`) with whitespace on both sides and no digit after.
               Bullets that repeat a number are one part (scope lines joined by a
               newline). The nested `Граница PR:` / `PR boundary:` / `PR-Grenze:`
               and `Готово, когда:` / `Done when:` / `Fertig, wenn:` bullets give
               boundary and done_when (null when absent). acceptance_criteria: the
-              items under `## Acceptance Criteria` prefixed `Ч.N:` / `Part N:` /
-              `Teil N:`, the prefix removed.
+              items under `## Acceptance Criteria` prefixed the same way, or in bold
+              (`**Ч.N.** x`, `**Ч.N:** x`, `**Ч.N**: x`, `**Ч.N, state.** x`), the prefix
+              removed and a bold qualifier kept.
               prs: [{ref, url, title, state}] of the pull requests that name
               the part. status: done (a MERGED pull request names it), else
               open_pr (an OPEN one does), else todo; CLOSED ones never count.
-    common_acceptance_criteria  the criteria without a part prefix.
+    common_acceptance_criteria  the criteria without a part prefix, and those a prefix cannot tie
+              to one part (`Ч.1, Ч.2: x`, `**Ч.1, Ч.2.** x`, `Ч.1. x`).
     task_prs  the pull requests with `Refs` when the issue has no parts, else [].
     selected  {part, reason} or null. part is null for the whole task; reason is
               first-todo | explicit | whole-task.
@@ -84,14 +87,15 @@ comments never count. A quoted line never counts as a `Refs` line (it does not s
 with `Refs`), but quotes are not skipped for the first line of `## What`: a pull
 request that opens with a quote is read from the quote.
 
-Decisions, in this order: the issue is CLOSED -> stop; it has sub-issues and no parts of
-its own (an epic) -> stop; any OPEN blocker -> stop;
-parts not numbered 1..k -> stop; `--part K` must exist (exit 2) and is taken
-as is; no parsed part but a prefixed criterion (`Ч.N:` / `Part N:` / `Teil N:`) under
-`## Acceptance Criteria` -> stop (the Scope parts are written in a way this script cannot
-read); no `--part`: an OPEN pull request with `Refs` that names no part of the
-issue stops (whichever part it belongs to is not known: "say which part it covers,
-or pass --part"), else the first part that is not done — open_pr stops, todo is
+Decisions, in this order: the issue is CLOSED -> stop; it has sub-issues, no parts of
+its own and says it is an epic (the word `Эпик` / `Epic` in its title, or a Scope bullet that
+starts with an issue) -> stop; sub-issues without that are a warning, and the issue is read as
+one task; any OPEN blocker -> stop; parts not numbered 1..k -> stop; not on board 12 -> stop;
+`--part K` must exist (exit 2) and is taken as is; no parsed part but a criterion under
+`## Acceptance Criteria` that starts with a part number in any form -> stop (the Scope parts are
+written in a way this script cannot read); no `--part`: an OPEN pull request with `Refs` that
+names no part of the issue stops (whichever part it belongs to is not known: "say which part it
+covers, or pass --part"), else the first part that is not done — open_pr stops, todo is
 taken; every part done and none with an OPEN pull request -> accept (acceptance is
 next), unless the card is not In Progress, On Review or AC Check (the work was never
 started here) or the issue is held back at acceptance (see below) -> stop; no parts: the
