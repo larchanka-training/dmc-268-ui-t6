@@ -129,8 +129,10 @@ The report of step 5 is a whole run. Offer to make it a draft: a pending review 
 the reviewer sees, one thread per finding, the summary and a proposed verdict in its body. No answer
 to the offer: end with the report. Details: `references/draft.md`.
 
-1. Save the diff of step 2 (`git -c core.quotepath=off diff …`) as `docs/plans/pr-<number>.diff`,
-   and the report as `docs/plans/pr-<number>-findings.json` (`references/draft.md`). Both git-ignored.
+1. Save the diff of step 2 as `docs/plans/pr-<number>.diff`, with the flags that keep it GitHub's
+   whatever the local git config says (`git -c core.quotepath=off diff --no-color --no-ext-diff
+--unified=3 --src-prefix=a/ --dst-prefix=b/ …`), and the report as
+   `docs/plans/pr-<number>-findings.json` (`references/draft.md`). Both git-ignored.
 2. Each finding with `scope: out` needs the reviewer's decision: a follow-up (run the `create-issue`
    skill, write the ref) or «принято» / «отклонено» with the reason. Never decide for them; the
    script stops while one has none.
