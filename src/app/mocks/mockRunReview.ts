@@ -212,10 +212,26 @@ export function buildMockRunDetail(session: RunSession): RunDetail {
   if (session.id === REVIEW_SUMMARY_ONLY_RUN_ID) {
     return {
       ...session,
-      findings: [],
+      findings: [
+        {
+          id: '33333333-3333-4333-8333-000000000009',
+          file: 'src/a.ts',
+          oldLine: null,
+          newLine: 2,
+          endLine: null,
+          side: 'RIGHT',
+          severity: 'critical',
+          category: 'security',
+          title: 'Critical: patched summary finding',
+          body: 'The patched file contains an unsafe pattern.',
+          suggestion: null,
+          confidence: 0.9,
+          ruleName: 'unsafe-pattern',
+        },
+      ],
       summary: null,
       verdict: null,
-      severityCounts: { ...NO_SEVERITY_COUNTS },
+      severityCounts: { critical: 1, high: 0, medium: 0, low: 0, info: 0 },
       budget: null,
     }
   }

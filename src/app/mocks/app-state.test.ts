@@ -165,12 +165,17 @@ describe('mockSummaryOnlyRun', () => {
 })
 
 describe('mockSummaryOnlyDiff', () => {
-  it('validates through RawFileDiffSchema and maps to files with hasPatch: false', () => {
+  it('validates through RawFileDiffSchema and includes a patched file with chunks', () => {
     const result = z.array(RawFileDiffSchema).safeParse(mockSummaryOnlyDiff)
     expect(result.success).toBe(true)
-    mockSummaryOnlyDiff.forEach((raw) => {
-      expect(fromPatch(raw).hasPatch).toBe(false)
-    })
+    const files = mockSummaryOnlyDiff.map(fromPatch)
+    expect(files.map((file) => [file.filename, file.hasPatch])).toEqual([
+      ['src/big-one.ts', false],
+      ['src/big-two.ts', false],
+      ['src/big-three.ts', false],
+      ['src/a.ts', true],
+    ])
+    expect(files.find((file) => file.filename === 'src/a.ts')?.chunks.length).toBeGreaterThan(0)
   })
 })
 

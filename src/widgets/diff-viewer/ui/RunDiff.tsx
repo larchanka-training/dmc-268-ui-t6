@@ -127,7 +127,9 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
       (findingsPending || !contentFilter || filesWithHits.has(file.filename)),
   )
 
-  const outsideFindings = findingsOutsideVisibleDiff(files, shownFindings)
+  const outsideFindings = summaryOnly
+    ? shownFindings
+    : findingsOutsideVisibleDiff(files, shownFindings)
   // The highlight budget is the whole run's, never the visible files'.
   const diffTotalLines = highlightBudgetLines(budgetFiles ?? files)
 

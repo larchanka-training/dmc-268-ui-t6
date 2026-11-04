@@ -1388,11 +1388,11 @@ WorkspaceBudget = { name: string, dailyBudgetUsd: number>=0, spentTodayUsd: numb
   `averageDurationSeconds` — секунды. `name` workspace — строка без минимальной длины.
 
 Summary-only прогон (дифф больше 3 000 строк, Р-15 в [SD §1][sd-1], контракт — [SD §12][sd-12],
-решение 10 техлида [от 2026-09-24][tl-2026-09-24-10]): снимок диффа хранит только список файлов,
-поэтому `GET /api/runs/{id}/diff` отдаёт `[{ filename, patch: null }]`, а `RunSession` приходит с
-`summaryOnly: true`. Отсюда `RawFileDiff.patch` — `string | null` (отсутствие поля по-прежнему
-отклоняется), `RunSession.summaryOnly` — обязательный `boolean`, как `cancelRequested`. Связь «`summaryOnly`
-⇔ все `patch: null`» схемы не проверяют: это два разных ответа API, её держит UI (§6).
+решение 10 техлида [от 2026-09-24][tl-2026-09-24-10]): снимок диффа сохраняет `patch` для UI,
+очищая только `review_patch`; `GET /api/runs/{id}/diff` может отдать файлы как со строковым `patch`,
+так и с `patch: null`. `RunSession.summaryOnly: true` — отдельный явный итог режима, его нельзя
+выводить из содержимого `patch`. `RawFileDiff.patch` — обязательный `string | null` (отсутствие поля
+по-прежнему отклоняется), `RunSession.summaryOnly` — обязательный `boolean`, как `cancelRequested`.
 
 Run detail (Ф-16; [PIPELINE_SPEC §11][ps-11], схема `RunDetail` в [`openapi.yaml`][openapi]): Zod —
 `RunDetailSchema` в `entities/run`: все пять полей сверх `RunSession` обязательные, `summary`, `verdict` и
@@ -1747,9 +1747,11 @@ flowchart LR
 дифф»: `DiffViewer` проверяет `hasPatch` раньше и показывает «Без диффа».
 
 Summary-only прогон рисует `RunDiff`: при `summaryOnly: true` — `Alert` «Дифф слишком большой»
-(больше 3 000 строк, построчного ревью нет) и список имён файлов, без `DiffViewer` и хунков; при
+(больше 3 000 строк, построчный дифф не отображается) и список имён файлов, без `DiffViewer` и хунков; при
 `false` — `DiffViewer` на каждый файл (имя файла он выводит, находки по `finding.file` отбирает сам;
 комментарии ревью `RunDiff` заранее сливает с находками через `mergeFindings`, `lib/mergeFindings.ts`).
+В summary-only все `run.findings` показываются по одному разу в общем блоке «Замечания вне диффа»,
+в том числе для файлов с `patch` и чанками; комментарии `/comments` в эту ветку не добавляются.
 В обычном прогоне сливаются все комментарии: если файла нет в `/diff`, `hasPatch: false` или
 чанки пусты, карточка попадает в общий блок «Замечания вне диффа» ровно один раз (#114).
 У файлов с чанками сохраняются инлайн-карточки и отдельный блок вне строк конкретного файла.
@@ -1911,7 +1913,9 @@ Enter в поле поиска страницу не перезагружает.
   отсутствующим в `/diff` файлам, файлам без патча или без чанков входят в M и общий блок
   «Замечания вне диффа» (#114). Имя файла, известное только из комментария, входит в варианты
   фильтра файлов; счётчик варианта берётся из M до применения любых фильтров;
-- summary-only прогон: только `run.findings` — эта ветка комментариев не рисует.
+- summary-only прогон: только `run.findings` — все они входят в общий блок «Замечания вне диффа»
+  независимо от `patch` и чанков, а комментарии `/comments` эта ветка не рисует. M, счётчик
+  показанных находок и числа у вариантов файлов берутся из того же набора карточек.
 
 Страница определяет `findingsPending` через `isActive(run.status)` (`queued`, `running`,
 `publishing`) и передаёт его в `RunDiff` и панель. Это состояние отдельно от ожидания `/comments`;
@@ -2380,7 +2384,8 @@ checkpoint или ошибка до входа в `traced_step` могут ос�
 - `mockRunSessions` — 7 сессий, по одной на каждый статус (включая «зависший» `running`);
 - `mockFileDiffs` — 2 диффа, полученных прогоном фикстур-патчей через `fromPatch`;
 - `mockSummaryOnlyRun` + `mockSummaryOnlyDiff` — summary-only прогон (`summaryOnly: true`) и его
-  провод `/diff`: 3 файла с `patch: null`; в `mockRunSessions` не входит (там по одному прогону на статус);
+  провод `/diff`: 3 файла с `patch: null` и `src/a.ts` с патчем; `buildMockRunDetail` добавляет
+  к нему одну critical-находку. В `mockRunSessions` прогон не входит (там по одному на статус);
 - `mockReviewComments` — 3 комментария (два — с `ruleName`, один — без);
 - `mockRunActions` — 34 действия в Duo-подобной последовательности (`makeDuoActions`,
   `src/entities/run/lib/duoActions.fixture.ts`: `get_pull_request`, `get_diff`, 19× `get_tree`,

@@ -1032,6 +1032,58 @@ describe('RunDiff filters: summary-only run', () => {
     expect(screen.queryByText('Comment on a.ts')).toBeNull()
   })
 
+  it('shows a patched-file finding once outside the summary-only diff and filters it', () => {
+    const patchedFinding = makeFinding('000000000016', {
+      severity: 'critical',
+      title: 'Patched SQL injection',
+      body: 'Unsafe query in patched file',
+    })
+    const patchedFile = FILES.slice(0, 1)
+    expect(patchedFile[0]?.hasPatch).toBe(true)
+    expect(patchedFile[0]?.chunks.length).toBeGreaterThan(0)
+
+    const summaryWithPatch = (filters: FindingFilters) => (
+      <RunDiff
+        comments={[makeComment('000000000017', { title: 'Hidden patch comment' })]}
+        files={[...SUMMARY_FILES, ...patchedFile]}
+        filters={filters}
+        findings={[sTwo, patchedFinding]}
+        onFiltersChange={vi.fn()}
+        summaryOnly
+      />
+    )
+    const { container, rerender } = render(summaryWithPatch(EMPTY_FINDING_FILTERS))
+
+    expect(screen.getByText(counter(2, 2))).toBeTruthy()
+    expectCards(['Big two info', 'Patched SQL injection'])
+    expect(within(only(outsideBlocks().runLevel)).getAllByTestId('inline-comment')).toHaveLength(2)
+    expect(screen.queryByText('Hidden patch comment')).toBeNull()
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Файлы' }))
+    expect(
+      [...document.querySelectorAll('.ant-select-item-option')].map((option) => option.textContent),
+    ).toEqual(['src/big-one.ts (0)', 'src/big-two.ts (1)', 'src/a.ts (1)'])
+
+    rerender(summaryWithPatch(filtersOf({ files: ['src/a.ts'] })))
+    expect(screen.getByText(counter(1, 2))).toBeTruthy()
+    expectCards(['Patched SQL injection'])
+    expect(
+      [...container.querySelectorAll('.ant-list-item')].map((item) => item.textContent),
+    ).toEqual(['src/a.ts'])
+    expect(outsideBlocks().runLevel).toHaveLength(1)
+
+    rerender(summaryWithPatch(filtersOf({ severities: ['critical'] })))
+    expect(screen.getByText(counter(1, 2))).toBeTruthy()
+    expectCards(['Patched SQL injection'])
+    expect(outsideBlocks().runLevel).toHaveLength(1)
+
+    rerender(summaryWithPatch(filtersOf({ query: 'patched sql' })))
+    expect(screen.getByText(counter(1, 2))).toBeTruthy()
+    expectCards(['Patched SQL injection'])
+    expect(
+      within(only(outsideBlocks().runLevel)).getByText('Unsafe query in patched file'),
+    ).toBeTruthy()
+  })
+
   it('a content filter hides the list entries without a hit and the findings that do not pass', () => {
     render(summaryOnlyRunDiff(filtersOf({ severities: ['info'] })))
 
