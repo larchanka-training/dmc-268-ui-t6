@@ -54,12 +54,12 @@ The script stops while a finding out of scope has no decision.
 
 ## Where a finding goes
 
-| The finding                                                | Where                                                    |
-| ---------------------------------------------------------- | -------------------------------------------------------- |
-| A follow-up                                                | A line of the review body                                |
-| Its line is in the diff                                    | A thread on the line (side `RIGHT`)                      |
-| Its file is in the diff, the line is not                   | A thread on the file                                     |
-| Its file is not in the diff (or is only renamed or binary) | A thread on the first file of the diff, naming its place |
+| The finding                              | Where                                                    |
+| ---------------------------------------- | -------------------------------------------------------- |
+| A follow-up                              | A line of the review body                                |
+| Its line is in the diff                  | A thread on the line (side `RIGHT`)                      |
+| Its file is in the diff, the line is not | A thread on the file                                     |
+| Its file is not in the diff              | A thread on the first file of the diff, naming its place |
 
 ## The text
 
@@ -97,7 +97,9 @@ Checked live on 2026-11-04 (`examples/05-*` to `10-*` keep the shapes):
 - A review without `event` is pending: only its author sees it, on GitHub and through the API.
 - One pending review per user per pull request: a second create is refused (`UNPROCESSABLE`). So an
   existing draft is appended to, its own text and comments untouched, and threads go on the commit
-  of the draft: on another commit the script stops. Its body stays too.
+  of the draft: on another commit the script stops. Its text is replaced by the new summary when it
+  is empty or an earlier summary (it starts `Итог на`); text of its own stops the run, so nothing is
+  lost.
 - The web Submit window starts empty: it does not show the text of a pending review (seen by hand on
   ui#130). So the skill hands `summary` over in the chat, to paste there. Not checked, because checking
   publishes: whether a Submit with an empty field keeps or drops the draft's text.
@@ -106,6 +108,10 @@ Checked live on 2026-11-04 (`examples/05-*` to `10-*` keep the shapes):
 - A line outside the diff, or a file not in it, is **no error**: GraphQL answers `thread: null` with
   exit 0. The script checks that and reads the draft back; never trust the call alone.
 - A merged pull request takes a draft too.
+- A commit can land while the script writes: the read-back compares the head and the draft's commit
+  with the commit the review read, and a mismatch is `partial`: run the review again.
+- A deleted, renamed or binary file has no line for a thread, so a finding there is a thread on the
+  file. A pull request that only deletes still takes a draft.
 
 ## Before you confirm
 

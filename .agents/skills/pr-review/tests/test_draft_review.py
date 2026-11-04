@@ -41,6 +41,7 @@ LOG = "PR_REVIEW_WRITE_LOG"
 HEAD = "21b8d99b895956a7c0dcd2ee809b401552aad806"
 OTHER = "4c1d0f6a7e2b9385d6f1a0c47be93d1285fa6e07"
 PATH = "src/widgets/run-inspector/ui/RunControls.tsx"
+RID = "PRR_kwDOUOEIjs8AAAABV8_WIQ"
 NULL_THREAD = {"data": {"addPullRequestReviewThread": {"thread": None}}}
 
 
@@ -148,18 +149,24 @@ def test_the_examples_do_write() -> None:
 def test_a_write_never_carries_a_verdict(path: Path) -> None:
     for line in path.read_text(encoding="utf-8").splitlines():
         write = json.loads(line)
-        assert write["op"] in {"addPullRequestReview", "addPullRequestReviewThread"}
+        assert write["op"] in {
+            "addPullRequestReview",
+            "addPullRequestReviewThread",
+            "updatePullRequestReview",
+        }
         assert "event" not in write
 
 
-@pytest.mark.parametrize("name", ["READ", "CREATE", "THREAD_ON_LINE", "THREAD_ON_FILE"])
+@pytest.mark.parametrize(
+    "name", ["READ", "CREATE", "UPDATE_BODY", "THREAD_ON_LINE", "THREAD_ON_FILE"]
+)
 def test_no_graphql_document_can_set_a_verdict(name: str) -> None:
     assert "event" not in getattr(draft, name)
 
 
 @pytest.mark.parametrize(
     "word",
-    ["submitPullRequestReview", "APPROVE", "updatePullRequestReview", "deletePullRequestReview"],
+    ["submitPullRequestReview", "APPROVE", "deletePullRequestReview"],
 )
 def test_the_script_has_no_way_to_submit_or_change_a_review(word: str) -> None:
     assert word not in SCRIPT.read_text(encoding="utf-8")
@@ -229,13 +236,40 @@ HEADER = "diff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n"
         pytest.param(
             "diff --git a/d.py b/d.py\ndeleted file mode 100644\n--- a/d.py\n+++ /dev/null\n"
             "@@ -1 +0,0 @@\n-a\n",
-            {},
+            {"d.py": set()},
             id="deleted-file",
         ),
         pytest.param(
             "diff --git a/a b.py b/a b.py\n--- a/a b.py\t\n+++ b/a b.py\t\n@@ -1 +1 @@\n-a\n+b\n",
             {"a b.py": {1}},
             id="a-path-with-a-space",
+        ),
+        pytest.param(
+            "diff --git a/s.sh b/s.sh\nold mode 100644\nnew mode 100755\n",
+            {"s.sh": set()},
+            id="only-the-mode",
+        ),
+        pytest.param(
+            "diff --git a/p.png b/p.png\nindex 1..2 100644\n"
+            "Binary files a/p.png and b/p.png differ\n",
+            {"p.png": set()},
+            id="binary",
+        ),
+        pytest.param(
+            "diff --git a/old.py b/new.py\nsimilarity index 100%\n"
+            "rename from old.py\nrename to new.py\n",
+            {"new.py": set()},
+            id="only-renamed",
+        ),
+        pytest.param(
+            "diff --git a/o.py b/c.py\nsimilarity index 100%\ncopy from o.py\ncopy to c.py\n",
+            {"c.py": set()},
+            id="only-copied",
+        ),
+        pytest.param(
+            HEADER + "@@ -0,0 +1,2 @@\n+diff --git a/x b/x\n+rename to y\n",
+            {"a.py": {1, 2}},
+            id="added-text-that-looks-like-a-file-header",
         ),
         pytest.param("", {}, id="empty"),
     ],
@@ -271,8 +305,7 @@ def finding(**changes: Any) -> dict[str, Any]:
 def test_a_finding_on_a_file_outside_the_diff_names_its_place() -> None:
     assert draft.thread_body(finding(path="package.json", line=3), "other") == (
         "**P1 · high · correctness.** Заголовок\n\n"
-        "Замечание к `package.json:3`: в диффе нет строк этого файла, тред на первом файле PR.\n\n"
-        "Тело."
+        "Замечание к `package.json:3`: этого файла нет в диффе, тред на первом файле PR.\n\nТело."
     )
 
 
@@ -405,6 +438,12 @@ def state_with_draft(**changes: Any) -> dict[str, Any]:
             id="a-draft-too-long-to-compare",
         ),
         pytest.param(
+            {"state": state_with_draft(body="Рукописный текст ревьюера")},
+            None,
+            "your draft review has text of its own: submit or delete it on GitHub, then run again",
+            id="a-draft-with-text-of-its-own",
+        ),
+        pytest.param(
             {},
             plan_of(finding(scope="out"), finding(scope="out", line=50)),
             "findings out of scope need a decision (follow-up, accepted or rejected): "
@@ -440,6 +479,55 @@ def test_every_stop_reason_is_reported(tmp_path: Path) -> None:
         "run the review again",
         f"findings out of scope need a decision (follow-up, accepted or rejected): {PATH}:41",
     ]
+
+
+@pytest.mark.parametrize(
+    ("old", "expected"),
+    [
+        pytest.param("", 1, id="an-empty-text-takes-the-summary"),
+        pytest.param("Итог на `21b8d99b`: прежний итог.", 1, id="an-earlier-summary-is-replaced"),
+    ],
+)
+def test_a_rerun_brings_the_summary_of_the_draft_up_to_date(
+    tmp_path: Path, old: str, expected: int
+) -> None:
+    plan = plan_of()
+    plan["ac"] = [{"key": "ui#111 AC1", "status": "not covered"}]
+    summary = (
+        "Итог на `21b8d99b`: critical 0, high 0, medium 0, low 0, info 0. "
+        "AC: covered 0, not covered 1, can't tell 0.\n\n"
+        "Предложенный вердикт: Request changes. Вердикт и Submit — решение ревьюера.\n\n"
+        "Не покрыто (not covered): ui#111 AC1"
+    )
+    readback = state_with_draft(body=summary)
+    target, args = scenario(
+        tmp_path,
+        "07-existing-draft",
+        findings=plan,
+        state=state_with_draft(body=old),
+        readback=readback,
+    )
+    log = tmp_path / "writes.jsonl"
+    r = run(*args, fixtures=target, log=log)
+    assert r.returncode == 0, r.stdout + r.stderr
+    writes = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+    assert [w for w in writes if w["op"] == "updatePullRequestReview"] == [
+        {"body": summary, "op": "updatePullRequestReview", "pullRequestReviewId": RID}
+    ]
+    assert len(writes) == expected
+
+
+def test_a_draft_already_up_to_date_is_not_written_again(tmp_path: Path) -> None:
+    folder = EXAMPLES / "07-existing-draft"
+    expected = json.loads((folder / "expected.json").read_text(encoding="utf-8"))
+    readback = example("07-existing-draft", "readback")
+    target, args = scenario(tmp_path, "07-existing-draft", state=readback, readback=readback)
+    log = tmp_path / "writes.jsonl"
+    doc = doc_of(run(*args, fixtures=target, log=log))
+    assert doc["summary"] == expected["summary"]
+    assert doc["warnings"] == ["the pull request is merged: the draft comments on its final head"]
+    assert [t["status"] for t in doc["threads"]] == ["exists", "exists"]
+    assert not log.exists()
 
 
 def test_a_reviewer_who_is_the_author_is_warned(tmp_path: Path) -> None:
@@ -597,6 +685,106 @@ def test_a_draft_missing_from_the_read_back_is_never_claimed(tmp_path: Path) -> 
     assert doc["reasons"][0] == "the draft is not on GitHub after the write"
 
 
+def moved_read_back(**changes: Any) -> dict[str, Any]:
+    readback = copy.deepcopy(example("06-new-draft", "readback"))
+    draft_node = pull(readback)["reviews"]["nodes"][0]
+    if "head" in changes:
+        pull(readback)["headRefOid"] = changes["head"]
+    if "commit" in changes:
+        draft_node["commit"] = {"oid": changes["commit"]}
+    if "body" in changes:
+        draft_node["body"] = changes["body"]
+    return readback
+
+
+@pytest.mark.parametrize(
+    ("changes", "reason"),
+    [
+        pytest.param(
+            {"head": OTHER},
+            f"the pull request's head moved to {OTHER} during the write: "
+            f"the draft is about {HEAD}; run the review again",
+            id="the-head-moved",
+        ),
+        pytest.param(
+            {"commit": OTHER},
+            f"the draft is on {OTHER}, not on the commit the review read, {HEAD}; "
+            "run the review again",
+            id="the-draft-on-another-commit",
+        ),
+        pytest.param(
+            {"body": "Другой текст"},
+            "the draft does not hold the summary after the write",
+            id="another-text",
+        ),
+    ],
+)
+def test_a_read_back_that_differs_from_the_review_is_partial(
+    tmp_path: Path, changes: dict[str, str], reason: str
+) -> None:
+    target, args = scenario(tmp_path, readback=moved_read_back(**changes))
+    r = run(*args, fixtures=target, log=tmp_path / "writes.jsonl")
+    assert r.returncode == 1
+    doc = doc_of(r)
+    assert doc["verdict"] == "partial"
+    assert doc["reasons"] == [reason]
+
+
+DELETED_ONLY = (
+    "diff --git a/gone.py b/gone.py\ndeleted file mode 100644\n--- a/gone.py\n+++ /dev/null\n"
+    "@@ -1,2 +0,0 @@\n-a\n-b\n"
+)
+
+
+def test_a_pull_request_that_only_deletes_previews_and_applies(tmp_path: Path) -> None:
+    gone = finding(path="gone.py", line=1, severity="low")
+    body = "nit: **P3 · low · correctness.** Заголовок\n\nСтрока 1 не входит в дифф.\n\nТело."
+    readback = copy.deepcopy(example("06-new-draft", "readback"))
+    node = pull(readback)["reviews"]["nodes"][0]
+    node["comments"]["nodes"] = [
+        {"path": "gone.py", "line": None, "subjectType": "FILE", "body": body}
+    ]
+    summary = (
+        "Итог на `21b8d99b`: critical 0, high 0, medium 0, low 1, info 0. "
+        "AC: covered 0, not covered 0, can't tell 0.\n\n"
+        "Предложенный вердикт: Comment. Вердикт и Submit — решение ревьюера."
+    )
+    node["body"] = summary
+    target, args = scenario(tmp_path, findings=plan_of(gone), readback=readback)
+    diff = tmp_path / "deleted.diff"
+    diff.write_text(DELETED_ONLY, encoding="utf-8")
+    args[args.index("--diff") + 1] = str(diff)
+    log = tmp_path / "writes.jsonl"
+    preview = doc_of(run(*args[:-1], fixtures=target, log=log))
+    assert [(t["path"], t["kind"], t["status"]) for t in preview["threads"]] == [
+        ("gone.py", "file", "new")
+    ]
+    assert not log.exists()
+    r = run(*args, fixtures=target, log=log)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert [t["status"] for t in doc_of(r)["threads"]] == ["created"]
+    writes = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+    assert writes[1] == {
+        "body": body,
+        "op": "addPullRequestReviewThread",
+        "path": "gone.py",
+        "pullRequestReviewId": RID,
+        "subjectType": "FILE",
+    }
+
+
+def test_no_finding_on_a_pull_request_that_only_deletes_still_makes_a_draft(
+    tmp_path: Path,
+) -> None:
+    target, args = scenario(tmp_path, "05-preview", findings=plan_of())
+    diff = tmp_path / "deleted.diff"
+    diff.write_text(DELETED_ONLY, encoding="utf-8")
+    args[args.index("--diff") + 1] = str(diff)
+    r = run(*args[:-1], fixtures=target)
+    assert r.returncode == 0, r.stderr
+    assert doc_of(r)["proposed_verdict"] == "Approve"
+
+
 @pytest.mark.parametrize(
     "answer",
     [
@@ -750,7 +938,7 @@ def test_a_diff_that_names_no_file_is_exit_2(tmp_path: Path) -> None:
     plan = tmp_path / "findings.json"
     plan.write_text(json.dumps(plan_of()), encoding="utf-8")
     diff = tmp_path / "empty.diff"
-    diff.write_text("", encoding="utf-8")
+    diff.write_text("\n", encoding="utf-8")
     r = run("ui#130", "--findings", str(plan), "--diff", str(diff))
     assert r.returncode == 2
     assert error_of(r) == f"{diff}: the diff names no file"
@@ -894,6 +1082,11 @@ def recording_gh(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, path: str = PA
     comment = pull(readback)["reviews"]["nodes"][0]["comments"]["nodes"][0]
     comment["path"] = path
     comment["body"] = "**P1 · high · correctness.** Заголовок\n\nТело."
+    pull(readback)["reviews"]["nodes"][0]["body"] = (
+        "Итог на `21b8d99b`: critical 0, high 1, medium 0, low 0, info 0. "
+        "AC: covered 0, not covered 0, can't tell 0.\n\n"
+        "Предложенный вердикт: Request changes. Вердикт и Submit — решение ревьюера."
+    )
     (bin_dir / "readback.json").write_text(json.dumps(readback), encoding="utf-8")
     prepend_path(monkeypatch, bin_dir)
     return bin_dir

@@ -38,6 +38,6 @@
   "verdict": "go",
   "warnings": [
     "the pull request is merged: the draft comments on its final head",
-    "your draft keeps its own text; paste the summary on Submit"
+    "the summary replaces the one your draft holds"
   ]
 }

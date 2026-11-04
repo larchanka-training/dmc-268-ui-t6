@@ -10,10 +10,10 @@
 draft_review.py ui#130 --findings findings.json --diff ../ui130.diff --apply
 ```
 
-The viewer already has a draft with its own text, a handwritten comment and the thread of an earlier run.
+The viewer already has a draft from an earlier run, with another summary and verdict, a handwritten comment and the thread of that run.
 
 ## Expected
 
 - No second `addPullRequestReview`: one pending review per user per pull request.
 - The thread already there is `exists` and not sent again; the new one is `created`.
-- The draft's text and the handwritten comment are not touched; a warning says so.
+- `updatePullRequestReview` replaces the earlier summary, no `event`; the read-back holds the new one. The handwritten comment is not touched.

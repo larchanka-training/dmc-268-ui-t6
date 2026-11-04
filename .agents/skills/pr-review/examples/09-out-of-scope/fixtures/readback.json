@@ -27,7 +27,7 @@
                     "subjectType": "FILE"
                   },
                   {
-                    "body": "nit: **P3 · low · readability.** Лишний скрипт\n\nЗамечание к `package.json:3`: в диффе нет строк этого файла, тред на первом файле PR.\n\nФайл вне этого PR.\n\nВне скоупа — отклонено: не относится к задаче.",
+                    "body": "nit: **P3 · low · readability.** Лишний скрипт\n\nЗамечание к `package.json:3`: этого файла нет в диффе, тред на первом файле PR.\n\nФайл вне этого PR.\n\nВне скоупа — отклонено: не относится к задаче.",
                     "line": null,
                     "path": "docs/FRONTEND_ARCHITECTURE.md",
                     "subjectType": "FILE"

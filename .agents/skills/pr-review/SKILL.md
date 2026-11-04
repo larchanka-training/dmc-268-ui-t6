@@ -188,8 +188,8 @@ Not in CI, by decision (as `create-issue`): run them by hand whenever the skill 
 
 ## Limits
 
-- GitHub only. The skill writes a pending review and its threads, nothing else: no Submit, no
-  verdict, no resolved thread, no change to what a draft already holds.
+- GitHub only. The skill writes a pending review, its threads and its summary, nothing else: no
+  Submit, no verdict, no resolved thread, no change to a comment a draft already holds.
 - A thread sits on one line of the head, the new side of the diff; there are no ranges.
 - The run happens in the clone of the pull request's repo; a pull request of the other repo stops
   at step 2.

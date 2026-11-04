@@ -9,8 +9,8 @@ Usage
 Without `--apply` nothing is written: the output is the preview of what `--apply` would do. With
 it the script checks the same things again, then creates the viewer's pending review and adds the
 threads. A pending review is visible to the viewer alone. The script has no way to submit it or to
-set a verdict: that stays with the reviewer, on GitHub. It never edits or removes what a draft
-already holds.
+set a verdict: that stays with the reviewer, on GitHub. It never edits or removes a comment of a
+draft, and replaces a draft's text only when that is empty or an earlier summary of this script.
 
 Input
 -----
@@ -33,10 +33,11 @@ thread can sit on. `--findings` is one JSON object:
 Where a finding goes
 --------------------
 A follow-up: one line of the review body. Any other finding: a thread on the line when the line
-is in the diff, a thread on the file when only the file is, and when the file is not in the diff
-either, a thread on the first file of the diff that names the place. A thread opens with
-`**P1 · high · correctness.** <title>` (P1 critical and high, P2 medium, P3 low and info) and
-starts with `nit:` when it can stay unfixed: P3, and anything out of scope.
+is in the diff, a thread on the file when only the file is (a deleted, renamed or binary file has
+no line to sit on), and when the file is not in the diff either, a thread on the first file of the
+diff that names the place. A thread opens with `**P1 · high · correctness.** <title>` (P1 critical
+and high, P2 medium, P3 low and info) and starts with `nit:` when it can stay unfixed: P3, and
+anything out of scope.
 
 The proposed verdict is text for the reviewer: Request changes for a critical, high or medium
 finding in scope or a criterion `not covered`; else Comment when there is a thread or a comment in
@@ -65,9 +66,10 @@ stdout carries one JSON document (`sort_keys`, indent 2, no ASCII escaping, one 
     }
 
 `applied` and `review` report the read-back after the writes, never what was sent. `stop` (exit 1,
-no write): the head moved past `head_sha`; the viewer's draft sits on another commit or has over
-100 comments; a finding out of scope has no decision. `partial` (exit 1): the writes ended with a
-thread or the draft missing, or the draft could not be read back (its threads then stay `created`,
+no write): the head moved past `head_sha`; the viewer's draft sits on another commit, has over 100
+comments or has text of its own; a finding out of scope has no decision. `partial` (exit 1): the
+read-back found a thread or the draft missing, another text, or the head or the draft on another
+commit than `head_sha`, or the draft could not be read back (its threads then stay `created`,
 unverified); run again, the threads already there are skipped.
 
 Exit 0 go; 1 stop or partial; 2 usage, bad REF, or a bad findings or diff file; 3 gh / API /
@@ -77,7 +79,8 @@ line `{"error": "..."}`.
 Offline seam
 ------------
 With PR_REVIEW_FIXTURE_DIR set, gh is never called and each request reads `<dir>/<name>.json`, the
-full `{"data": ...}` answer: `state`, `create`, `thread-<k>` (the k-th thread sent), `readback`. Set
+full `{"data": ...}` answer: `state`, `create`, `update-body`, `thread-<k>` (the k-th thread sent),
+`readback`. Set
 but empty is an error. A write is first appended as a JSON line to $PR_REVIEW_WRITE_LOG, which
 `--apply` then requires.
 """
@@ -106,6 +109,8 @@ KINDS = ("follow-up", "accepted", "rejected")
 RECORD = {"accepted": "принято", "rejected": "отклонено"}
 FINDING_KEYS = ("body", "category", "decision", "line", "path", "scope", "severity", "title")
 HUNK = re.compile(r"@@ -\d+(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
+SAME_PATH = re.compile(r"diff --git a/(.+) b/\1")
+SUMMARY_START = "Итог на `"
 ISSUE_REF = re.compile(r"(?:api|ui|[\w.-]+/[\w.-]+)#\d+")
 
 READ = """
@@ -138,6 +143,13 @@ query($owner: String!, $name: String!, $number: Int!) {
 CREATE = """
 mutation($pull: ID!, $commit: GitObjectID!, $body: String!) {
   addPullRequestReview(input: {pullRequestId: $pull, commitOID: $commit, body: $body}) {
+    pullRequestReview { id }
+  }
+}
+"""
+UPDATE_BODY = """
+mutation($review: ID!, $body: String!) {
+  updatePullRequestReview(input: {pullRequestReviewId: $review, body: $body}) {
     pullRequestReview { id }
   }
 }
@@ -226,6 +238,8 @@ def write(name: str, query: str, op: str, variables: dict[str, str | int]) -> di
 
 def logged(op: str, variables: dict[str, str | int]) -> dict[str, str | int]:
     """A write as the input GitHub receives, by the names of its input fields."""
+    if op == "updatePullRequestReview":
+        return {"op": op, "pullRequestReviewId": variables["review"], "body": variables["body"]}
     if op == "addPullRequestReview":
         return {
             "op": op,
@@ -249,7 +263,8 @@ def logged(op: str, variables: dict[str, str | int]) -> dict[str, str | int]:
 
 # ─── pure functions ─────────────────────────────────────────────────────────
 def commentable_lines(diff: str) -> dict[str, set[int]]:
-    """The lines a thread can sit on: the new side of each hunk, per file."""
+    """The lines a thread can sit on, per file: the new side of each hunk. A file with no hunk
+    there (deleted, renamed, binary, only its mode) is in the diff with no line."""
     lines: dict[str, set[int]] = {}
     path: str | None = None
     old_left = new_left = number = 0
@@ -267,6 +282,10 @@ def commentable_lines(diff: str) -> dict[str, set[int]]:
             continue
         if line.startswith("diff --git "):
             path = None
+            if same := SAME_PATH.fullmatch(line):
+                lines.setdefault(same.group(1), set())
+        elif line.startswith(("rename to ", "copy to ")):
+            lines.setdefault(line.split(" to ", 1)[1], set())
         elif line.startswith("+++ "):
             name = line[4:].rstrip("\t")
             path = name[2:] if name.startswith("b/") else None
@@ -302,7 +321,7 @@ def thread_body(finding: dict[str, Any], kind: str) -> str:
     elif kind == "other":
         parts.append(
             f"Замечание к `{finding['path']}:{finding['line']}`: "
-            "в диффе нет строк этого файла, тред на первом файле PR."
+            "этого файла нет в диффе, тред на первом файле PR."
         )
     parts.append(finding["body"])
     if tail := decided(finding):
@@ -345,7 +364,7 @@ def summary_of(
     )
     statuses = ", ".join(f"{name} {sum(r['status'] == name for r in ac)}" for name in STATUSES)
     parts = [
-        f"Итог на `{head_sha[:8]}`: {severities}. AC: {statuses}.",
+        f"{SUMMARY_START}{head_sha[:8]}`: {severities}. AC: {statuses}.",
         f"Предложенный вердикт: {verdict}. Вердикт и Submit — решение ревьюера.",
     ]
     not_covered = [row["key"] for row in ac if row["status"] == "not covered"]
@@ -503,6 +522,11 @@ def stop_reasons(state: dict[str, Any], plan: dict[str, Any]) -> list[str]:
             reasons.append(
                 "your draft review has over 100 comments: finish it on GitHub, then run again"
             )
+        if draft["body"] and not draft["body"].startswith(SUMMARY_START):
+            reasons.append(
+                "your draft review has text of its own: submit or delete it on GitHub, "
+                "then run again"
+            )
     undecided = [
         f"{f['path']}:{f['line']}"
         for f in plan["findings"]
@@ -627,6 +651,14 @@ def create_draft(state: dict[str, Any], summary: str) -> str:
     return review_id
 
 
+def update_summary(doc: dict[str, Any], review_id: str, summary: str) -> None:
+    variables: dict[str, str | int] = {"review": review_id, "body": summary}
+    try:
+        write("update-body", UPDATE_BODY, "updatePullRequestReview", variables)
+    except GhError as exc:
+        doc["warnings"].append(str(exc))  # the read-back reports the text the draft holds
+
+
 def collect(
     repo: str, number: int, plan: dict[str, Any], lines: dict[str, set[int]], apply: bool
 ) -> dict[str, Any]:
@@ -656,13 +688,19 @@ def collect(
     )
     if draft is not None:
         doc["review"] = review_of(draft, True)
-        if draft["body"] != summary:
-            doc["warnings"].append("your draft keeps its own text; paste the summary on Submit")
+        if draft["body"] and draft["body"] != summary:
+            doc["warnings"].append("the summary replaces the one your draft holds")
     if not apply:
         return doc
 
-    add_threads(threads, create_draft(state, summary) if draft is None else draft["id"])
-    read_back(doc, repo, number, draft is not None)
+    if draft is None:
+        review_id = create_draft(state, summary)
+    else:
+        review_id = draft["id"]
+        if draft["body"] != summary:
+            update_summary(doc, review_id, summary)
+    add_threads(threads, review_id)
+    read_back(doc, repo, number, draft is not None, plan["head_sha"])
     return doc
 
 
@@ -670,18 +708,39 @@ def review_of(draft: dict[str, Any], existing: bool) -> dict[str, Any]:
     return {"id": draft["id"], "url": draft["url"], "state": draft["state"], "existing": existing}
 
 
-def read_back(doc: dict[str, Any], repo: str, number: int, existing: bool) -> None:
+def differences(state: dict[str, Any], head_sha: str, summary: str) -> list[str]:
+    """What the read-back shows that is not the review the reviewer confirmed."""
+    reasons = []
+    if state["head_sha"] != head_sha:
+        reasons.append(
+            f"the pull request's head moved to {state['head_sha']} during the write: "
+            f"the draft is about {head_sha}; run the review again"
+        )
+    draft = state["draft"]
+    if draft["commit"]["oid"] != head_sha:
+        reasons.append(
+            f"the draft is on {draft['commit']['oid']}, not on the commit the review read, "
+            f"{head_sha}; run the review again"
+        )
+    if draft["body"] != summary:
+        reasons.append("the draft does not hold the summary after the write")
+    return reasons
+
+
+def read_back(doc: dict[str, Any], repo: str, number: int, existing: bool, head_sha: str) -> None:
     """Report only what GitHub holds now."""
     doc["review"] = None
     reasons: list[str] = []
     present: set[tuple[str, int | None, str]] | None = None
     try:
-        draft = read_state("readback", repo, number)["draft"]
+        state = read_state("readback", repo, number)
+        draft = state["draft"]
         present = threads_in(draft)
         if draft is None or draft["state"] != "PENDING":
             reasons.append("the draft is not on GitHub after the write")
         else:
             doc.update(applied=True, review=review_of(draft, existing))
+            reasons += differences(state, head_sha, doc["summary"])
     except (GhError, KeyError, TypeError, AttributeError) as exc:
         present = None  # nothing is known: the threads stay `created`, unverified
         reasons.append(f"cannot read the draft back: {exc}")
