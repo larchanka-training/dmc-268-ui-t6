@@ -86,6 +86,18 @@ const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
     )
   }
 
+  // Without network a cold query is paused, not missing; it continues by itself on reconnect.
+  if (runQuery.isPaused && runQuery.data === undefined) {
+    return (
+      <Alert
+        data-testid="run-detail-run-offline"
+        showIcon
+        title={t('runs.detail.offline')}
+        type="warning"
+      />
+    )
+  }
+
   if (!runQuery.data) {
     return <Empty description={t('runs.detail.notFound')} data-testid="run-detail-run-error" />
   }

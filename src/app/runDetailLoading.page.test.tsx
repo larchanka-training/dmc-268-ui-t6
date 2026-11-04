@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { lazy, Suspense, type FC } from 'react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
@@ -31,6 +31,7 @@ const run = { ...buildMockRunDetail(session), findings: [] }
 let response: ReturnType<typeof deferred<typeof run>>
 const clients: QueryClient[] = []
 const routers: ReturnType<typeof createMemoryRouter>[] = []
+const originalOnline = onlineManager.isOnline()
 
 beforeEach(() => {
   vi.useFakeTimers()
@@ -43,6 +44,7 @@ afterEach(() => {
   cleanup()
   for (const router of routers.splice(0)) router.dispose()
   for (const client of clients.splice(0)) client.clear()
+  onlineManager.setOnline(originalOnline)
   setMockTransport(null)
   vi.useRealTimers()
 })
@@ -118,6 +120,13 @@ describe('RunDetailPage initial page wait', () => {
     expect(screen.getAllByTestId('page-loader')).toHaveLength(1)
     await advance(16)
     expect(screen.getByTestId('page-loader').dataset.state).toBe('shown')
+  })
+
+  it('never starts the page ring for a run query paused offline', async () => {
+    onlineManager.setOnline(false)
+    renderPage()
+    await waitWithoutPageRing(600)
+    expect(screen.getByTestId('run-detail-run-offline')).toBeTruthy()
   })
 
   it('never flashes the page ring when the run arrives before 300 ms', async () => {

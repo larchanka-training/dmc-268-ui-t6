@@ -24,6 +24,7 @@ export const runs = {
     title: 'Run for PR #{{number}}',
     breadcrumb: 'PR #{{number}}',
     notFound: 'Run not found',
+    offline: 'No network connection. The run will open once you are back online',
     noId: 'No run id given',
     diffAndFindings: 'Diff and findings',
     contextLoadFailed: 'Could not load the rest of the file context',
