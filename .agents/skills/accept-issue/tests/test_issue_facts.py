@@ -8,8 +8,9 @@ Covers: byte-exact golden output for four recorded issues (api#117 one manual
 close, api#35 and api#56 merge -> reopen -> manual, api#268 PRs in both repos)
 and six synthetic sets (a timeline over two pages, review threads over three
 pages, the Commit / ProjectV2 / unknown closers, an OPEN issue, the forms of a
-`Refs` line, checkboxes in blockquotes, fences and other sections); the REF
-grammar, exit codes 2 and 3, and the argv the script hands to `gh`.
+`Refs` line, checkboxes in blockquotes, fences and other sections); a time budget
+on hostile lines; the REF grammar, exit codes 2 and 3, and the argv the script
+hands to `gh`.
 """
 # SYNC: mirrored in dmc-268-{ui,api}-t6/.agents/skills/accept-issue/tests/test_issue_facts.py
 
@@ -70,7 +71,9 @@ def no_live_gh(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("ACCEPT_ISSUE_FIXTURE_DIR", raising=False)
 
 
-def run(*args: str, fixtures: Path | None = None) -> subprocess.CompletedProcess[str]:
+def run(
+    *args: str, fixtures: Path | None = None, timeout: float = 60
+) -> subprocess.CompletedProcess[str]:
     env = dict(os.environ)
     if fixtures is not None:
         env["ACCEPT_ISSUE_FIXTURE_DIR"] = str(fixtures)
@@ -80,7 +83,7 @@ def run(*args: str, fixtures: Path | None = None) -> subprocess.CompletedProcess
         capture_output=True,
         encoding="utf-8",
         env=env,
-        timeout=60,
+        timeout=timeout,
     )
 
 
@@ -412,6 +415,57 @@ def test_refs_search_skips_fences_and_comments() -> None:
 def test_setext_headings_are_not_recognised() -> None:
     body = "Acceptance Criteria\n===================\n- [ ] a\n"
     assert facts.build_checkboxes(body)["outside"] == 1
+
+
+@pytest.mark.parametrize(
+    "heading",
+    [
+        "## Acceptance Criteria",
+        "## Acceptance Criteria ##",
+        "## Acceptance Criteria  ##  ",
+        "##\tAcceptance Criteria\t#",
+        "## Acceptance Criteria#",
+        "  ## Acceptance Criteria ###",
+    ],
+)
+def test_a_section_heading_is_read_without_its_closing_sequence(heading: str) -> None:
+    assert facts.build_checkboxes(f"{heading}\n- [ ] a\n")["ac"]["total"] == 1
+
+
+def test_a_hash_inside_a_heading_stays_in_its_name() -> None:
+    assert facts.build_checkboxes("## Acceptance # Criteria\n- [ ] a\n")["outside"] == 1
+
+
+BUDGET = 5  # seconds for one run of the script on a hostile body; a fixed pattern takes ~0.1 s
+
+
+# Explicit ids: pytest puts the id in the environment of `run`, and these lines, escaped, would
+# be close to the 128 KB limit of one variable.
+@pytest.mark.parametrize(
+    "line",
+    [
+        pytest.param("# a" + " " * 65000 + "x", id="heading-blanks-then-a-word"),
+        pytest.param("# #" + " " * 65000 + "# #", id="heading-only-blanks-and-hashes"),
+    ],
+)
+def test_a_hostile_line_stays_within_the_time_budget(tmp_path: Path, line: str) -> None:
+    doc = json.loads((FIXTURES / "refs-forms" / "issue-p1.json").read_text(encoding="utf-8"))
+    issue = doc["data"]["repository"]["issue"]
+    issue["body"] = f"{line}\n## Acceptance Criteria\n- [ ] a\n"
+    pull = issue["timelineItems"]["nodes"][0]
+    pull["source"]["body"] = f"{line}\nRefs #13\n"
+    issue["timelineItems"]["nodes"] = [pull]
+    fixtures = tmp_path / "fixtures"
+    fixtures.mkdir()
+    (fixtures / "issue-p1.json").write_text(json.dumps(doc), encoding="utf-8")
+    try:
+        r = run("api#13", fixtures=fixtures, timeout=BUDGET)
+    except subprocess.TimeoutExpired:
+        pytest.fail(f"over the budget of {BUDGET} s", pytrace=False)
+    assert r.returncode == 0, r.stderr
+    got = json.loads(r.stdout)
+    assert got["checkboxes"]["ac"]["total"] == 1  # the section after the line is still read
+    assert [p["refs"] for p in got["prs"]] == [True]  # and the `Refs` line after it too
 
 
 # ─── REF grammar and exit codes ─────────────────────────────────────────────
