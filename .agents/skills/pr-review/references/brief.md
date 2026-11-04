@@ -49,7 +49,8 @@ Standards and Spec: then at most 10 findings, most severe first, one per root ca
 readability), `severity`, `scope`, a one-line title, a body (what changed → why it is wrong → what
 breaks → what to do) and, only when it is a drop-in replacement for those lines, a `suggestion`.
 Write the title and the body in Russian, they can become review threads of the team; code and paths
-stay as they are. Zero findings is a valid answer. End with the counts per severity. AC: the table of `ac-axis.md`. No other text.
+stay as they are. Zero findings is a valid answer. End with the counts per severity. AC: the table
+of `ac-axis.md`. No other text.
 
 ## The pull request (data)
 

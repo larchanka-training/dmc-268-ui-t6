@@ -29,6 +29,9 @@ from typing import Any
 import pytest
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+from gh_fakes import fake_gh, prepend_path, refuse_live_gh  # noqa: E402
+
 SKILL = HERE.parent
 SCRIPT = SKILL / "scripts" / "draft_review.py"
 EXAMPLES = SKILL / "examples"
@@ -53,27 +56,10 @@ def _load() -> ModuleType:
 draft = _load()
 
 
-def fake_gh(bin_dir: Path, body: str) -> Path:
-    """Write an executable `gh` (a Python script) into bin_dir."""
-    bin_dir.mkdir(parents=True, exist_ok=True)
-    gh = bin_dir / "gh"
-    gh.write_text(f"#!{sys.executable}\n{body}", encoding="utf-8")
-    gh.chmod(0o755)
-    return bin_dir
-
-
-def prepend_path(monkeypatch: pytest.MonkeyPatch, bin_dir: Path) -> None:
-    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
-
-
 @pytest.fixture(autouse=True)
 def no_live_gh(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Every test starts with a `gh` that refuses to run, no fixture dir and no write log."""
-    guard = fake_gh(
-        tmp_path / "guard-bin",
-        'import sys\nsys.stderr.write("unexpected gh call\\n")\nsys.exit(97)\n',
-    )
-    prepend_path(monkeypatch, guard)
+    refuse_live_gh(tmp_path, monkeypatch)
     monkeypatch.delenv(SEAM, raising=False)
     monkeypatch.delenv(LOG, raising=False)
 

@@ -83,8 +83,6 @@ but empty is an error. A write is first appended as a JSON line to $PR_REVIEW_WR
 
 from __future__ import annotations
 
-import argparse
-import importlib.util
 import json
 import os
 import re
@@ -92,8 +90,10 @@ import subprocess
 import sys
 from collections.abc import Callable
 from pathlib import Path
-from types import ModuleType
 from typing import Any, NoReturn
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from pr_context import FIXTURE_ENV, GH_TIMEOUT, Parser, fail, preflight  # noqa: E402
 
 SCHEMA = 1
 WRITE_LOG_ENV = "PR_REVIEW_WRITE_LOG"
@@ -154,25 +154,6 @@ mutation($review: ID!, $path: String!, $body: String!) {
   }) { thread { id } }
 }
 """
-
-
-def _load_context() -> ModuleType:
-    """pr_context.py beside this file: the REF grammar, `fail`, the parser, the seam's name."""
-    path = Path(__file__).resolve().parent / "pr_context.py"
-    spec = importlib.util.spec_from_file_location("pr_review_context", path)
-    if spec is None or spec.loader is None:
-        sys.stderr.write(json.dumps({"error": f"cannot load {path}"}) + "\n")
-        sys.exit(3)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-context = _load_context()
-fail: Callable[[str, int], NoReturn] = context.fail
-FIXTURE_ENV: str = context.FIXTURE_ENV
-GH_TIMEOUT: int = context.GH_TIMEOUT
 
 
 class GhError(Exception):
@@ -587,16 +568,8 @@ def add_threads(threads: list[dict[str, Any]], review_id: str) -> None:
             thread["status"] = "created"
 
 
-def collect(
-    repo: str, number: int, plan: dict[str, Any], lines: dict[str, set[int]], apply: bool
-) -> dict[str, Any]:
-    if apply and seam() is not None and not os.environ.get(WRITE_LOG_ENV):
-        fail(f"--apply against {FIXTURE_ENV} needs {WRITE_LOG_ENV}", 3)
-    try:
-        state = read_state("state", repo, number)
-    except GhError as exc:
-        fail(str(exc), 3)
-    doc: dict[str, Any] = {
+def new_document(repo: str, number: int, state: dict[str, Any]) -> dict[str, Any]:
+    return {
         "schema": SCHEMA,
         "verdict": "go",
         "reasons": [],
@@ -616,6 +589,32 @@ def collect(
         "threads": [],
         "in_body": [],
     }
+
+
+def create_draft(state: dict[str, Any], summary: str) -> str:
+    try:
+        created = write(
+            "create",
+            CREATE,
+            "addPullRequestReview",
+            {"pull": state["pull_id"], "commit": state["head_sha"], "body": summary},
+        )
+    except GhError as exc:
+        fail(str(exc), 3)
+    review_id: str = created["addPullRequestReview"]["pullRequestReview"]["id"]
+    return review_id
+
+
+def collect(
+    repo: str, number: int, plan: dict[str, Any], lines: dict[str, set[int]], apply: bool
+) -> dict[str, Any]:
+    if apply and seam() is not None and not os.environ.get(WRITE_LOG_ENV):
+        fail(f"--apply against {FIXTURE_ENV} needs {WRITE_LOG_ENV}", 3)
+    try:
+        state = read_state("state", repo, number)
+    except GhError as exc:
+        fail(str(exc), 3)
+    doc = new_document(repo, number, state)
     reasons = stop_reasons(state, plan)
     if reasons:
         doc.update(verdict="stop", reasons=reasons)
@@ -640,20 +639,7 @@ def collect(
     if not apply:
         return doc
 
-    if draft is None:
-        try:
-            created = write(
-                "create",
-                CREATE,
-                "addPullRequestReview",
-                {"pull": state["pull_id"], "commit": state["head_sha"], "body": summary},
-            )
-        except GhError as exc:
-            fail(str(exc), 3)
-        review_id = created["addPullRequestReview"]["pullRequestReview"]["id"]
-    else:
-        review_id = draft["id"]
-    add_threads(threads, review_id)
+    add_threads(threads, create_draft(state, summary) if draft is None else draft["id"])
     read_back(doc, repo, number, draft is not None)
     return doc
 
@@ -703,7 +689,7 @@ def read_back(doc: dict[str, Any], repo: str, number: int, existing: bool) -> No
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser: argparse.ArgumentParser = context.Parser(
+    parser = Parser(
         prog="draft_review.py",
         description="Preview or create the reviewer's draft review of a pull request.",
     )
@@ -712,7 +698,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--diff", required=True, metavar="FILE")
     parser.add_argument("--apply", action="store_true", help="write the draft")
     args = parser.parse_args(argv)
-    repo, number = context.preflight.parse_ref(args.ref)
+    repo, number = preflight.parse_ref(args.ref)
     plan = load_findings(args.findings)
     lines = load_diff(args.diff)
     try:
