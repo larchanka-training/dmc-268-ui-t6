@@ -33,10 +33,17 @@ fi
 restore_bootstrap() {
   if [[ -f "${COMPOSE_FILE}" && -f "${ENV_FILE}" ]]; then
     if [[ "${NO_PREVIOUS_RELEASE}" == "stop" ]]; then
-      # Stopping is the whole rollback here: a failed down must not report success while the
-      # failed release keeps running.
-      if ! "${COMPOSE[@]}" down --remove-orphans >/dev/null || [[ -n "$("${COMPOSE[@]}" ps -q)" ]]; then
+      # Stopping is the whole rollback here: a failed down, or a ps that cannot tell what is left,
+      # must not report success while the failed release may keep running.
+      local running=""
+      if ! "${COMPOSE[@]}" down --remove-orphans >/dev/null \
+        || ! running="$("${COMPOSE[@]}" ps -q)" || [[ -n "${running}" ]]; then
         echo "failed to stop compose project ${COMPOSE_PROJECT}; the failed release may still run" >&2
+        # .deploy-state stays, it may still name what runs, but marked: neither deploy.sh nor a
+        # manual rollback moves a marked release into .previous.
+        if [[ -f "${STATE_FILE}" ]]; then
+          echo "stop_failed=true" >> "${STATE_FILE}"
+        fi
         exit 1
       fi
     else
@@ -119,7 +126,8 @@ elif [[ -f "${PREVIOUS_FILE}" ]]; then
   IMAGE="$(awk -F= '/^current_image=/{print $2}' "${PREVIOUS_FILE}")"
 else
   # No previous release in either mode: a first release that failed (auto) must not stay in
-  # .deploy-state, or the next deploy.sh would copy it into .previous; rollback.yml (manual)
+  # .deploy-state as a rollback target, or the next deploy.sh would copy it into .previous. It is
+  # removed, or marked if the stop mode cannot stop it (restore_bootstrap); rollback.yml (manual)
   # sends no image only when neither the VM nor the registry has a previous release.
   echo "no previous release; NO_PREVIOUS_RELEASE=${NO_PREVIOUS_RELEASE}" >&2
   restore_bootstrap
@@ -148,7 +156,8 @@ write_compose_env_file "${ENV_FILE}" "${IMAGE}" "${DEPLOY_MODE}" "${EDGE_ALIAS:-
 # Shared root account: drop the GHCR credential after the last pull (compose up, pull_policy: always).
 logout_registry
 
-if [[ "${ROLLBACK_MODE}" == "manual" && -f "${STATE_FILE}" ]]; then
+if [[ "${ROLLBACK_MODE}" == "manual" && -f "${STATE_FILE}" ]] \
+  && ! grep -q '^stop_failed=true$' "${STATE_FILE}"; then
   cp "${STATE_FILE}" "${PREVIOUS_FILE}"
 fi
 
