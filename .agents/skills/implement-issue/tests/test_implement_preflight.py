@@ -187,12 +187,13 @@ def issue_response(
     timeline_next: str | None = None,
     comments_next: str | None = None,
     sub_issues: tuple[int, int] = (0, 0),
+    title: str = "t",
 ) -> dict[str, Any]:
     return {
         "data": {
             "repository": {
                 "issue": {
-                    "title": "t",
+                    "title": title,
                     "url": "https://github.com/x/y/issues/13",
                     "state": state,
                     "body": body,
@@ -2436,6 +2437,14 @@ LIVE_TODO_ROWS = [
     (224, UI, 109, "feat(repository): RAG toggle and index status (#102)"),
 ]
 WHOLE_TASK = "## Scope\n\n- x\n" + KICKOFF
+# api#139 in short: an epic with no «Эпик» in its title, its Scope a list of issues.
+EPIC_SCOPE = (
+    "## Scope\n\n"
+    "- #140 (ADR) — поправка Р-13\n"
+    "- larchanka-training/dmc-268-ui-t6#102 (ui) — тумблер\n"
+    "- Вне объёма: списание с баланса\n"
+)
+EPIC = EPIC_SCOPE + KICKOFF
 
 
 @pytest.mark.parametrize(("issue", "pr_repo", "pr_number", "title"), LIVE_TODO_ROWS)
@@ -2464,23 +2473,90 @@ def test_an_epic_is_a_stop_before_anything_else(tmp_path: Path) -> None:
     # api#139: nine sub-issues, seven closed, three merged pull requests with Refs, In Progress,
     # and no Scope parts of its own.
     timeline = [refs_pr(n, "x", refs="Refs #139") for n in (157, 158, 161)]
-    response = issue_response(body=WHOLE_TASK, timeline=timeline, sub_issues=(9, 7))
+    response = issue_response(body=EPIC, timeline=timeline, sub_issues=(9, 7))
     code, doc = facts(tmp_path, response, ref="api#139")
     assert (code, doc["verdict"], doc["selected"]) == (1, "stop", None)
     assert doc["reasons"] == [epic_reason(9, 2)]
     assert doc["issue"]["sub_issues"] == {"total": 9, "open": 2}
 
 
-def test_a_whole_task_with_sub_issues_is_an_epic_stop(tmp_path: Path) -> None:
-    for sub_issues in ((1, 0), (1, 1)):  # a closed sub-issue does not make it a task again
-        response = issue_response(body=WHOLE_TASK, sub_issues=sub_issues)
-        code, doc = facts(tmp_path, response)
-        assert (code, doc["verdict"], doc["selected"]) == (1, "stop", None)
-        assert doc["reasons"] == [epic_reason(sub_issues[0], sub_issues[0] - sub_issues[1])]
+@pytest.mark.parametrize(
+    "title",
+    [
+        "[billing] Эпик: платный SaaS на Stripe",  # api#369
+        "[process] Эпик спринта 4: инкрементальное ревью",  # api#305
+        "Epic: x",
+        "[epic] x",
+    ],
+)
+def test_the_word_in_the_title_makes_an_epic(tmp_path: Path, title: str) -> None:
+    response = issue_response(body=WHOLE_TASK, title=title, sub_issues=(2, 1))
+    code, doc = facts(tmp_path, response)
+    assert (code, doc["verdict"], doc["reasons"]) == (1, "stop", [epic_reason(2, 1)])
+    assert doc["warnings"] == []
+
+
+@pytest.mark.parametrize(
+    "bullet",
+    ["#140 — x", "api#140 — x", "owner/name#140 — x", "[ ] #140 x", "**#140** x", "[#140](u) x"],
+)
+def test_a_scope_bullet_that_starts_with_an_issue_makes_an_epic(
+    tmp_path: Path, bullet: str
+) -> None:
+    body = f"## Scope\n\n- {bullet}\n- прочее\n" + KICKOFF
+    code, doc = facts(tmp_path, issue_response(body=body, sub_issues=(1, 0)))
+    assert (code, doc["verdict"], doc["reasons"]) == (1, "stop", [epic_reason(1, 1)])
+
+
+def follow_up_warning(total: int, open_: int) -> str:
+    return (
+        f"the issue has {total} sub-issues ({open_} open) and no parts, and nothing marks it as "
+        "an epic (`Эпик` / `Epic` in the title, a Scope bullet that starts with an issue): "
+        "it is read as one task"
+    )
+
+
+@pytest.mark.parametrize("sub_issues", [(1, 0), (1, 1)])
+def test_a_task_with_a_follow_up_sub_issue_is_not_an_epic(
+    tmp_path: Path, sub_issues: tuple[int, int]
+) -> None:
+    response = issue_response(body=WHOLE_TASK, sub_issues=sub_issues)
+    code, doc = facts(tmp_path, response)
+    assert (code, doc["verdict"]) == (0, "go")
+    assert doc["selected"] == {"part": None, "reason": "whole-task"}
+    assert doc["warnings"] == [follow_up_warning(sub_issues[0], sub_issues[0] - sub_issues[1])]
+
+
+def test_a_task_with_a_follow_up_goes_on_to_acceptance(tmp_path: Path) -> None:
+    # The case the rule is for: accept-issue files a finding outside the AC as a sub-issue.
+    response = issue_response(body=WHOLE_TASK, timeline=[refs_pr(50, "x")], sub_issues=(1, 0))
+    code, doc = facts(tmp_path, response)
+    assert (code, doc["verdict"]) == (1, "accept")
+    assert doc["warnings"] == [follow_up_warning(1, 1)]
+
+
+def test_a_sub_issue_named_on_an_out_of_scope_line_makes_no_epic(tmp_path: Path) -> None:
+    # ui#185: «Вне scope: prod-лендинг — #170», and #170 is its sub-issue. A task.
+    body = "## Scope\n\n- Выкат\n- Вне scope: prod-лендинг — #170\n" + KICKOFF
+    code, doc = facts(tmp_path, issue_response(body=body, sub_issues=(1, 0)))
+    assert (code, doc["selected"]) == (0, {"part": None, "reason": "whole-task"})
+
+
+@pytest.mark.parametrize("title", ["Хвосты эпика #139", "эпический рефакторинг", "epically"])
+def test_another_form_of_the_word_in_the_title_makes_no_epic(tmp_path: Path, title: str) -> None:
+    response = issue_response(body=WHOLE_TASK, title=title, sub_issues=(1, 0))
+    code, doc = facts(tmp_path, response)
+    assert (code, doc["verdict"]) == (0, "go")
+
+
+def test_no_sub_issues_make_no_epic_and_no_warning(tmp_path: Path) -> None:
+    code, doc = facts(tmp_path, issue_response(body=EPIC, title="Эпик: x"))
+    assert (code, doc["selected"]) == (0, {"part": None, "reason": "whole-task"})
+    assert doc["warnings"] == []
 
 
 def test_an_epic_stops_before_a_blocker_and_a_bad_part(tmp_path: Path) -> None:
-    response = issue_response(body=WHOLE_TASK, blocked=[blocker(5)], sub_issues=(3, 3))
+    response = issue_response(body=EPIC, blocked=[blocker(5)], sub_issues=(3, 3))
     for args in ((), ("--part", "99")):  # 99: not an exit 2, the epic comes first
         code, doc = facts(tmp_path, response, *args)
         assert (code, doc["verdict"]) == (1, "stop"), args
@@ -2515,7 +2591,7 @@ def test_malformed_parts_with_sub_issues_are_the_numbering_stop_not_an_epic(
 
 
 def test_a_closed_epic_issue_is_closed_first(tmp_path: Path) -> None:
-    response = issue_response(body=WHOLE_TASK, state="CLOSED", sub_issues=(2, 1))
+    response = issue_response(body=EPIC, state="CLOSED", sub_issues=(2, 1))
     _, doc = facts(tmp_path, response)
     assert doc["reasons"] == [f"issue {API}#13 is CLOSED"]
 
@@ -2812,8 +2888,11 @@ def test_the_unreadable_stop_comes_after_closed_epic_and_blockers(tmp_path: Path
     body = BOLD_SCOPE + PREFIXED_AC + KICKOFF
     _, doc = facts(tmp_path, issue_response(body=body, state="CLOSED"))
     assert doc["reasons"] == [f"issue {API}#13 is CLOSED"]
-    _, doc = facts(tmp_path, issue_response(body=body, sub_issues=(2, 1)))
+    epic = EPIC_SCOPE + PREFIXED_AC + KICKOFF
+    _, doc = facts(tmp_path, issue_response(body=epic, sub_issues=(2, 1)))
     assert doc["reasons"] == [epic_reason(2, 1)]
+    _, doc = facts(tmp_path, issue_response(body=body, sub_issues=(2, 1)))
+    assert doc["reasons"] == [UNREADABLE]  # no epic marker: not an epic, and not a whole task
     _, doc = facts(tmp_path, issue_response(body=body, blocked=[blocker(5)]))
     assert doc["reasons"] == [f"blocked by {API}#5 — blocker 5"]
 

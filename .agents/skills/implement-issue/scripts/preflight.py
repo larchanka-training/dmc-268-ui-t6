@@ -233,6 +233,10 @@ BOLD_CRITERION = re.compile(rf"\*\*{_PART}(?![^\W_])(.*?)\*\*[ \t]*:?[ \t]*(.*)"
 # A criterion that starts with a part in a form the two above do not read («Ч.1. …»,
 # «Ч.1, Ч.2: …»).
 PART_LEAD = re.compile(rf"[*_`]*{_PART}", re.IGNORECASE)
+# What makes an issue with sub-issues and no parts an epic: the word in its title (the word itself:
+# «Хвосты эпика #139» is a task), or a Scope bullet that starts with an issue (`- #140 — …`).
+EPIC_TITLE = re.compile(r"(?<!\w)(?:эпик|epic)(?!\w)", re.IGNORECASE)
+ISSUE_BULLET = re.compile(rf"{_OPEN}(?:{_REPO})?#[1-9]", re.IGNORECASE)
 CHECKBOX_PREFIX = re.compile(r"\[[ xX]\][ \t]+")
 TOP_BULLET = re.compile(r"[-*+][ \t]+(.*)$")
 NESTED_BULLET = re.compile(r"[ \t]+[-*+][ \t]+(.*)$")
@@ -776,13 +780,25 @@ def board_status(item: dict[str, Any] | None) -> str | None:
 
 
 def sub_issues_of(issue: dict[str, Any]) -> dict[str, int]:
-    """{total, open} of the issue's sub-issues (an issue with any and no parts of its own is
-    an epic; with parts of its own the parts rules decide and the sub-issues are not counted)."""
+    """{total, open} of the issue's sub-issues (with parts of its own the parts rules decide and
+    the sub-issues are not counted; without them see `is_epic`)."""
     summary = obj(issue.get("subIssuesSummary"), "issue.subIssuesSummary")
     total, completed = summary.get("total"), summary.get("completed")
     if not isinstance(total, int) or not isinstance(completed, int) or completed > total:
         fail("unexpected shape: issue.subIssuesSummary has no integer total and completed", 3)
     return {"total": total, "open": total - completed}
+
+
+def is_epic(title: str, body: str) -> bool:
+    """Whether an issue with sub-issues and no parts says it is an epic. Sub-issues alone do not:
+    accept-issue files a follow-up as a sub-issue of the task it came from."""
+    if EPIC_TITLE.search(title):
+        return True
+    scope = section_lines(body, named("scope"), skip_quotes=True)
+    return any(
+        ISSUE_BULLET.match(CHECKBOX_PREFIX.sub("", item["text"], count=1))
+        for item in bullets(scope or [])
+    )
 
 
 def assignees_of(issue: dict[str, Any]) -> list[str]:
@@ -1064,13 +1080,15 @@ def decide(
     stray_open: list[dict[str, Any]],
     held: dict[str, Any] | None,
     on_board: bool,
+    epic: bool,
 ) -> tuple[dict[str, Any] | None, list[str], str]:
     """(selected, reasons, verdict): the verdict is go, stop or accept; reasons non-empty
     means it is not a go. `unreadable` is set when the criteria carry part prefixes but the
     Scope has no part the script can read. `stray_open` are the OPEN pull requests with `Refs`
     that name no part of an issue that has parts; `held` is the accept-issue comment that holds
     the issue back from acceptance (returned, or a table with unmet rows), if no pull request
-    was merged after it. `on_board`: the issue has a card on board 12, Status or none."""
+    was merged after it. `on_board`: the issue has a card on board 12, Status or none. `epic`:
+    it has sub-issues, no parts and says it is an epic (`is_epic`)."""
     if facts["issue"]["state"] == "CLOSED":
         return (
             None,
@@ -1078,7 +1096,7 @@ def decide(
             "stop",
         )
     sub = facts["issue"]["sub_issues"]
-    if sub["total"] and not facts["parts"] and not numbering_error:  # an epic: its sub-issues are
+    if epic:  # its sub-issues are the work
         return (
             None,
             [
@@ -1207,18 +1225,29 @@ def collect(repo: str, number: int, part: int | None) -> dict[str, Any]:
     if not kickoff_text:
         warnings.append("the issue has no Kickoff section: read its Background and References")
     item = board_item(issue)
+    title = text_of(issue, "title", "issue")
+    sub_issues = sub_issues_of(issue)
+    epic = False
+    if sub_issues["total"] and not parts and not numbering_error:
+        epic = is_epic(title, body)
+        if not epic:
+            warnings.append(
+                f"the issue has {sub_issues['total']} sub-issues ({sub_issues['open']} open) and "
+                "no parts, and nothing marks it as an epic (`Эпик` / `Epic` in the title, a Scope "
+                "bullet that starts with an issue): it is read as one task"
+            )
 
     facts: dict[str, Any] = {
         "schema": SCHEMA,
         "issue": {
             "repo": repo,
             "number": number,
-            "title": text_of(issue, "title", "issue"),
+            "title": title,
             "url": text_of(issue, "url", "issue"),
             "state": text_of(issue, "state", "issue"),
             "assignees": assignees_of(issue),
             "board_status": board_status(item),
-            "sub_issues": sub_issues_of(issue),
+            "sub_issues": sub_issues,
         },
         "blockers": blockers_of(blocked),
         "parts": parts,
@@ -1229,7 +1258,7 @@ def collect(repo: str, number: int, part: int | None) -> dict[str, Any]:
     stray_open = [pr for pr in unnamed if pr["state"] == "OPEN"]
     held = held_at_acceptance(acceptance_comments(comments), prs)
     selected, reasons, verdict = decide(
-        facts, part, numbering_error, unreadable, stray_open, held, item is not None
+        facts, part, numbering_error, unreadable, stray_open, held, item is not None, epic
     )
     if selected is not None and selected["reason"] == "explicit":
         chosen = next(p for p in parts if p["n"] == selected["part"])
