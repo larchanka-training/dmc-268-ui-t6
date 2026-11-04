@@ -23,8 +23,9 @@ severity, the fix commits, the brief file. Medium, low and info are never fixed 
 are listed in the pull request body, for the reviewer and the tech lead to see.
 
 The gates (`AGENTS.md` → Commands) run before round 1 and after every fix. A red gate is not a
-finding: fix it first, then review. A review without a valid `Reviewed:` line (§2) is a **failed
-attempt**, not a round: start a new clean context. Three failed attempts in a row: stop (§5).
+finding: fix it first, then review (an api gate on a shared file: §4). A review without a valid
+`Reviewed:` line (§2) is a **failed attempt**, not a round: start a new clean context. Three failed
+attempts in a row: stop (§5).
 
 ## 2. The review brief
 
@@ -118,8 +119,9 @@ to get out of the loop.
 A part whose files are shared between the repos (`.agents/README.md` § Sync map) is the ui pull
 request first, then the copy in api, both with the same `Refs`.
 
-1. Do steps 1–7 of the loop in the ui clone. The ui pull request is opened as in step 7. The card
-   stays In Progress: step 6 waits until **both** pull requests are open and ready.
+1. Do steps 1–7 of the loop (SKILL.md step 5) in the ui clone. The ui pull request is opened as in
+   its step 7. The card stays In Progress: SKILL.md step 6 waits until **both** pull requests are
+   open and ready.
 2. When the ui change is final (the last round had no critical or high finding, gates green), go
    to the api clone. Ask for its path if you do not know it; its `git status` must be clean — never
    switch or reset a clone that holds other work.
@@ -132,12 +134,19 @@ request first, then the copy in api, both with the same `Refs`.
    lines under §1 (its own cap of 3 rounds), told in the brief which paths are byte-identical to
    the ui pull request. If the copy stops (§5), the ui pull request stays open and the card stays
    In Progress; the stop report says so.
-6. A finding in a shared file is fixed in ui first (a new commit on the ui branch — ask before
-   pushing: a push that changes the diff dismisses its approve), then `cp` again and `diff -r`
-   empty. Never fix a shared file only in api.
-7. Open the api pull request: `What` starts `SYNC copy of owner/repo#M (Part K of #N): …`, and the
+6. A finding in a shared file, or an api gate that fails on one (the two repos gate differently:
+   each `AGENTS.md` → Commands), is fixed in ui first (a new commit on the ui branch — ask before
+   pushing: a push that changes the diff dismisses its approve). Never fix a shared file only in
+   api.
+7. That commit changes reviewed code, so it is reviewed too: a new round of §1 on the ui branch,
+   inside its cap of 3. The one exception is a fix that changes no behaviour (formatting, a type
+   annotation): no new round, and the `Review` line of both pull requests names it,
+   `<sha> — <what it changes> — no new round: <why no behaviour changes>`. A fix that changes
+   behaviour after round 3 has no round left: stop (§5).
+8. Then `cp` again, `diff -r` empty, and the api gates again.
+9. Open the api pull request: `What` starts `SYNC copy of owner/repo#M (Part K of #N): …`, and the
    `Refs` line is the same as in the ui pull request (SKILL.md: the pull-request convention). Now
-   step 6 moves the card to On Review.
+   SKILL.md step 6 moves the card to On Review.
 
 ## 5. The stop report
 
@@ -174,8 +183,9 @@ checklist). In `What`, after the first line (`Part K of owner/repo#N: …`, SKIL
 - **Acceptance criteria of the part** (`acceptance_criteria`; a task without parts:
   `common_acceptance_criteria`), one bullet each, as in the issue. They are not ticked boxes: the
   tech lead accepts them.
-- **Review:** `<n>` round(s), Standards and Spec in clean contexts; no critical or high open.
-  Medium / low / info, not fixed here: the list, one line each (`path:line — title`).
+- **Review:** `<n>` round(s), Standards and Spec in clean contexts; no critical or high open; any
+  fix with no new round (§4). Medium / low / info, not fixed here: the list, one line each
+  (`path:line — title`).
 - Any `warnings` of the preflight, and the findings outside the part's boundary.
 
 `How to verify` has the gate commands that were run and their result. `Refs` has `Refs #N` or
