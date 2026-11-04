@@ -536,9 +536,22 @@ def test_a_draft_missing_from_the_read_back_is_never_claimed(tmp_path: Path) -> 
     assert doc["reasons"][0] == "the draft is not on GitHub after the write"
 
 
-def test_a_failed_read_back_is_partial(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "answer",
+    [
+        pytest.param(None, id="no-answer"),
+        pytest.param(
+            {"data": {"viewer": {"login": "a"}, "repository": {"pullRequest": {"id": "x"}}}},
+            id="another-shape",
+        ),
+    ],
+)
+def test_a_failed_read_back_is_partial(tmp_path: Path, answer: dict[str, Any] | None) -> None:
     target, args = scenario(tmp_path)
-    (target / "readback.json").unlink()
+    if answer is None:
+        (target / "readback.json").unlink()
+    else:
+        (target / "readback.json").write_text(json.dumps(answer), encoding="utf-8")
     r = run(*args, fixtures=target, log=tmp_path / "writes.jsonl")
     assert r.returncode == 1
     doc = doc_of(r)

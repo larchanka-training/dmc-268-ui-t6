@@ -662,18 +662,17 @@ def read_back(doc: dict[str, Any], repo: str, number: int, existing: bool) -> No
     """Report only what GitHub holds now."""
     doc["review"] = None
     reasons: list[str] = []
+    present: set[tuple[str, int | None, str]] = set()
     try:
         draft = read_state("readback", repo, number)["draft"]
-    except GhError as exc:
-        draft = None
-        reasons.append(f"cannot read the draft back: {exc}")
-    else:
+        present = threads_in(draft)
         if draft is None or draft["state"] != "PENDING":
-            draft = None
             reasons.append("the draft is not on GitHub after the write")
-    if draft is not None:
-        doc.update(applied=True, review=review_of(draft, existing))
-    present = threads_in(draft)
+        else:
+            doc.update(applied=True, review=review_of(draft, existing))
+    except (GhError, KeyError, TypeError, AttributeError) as exc:
+        present = set()
+        reasons.append(f"cannot read the draft back: {exc}")
     for thread in doc["threads"]:
         missing = thread_key(thread["path"], thread["line"], thread["body"]) not in present
         if thread["status"] == "created" and missing:
