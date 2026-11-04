@@ -151,3 +151,11 @@ model; they do not guarantee a finding wherever they apply.
 
 Your browser is offline and the dashboard has not loaded this run yet. Reconnect: the run opens by
 itself, without a page reload.
+
+### A link filters by a file that Files does not list
+
+A link can name a file the run does not know yet. That file stays out of **Files** and filters
+nothing until the run knows it, for example from a finding or a comment. The diff is then filtered
+by it. Adding a file or removing one of several keeps it. Clearing **Files** or removing its last
+file takes it out of the page address, so it does not come back. If **Files** is empty, pick a file
+and remove it.
