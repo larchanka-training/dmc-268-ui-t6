@@ -39,9 +39,10 @@ Step 6 of `SKILL.md`: how a report becomes the reviewer's pending review. The sc
 
 ## Out of scope
 
-An axis marks a finding `scope: out` when the diff does not introduce the defect or it lies outside
-the part's Scope. The reviewer can change that mark on the preview. Each one ends in one of two
-ways, so nothing stays «to do separately»:
+An axis marks a finding `scope: out` when the diff does not introduce the defect or the finding asks
+for work beyond this pull request. A defect in lines the diff adds or changes is in scope, even when
+that code goes beyond the issue. The reviewer can change the mark on the preview. Each finding out of
+scope ends in one of two ways, so nothing stays «to do separately»:
 
 - **Follow-up:** run the `create-issue` skill (its own preview and confirmation), and write the new
   issue's ref into `decision`. The review body lists it; no thread.
