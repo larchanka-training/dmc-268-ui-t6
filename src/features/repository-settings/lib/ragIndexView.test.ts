@@ -1,4 +1,4 @@
-import { describe, expect, expectTypeOf, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, expectTypeOf, it, vi } from 'vitest'
 
 import { disabledRagIndex, type RagIndex } from '../../../entities/repository'
 import { i18n } from '../../../shared/i18n'
@@ -6,7 +6,6 @@ import type { VcsProvider } from '../../../shared/model/provider'
 import {
   ragStaleDetail,
   ragNoAccessText,
-  formatIndexedAt,
   ragIndexView,
   shortSha,
   type RagIndexView,
@@ -14,6 +13,14 @@ import {
 
 const SHA = '0123456789abcdef0123456789abcdef01234567'
 const INDEXED_AT = '2026-10-14T09:30:15.000Z'
+
+beforeAll(() => {
+  vi.stubEnv('TZ', 'Asia/Tokyo')
+})
+
+afterAll(() => {
+  vi.unstubAllEnvs()
+})
 
 const PUBLISHED: Pick<RagIndex, 'indexedCommitSha' | 'indexedAt' | 'fileCount' | 'symbolCount'> = {
   indexedCommitSha: SHA,
@@ -30,7 +37,7 @@ function index(overrides: Partial<RagIndex>): RagIndex {
 const PUBLICATION: RagIndexView['publication'] = {
   sha: SHA,
   shortSha: '0123456',
-  indexedAt: '14.10.2026, 09:30:15',
+  indexedAt: '2026-10-14 18:30:15',
 }
 
 describe('ragIndexView', () => {
@@ -461,19 +468,5 @@ describe('shortSha', () => {
 
   it('leaves a shorter text as it is', () => {
     expect(shortSha('abc')).toBe('abc')
-  })
-})
-
-describe('formatIndexedAt', () => {
-  it('writes the UTC time in the notation of the language, to the second', () => {
-    expect(formatIndexedAt(INDEXED_AT)).toBe('14.10.2026, 09:30:15')
-  })
-
-  it('converts an offset time to UTC whatever the time zone of the runner is', () => {
-    expect(formatIndexedAt('2026-10-14T12:30:15+03:00')).toBe('14.10.2026, 09:30:15')
-  })
-
-  it('drops the fraction of a second', () => {
-    expect(formatIndexedAt('2026-10-14T09:30:15.987Z')).toBe('14.10.2026, 09:30:15')
   })
 })

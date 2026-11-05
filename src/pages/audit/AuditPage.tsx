@@ -4,7 +4,6 @@ import { Link, useNavigate } from 'react-router'
 
 import {
   errorReason,
-  formatDateTime,
   reasonText,
   formatDuration,
   runDuration,
@@ -16,6 +15,7 @@ import {
 } from '../../entities/run'
 import { useAuditFilterParams } from '../../features/audit-filter'
 import { formatNumber, formatUsd, useTranslation } from '../../shared/i18n'
+import { formatLocalDateTime } from '../../shared/lib/formatLocalDateTime'
 import { DataTable, PageHeader, Tag } from '../../shared/ui'
 import styles from './AuditPage.module.css'
 
@@ -150,7 +150,7 @@ export const AuditPage: FC = () => {
     {
       title: t('audit.columns.started'),
       key: 'started',
-      render: (_, run) => formatDateTime(run.createdAt),
+      render: (_, run) => formatLocalDateTime(run.createdAt),
     },
     {
       title: t('audit.columns.repository'),

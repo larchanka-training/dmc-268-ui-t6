@@ -2,12 +2,20 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import type { RunListPage, RunSession } from '../../entities/run'
 import { AuditPage } from './AuditPage'
 
 type Handler = (url: URL, call: number) => RunListPage | Response
+
+beforeAll(() => {
+  vi.stubEnv('TZ', 'Asia/Tokyo')
+})
+
+afterAll(() => {
+  vi.unstubAllEnvs()
+})
 
 function urlOf(input: Parameters<typeof fetch>[0]): URL {
   const href = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
@@ -92,7 +100,7 @@ describe('AuditPage', () => {
       nextCursor: null,
     }))
     renderPage()
-    expect(await screen.findByText('18.09.2026, 11:00:00')).toBeTruthy()
+    expect(await screen.findByText('2026-09-18 20:00:00')).toBeTruthy()
     for (const heading of [
       'Начат',
       'Репозиторий',

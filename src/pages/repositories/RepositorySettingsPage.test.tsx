@@ -402,6 +402,7 @@ async function chooseOption(label: string, optionText: string): Promise<void> {
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
 })
 
 describe('RepositorySettingsPage', () => {
@@ -1682,6 +1683,7 @@ describe('RepositorySettingsPage: RAG', () => {
   })
 
   it('shows the commit and the time of a ready index', async () => {
+    vi.stubEnv('TZ', 'Asia/Tokyo')
     stubBackend([RAG_READY_REPO])
     renderPage(settingsPath(UI_REPO.id))
     await screen.findByLabelText(LIMIT_LABEL)
@@ -1690,7 +1692,7 @@ describe('RepositorySettingsPage: RAG', () => {
     expect(ragSwitch().getAttribute('aria-checked')).toBe('true')
     expect(within(section).getByText('Готов')).toBeTruthy()
     expect(within(section).getByText(READY_SHA.slice(0, 7)).tagName).toBe('CODE')
-    expect(within(section).getByText('обновлён 20.10.2026, 08:15:30')).toBeTruthy()
+    expect(within(section).getByText('обновлён 2026-10-20 17:15:30')).toBeTruthy()
     expect(section.textContent).not.toContain('UTC')
   })
 

@@ -1,1 +1,1 @@
-export { formatDateTime, formatDuration, runDuration } from '../../../entities/run'
+export { formatDuration, runDuration } from '../../../entities/run'
