@@ -1,0 +1,4 @@
+.popup {
+  max-width: min(280px, calc(100vw - 32px));
+  overflow-wrap: anywhere;
+}
