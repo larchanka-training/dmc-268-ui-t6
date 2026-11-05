@@ -5,7 +5,7 @@ import type { VcsProvider } from '../../../shared/model/provider'
 
 import type { RagIndex } from '../../../entities/repository'
 import { useTranslation } from '../../../shared/i18n'
-import { Tag } from '../../../shared/ui'
+import { InfoHint, Tag } from '../../../shared/ui'
 import {
   ragErrorTitle,
   ragHint,
@@ -73,6 +73,7 @@ export const RagSection: FC<RagSectionProps> = ({
 }) => {
   const { t } = useTranslation()
   const labelId = useId()
+  const hintId = useId()
   const switchRef = useRef<HTMLButtonElement>(null)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<{ error: unknown } | null>(null)
@@ -105,6 +106,7 @@ export const RagSection: FC<RagSectionProps> = ({
     <section aria-label={RAG_LABEL} className={styles.root}>
       <Flex align="center" gap={8}>
         <Switch
+          aria-describedby={hintId}
           aria-labelledby={labelId}
           checked={effective}
           disabled={!installationAvailable || pending}
@@ -116,7 +118,12 @@ export const RagSection: FC<RagSectionProps> = ({
           {RAG_LABEL}
         </Text>
       </Flex>
-      <Text type="secondary">{ragHint()}</Text>
+      <Flex align="center" gap={4}>
+        <Text id={hintId} type="secondary">
+          {t('settings.rag.shortHint')}
+        </Text>
+        <InfoHint label={t('settings.rag.infoLabel')}>{ragHint()}</InfoHint>
+      </Flex>
       {!installationAvailable ? <Text type="secondary">{ragNoAccessText(provider)}</Text> : null}
 
       <Flex align="center" aria-live="polite" className={styles.status} gap={8} role="status" wrap>

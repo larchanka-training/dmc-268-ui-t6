@@ -21,6 +21,8 @@ export const settings = {
   saveFailed: 'Could not save the settings',
   autoReview: {
     title: 'Automatic review',
+    shortHint: 'Reviews start for new pull requests.',
+    infoLabel: 'More about automatic review',
     hint: 'When on, reviews run automatically for pull requests in this repository.',
     on: 'Automatic review is on',
     off: 'Automatic review is off',
@@ -34,6 +36,8 @@ export const settings = {
     changeFailed: 'Could not change automatic review',
   },
   rag: {
+    shortHint: 'Uses links between files; reviews may cost more.',
+    infoLabel: 'More about RAG',
     hint: 'Takes the links between the repository files into account, which makes the review more precise. May increase the cost. Only the code structure is stored, not its text.',
     noAccess: '{{accessName}} has no access, so RAG is unavailable',
     changeFailed: 'Could not change the RAG setting',
