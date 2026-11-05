@@ -44,6 +44,20 @@ import {
 
 describe('initMockTransport', () => {
   it.each([
+    ['queued', '001'],
+    ['running', '002'],
+    ['publishing', '003'],
+    ['failed', '005'],
+    ['cancelled before publication', '006'],
+    ['skipped', '007'],
+  ])('returns no comments for an unpublished %s fixture', async (_status, suffix) => {
+    initMockTransport()
+    const runId = `11111111-1111-4111-8111-000000000${suffix}`
+
+    expect(await apiClient<unknown[]>(endpoints.runs.comments(runId))).toEqual([])
+  })
+
+  it.each([
     ['waitForCi', 'auto', 'bitbucket_wait_for_ci_unsupported'],
     ['waitForCi', 'always', 'bitbucket_wait_for_ci_unsupported'],
     ['reviewEvent', 'REQUEST_CHANGES', 'bitbucket_review_event_unsupported'],
@@ -345,7 +359,7 @@ describe('initMockTransport', () => {
       const fixture = await apiClient<RunDetail>(endpoints.runs.detail(fixtureRerunId))
       expect(fixture).toMatchObject({ status: 'queued', trigger: 'rerun' })
       expect(await apiClient<unknown>(endpoints.runs.actions(fixtureRerunId))).toHaveLength(34)
-      expect(await apiClient<unknown>(endpoints.runs.comments(fixtureRerunId))).toHaveLength(3)
+      expect(await apiClient<unknown>(endpoints.runs.comments(fixtureRerunId))).toEqual([])
       expect(await apiClient<unknown>(endpoints.runs.actions(completedRunId))).toHaveLength(34)
       expect(await apiClient<unknown>(endpoints.runs.comments(completedRunId))).toHaveLength(3)
 
