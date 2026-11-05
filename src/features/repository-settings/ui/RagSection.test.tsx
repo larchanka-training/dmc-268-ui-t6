@@ -246,16 +246,19 @@ describe('RagSection: the hint', () => {
     ['with access, off', { ragEnabled: false, installationAvailable: true }],
     ['with access, on', { ragEnabled: true, installationAvailable: true, ragIndex: READY_INDEX }],
     ['without access', { ragEnabled: false, installationAvailable: false }],
-  ])('is on the page, not in a tooltip: %s', (_, props) => {
+  ])('keeps a short explanation visible and details in the info hint: %s', async (_, props) => {
     renderSection(props)
 
-    const hint = screen.getByText(
+    const hint = screen.getByText('Учитывает связи между файлами; ревью может стоить дороже.')
+    expect(theSwitch().getAttribute('aria-describedby')).toBe(hint.id)
+    expect(hint.id).not.toBe('')
+    const info = screen.getByRole('button', { name: 'Подробнее о RAG' })
+    fireEvent.click(info)
+    const detail = await screen.findByText(
       'Учитывает связи между файлами репозитория, делая ревью точнее. Может увеличить стоимость. Хранится только структура кода, не его текст.',
     )
-    expect(hint.textContent).toContain('связи между файлами репозитория')
-    expect(hint.textContent).toContain('увеличить стоимость')
-    expect(hint.textContent).toContain('только структура кода')
-    expect(hint.textContent).toContain('не его текст')
+    expect(detail.textContent).toContain('только структура кода')
+    expect(detail.textContent).toContain('не его текст')
   })
 })
 
