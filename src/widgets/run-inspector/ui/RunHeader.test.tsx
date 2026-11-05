@@ -86,6 +86,12 @@ describe('RunHeader metadata layout', () => {
     expect(reasonLabel.parentElement?.classList.contains(styles.wide ?? '')).toBe(true)
   })
 
+  it('does not mark the reason item as wide without an error code', () => {
+    render(<RunHeader now={new Date('2026-09-18T12:00:00.000Z')} run={baseRun} />)
+    const reasonLabel = screen.getByText('Причина', { selector: 'dt' })
+    expect(reasonLabel.parentElement?.classList.contains(styles.wide ?? '')).toBe(false)
+  })
+
   it('retains the run settings, timing, attempt and error values next to their labels', () => {
     render(
       <RunHeader
