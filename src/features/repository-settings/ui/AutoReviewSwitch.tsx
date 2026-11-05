@@ -4,6 +4,7 @@ import { flushSync } from 'react-dom'
 import { VCS_ACCESS_NAME, type VcsProvider } from '../../../shared/model/provider'
 
 import { useTranslation } from '../../../shared/i18n'
+import { InfoHint } from '../../../shared/ui'
 import { enableAutoReviewLabel, keepAutoReviewOffLabel } from '../lib/autoReviewChoice'
 import styles from './AutoReviewSwitch.module.css'
 
@@ -72,6 +73,7 @@ export const AutoReviewSwitch: FC<AutoReviewSwitchProps> = ({
 }) => {
   const { t } = useTranslation()
   const labelId = useId()
+  const hintId = useId()
   const switchRef = useRef<HTMLButtonElement>(null)
   const enableRef = useRef<HTMLButtonElement | null>(null)
   const keepOffRef = useRef<HTMLButtonElement | null>(null)
@@ -122,6 +124,7 @@ export const AutoReviewSwitch: FC<AutoReviewSwitchProps> = ({
     <section className={styles.root}>
       <Flex align="center" gap={8}>
         <Switch
+          aria-describedby={hintId}
           aria-labelledby={labelId}
           checked={enabled && installationAvailable}
           disabled={!installationAvailable}
@@ -133,7 +136,14 @@ export const AutoReviewSwitch: FC<AutoReviewSwitchProps> = ({
           {t('settings.autoReview.title')}
         </Text>
       </Flex>
-      <Text type="secondary">{t('settings.autoReview.hint')}</Text>
+      <Flex align="center" gap={4}>
+        <Text id={hintId} type="secondary">
+          {t('settings.autoReview.shortHint')}
+        </Text>
+        <InfoHint label={t('settings.autoReview.infoLabel')}>
+          {t('settings.autoReview.hint')}
+        </InfoHint>
+      </Flex>
 
       {!installationAvailable ? (
         <Alert
