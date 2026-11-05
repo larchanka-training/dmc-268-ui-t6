@@ -8,6 +8,8 @@ export { DataTable } from './DataTable/DataTable'
 export type { DataTableProps } from './DataTable/DataTable'
 export { FilePath } from './FilePath/FilePath'
 export type { FilePathProps } from './FilePath/FilePath'
+export { InfoHint } from './InfoHint/InfoHint'
+export type { InfoHintProps } from './InfoHint/InfoHint'
 export {
   IconAnalytics,
   IconAudit,
