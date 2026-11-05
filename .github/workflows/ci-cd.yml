@@ -300,6 +300,8 @@ jobs:
           file: landing/Dockerfile
           load: true
           tags: ${{ env.LANDING_LOCAL_IMAGE }}
+          build-args: |
+            VITE_GITHUB_APP_SLUG=${{ vars.VITE_GITHUB_APP_SLUG }}
           cache-from: type=gha,scope=landing
           cache-to: type=gha,mode=max,scope=landing
           no-cache-filters: runtime

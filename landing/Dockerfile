@@ -14,6 +14,8 @@ COPY landing/package.json ./landing/
 RUN pnpm install --frozen-lockfile --filter ./landing
 
 COPY landing ./landing
+ARG VITE_GITHUB_APP_SLUG
+ENV VITE_GITHUB_APP_SLUG=$VITE_GITHUB_APP_SLUG
 RUN pnpm --dir landing run build
 
 FROM nginxinc/nginx-unprivileged:1.30-alpine AS runtime
