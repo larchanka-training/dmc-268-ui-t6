@@ -61,6 +61,7 @@ function runWithStatus(status: RunStatus): RunDetail {
   return {
     ...buildMockRunDetail(session),
     status,
+    startedAt: status === 'running' ? new Date().toISOString() : session.startedAt,
     finishedAt: null,
     findings: [],
     verdict: null,
@@ -200,6 +201,49 @@ describe('RunDetailPage filters in the URL', () => {
   })
 
   it.each(
+    (['005', '006', '007'] as const).flatMap((suffix) =>
+      ['?severity=critical', '?q=unmatched'].map((query) => ({ suffix, query })),
+    ),
+  )(
+    'keeps the diff on unpublished run $suffix with $query from a link',
+    async ({ suffix, query }) => {
+      const runId = `11111111-1111-4111-8111-000000000${suffix}`
+      const { client, container, router } = renderRunDetail(`/runs/${runId}${query}`)
+
+      await findBar()
+      await waitFor(() => {
+        expect(client.getQueryState(runQueryKeys.comments(runId))?.status).toBe('success')
+      })
+      expect(container.querySelectorAll('.diff-theme')).toHaveLength(2)
+      expect(screen.getByText(counter(0, 0))).toBeTruthy()
+      expect(screen.queryByTestId('findings-filter-empty')).toBeNull()
+      expect(router.state.location.search).toBe(query)
+    },
+  )
+
+  it('filters a cancelled run with published findings like a succeeded run', async () => {
+    withMockTransportOverlay((endpoint) => {
+      if (endpoint.method === 'GET' && endpoint.path === `/runs/${DEMO_RUN_ID}`) {
+        return { ...runWithStatus('cancelled'), findings: mockReviewFindings }
+      }
+      if (endpoint.method === 'GET' && endpoint.path === `/runs/${DEMO_RUN_ID}/comments`) {
+        return mockReviewComments
+      }
+      return undefined
+    })
+    const { container } = renderRunDetail(`${DEMO}?severity=critical`)
+
+    await screen.findByText(counter(3, TOTAL))
+    expect(container.querySelectorAll('.diff-theme')).toHaveLength(1)
+    expect(cardTitles()).toEqual([
+      'Critical: unsafe pattern',
+      'High: duplicate concern on line 2',
+      'XSS probe in body',
+    ])
+    expect(screen.queryByTestId('findings-filter-empty')).toBeNull()
+  })
+
+  it.each(
     (['queued', 'running', 'publishing'] as const).flatMap((status) =>
       ['?severity=critical', '?q=unmatched'].map((query) => ({ status, query })),
     ),
@@ -230,6 +274,54 @@ describe('RunDetailPage filters in the URL', () => {
     expect(searchInput().value).toBe(query.includes('q=') ? 'unmatched' : '')
     expect(router.state.location.search).toBe(initial)
   })
+
+  it('does not promise findings for a stale running run', async () => {
+    withMockTransportOverlay((endpoint) => {
+      if (endpoint.method === 'GET' && endpoint.path === `/runs/${DEMO_RUN_ID}`) {
+        return {
+          ...runWithStatus('running'),
+          startedAt: new Date(Date.now() - 11 * 60 * 1000).toISOString(),
+        }
+      }
+      if (endpoint.method === 'GET' && endpoint.path === `/runs/${DEMO_RUN_ID}/comments`) {
+        return []
+      }
+      return undefined
+    })
+    const { container } = renderRunDetail(`${DEMO}?severity=critical`)
+
+    await findBar()
+    expect(screen.getByRole('status').textContent).toBe('Замечания пока недоступны')
+    expect(container.querySelectorAll('.diff-theme')).toHaveLength(4)
+    expect(screen.queryByTestId('findings-filter-empty')).toBeNull()
+  })
+
+  it.each(['queued', 'running', 'publishing'] as const)(
+    'uses the publication-aware waiting text after cancellation in %s',
+    async (status) => {
+      withMockTransportOverlay((endpoint) => {
+        if (endpoint.method === 'GET' && endpoint.path === `/runs/${DEMO_RUN_ID}`) {
+          return {
+            ...runWithStatus(status),
+            cancelRequested: true,
+            startedAt: status === 'queued' ? null : new Date().toISOString(),
+          }
+        }
+        if (endpoint.method === 'GET' && endpoint.path === `/runs/${DEMO_RUN_ID}/comments`) {
+          return []
+        }
+        return undefined
+      })
+      renderRunDetail(`${DEMO}?severity=critical`)
+
+      await findBar()
+      expect(screen.getByRole('status').textContent).toBe(
+        status === 'publishing'
+          ? 'Замечания появятся после завершения прогона'
+          : 'Замечания пока недоступны',
+      )
+    },
+  )
 
   it('keeps an effective file filter during pending even without any content match', async () => {
     withMockTransportOverlay((endpoint) => {
