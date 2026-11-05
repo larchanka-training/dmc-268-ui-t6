@@ -139,26 +139,30 @@ request first, then the copy in api, both with the same `Refs`.
    pushing: a push that changes the diff dismisses its approve). Never fix a shared file only in
    api.
 7. That commit changes reviewed code, so it is reviewed too: a new round of §1 on the ui branch,
-   inside its cap of 3. The one exception is a fix that changes no behaviour (formatting, a type
-   annotation): no new round, and the `Review` line of both pull requests names it,
-   `<sha> — <what it changes> — no new round: <why no behaviour changes>`. A fix that changes
-   behaviour after round 3 has no round left: stop (§5).
-8. Then `cp` again, `diff -r` empty, and the api gates again.
+   inside its cap of 3. For this one case that overrides items 3 and 5 of SKILL.md step 5 (a red
+   gate is not reviewed, a new round only for critical or high). Only a fix that changes no
+   behaviour (formatting, a type annotation) skips the round, and the `Review` line of both pull
+   requests names it: `<sha> — <what it changes> — no new round: <why no behaviour changes>`. A fix
+   that changes behaviour after round 3 has no round left: stop (§5).
+8. Push the ui commit once the human agrees, and update the body of each pull request already open:
+   the round count and the `Review` line. Then `cp` again, `diff -r` empty, commit the new copy
+   (Conventional Commits, `Refs`), and run the api gates again.
 9. Open the api pull request: `What` starts `SYNC copy of owner/repo#M (Part K of #N): …`, and the
    `Refs` line is the same as in the ui pull request (SKILL.md: the pull-request convention). Now
    SKILL.md step 6 moves the card to On Review.
 
 ## 5. The stop report
 
-When round 3 still finds critical or high, or a gate cannot be made green, or three review
-attempts in a row fail the `Reviewed:` check, or the human declines a push, or a rebase stops on a
-conflict (§6), or the harness refuses a command (SKILL.md, Harness notes): do not open the pull
-request, do not push, do not touch the board. Report:
+When round 3 still finds critical or high, or a fix needs a round after round 3 (§4), or a gate
+cannot be made green, or three review attempts in a row fail the `Reviewed:` check, or the human
+declines a push, or a rebase stops on a conflict (§6), or the harness refuses a command (SKILL.md,
+Harness notes): from here on do not open a pull request, do not push, do not touch the board. What
+was done before the stop stays, and the report says so. Report:
 
 ```
-STOPPED — <ref> Part <K>, <reason: round 3 still has critical/high | gates red | no valid review | push declined | rebase conflict | git write refused | sandbox refused a command>
-Branch: <name — <n> commits ahead of origin/main, not pushed | none, refused before the branch was cut>
-Pull requests: <none | SYNC part, the api copy stopped: <ui PR URL> stays open, the card stays In Progress>
+STOPPED — <ref> Part <K>, <reason: round 3 still has critical/high | no round left | gates red | no valid review | push declined | rebase conflict | git write refused | sandbox refused a command>
+Branch: <name> — <n> commits ahead of origin/main, <not pushed | pushed>; or none (refused before the branch was cut)
+Pull requests: <none | open: <URLs> | SYNC part, the api copy stopped: <ui PR URL> stays open, the card stays In Progress>
 Conflict: <only for a rebase conflict: the files, the commit of origin/main it stopped on, `git rebase --abort` done>
 Refused: <only for a refusal: the command, the harness's message verbatim>
 Open findings (round <R>):
@@ -169,17 +173,21 @@ Gates: <command: green|red, …>
 Next: <by reason, below>
 ```
 
+Write `none` in a slot with nothing to report (no review or no gate has run yet).
+
 `Next` by reason:
 
-- **rebase conflict:** the human resolves it or says how; a resolution goes through review before
-  any push (§6).
+- **rebase conflict:** the human resolves it or says how. The run then goes on on this branch: the
+  gates, then one more round of §1 inside the cap of 3, before any push (§6). No round left: stop
+  again, `no round left`.
 - **git write refused:** re-run with git write access.
 - **sandbox refused a command:** it is not a git write, so that advice does not help. The human
   allows the command, or runs it and gives the output.
 - **any other reason:** the human decides — fix by hand, change the plan, or discard the branch.
 
-The branch is left as it is. The preflight of the next run sees no pull request and offers the same
-part again; a taken branch name is never reused (SKILL.md step 3).
+The branch is left as it is. With no pull request open, the preflight of the next run offers the
+same part again; with one open, it stops on it. A taken branch name is never reused (SKILL.md
+step 3).
 
 ## 6. The pull request body
 
