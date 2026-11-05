@@ -1,7 +1,7 @@
 import { theme } from 'antd'
 import { describe, expect, it } from 'vitest'
 
-import { buildTheme } from '../../../shared/ui'
+import { buildTheme, RV_PALETTE } from '../../../shared/ui'
 import { diffThemeVars } from './diffTheme'
 
 // No @types/node here and Vitest zeroes `.css?raw`: load `fs` untyped to read the real stylesheet.
@@ -41,6 +41,16 @@ function composite(fg: Rgba, bg: Rgba): Rgba {
   return [r * a + bg[0] * (1 - a), g * a + bg[1] * (1 - a), b * a + bg[2] * (1 - a), 1]
 }
 
+/** The marker's CSS `color-mix(in srgb, ...)` of two opaque palette colours. */
+function mix(a: Rgba, b: Rgba, aShare: number): Rgba {
+  return [
+    a[0] * aShare + b[0] * (1 - aShare),
+    a[1] * aShare + b[1] * (1 - aShare),
+    a[2] * aShare + b[2] * (1 - aShare),
+    1,
+  ]
+}
+
 /** WCAG 2 relative luminance. */
 function luminance([r, g, b]: Rgba): number {
   const lin = (c: number): number => {
@@ -56,6 +66,11 @@ function contrastRatio(a: Rgba, b: Rgba): number {
 }
 
 const MODES = ['light', 'dark'] as const
+
+const MARKERS = [
+  ['insert', 'success', '--diff-gutter-insert-background-color'],
+  ['delete', 'danger', '--diff-gutter-delete-background-color'],
+] as const
 
 /** Palette variables the highlight CSS must reference. */
 const TOKEN_CLASSES_REQUIRED = [
@@ -145,6 +160,12 @@ describe.each(MODES)('diffThemeVars (%s Flat Console theme)', (mode) => {
     const bg = surface(background)
     const fg = composite(parseColor(varOf(vars, text)), bg)
     expect(contrastRatio(fg, bg)).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it.each(MARKERS)('%s marker keeps 4.5:1 against its gutter', (kind, tone, background) => {
+    const marker = mix(parseColor(RV_PALETTE[mode][tone]), parseColor(RV_PALETTE[mode].text), 0.8)
+    const bg = surface(background)
+    expect(contrastRatio(marker, bg), `${mode} ${kind} marker`).toBeGreaterThanOrEqual(4.5)
   })
 
   it('maps the line roles to literal antd tokens (insert is success, delete is error)', () => {
@@ -344,4 +365,21 @@ describe('diff-theme.css wiring', () => {
       expect(source).toMatch(/^import '\.\/diff-theme\.css'$/m)
     },
   )
+})
+
+describe('diff-layout.css marker colours', () => {
+  const css = readFileSync(new URL('../ui/diff-layout.css', import.meta.url), 'utf8').replace(
+    /\/\*[\s\S]*?\*\//g,
+    '',
+  )
+  const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+
+  it.each(MARKERS)('pins the %s marker colour mix', (kind, tone) => {
+    const declarations = rules
+      .filter((match) => match[1]?.trim() === `.diff-change-marker-${kind}`)
+      .map((match) => match[2]?.replace(/\s+/g, ' ').trim())
+    expect(declarations).toEqual([
+      `color: color-mix(in srgb, var(--rv-${tone}) 80%, var(--rv-text));`,
+    ])
+  })
 })

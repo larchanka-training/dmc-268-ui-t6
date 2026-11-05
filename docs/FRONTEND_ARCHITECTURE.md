@@ -27,7 +27,7 @@ antd, TanStack Query и jsdom — патчи от 2026-09-24.
 | Ф-n  | Решение                                                                                                                                                              | Причина                                                                                                                                                                                                                       |
 | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Ф-1  | FSD (lite) вместо Clean Architecture                                                                                                                                 | UI-клиент без доменной логики; FSD — фронтенд-реализация чистой архитектуры (лекция), см. §1.                                                                                                                                 |
-| Ф-2  | UI-кит antd 6.6.4                                                                                                                                                    | Tree/Collapse/Descriptions из коробки, peer react ≥ 18, проверено proof-run; подтверждено — [решение техлида][tl-2026-09-24-46] (§3).                                                                                         |
+| Ф-2  | UI-кит antd 6.6.4                                                                                                                                                    | Tree/Collapse/Descriptions из коробки, peer react ≥ 18, проверено proof-run; подтверждено — [решение техлида][tl-2026-09-24-46] (§3). После #117 `RunHeader` использует собственную сетку `<dl>` (§7).                        |
 | Ф-3  | RunStatus — 7 значений (`succeeded`, + `publishing/cancelled/skipped`); пересмотрено 2026-09-24                                                                      | UI «зависание/retry/отмена»; согласовано с ERD роли 6 и [SD §6.4][sd-6.4]; `succeeded` — [решение техлида][tl-2026-09-24].                                                                                                    |
 | Ф-4  | `RunAction.response \| null` + `responseRef`                                                                                                                         | тела инструментов > 64 КБ выносятся отдельным запросом.                                                                                                                                                                       |
 | Ф-5  | Внешний ключ `runId`, тип `RunSession`                                                                                                                               | одно имя во всём контракте: `RunSession` — API-представление `Run` ([SD §12][sd-12]).                                                                                                                                         |
@@ -1230,6 +1230,7 @@ sequenceDiagram
 Альтернатива — **Mantine 9.6.1** (peer `react ^19.2` — выполняется после бампа T10): не выбрана,
 потому что antd закрывает `Tree`/`Collapse`/`Descriptions` из коробки, а на Mantine эти компоненты
 пришлось бы вендорить самостоятельно.
+После #117 `RunHeader` собран своей сеткой `<dl>`, без `Descriptions` (§7).
 
 Что теряем, выбирая antd вместо более лёгкой библиотеки:
 
@@ -1719,6 +1720,19 @@ flowchart LR
   E[FileSlice] -->|expandContext| B
 ```
 
+`DiffViewer` передаёт `<Diff>` класс `diff-with-change-markers` и свой `renderGutter`.
+`renderChangeGutter` оставляет номер строки в штатной ссылке `renderDefault()` / `wrapInAnchor()`,
+а после номера ставит отдельный знак: `+` для `insert`, `-` для `delete`, пустой для `normal`.
+В Unified `renderUnifiedGutter` добавляет его только в новый гаттер (в том числе для удалённой
+строки); старый гаттер остаётся штатным. В Split знак стоит в старом гаттере удалённой строки и
+в новом гаттере добавленной. `diff-layout.css` расширяет колонку номеров под знак и зазор только
+для `diff-with-change-markers`; у `DiffSuggestion` своего гаттера с маркерами нет.
+Знак декоративный: `aria-hidden="true"` скрывает его от скринридера, а `user-select: none` не даёт
+выделить и скопировать его вместе с кодом. Цвета в `diff-layout.css` —
+`color-mix(in srgb, var(--rv-success) 80%, var(--rv-text))` для `+` и такая же смесь
+`--rv-danger` с `--rv-text` для `-`; это токены палитры Flat Console, не переменные
+`diffThemeVars`.
+
 `fromPatch` (`src/entities/diff/lib/fromPatch.ts`) прогоняет `patch` через `parseDiff`, берёт
 `filename` из `RawFileDiff.filename` (не из распарсенного `newPath` — proof-run показал, что без
 `diff --git`-заголовка `newPath` пустой), и валидирует результат `FileDiffSchema`. `toHunks`
@@ -1974,12 +1988,13 @@ flowchart LR
   `*-text-color` задан явно: библиотека разрешает `var(--diff-text-color)` на `:root`, поэтому
   перекрытие одного `--diff-text-color` до них не дошло бы. `--diff-font-family` не трогаем.
 
-Токен antd → переменная → что красит:
+Источник цвета → переменная или CSS-правило → что красит:
 
-| Токен antd                | Переменная                                                                          | Красит                                                                                |
+| Источник цвета            | Переменная или CSS-правило                                                          | Красит                                                                                |
 | ------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | `colorBgContainer`        | `--diff-background-color`                                                           | фон `.diff`                                                                           |
 | `colorText`               | `--diff-text-color` и все `--diff-*-text-color`                                     | текст `.diff`, строк, гаттеров, выделения                                             |
+| `RV_PALETTE` (не antd)    | CSS `--rv-success`/`--rv-danger` 80% + `--rv-text` 20%; без `--diff-*`              | знаки `+`/`-` в гаттере `DiffViewer`                                                  |
 | `colorSuccessBg`          | `--diff-code-insert-background-color`                                               | добавленная строка (`.diff-code-insert`)                                              |
 | `colorErrorBg`            | `--diff-code-delete-background-color`                                               | удалённая строка (`.diff-code-delete`)                                                |
 | `colorSuccessBgHover`     | `--diff-gutter-insert-background-color`, `--diff-code-insert-edit-background-color` | гаттер добавленной строки; изменённый фрагмент внутри неё (`.diff-code-edit`)         |
@@ -2058,7 +2073,10 @@ React, без `innerHTML`.
 `diff-theme.css` с `diffThemeVars` (нет цветовых литералов, у каждого класса ровно одно правило, на
 каждую переменную палитры есть ссылка и наоборот, пары `.token.keyword` / `string` / `comment` /
 `number` / `function` → одноимённый слот) и подключение: `DiffViewer.tsx` и `DiffSuggestion.tsx`
-содержат `import './diff-theme.css'`. `ui/DiffViewer.theme.test.tsx` — значения переменных на
+содержат `import './diff-theme.css'`. `lib/diffTheme.test.ts` рассчитывает контраст четырёх
+сочетаний маркера и его гаттера (insert/delete в обеих темах) ≥ 4,5:1 и проверяет правила 80/20 в
+`diff-layout.css` с диска; `ui/DiffViewer.test.tsx` проверяет расположение и `aria-hidden`
+знаков. `ui/DiffViewer.theme.test.tsx` — значения переменных на
 `.diff-theme` различаются под светлым и тёмным `ConfigProvider` и равны ролям antd
 (`colorSuccessBg` …), а не результату маппера (так же в `DiffSuggestion.test.tsx` и
 `RunDiff.test.tsx`); первый кадр в тёмной теме и смена после `setPreference()` без перемонтирования
@@ -2072,12 +2090,40 @@ React, без `innerHTML`.
 
 ## 7. Инспектор прогонов
 
-`RunHeader` (`src/widgets/run-inspector/ui/RunHeader.tsx`) — поля шапки: движок, модель, статус
-(`Tag` + предупреждение о «зависании»), пометка «Перезапущен вручную» (только `trigger = rerun`;
-`webhook`, зарезервированные `manual`/`dry_run` — без пометки), время создания, время начала,
-длительность, PR (ссылка), попытка, число действий, причина. Строка «Причина» (Reason): текст
-причины из словарей по коду (`reasonText`) и сам код рядом; для кода, которого сборка не знает,
-только «Unknown reason: `<code>`» / «Неизвестная причина: `<code>`».
+`RunHeader` (`src/widgets/run-inspector/ui/RunHeader.tsx`) выводит семантический список `<dl>` с
+23 возможными полями. Подписи берутся из словарей; ниже даны русские подписи и ключи элементов.
+
+| Ключ             | Подпись          | Значение и условие                                                                                                                                                                                                                                               |
+| ---------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `repo`           | Репозиторий      | Полное имя `pullRequest.repo`.                                                                                                                                                                                                                                   |
+| `provider`       | Источник         | Подпись провайдера VCS по `run.provider`.                                                                                                                                                                                                                        |
+| `pullRequest`    | PR               | `#номер заголовок`; ссылка в новой вкладке только при безопасном HTTP(S) URL, иначе обычный текст.                                                                                                                                                               |
+| `headSha`        | Commit           | Первые 7 символов `pullRequest.headSha` в `<code>`.                                                                                                                                                                                                              |
+| `author`         | Автор            | Только при непустом `pullRequest.author`.                                                                                                                                                                                                                        |
+| `refs`           | Ветки            | Только если есть `headRef` или `baseRef`: `head → base`, один `head` либо `→ base`.                                                                                                                                                                              |
+| `engine`         | Движок           | `run.engine`.                                                                                                                                                                                                                                                    |
+| `model`          | Модель           | `run.model`, иначе `—`.                                                                                                                                                                                                                                          |
+| `status`         | Статус           | `Tag` со статусом и его тоном; активный статус пульсирует. При `isStaleRunning(run, now)` добавляется предупреждающий `Tag` «нет ответа > 10 мин»; при ненулевом `verdict` — тег `Blocking` (danger/solid), `Attention` (warning/dot) или `Clean` (success/dot). |
+| `severityCounts` | Находки          | Только при переданных счётчиках, `status = succeeded` и `summaryOnly = false`: пять контурных тегов `critical`/`high`/`medium`/`low`/`info`, включая нули. При `droppedFindings > 0` рядом пояснение о не показанных находках.                                   |
+| `trigger`        | Запуск           | «Перезапущен вручную» только при `trigger = rerun`; `webhook`, зарезервированные `manual`/`dry_run` — без строки.                                                                                                                                                |
+| `createdAt`      | Создан           | Отформатированное `run.createdAt`.                                                                                                                                                                                                                               |
+| `startedAt`      | Начат            | Отформатированное `run.startedAt`, иначе `—`.                                                                                                                                                                                                                    |
+| `duration`       | Длительность     | `runDuration(run, now)` в читаемом формате, иначе `—`.                                                                                                                                                                                                           |
+| `attempt`        | Попытка          | `run.attempt`.                                                                                                                                                                                                                                                   |
+| `actionCount`    | Действий         | Большее из `run.actionCount` и длины журнала `loggedActions` (по умолчанию 0).                                                                                                                                                                                   |
+| `triggeredBy`    | Запустил         | `run.triggeredBy`, иначе `—`.                                                                                                                                                                                                                                    |
+| `tokensIn`       | Токены на входе  | `budget.tokensIn`, иначе `—`.                                                                                                                                                                                                                                    |
+| `tokensOut`      | Токены на выходе | `budget.tokensOut`, иначе `—`.                                                                                                                                                                                                                                   |
+| `costUsd`        | Стоимость        | `budget.costUsd` в USD, иначе `—`.                                                                                                                                                                                                                               |
+| `tokenLimit`     | Лимит токенов    | `budget.tokenLimit`, иначе `—`.                                                                                                                                                                                                                                  |
+| `costLimitUsd`   | Лимит стоимости  | `budget.costLimitUsd` в USD, иначе `—`.                                                                                                                                                                                                                          |
+| `errorCode`      | Причина          | Строка есть всегда: при `null` — `—`, иначе текст `reasonText` и код рядом для известного кода; для неизвестного только «Unknown reason: `<code>`» / «Неизвестная причина: `<code>`».                                                                            |
+
+Если `budget` отсутствует или равен `null`, все пять бюджетных полей показывают `—`, а переданный
+бюджет с нулевыми значениями показывает нули. Сетка `<dl>` имеет одну колонку до 576 px, две с
+576 px и четыре с 992 px. «Находки» занимает две колонки, когда показана; «Причина» занимает две
+колонки при ненулевом `errorCode`. На ширине одной колонки оба поля занимают одну.
+После списка отдельно показываются `Alert` известного кода лимита и строка о summary-only прогоне.
 
 `errorReason` (`src/entities/run/lib/errorReason.ts`) читает девять фраз лимита из словарей
 `limitReasons` (`en` и `ru`) через `i18n.t` и только по собственным ключам, как `ragIndexView`:
@@ -2596,9 +2642,15 @@ Vitest настроен без `globals`, поэтому RTL не чистит D
 `RunDiff.test.tsx`, `RunInspector.test.tsx`) `afterEach(cleanup)` вызывается явно.
 
 jsdom-стабы (`src/test/setup.ts`, подключён через `test.setupFiles` в `vite.config.ts`;
-proof-run, п. (d)): `window.matchMedia` (нужен `Descriptions`/`useBreakpoint`
-antd) и `ResizeObserver` (нужен `Tree` через `@rc-component/virtual-list`) — jsdom 30.1.0 их не
-предоставляет. Стаб `matchMedia` не совпадает ни с одним запросом (везде самая узкая раскладка);
+proof-run, п. (d)): antd `Table` и `Pagination` через `useBreakpoint` подписываются на
+`responsiveObserver` при каждом монтировании, даже без `responsive` у колонок; `Layout.Sider` с
+`breakpoint` (`AppSidebar`) вызывает `window.matchMedia` напрямую. В коде приложения его используют
+`useViewportAtLeast` списка репозиториев, стор темы для системной цветовой схемы,
+`DesignSystemProvider` и `HeroGlass` для ограничения движения, а `HeroGlass` ещё и для проверки
+грубого указателя.
+`ResizeObserver` нужен `Tree` через `@rc-component/virtual-list`.
+jsdom 30.1.0 их не предоставляет. Стаб `matchMedia` отвечает `matches: false` на все запросы
+(для порогов ширины это самая узкая раскладка);
 тест, которому важна ширина окна, вызывает `stubViewport(width)` из `src/test/viewport.ts`: он
 отвечает на `(min-width: …px)` и `(max-width: …px)`, как окно такой ширины. Это `vi.stubGlobal`: после
 каждого теста его снимает `vi.unstubAllGlobals()` в `afterEach` из `setup.ts`, и следующий тест снова

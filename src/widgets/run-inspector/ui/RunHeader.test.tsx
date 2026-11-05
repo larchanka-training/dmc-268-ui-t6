@@ -60,8 +60,36 @@ describe('RunHeader metadata layout', () => {
     render(<RunHeader now={new Date('2026-09-18T12:00:00.000Z')} run={baseRun} />)
     const hash = screen.getByText('abcdef1')
     expect(hash.tagName).toBe('CODE')
-    expect(styles.commit).toBeTruthy()
     expect(hash.classList.contains(styles.commit ?? '')).toBe(true)
+  })
+
+  it('marks the findings item as wide when counts are shown', () => {
+    render(
+      <RunHeader
+        now={new Date('2026-09-18T12:00:00.000Z')}
+        run={baseRun}
+        severityCounts={{ critical: 1, high: 0, medium: 0, low: 0, info: 0 }}
+      />,
+    )
+    const findingsLabel = screen.getByText('Находки', { selector: 'dt' })
+    expect(findingsLabel.parentElement?.classList.contains(styles.wide ?? '')).toBe(true)
+  })
+
+  it('marks the reason item as wide when it has an error code', () => {
+    render(
+      <RunHeader
+        now={new Date('2026-09-18T12:00:00.000Z')}
+        run={{ ...baseRun, status: 'failed', errorCode: 'provider_timeout' }}
+      />,
+    )
+    const reasonLabel = screen.getByText('Причина', { selector: 'dt' })
+    expect(reasonLabel.parentElement?.classList.contains(styles.wide ?? '')).toBe(true)
+  })
+
+  it('does not mark the reason item as wide without an error code', () => {
+    render(<RunHeader now={new Date('2026-09-18T12:00:00.000Z')} run={baseRun} />)
+    const reasonLabel = screen.getByText('Причина', { selector: 'dt' })
+    expect(reasonLabel.parentElement?.classList.contains(styles.wide ?? '')).toBe(false)
   })
 
   it('retains the run settings, timing, attempt and error values next to their labels', () => {

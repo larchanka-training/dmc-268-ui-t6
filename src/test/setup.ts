@@ -1,6 +1,10 @@
 // Vitest setup for jsdom tests. jsdom 30 provides neither `window.matchMedia`
-// (needed by antd `Descriptions`/Grid via responsiveObserver) nor `ResizeObserver`
-// (needed by `@rc-component/virtual-list` inside antd `Tree`). Both are stubbed here.
+// (antd Table and Pagination subscribe through useBreakpoint even without responsive columns;
+// Layout.Sider with breakpoint calls it directly. Also used by the repository-list viewport,
+// system theme, reduced motion in DesignSystemProvider and HeroGlass, and HeroGlass's
+// coarse-pointer check)
+// nor `ResizeObserver` (needed by `@rc-component/virtual-list` inside antd `Tree`).
+// Both are stubbed here.
 import { cleanup, configure } from '@testing-library/react'
 import { afterEach, beforeEach, vi } from 'vitest'
 
