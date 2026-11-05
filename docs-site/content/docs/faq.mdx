@@ -154,11 +154,14 @@ Or the findings could not be tied to changed lines; then they are in the review 
 
 ### Checked files says the list is not shown
 
-The section shows `(список не показывается: имена файлов в этом ревью скрыты)` when the pull
-request changes a file that is not reviewed: a lock file, build output or a file that matches
-`review-ignore` in your [rules file](/rules-file). Reviewer keeps the names of such files out of
-the review, so it hides the whole list. The same happens when it has no reliable record of what
-the run covered.
+The section shows `(список не показывается: имена файлов в этом ревью скрыты)` when Reviewer
+checked at least one file and the pull request also changes a file that is not reviewed: a lock
+file, build output or a file that matches `review-ignore` in your [rules file](/rules-file).
+Reviewer keeps the names of such files out of the review, so it hides the whole list. It also
+hides the list when it has no reliable record of what the run covered.
+
+With no checked files the section shows `(none)`. If every changed file is excluded, there is no
+review body at all: the run is [skipped](/faq#a-run-was-skipped).
 
 ### My rules change did nothing
 
