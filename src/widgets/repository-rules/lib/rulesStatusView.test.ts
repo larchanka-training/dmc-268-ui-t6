@@ -41,6 +41,61 @@ describe('describeDiagnosticLocation', () => {
     expect(describeDiagnosticLocation(base)).toBeNull()
     expect(describeDiagnosticLocation({ ...base, column: 5 })).toBeNull()
   })
+
+  it('does not mistake baseline text for a reported line', () => {
+    expect(
+      describeDiagnosticLocation({
+        ...base,
+        code: 'policy_new_rule',
+        message: 'The baseline 9 was rejected.',
+        line: 9,
+      }),
+    ).toBe('9')
+  })
+
+  it.each(['Found at line: 9.', 'Where: file `.review/rules.md`, line 9.'])(
+    'does not repeat a line already named by an unknown message: %s',
+    (message) => {
+      expect(
+        describeDiagnosticLocation({ ...base, code: 'policy_new_rule', message, line: 9 }),
+      ).toBeNull()
+    },
+  )
+
+  it('does not repeat an unknown diagnostic location with a matching line and column', () => {
+    expect(
+      describeDiagnosticLocation({
+        ...base,
+        code: 'policy_new_rule',
+        message: 'Where: file `.review/rules.md`, line 9, column 3.',
+        line: 9,
+        column: 3,
+      }),
+    ).toBeNull()
+  })
+
+  it('keeps the structured location when the message names a different line', () => {
+    expect(
+      describeDiagnosticLocation({
+        ...base,
+        code: 'policy_new_rule',
+        message: 'Where: file `.review/rules.md`, line 90, column 3.',
+        line: 9,
+        column: 3,
+      }),
+    ).toBe('9:3')
+  })
+
+  it('keeps the structured location for a known code with localized text', () => {
+    expect(
+      describeDiagnosticLocation({
+        ...base,
+        message: 'Where: file `.review/rules.md`, line 9, column 3.',
+        line: 9,
+        column: 3,
+      }),
+    ).toBe('9:3')
+  })
 })
 
 describe('describeDiagnosticLimit', () => {

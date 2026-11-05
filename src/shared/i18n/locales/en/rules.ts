@@ -14,6 +14,7 @@ export const rules = {
   noMasks: 'No masks',
   diagnostics: 'Diagnostics',
   checking: 'Checking .review/rules.md on the branch {{branch}}…',
+  pendingTimeout: 'Checking the rules file took more than a minute. Select Retry to check again.',
   checked: 'Checked: {{date}}',
   invalid: 'The rules file has errors',
   unavailable: 'Could not read the rules file',

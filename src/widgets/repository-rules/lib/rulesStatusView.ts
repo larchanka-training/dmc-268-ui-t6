@@ -24,6 +24,17 @@ export function describeDiagnosticLocation(diagnostic: RulesDiagnostic): string 
   if (diagnostic.line === null) {
     return null
   }
+  // Unknown codes keep the server message. If it already names this position, don't repeat it.
+  const column =
+    diagnostic.column === null ? '' : `,\\s*column\\s*:?\\s+${String(diagnostic.column)}\\b`
+  if (
+    !isKnownDiagnosticCode(diagnostic.code) &&
+    new RegExp(`(?:^|\\s)line\\s*:?\\s+${String(diagnostic.line)}\\b${column}`, 'i').test(
+      diagnostic.message,
+    )
+  ) {
+    return null
+  }
   return diagnostic.column === null
     ? String(diagnostic.line)
     : `${String(diagnostic.line)}:${String(diagnostic.column)}`

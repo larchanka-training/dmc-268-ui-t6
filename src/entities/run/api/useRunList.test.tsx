@@ -114,6 +114,26 @@ describe('useRunList', () => {
     expect(requestedPaths()[2]).toBe('/runs?cursor=cursor-b&limit=20')
   })
 
+  it('keeps the repo filter when fetching a cursor page', async () => {
+    vi.mocked(apiClient)
+      .mockResolvedValueOnce({ items: [run(1)], nextCursor: 'cursor-a' })
+      .mockResolvedValueOnce({ items: [run(2)], nextCursor: null })
+
+    const { result } = renderHook(() => useRunListFields({ repo: 'org/repo' }), { wrapper })
+    await waitFor(() => {
+      expect(result.current.hasNextPage).toBe(true)
+    })
+
+    await act(async () => {
+      await result.current.fetchNextPage()
+    })
+
+    expect(requestedPaths()).toEqual([
+      '/runs?repo=org%2Frepo&limit=20',
+      '/runs?repo=org%2Frepo&cursor=cursor-a&limit=20',
+    ])
+  })
+
   it('sends status when the list is filtered by it and omits it otherwise', async () => {
     vi.mocked(apiClient).mockResolvedValueOnce({ items: [run(1)], nextCursor: null })
     const { result } = renderHook(() => useRunListFields({ repo: 'org/repo', status: 'failed' }), {

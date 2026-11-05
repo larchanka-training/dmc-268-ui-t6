@@ -5,6 +5,7 @@ import type { ReactNode } from 'react'
 import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 
 import type { RulesDiagnostic, RulesStatus } from '../../../entities/repository'
+import { i18n } from '../../../shared/i18n'
 import type { VcsProvider } from '../../../shared/model/provider'
 import type { RulesStatusDetailsProps } from './RulesStatusDetails'
 import { RulesStatusPanel, type RulesStatusPanelProps } from './RulesStatusPanel'
@@ -17,6 +18,8 @@ const CHECKED_AT = '2026-10-14T09:30:15.000Z'
 const MISSING_WARNING = 'Используются дефолтные правила, создайте .review/rules.md'
 const LOAD_ERROR = 'Не удалось загрузить статус правил'
 const PENDING_TEXT = 'Проверяем .review/rules.md в ветке trunk…'
+const PENDING_TIMEOUT =
+  'Проверка файла правил заняла больше минуты. Нажмите «Повторить», чтобы проверить снова.'
 
 const diagnostic: RulesDiagnostic = {
   code: 'policy_ignore_pattern_invalid',
@@ -268,6 +271,123 @@ describe('RulesStatusPanel', () => {
     expect(item?.textContent).toBe('policy_note 14:5 Hint')
   })
 
+  it('shows the duplicate-block diagnostic with one position and an inline-code path', async () => {
+    stubBackend({
+      [REPO_A]: [
+        json({
+          ...invalid('# Rules'),
+          diagnostics: [
+            {
+              ...diagnostic,
+              code: 'policy_ignore_block_duplicate',
+              message:
+                'В .review/rules.md допустим один блок review-ignore. Где: файл `.review/rules.md`, строка 9.',
+              line: 9,
+              column: null,
+            },
+          ],
+        }),
+      ],
+    })
+
+    renderPanel()
+
+    const item = (await within(panel()).findByText('policy_ignore_block_duplicate')).closest('li')
+    expect(item?.textContent).toBe(
+      'policy_ignore_block_duplicate 9 В .review/rules.md допустим один блок review-ignore.',
+    )
+    expect(item?.querySelectorAll('code')[1]?.textContent).toBe('.review/rules.md')
+    expect(item?.textContent).not.toContain('`')
+  })
+
+  it('keeps an unknown diagnostic message, without repeating its reported line or raw backticks', async () => {
+    stubBackend({
+      [REPO_A]: [
+        json({
+          ...invalid('# Rules'),
+          diagnostics: [
+            {
+              ...diagnostic,
+              code: 'policy_new_rule',
+              message:
+                'New <script>alert(1)</script> rule. Where: file `.review/rules.md`, line 9, column 3.',
+              line: 9,
+              column: 3,
+            },
+          ],
+        }),
+      ],
+    })
+
+    renderPanel()
+
+    const item = (await within(panel()).findByText('policy_new_rule')).closest('li')
+    expect(item?.textContent).toBe(
+      'policy_new_rule New <script>alert(1)</script> rule. Where: file .review/rules.md, line 9, column 3.',
+    )
+    expect(item?.querySelectorAll('code')[1]?.textContent).toBe('.review/rules.md')
+    expect(item?.textContent).not.toContain('`')
+    expect(item?.querySelector('script')).toBeNull()
+  })
+
+  it('renders escaped backticks from an unknown message as safe inline code', async () => {
+    stubBackend({
+      [REPO_A]: [
+        json({
+          ...invalid('# Rules'),
+          diagnostics: [
+            {
+              ...diagnostic,
+              code: 'policy_new_rule',
+              message:
+                'Unsafe <script>alert(1)</script>. Where: file \\`.review/rules.md\\`, line 9.',
+              line: 9,
+              column: null,
+            },
+          ],
+        }),
+      ],
+    })
+
+    renderPanel()
+
+    const item = (await within(panel()).findByText('policy_new_rule')).closest('li')
+    expect(item?.textContent).toBe(
+      'policy_new_rule Unsafe <script>alert(1)</script>. Where: file .review/rules.md, line 9.',
+    )
+    expect(item?.querySelectorAll('code')[1]?.textContent).toBe('.review/rules.md')
+    expect(item?.textContent).not.toMatch(/[\\`]/)
+    expect(item?.querySelector('script')).toBeNull()
+  })
+
+  it('keeps useful unknown-message text when a single backtick is unmatched', async () => {
+    stubBackend({
+      [REPO_A]: [
+        json({
+          ...invalid('# Rules'),
+          diagnostics: [
+            {
+              ...diagnostic,
+              code: 'policy_new_rule',
+              message: 'Unexpected `token near <script>alert(1)</script>.',
+              line: null,
+              column: null,
+            },
+          ],
+        }),
+      ],
+    })
+
+    renderPanel()
+
+    const item = (await within(panel()).findByText('policy_new_rule')).closest('li')
+    expect(item?.textContent).toBe(
+      'policy_new_rule Unexpected token near <script>alert(1)</script>.',
+    )
+    expect(item?.textContent).not.toContain('`')
+    expect(item?.querySelector('script')).toBeNull()
+  })
+
   it('says an empty file is empty instead of drawing an empty box', async () => {
     stubBackend({ [REPO_A]: [json(present({ text: '' }))] })
 
@@ -356,6 +476,84 @@ describe('RulesStatusPanel', () => {
     expect(within(panel()).queryByText(PENDING_TEXT)).toBeNull()
     await advance(60_000)
     expect(backend.requests).toEqual([REPO_A, REPO_A])
+    expect(within(panel()).queryByText(PENDING_TIMEOUT)).toBeNull()
+  })
+
+  it('shows a retry after the pending window, then starts a fresh check', async () => {
+    vi.useFakeTimers()
+    const backend = stubBackend({ [REPO_A]: Array.from({ length: 42 }, () => json(pending)) })
+    const advance = async (ms: number): Promise<void> => {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(ms)
+      })
+    }
+
+    renderPanel()
+    await advance(0)
+    await advance(59_999)
+    expect(within(panel()).getByText(PENDING_TEXT)).toBeTruthy()
+    expect(within(panel()).queryByRole('button', { name: 'Повторить' })).toBeNull()
+
+    await advance(1)
+    expect(within(panel()).getByText(PENDING_TIMEOUT)).toBeTruthy()
+    expect(within(panel()).queryByText(PENDING_TEXT)).toBeNull()
+    expect(backend.requests).toHaveLength(20)
+
+    const retry = within(panel()).getByRole('button', { name: 'Повторить' })
+    retry.focus()
+    fireEvent.click(retry)
+    await advance(1)
+    expect(backend.requests).toHaveLength(21)
+    expect(within(panel()).getByText(PENDING_TEXT)).toBeTruthy()
+    expect(within(panel()).queryByText(PENDING_TIMEOUT)).toBeNull()
+    expect(document.activeElement).toBe(
+      within(panel()).getByRole('heading', { name: 'Правила ревью' }),
+    )
+
+    await advance(3000)
+    expect(backend.requests).toHaveLength(22)
+  })
+
+  it('shows the pending timeout and Retry in English', async () => {
+    await i18n.changeLanguage('en')
+    try {
+      vi.useFakeTimers()
+      stubBackend({ [REPO_A]: Array.from({ length: 21 }, () => json(pending)) })
+      renderPanel()
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60_000)
+      })
+
+      expect(
+        within(screen.getByRole('region', { name: 'Review rules' })).getByText(
+          'Checking the rules file took more than a minute. Select Retry to check again.',
+        ),
+      ).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy()
+    } finally {
+      await i18n.changeLanguage('ru')
+    }
+  })
+
+  it('keeps focus on Retry when a failed poll becomes a timeout', async () => {
+    vi.useFakeTimers()
+    stubBackend({
+      [REPO_A]: [...Array.from({ length: 19 }, () => json(pending)), json({ detail: 'boom' }, 500)],
+    })
+    const advance = async (ms: number): Promise<void> => {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(ms)
+      })
+    }
+
+    renderPanel()
+    await advance(57_001)
+    const failedPollRetry = within(panel()).getByRole('button', { name: 'Повторить' })
+    failedPollRetry.focus()
+
+    await advance(2999)
+    expect(within(panel()).getByText(PENDING_TIMEOUT)).toBeTruthy()
+    expect(document.activeElement).toBe(within(panel()).getByRole('button', { name: 'Повторить' }))
   })
 
   it('reports an invalid file with its diagnostics and its text', async () => {

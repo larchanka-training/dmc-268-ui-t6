@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
 
 import { apiClient } from '../../../shared/api/client'
@@ -85,15 +85,9 @@ export function useRepository(id: string) {
   })
 }
 
-/** How often a rules status is asked again while a read is awaited: the worker reads in seconds. */
+/** Shared cadence and limit for rules-status polling, including retry of `unavailable` (#158). */
 export const RULES_STATUS_POLL_MS = 3000
-
-/**
- * How long a retry waits for a new result. The server asks for a read only 30 s after the failure
- * (later with `Retry-After`), and the read itself takes seconds, up to tens of seconds on a slow
- * GitHub. A longer `Retry-After` is not waited for: the retry comes back.
- */
-export const RULES_STATUS_RETRY_WINDOW_MS = 60_000
+export const RULES_STATUS_WINDOW_MS = 60_000
 
 /**
  * Status of `.review/rules.md` of one repository. The answer is kept only while someone shows it
@@ -103,23 +97,78 @@ export const RULES_STATUS_RETRY_WINDOW_MS = 60_000
  * while loading.
  *
  * While the last answer is `pending` (the file is not read yet) it asks again every
- * `RULES_STATUS_POLL_MS`, and stops with the first result. It does the same while the last answer
- * is the `unavailable` record stamped `awaitedCheckedAt` (`useRepositoryRulesStatusRetry`). A
- * request that fails keeps the last answer, so a polling that began goes on until a result or the
- * page is left.
+ * `RULES_STATUS_POLL_MS`, for at most `RULES_STATUS_WINDOW_MS`, and stops with the first result.
+ * The same cadence and window apply while a retry awaits a new `unavailable` record (#158).
+ * A failed request keeps the last answer but does not extend either window.
  */
-export function useRepositoryRulesStatus(id: string, awaitedCheckedAt: string | null = null) {
-  return useQuery({
-    queryKey: repoRulesStatusQueryKey(id),
-    queryFn: ({ signal }) => fetchRepositoryRulesStatus(id, signal),
+export function useRepositoryRulesStatus(
+  id: string,
+  awaitedCheckedAt: string | null = null,
+  awaitedDeadline: number | null = null,
+) {
+  const queryClient = useQueryClient()
+  const queryKey = repoRulesStatusQueryKey(id)
+  const pendingPoll = useRef<{
+    id: string
+    startedAt: number | null
+    afterUpdateCount?: number
+  } | null>(null)
+  const query = useQuery({
+    queryKey,
+    queryFn: ({ signal }) => {
+      const poll = pendingPoll.current
+      if (
+        poll?.id === id &&
+        poll.startedAt !== null &&
+        Date.now() >= poll.startedAt + RULES_STATUS_WINDOW_MS
+      ) {
+        const cached = queryClient.getQueryData<RulesStatus>(queryKey)
+        if (cached?.status === 'pending') return cached
+      }
+      return fetchRepositoryRulesStatus(id, signal)
+    },
     refetchInterval: (query) => {
       const status = query.state.data
-      const polled = status?.status === 'pending' || isAwaitedRecord(status, awaitedCheckedAt)
-      return polled ? RULES_STATUS_POLL_MS : false
+      if (status?.status === 'pending') {
+        if (pendingPoll.current?.id !== id) {
+          pendingPoll.current = { id, startedAt: query.state.dataUpdatedAt }
+        } else if (pendingPoll.current.startedAt === null) {
+          if (query.state.dataUpdateCount === pendingPoll.current.afterUpdateCount) return false
+          pendingPoll.current = { id, startedAt: query.state.dataUpdatedAt }
+        }
+        const startedAt = pendingPoll.current.startedAt
+        if (startedAt === null) return false
+        return Date.now() + RULES_STATUS_POLL_MS < startedAt + RULES_STATUS_WINDOW_MS
+          ? RULES_STATUS_POLL_MS
+          : false
+      }
+      pendingPoll.current = null
+      return isAwaitedRecord(status, awaitedCheckedAt) &&
+        awaitedDeadline !== null &&
+        Date.now() + RULES_STATUS_POLL_MS < awaitedDeadline
+        ? RULES_STATUS_POLL_MS
+        : false
     },
     refetchOnMount: 'always',
     gcTime: 0,
   })
+  return {
+    ...query,
+    getPendingPollDeadline: () =>
+      query.data?.status === 'pending' &&
+      pendingPoll.current?.id === id &&
+      pendingPoll.current.startedAt !== null
+        ? pendingPoll.current.startedAt + RULES_STATUS_WINDOW_MS
+        : null,
+    refetch: (...args: Parameters<typeof query.refetch>) => {
+      pendingPoll.current = {
+        id,
+        startedAt: null,
+        afterUpdateCount: queryClient.getQueryState(queryKey)?.dataUpdateCount ?? 0,
+      }
+      return query.refetch(...args)
+    },
+  }
 }
 
 function isAwaitedRecord(
@@ -133,21 +182,29 @@ function isAwaitedRecord(
  * The rules status with its "Retry". A GET only queues a new read of an `unavailable` file and
  * answers the stored record at once (api#150), so a retry of a retryable status asks again every
  * `RULES_STATUS_POLL_MS` until the record changes (a new `checkedAt` or another status), but no
- * longer than `RULES_STATUS_RETRY_WINDOW_MS`. For any other status a retry is one request.
+ * longer than `RULES_STATUS_WINDOW_MS`. For any other status a retry is one request.
  */
 export function useRepositoryRulesStatusRetry(id: string) {
-  const [awaited, setAwaited] = useState<{ repoId: string; checkedAt: string } | null>(null)
+  const [awaited, setAwaited] = useState<{
+    repoId: string
+    checkedAt: string
+    deadline: number
+  } | null>(null)
   const awaitedCheckedAt = awaited?.repoId === id ? awaited.checkedAt : null
-  const query = useRepositoryRulesStatus(id, awaitedCheckedAt)
+  const awaitedDeadline = awaited?.repoId === id ? awaited.deadline : null
+  const query = useRepositoryRulesStatus(id, awaitedCheckedAt, awaitedDeadline)
   const { data } = query
 
   useEffect(() => {
     if (awaited === null) {
       return
     }
-    const timer = setTimeout(() => {
-      setAwaited(null)
-    }, RULES_STATUS_RETRY_WINDOW_MS)
+    const timer = setTimeout(
+      () => {
+        setAwaited(null)
+      },
+      Math.max(0, awaited.deadline - Date.now()),
+    )
     return () => {
       clearTimeout(timer)
     }
@@ -155,7 +212,11 @@ export function useRepositoryRulesStatusRetry(id: string) {
 
   const retry = (): void => {
     if (data?.status === 'unavailable' && data.diagnostics.some((item) => item.retryable)) {
-      setAwaited({ repoId: id, checkedAt: data.checkedAt })
+      setAwaited({
+        repoId: id,
+        checkedAt: data.checkedAt,
+        deadline: Date.now() + RULES_STATUS_WINDOW_MS,
+      })
     }
     void query.refetch()
   }

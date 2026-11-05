@@ -16,6 +16,8 @@ export const rules: Translation<typeof en> = {
   noMasks: 'Масок нет',
   diagnostics: 'Диагностика',
   checking: 'Проверяем .review/rules.md в ветке {{branch}}…',
+  pendingTimeout:
+    'Проверка файла правил заняла больше минуты. Нажмите «Повторить», чтобы проверить снова.',
   checked: 'Проверено: {{date}}',
   invalid: 'Файл правил содержит ошибки',
   unavailable: 'Не удалось прочитать файл правил',
