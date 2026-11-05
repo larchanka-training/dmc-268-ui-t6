@@ -1,6 +1,6 @@
 import { InfoCircleOutlined } from '@ant-design/icons'
 import { Button, Popover } from 'antd'
-import { useState, type FC, type KeyboardEvent, type ReactNode } from 'react'
+import { useRef, useState, type FC, type KeyboardEvent, type ReactNode } from 'react'
 
 import styles from './InfoHint.module.css'
 
@@ -12,6 +12,19 @@ export interface InfoHintProps {
 /** A short explanation stays visible beside this button; the details open on hover or action. */
 export const InfoHint: FC<InfoHintProps> = ({ label, children }) => {
   const [open, setOpen] = useState(false)
+  const clickedOpen = useRef(false)
+  const clickPending = useRef(false)
+
+  const onOpenChange = (next: boolean): void => {
+    if (clickPending.current) {
+      clickPending.current = false
+      clickedOpen.current = !clickedOpen.current
+      setOpen(clickedOpen.current)
+      return
+    }
+    if (!next) clickedOpen.current = false
+    setOpen(next)
+  }
 
   const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>): void => {
     if (event.key === 'Escape') {
@@ -28,7 +41,7 @@ export const InfoHint: FC<InfoHintProps> = ({ label, children }) => {
       classNames={{ root: styles.popup }}
       content={children}
       destroyOnHidden
-      onOpenChange={setOpen}
+      onOpenChange={onOpenChange}
       open={open}
       placement="top"
       trigger={['hover', 'click']}
@@ -37,6 +50,9 @@ export const InfoHint: FC<InfoHintProps> = ({ label, children }) => {
         aria-expanded={open}
         aria-label={label}
         icon={<InfoCircleOutlined />}
+        onClickCapture={() => {
+          clickPending.current = true
+        }}
         onKeyDown={onKeyDown}
         size="middle"
         type="text"
