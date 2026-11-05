@@ -103,7 +103,7 @@ describe('Bitbucket connection pages', () => {
     expect(await screen.findByText('private-space/second-repo')).toBeTruthy()
   })
 
-  it('moves focus to the first action of a newly loaded connection', async () => {
+  it('moves focus to the safe action of a newly loaded connection', async () => {
     let finishPage: ((value: unknown) => void) | undefined
     setMockTransport((endpoint) => {
       if (endpoint.path.includes('?cursor=')) {
@@ -131,7 +131,7 @@ describe('Bitbucket connection pages', () => {
     expect(await screen.findByText('private-space/second-repo')).toBeTruthy()
     await waitFor(() => {
       expect(document.activeElement).toBe(
-        screen.getByRole('button', { name: 'Новый webhook secret для private-space/second-repo' }),
+        screen.getByRole('button', { name: 'Обновить API token для private-space/second-repo' }),
       )
     })
   })
@@ -199,6 +199,98 @@ describe('Bitbucket connection pages', () => {
       expect(document.activeElement).toBe(pager)
     })
     expect(screen.getByText('private-space/first-repo')).toBeTruthy()
+  })
+
+  it('moves focus to the safe action after retrying a failed connection page', async () => {
+    let failFirst: ((reason: unknown) => void) | undefined
+    let finishRetry: ((value: unknown) => void) | undefined
+    let pageCalls = 0
+    setMockTransport((endpoint) => {
+      if (endpoint.path.includes('?cursor=')) {
+        pageCalls += 1
+        if (pageCalls === 1) {
+          return new Promise((_, reject) => {
+            failFirst = reject
+          })
+        }
+        return new Promise((resolve) => {
+          finishRetry = resolve
+        })
+      }
+      return { connections: [firstConnection], nextCursor: 'next' }
+    })
+    renderPanel()
+    selectWorkspace('First team')
+    const pager = await screen.findByRole('button', { name: 'Показать ещё подключения' })
+    pager.focus()
+    fireEvent.click(pager)
+    await waitFor(() => {
+      expect(failFirst).toBeDefined()
+      expect(pager.hasAttribute('disabled')).toBe(true)
+    })
+    const workspaceInput = screen.getByRole('textbox', { name: 'Bitbucket workspace' })
+    workspaceInput.focus()
+    workspaceInput.blur()
+    await act(async () => {
+      failFirst?.(new Error('page failed'))
+      await Promise.resolve()
+    })
+    await waitFor(() => {
+      expect(pager.hasAttribute('disabled')).toBe(false)
+      expect(document.activeElement).toBe(pager)
+    })
+
+    fireEvent.click(pager)
+    await waitFor(() => {
+      expect(finishRetry).toBeDefined()
+      expect(pager.hasAttribute('disabled')).toBe(true)
+    })
+    workspaceInput.focus()
+    workspaceInput.blur()
+    expect(document.activeElement).toBe(document.body)
+    await act(async () => {
+      finishRetry?.({ connections: [secondConnection], nextCursor: null })
+      await Promise.resolve()
+    })
+
+    expect(await screen.findByText('private-space/second-repo')).toBeTruthy()
+    await waitFor(() => {
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: 'Обновить API token для private-space/second-repo' }),
+      )
+    })
+    expect(pageCalls).toBe(2)
+  })
+
+  it('does not move focus after clicking Show more without focus', async () => {
+    let finishPage: ((value: unknown) => void) | undefined
+    setMockTransport((endpoint) => {
+      if (endpoint.path.includes('?cursor=')) {
+        return new Promise((resolve) => {
+          finishPage = resolve
+        })
+      }
+      return { connections: [firstConnection], nextCursor: 'next' }
+    })
+    renderPanel()
+    selectWorkspace('First team')
+    const pager = await screen.findByRole('button', { name: 'Показать ещё подключения' })
+    const workspaceInput = screen.getByRole('textbox', { name: 'Bitbucket workspace' })
+    workspaceInput.focus()
+    workspaceInput.blur()
+    expect(document.activeElement).toBe(document.body)
+
+    fireEvent.click(pager)
+    await waitFor(() => {
+      expect(finishPage).toBeDefined()
+    })
+    await act(async () => {
+      finishPage?.({ connections: [secondConnection], nextCursor: null })
+      await Promise.resolve()
+    })
+
+    expect(await screen.findByText('private-space/second-repo')).toBeTruthy()
+    expect(document.activeElement).toBe(document.body)
   })
 
   it.each([

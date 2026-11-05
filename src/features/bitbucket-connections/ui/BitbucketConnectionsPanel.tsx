@@ -113,7 +113,7 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
       pending.epoch,
       pending.from,
       firstNew
-        ? { kind: 'hook', portalRepositoryId: firstNew.repositoryId }
+        ? { kind: 'credential', portalRepositoryId: firstNew.repositoryId }
         : connections.hasNextPage
           ? { kind: 'connections-pager' }
           : { kind: 'workspace' },
