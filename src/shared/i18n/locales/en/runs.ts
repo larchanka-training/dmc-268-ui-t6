@@ -115,6 +115,7 @@ export const runs = {
     searchPlaceholder: 'Text, rule',
     clearSearch: 'Clear the search',
     pending: 'Findings appear once the run is over',
+    pendingUncertain: 'Findings are not available yet',
     shown_one: 'Showing {{shown}} of {{count}} finding',
     shown_other: 'Showing {{shown}} of {{count}} findings',
     reset: 'Reset filters',
