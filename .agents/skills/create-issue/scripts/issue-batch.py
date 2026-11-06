@@ -772,17 +772,26 @@ def run(
                     code, board_out, msg, _ = call(
                         "issue-board.py", [entry["url"], spec.get("status") or "Todo"]
                     )
-                    if code == 0 and isinstance(board_out, dict) and board_out.get("board") == "added":
+                    if (
+                        code == 0
+                        and isinstance(board_out, dict)
+                        and board_out.get("board") == "added"
+                    ):
                         entry = {**entry, "board": "added"}
                         record(key, {**entry, "links": links}, new=False)
                     elif code == 6:
                         worst = max(worst, 6)
                         warn(
                             f'item "{key}": {entry["url"]} is recorded with a failed board step — '
-                            f"{BOARD_REPAIR.format(url=entry['url'])}, then set its Status on the board"
+                            f"{BOARD_REPAIR.format(url=entry['url'])}, then set its Status "
+                            "on the board"
                         )
                     else:
-                        stop(key, code, f"issue-board.py could not check its board (exit {code}): {msg}")
+                        stop(
+                            key,
+                            code,
+                            f"issue-board.py could not check its board (exit {code}): {msg}",
+                        )
                 result(key, entry, verified=None, board=entry.get("board"), links=links)
                 continue
             spec_path = Path(work) / f"{key}.json"

@@ -52,7 +52,19 @@ def item(url: str, suffix: str = "") -> dict[str, Any] | None:
 def edit(url: str, status: str) -> None:
     call(
         "project_edit",
-        ["project", "item-edit", BOARD, "--owner", OWNER, "--url", url, "--field", "Status", "--value", status],
+        [
+            "project",
+            "item-edit",
+            BOARD,
+            "--owner",
+            OWNER,
+            "--url",
+            url,
+            "--field",
+            "Status",
+            "--value",
+            status,
+        ],
     )
 
 
