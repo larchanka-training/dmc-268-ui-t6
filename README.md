@@ -67,7 +67,7 @@ ui:
     - '8080:8080'
 ```
 
-- `API_UPSTREAM` — `http(s)://<host>[:port]` без пути, иное значение останавливает контейнер. Имя
+- `API_UPSTREAM` — `http://<host>[:port]` без пути, иное значение останавливает контейнер. Имя
   резолвится на запрос, поэтому UI может стартовать раньше backend. С `read_only: true` нужны
   `tmpfs` на `/tmp` и `/etc/nginx/runtime` (владелец `101`).
 - `VITE_GITHUB_CLIENT_ID` и `VITE_GITHUB_APP_SLUG` запекаются при сборке (`--build-arg`). Без client ID

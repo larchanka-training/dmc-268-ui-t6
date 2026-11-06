@@ -10,9 +10,10 @@ upstream="${API_UPSTREAM:-}"
 
 [ -n "$upstream" ] || exit 0
 
-# No path: a URI part in a proxy_pass variable would replace the whole URI of every request.
-if ! printf '%s' "$upstream" | grep -Eq '^https?://[A-Za-z0-9._-]+(:[0-9]{1,5})?$'; then
-  echo "$ME: ERROR: API_UPSTREAM must be http(s)://<host>[:port], no path (got: $upstream)" >&2
+# No path: a URI part in a proxy_pass variable would replace the whole URI of every request. No
+# https: nginx would not verify the certificate, and the backend is on the compose network anyway.
+if ! printf '%s' "$upstream" | grep -Eq '^http://[A-Za-z0-9._-]+(:[0-9]{1,5})?$'; then
+  echo "$ME: ERROR: API_UPSTREAM must be http://<host>[:port], no path (got: $upstream)" >&2
   exit 1
 fi
 

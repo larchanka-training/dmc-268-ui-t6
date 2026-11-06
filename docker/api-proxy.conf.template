@@ -12,7 +12,9 @@ location /api/ {
     proxy_connect_timeout 3s;
 
     proxy_set_header Host $http_host;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    # This nginx is the first hop: what a client sent in these headers is overwritten, as in Caddy.
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Host $http_host;
     proxy_set_header X-Forwarded-Proto $scheme;
 
     # GET /api/stream is SSE: each event goes out as it arrives. Its keepalive (15 s) is well

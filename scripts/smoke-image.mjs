@@ -156,12 +156,22 @@ scenario('with API_UPSTREAM the image starts before its backend exists', async (
 
 scenario('/api/* reaches the backend as it reaches it behind the edge proxy', async () => {
   firstStub = await startStub('a')
-  const { response, body } = await proxied(compose.origin, 'a')
+  await proxied(compose.origin, 'a')
+  const response = await fetch(`${compose.origin}/api/runs?x=1`, {
+    headers: {
+      'X-Forwarded-For': '203.0.113.1',
+      'X-Forwarded-Host': 'spoofed.example',
+      'X-Forwarded-Proto': 'https',
+    },
+  })
+  const body = await response.json()
   assert.match(response.headers.get('content-type'), /^application\/json/)
   assert.equal(body.url, '/api/runs?x=1')
   assert.equal(body.httpVersion, '1.1')
   assert.equal(body.headers.host, new URL(compose.origin).host)
-  assert.ok(body.headers['x-forwarded-for'])
+  assert.match(body.headers['x-forwarded-for'], /^[\d.]+$/)
+  assert.notEqual(body.headers['x-forwarded-for'], '203.0.113.1')
+  assert.equal(body.headers['x-forwarded-host'], new URL(compose.origin).host)
   assert.equal(body.headers['x-forwarded-proto'], 'http')
 
   const encoded = await (await fetch(`${compose.origin}/api/repos/a%2Fb`)).json()
@@ -197,8 +207,9 @@ scenario('a recreated backend is found at its new address without a UI restart',
   await proxied(compose.origin, 'b')
 })
 
-scenario('an API_UPSTREAM that is not http(s)://host[:port] stops the container', async () => {
-  for (const value of [`${API_UPSTREAM}/`, `${API_UPSTREAM}/api`, 'backend:8000']) {
+scenario('an API_UPSTREAM that is not http://host[:port] stops the container', async () => {
+  const values = [`${API_UPSTREAM}/`, `${API_UPSTREAM}/api`, 'backend:8000', 'https://backend:8000']
+  for (const value of values) {
     const name = await run('-e', `API_UPSTREAM=${value}`, image)
     await until(`${name} to stop on API_UPSTREAM=${value}`, async () => {
       const status = await docker('inspect', '--format', '{{.State.Status}}', name)
