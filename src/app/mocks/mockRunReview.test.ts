@@ -194,6 +194,13 @@ describe('mockRawDiffForRun demo highlight fixtures', () => {
     }
   })
 
+  it('has a file with a diff and a name longer than 21 characters in the demo diff', () => {
+    const longNames = demoDiff().filter(
+      (raw) => raw.filename.length > 21 && fromPatch(raw).chunks.length > 0,
+    )
+    expect(longNames).not.toEqual([])
+  })
+
   it.each(['.ts', '.py'])(
     'tokenizes the demo %s file to keyword, string and comment with the real refractor',
     (extension) => {

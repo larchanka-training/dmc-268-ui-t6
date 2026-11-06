@@ -38,10 +38,10 @@ export const HIGHLIGHT_PATCH_TS: SamplePatch = {
 }
 
 const NOTIFY_PY_LINES = [
-  'diff --git a/app/notify.py b/app/notify.py',
+  'diff --git a/app/services/notifications/notify.py b/app/services/notifications/notify.py',
   'index 7777777..8888888 100644',
-  '--- a/app/notify.py',
-  '+++ b/app/notify.py',
+  '--- a/app/services/notifications/notify.py',
+  '+++ b/app/services/notifications/notify.py',
   '@@ -1,8 +1,17 @@',
   '+"""Send review notifications to repository owners."""',
   ' import logging',
@@ -66,7 +66,7 @@ const NOTIFY_PY_LINES = [
 ]
 
 export const HIGHLIGHT_PATCH_PY: SamplePatch = {
-  filename: 'app/notify.py',
+  filename: 'app/services/notifications/notify.py',
   patch: `${NOTIFY_PY_LINES.join('\n')}\n`,
 }
 
