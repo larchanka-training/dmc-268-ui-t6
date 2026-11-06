@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { Suspense, type FC } from 'react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
@@ -32,6 +32,7 @@ afterEach(() => {
   for (const router of routers.splice(0)) router.dispose()
   for (const link of linksInDocument()) link.remove()
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
 function loader() {
@@ -183,6 +184,36 @@ it('moves from the notice to the error screen when the chunk is gone after the n
 
   expect(await screen.findByText(ERROR_TITLE_RU)).toBeDefined()
   expect(screen.queryByText(OFFLINE_RU)).toBeNull()
+})
+
+async function errorScreenAfterReconnect() {
+  vi.spyOn(console, 'error').mockImplementation(() => undefined)
+  const location = { href: 'http://localhost/page', reload: vi.fn() }
+  vi.stubGlobal('location', location)
+  browserOnline = false
+  renderRoute(lazyRoute(loader().mockRejectedValue(new Error(LOADER_ERROR))))
+  await screen.findByText(OFFLINE_RU)
+  reconnect()
+  await screen.findByText(ERROR_TITLE_RU)
+  return location
+}
+
+it('reloads the page at the same address from the error screen', async () => {
+  const location = await errorScreenAfterReconnect()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Повторить попытку' }))
+
+  expect(location.reload).toHaveBeenCalledOnce()
+  expect(location.href).toBe('http://localhost/page')
+})
+
+it('still leaves the error screen for the dashboard', async () => {
+  const location = await errorScreenAfterReconnect()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Вернуться в панель управления' }))
+
+  expect(location.href).toBe('/repositories')
+  expect(location.reload).not.toHaveBeenCalled()
 })
 
 const STYLESHEET = '/assets/RunDetailPage-abc.css'

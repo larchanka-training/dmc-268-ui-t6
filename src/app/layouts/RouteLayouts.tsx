@@ -19,9 +19,19 @@ export const RouteErrorFallback: FC = () => {
     <Flex align="center" className={styles.errorContainer} justify="center">
       <Result
         extra={
-          <Button onClick={() => (window.location.href = '/repositories')} type="primary">
-            {t('layout.routeError.backToDashboard')}
-          </Button>
+          <Flex gap="small" justify="center" wrap>
+            <Button
+              onClick={() => {
+                window.location.reload()
+              }}
+              type="primary"
+            >
+              {t('common.errors.tryAgain')}
+            </Button>
+            <Button onClick={() => (window.location.href = '/repositories')}>
+              {t('layout.routeError.backToDashboard')}
+            </Button>
+          </Flex>
         }
         status="500"
         subTitle={msg}
