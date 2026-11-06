@@ -34,7 +34,11 @@ require('node:http').createServer((req, res) => {
   req.on('data', (chunk) => body.push(chunk))
   req.on('end', () => {
     if (req.url === '/api/release') for (const stream of held) stream.write('data: second\n\n')
-    res.writeHead(401, { 'Content-Type': 'application/json', 'Set-Cookie': 'stub=1; Path=/api/auth' })
+    res.writeHead(401, {
+      'Content-Type': 'application/json',
+      'Set-Cookie': 'stub=1; Path=/api/auth',
+      'X-Frame-Options': 'SAMEORIGIN',
+    })
     res.end(JSON.stringify({
       detail: 'stub',
       instance: process.env.INSTANCE,
@@ -166,6 +170,9 @@ scenario('/api/* reaches the backend as it reaches it behind the edge proxy', as
   })
   const body = await response.json()
   assert.match(response.headers.get('content-type'), /^application\/json/)
+  // The headers of the API alone, as behind the edge proxy: none of the UI's are added on top.
+  assert.equal(response.headers.get('x-frame-options'), 'SAMEORIGIN')
+  assert.equal(response.headers.get('content-security-policy'), null)
   assert.equal(body.url, '/api/runs?x=1')
   assert.equal(body.httpVersion, '1.1')
   assert.equal(body.headers.host, new URL(compose.origin).host)

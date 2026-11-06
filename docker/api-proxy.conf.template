@@ -11,6 +11,9 @@ location /api/ {
     # for a minute; it fails fast instead, and the next lookup finds the new one.
     proxy_connect_timeout 3s;
 
+    # The headers of the API alone, as behind Caddy: the server block's are for the UI's pages.
+    add_header_inherit off;
+
     proxy_set_header Host $http_host;
     # This nginx is the first hop: what a client sent in these headers is overwritten, as in Caddy.
     proxy_set_header X-Forwarded-For $remote_addr;
