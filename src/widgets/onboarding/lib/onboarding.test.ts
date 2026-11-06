@@ -7,6 +7,8 @@ import {
   hasViewedSuccessfulRun,
   dismissOnboarding,
   markSuccessfulRunViewed,
+  hasViewedRepositorySettings,
+  markRepositorySettingsViewed,
 } from './onboarding'
 
 describe('onboarding progress', () => {
@@ -23,6 +25,7 @@ describe('onboarding progress', () => {
         hasInstallation: false,
         repositories: [],
         runs: [],
+        viewedSettingsRepoIds: [],
         viewedResult: false,
       }),
     ).toEqual([false, false, false, false])
@@ -31,6 +34,7 @@ describe('onboarding progress', () => {
         hasInstallation: true,
         repositories: [],
         runs: [],
+        viewedSettingsRepoIds: [],
         viewedResult: false,
       })[0],
     ).toBe(false)
@@ -39,6 +43,7 @@ describe('onboarding progress', () => {
         hasInstallation: true,
         repositories: [connectedRepo],
         runs: [],
+        viewedSettingsRepoIds: [],
         viewedResult: false,
       }),
     ).toEqual([true, false, false, false])
@@ -50,15 +55,19 @@ describe('onboarding progress', () => {
       hasInstallation: true,
       repositories: [enabledRepo],
       runs: [{ id: 'run-1', status: 'running' as const }],
+      viewedSettingsRepoIds: [],
       viewedResult: false,
     }
-    expect(getOnboardingProgress(input)).toEqual([true, true, true, false])
-    expect(getOnboardingProgress({ ...input, viewedResult: true })).toEqual([
+    expect(getOnboardingProgress(input)).toEqual([true, false, true, false])
+    expect(getOnboardingProgress({ ...input, viewedSettingsRepoIds: ['repo-1'] })).toEqual([
       true,
       true,
       true,
-      true,
+      false,
     ])
+    expect(
+      getOnboardingProgress({ ...input, viewedSettingsRepoIds: ['repo-1'], viewedResult: true }),
+    ).toEqual([true, true, true, true])
   })
 
   it('does not treat a Bitbucket repository as a GitHub App installation', () => {
@@ -67,6 +76,7 @@ describe('onboarding progress', () => {
         hasInstallation: true,
         repositories: [{ ...connectedRepo, provider: 'bitbucket' }],
         runs: [],
+        viewedSettingsRepoIds: [],
         viewedResult: false,
       }),
     ).toEqual([false, false, false, false])
@@ -85,5 +95,9 @@ describe('onboarding persistence', () => {
     expect(hasViewedSuccessfulRun(10)).toBe(true)
     expect(isOnboardingDismissed(11)).toBe(false)
     expect(hasViewedSuccessfulRun(11)).toBe(false)
+    markRepositorySettingsViewed(10, 'repo-1')
+    expect(hasViewedRepositorySettings(10, 'repo-1')).toBe(true)
+    expect(hasViewedRepositorySettings(10, 'repo-2')).toBe(false)
+    expect(hasViewedRepositorySettings(11, 'repo-1')).toBe(false)
   })
 })

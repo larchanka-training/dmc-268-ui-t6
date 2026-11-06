@@ -19,6 +19,8 @@ import {
   type Repository,
   type UpdateRepositoryInput,
 } from '../../entities/repository'
+import { useMe } from '../../entities/user'
+import { useAuthStore } from '../../features/auth'
 import { runListHref } from '../../features/run-list-filter'
 import {
   AutoReviewSwitch,
@@ -32,6 +34,7 @@ import { useTranslation } from '../../shared/i18n'
 import { PageHeader } from '../../shared/ui'
 import { VCS_PROVIDER_LABEL } from '../../shared/model/provider'
 import { RulesStatusPanel } from '../../widgets/repository-rules'
+import { markRepositorySettingsViewed } from '../../widgets/onboarding'
 import { formatErrorMessage } from './lib/formatError'
 import { useRagIndexPolling } from './lib/useRagIndexPolling'
 
@@ -65,6 +68,8 @@ const NotAvailable: FC<{ description: string }> = ({ description }) => {
 const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
   const { message, modal } = App.useApp()
   const { t } = useTranslation()
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
+  const { data: me } = useMe(isAuthenticated)
   const { data: repository, isPending, isError, isFetching, error, refetch } = useRepository(repoId)
   const updateMutation = useUpdateRepository()
 
@@ -80,6 +85,12 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
     setOpeningRequestDone(true)
     setNotice(isError ? 'stale' : null)
   }
+
+  useEffect(() => {
+    if (me && repository?.provider === 'github' && openingRequestDone && notice !== 'stale') {
+      markRepositorySettingsViewed(me.id, repository.id)
+    }
+  }, [me, repository, openingRequestDone, notice])
 
   // The first answer that is not an error ends `stale`, whoever asked for it (the retry, a
   // refocused window, the refetch after a save), and brings the form up to date:
