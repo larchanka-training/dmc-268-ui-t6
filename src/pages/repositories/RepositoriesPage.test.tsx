@@ -95,6 +95,7 @@ describe('RepositoriesPage', () => {
         }
       }
       if (endpoint.path === '/repos') return []
+      if (endpoint.path.startsWith('/runs?')) return { items: [], nextCursor: null }
       throw new Error(`Unexpected request ${endpoint.path}`)
     })
     renderWithClient(<RepositoriesPage />)
@@ -103,6 +104,21 @@ describe('RepositoriesPage', () => {
     expect(requests).not.toContain(
       '/workspaces/11111111-1111-4111-8111-111111111111/bitbucket/connections',
     )
+  })
+
+  it('shows first steps only after real account, repository and run data load', async () => {
+    useAuthStore.setState({ isAuthenticated: true })
+    setMockTransport((endpoint) => {
+      if (endpoint.path === '/auth/me') {
+        return { id: 174, login: 'new-user', name: null, avatarUrl: null, workspaces: [] }
+      }
+      if (endpoint.path === '/repos') return []
+      if (endpoint.path.startsWith('/runs?')) return { items: [], nextCursor: null }
+      throw new Error(`Unexpected request ${endpoint.path}`)
+    })
+    renderWithClient(<RepositoriesPage />)
+    expect(await screen.findByRole('heading', { name: 'С чего начать' })).toBeTruthy()
+    expect(screen.getAllByText('Не выполнено')).toHaveLength(4)
   })
 
   it('keeps one empty status through an idle error without exposing an empty list', async () => {

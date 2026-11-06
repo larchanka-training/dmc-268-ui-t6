@@ -1,0 +1,25 @@
+export const onboarding = {
+  title: 'С чего начать',
+  intro: 'Выполните эти шаги, чтобы получить первое ревью.',
+  hide: 'Скрыть чеклист',
+  done: 'Готово',
+  todo: 'Не выполнено',
+  installTitle: 'Установите GitHub App и выберите репозитории',
+  installDescription:
+    'Выберите репозитории для приложения, затем обновите доступ на этой странице.',
+  installAction: 'Установить GitHub App',
+  settingsTitle: 'Проверьте настройки репозитория',
+  settingsDescription: 'Включите авторевью и проверьте настройки веток.',
+  settingsAction: 'Проверить настройки',
+  repositoriesAction: 'Открыть репозитории',
+  reviewTitle: 'Запросите первое ревью',
+  reviewDescription: 'Откройте PR или добавьте лейбл ai-review, затем дождитесь прогона.',
+  reviewAction: 'Открыть PR',
+  reviewSetupAction: 'Настроить ревью',
+  resultTitle: 'Посмотрите результат',
+  resultDescription: 'Откройте завершённый прогон, чтобы прочитать вердикт и находки.',
+  resultAction: 'Посмотреть результат ревью',
+  runsAction: 'Открыть прогоны',
+  emptyRuns:
+    'Откройте PR или добавьте лейбл ai-review в активном репозитории. Результат ревью появится здесь.',
+}

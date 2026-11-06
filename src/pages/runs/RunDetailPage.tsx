@@ -1,18 +1,21 @@
 import { RightOutlined } from '@ant-design/icons'
 import { Alert, Breadcrumb, Empty, Flex, Spin, Typography } from 'antd'
 import type { FC } from 'react'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
 
 import { expandContext, fetchRunFileSlice, useRunDiff } from '../../entities/diff'
 import type { FileDiff } from '../../entities/diff'
 import { isActive, isStaleRunning, useRunActions, useRunDetail } from '../../entities/run'
+import { useMe } from '../../entities/user'
 import { useRunComments } from '../../entities/review'
+import { useAuthStore } from '../../features/auth'
 import { useFindingFiltersParams } from '../../features/finding-filters'
 import { useTranslation } from '../../shared/i18n'
 import { PageHeader, PageLoading } from '../../shared/ui'
 import { contextChunkLimit, RunDiff, type ContextGap } from '../../widgets/diff-viewer'
 import { RunControls, RunInspector } from '../../widgets/run-inspector'
+import { markSuccessfulRunViewed } from '../../widgets/onboarding'
 import { runDetailLoadMessage, runDiffLoadMessage } from './lib/runLoadErrors'
 import styles from './RunDetailPage.module.css'
 
@@ -25,6 +28,8 @@ function mergeFileLists(base: FileDiff[], overrides: Map<string, FileDiff>): Fil
 const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
   const { t } = useTranslation()
   const now = new Date()
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
+  const { data: me } = useMe(isAuthenticated)
   const runQuery = useRunDetail(runId)
   const diffQuery = useRunDiff(runId)
   const actionsQuery = useRunActions(runId, runQuery.data?.status)
@@ -34,6 +39,12 @@ const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
   const [expandedFiles, setExpandedFiles] = useState<Map<string, FileDiff>>(() => new Map())
   const [loadError, setLoadError] = useState<string | null>(null)
   const inflightGapKeyRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (me && runQuery.data?.status === 'succeeded') {
+      markSuccessfulRunViewed(me.id)
+    }
+  }, [me, runQuery.data])
 
   const handleLoadMore = useCallback(
     (file: FileDiff, gap: ContextGap) => {

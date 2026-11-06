@@ -1,0 +1,25 @@
+export const onboarding = {
+  title: 'Get started',
+  intro: 'Follow these steps to get your first AI review.',
+  hide: 'Hide checklist',
+  done: 'Done',
+  todo: 'To do',
+  installTitle: 'Install GitHub App and select repositories',
+  installDescription:
+    'Choose the repositories the App may access, then refresh access on this page.',
+  installAction: 'Install GitHub App',
+  settingsTitle: 'Check repository settings',
+  settingsDescription: 'Turn on automatic review and check the branch settings.',
+  settingsAction: 'Review settings',
+  repositoriesAction: 'Open repositories',
+  reviewTitle: 'Request your first review',
+  reviewDescription: 'Open a pull request or add the ai-review label, then wait for a run.',
+  reviewAction: 'Open a pull request',
+  reviewSetupAction: 'Set up review',
+  resultTitle: 'See the review result',
+  resultDescription: 'Open the completed run to read its verdict and findings.',
+  resultAction: 'View review result',
+  runsAction: 'View runs',
+  emptyRuns:
+    'Open a pull request or add the ai-review label to an enabled repository. Your review will appear here.',
+}
