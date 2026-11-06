@@ -4,15 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       image:
-        description: 'Full 40-char git SHA, sha256:<digest>, or ghcr.io/<owner>/<repo>:<full sha> / @sha256:<digest> of this repository. Leave empty to restore the previous release.'
+        description: 'Full 40-char git SHA, sha256:<digest>, or ghcr.io/<owner>/<repo>:<full sha> / @sha256:<digest> of this repository. Leave empty to restore the previous image build, possibly of the same code (docs/CICD.md §6).'
         required: false
         type: string
       landing_image:
-        description: 'Landing (course VPS only): the same formats for ghcr.io/<owner>/<repo>-landing. Leave empty to restore the previous landing release.'
+        description: 'Landing (course VPS only): the same formats for ghcr.io/<owner>/<repo>-landing. Leave empty to restore the previous landing image build, possibly of the same code (docs/CICD.md §6).'
         required: false
         type: string
       docs_image:
-        description: 'Docs (course VPS only, component docs): the same formats for ghcr.io/<owner>/<repo>-docs. Leave empty to restore the previous docs release.'
+        description: 'Docs (course VPS only, component docs): the same formats for ghcr.io/<owner>/<repo>-docs. Leave empty to restore the previous docs image build, possibly of the same code (docs/CICD.md §6).'
         required: false
         type: string
       component:
