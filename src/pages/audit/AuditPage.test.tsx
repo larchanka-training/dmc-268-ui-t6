@@ -72,11 +72,15 @@ function renderPage(initialEntry = '/audit') {
         ),
       },
       { path: '/runs/:runId', element: <div>detail</div> },
+      { path: '/repositories', element: <div>repositories</div> },
     ],
     { initialEntries: [initialEntry] },
   )
   return { router, ...render(<RouterProvider router={router} />) }
 }
+
+const EMPTY_JOURNAL =
+  'Прогонов ревью пока нет. Запись появляется здесь при каждом прогоне ревью на pull request в подключённом репозитории.'
 
 afterEach(() => {
   cleanup()
@@ -229,8 +233,21 @@ describe('AuditPage', () => {
   it('drops an unknown status and does not send it', async () => {
     const fetchMock = stubFetch(() => ({ items: [], nextCursor: null }))
     renderPage('/audit?status=nope')
-    await screen.findByText('Нет прогонов ревью')
+    await screen.findByText(EMPTY_JOURNAL)
     expect(requestedUrls(fetchMock)[0]?.searchParams.get('status')).toBeNull()
+  })
+
+  it('explains an empty journal instead of the table and leads to the repositories', async () => {
+    stubFetch(() => ({ items: [], nextCursor: null }))
+    const { router } = renderPage()
+    await screen.findByText(EMPTY_JOURNAL)
+    expect(screen.queryByRole('table')).toBeNull()
+    const link = screen.getByRole('link', { name: 'К репозиториям' })
+    expect(link.getAttribute('href')).toBe('/repositories')
+    fireEvent.click(link)
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/repositories')
+    })
   })
 
   it('requests the next page with the cursor and keeps rows when that page fails', async () => {
