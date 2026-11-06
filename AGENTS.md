@@ -99,6 +99,10 @@ only flow downward, `shared` never imports `entities`); details in
   canonical test strategy for both repositories (`dmc-268-api-t6`, `main`).
 - [`SYSTEM_DESIGN.md`](https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/SYSTEM_DESIGN.md) —
   product architecture (`dmc-268-api-t6`, `main`).
+- [`READING_MAP.md`](https://github.com/larchanka-training/dmc-268-api-t6/blob/main/docs/READING_MAP.md) —
+  which section of the three large specs to open for a task (`dmc-268-api-t6`, `main`).
+- Terraform and the edge VPS live in `dmc-268-api-t6`; CI never applies Terraform. This repo
+  deploys through `deploy/`.
 - `CLAUDE.md` only imports this file — edit `AGENTS.md`.
 
 ## What NOT to do
