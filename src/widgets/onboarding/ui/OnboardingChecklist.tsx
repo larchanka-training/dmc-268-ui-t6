@@ -25,6 +25,7 @@ interface OnboardingChecklistProps {
     'id' | 'provider' | 'fullName' | 'url' | 'installationAvailable' | 'enabled'
   >[]
   runs: readonly Pick<RunSession, 'id' | 'status'>[]
+  onDismiss: () => void
 }
 
 export const OnboardingChecklist: FC<OnboardingChecklistProps> = ({
@@ -32,6 +33,7 @@ export const OnboardingChecklist: FC<OnboardingChecklistProps> = ({
   hasInstallation,
   repositories,
   runs,
+  onDismiss,
 }) => {
   const { t } = useTranslation()
   const [dismissed, setDismissed] = useState(() => isOnboardingDismissed(userId))
@@ -114,6 +116,7 @@ export const OnboardingChecklist: FC<OnboardingChecklistProps> = ({
           onClick={() => {
             dismissOnboarding(userId)
             setDismissed(true)
+            onDismiss()
           }}
           size="small"
           type="text"
