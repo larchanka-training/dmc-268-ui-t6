@@ -129,3 +129,30 @@ applies. Both files together must fit in 12,000 tokens.
 
 </Accordion>
 </Accordions>
+
+## Templates
+
+Ready files to start from, one folder per template, are in the
+[examples/rules](https://github.com/larchanka-training/dmc-268-api-t6/tree/main/examples/rules)
+catalog.
+
+| Template | For |
+| --- | --- |
+| `python-fastapi` | Python services on FastAPI. |
+| `typescript-react` | TypeScript frontends on React. |
+| `go` | Go services. |
+| `security-baseline` | Any stack, on its own or added to one of the above. |
+
+Copy the `.review` folder of a template to the root of your repository. The first line of the
+file names the paths and masks to change: change them, then delete that line. Delete the rules
+your project does not follow, because a rule about code you do not have can produce false
+findings.
+
+To combine two templates, keep one `review-ignore` block with the masks of both: a second block
+fails the run. Each template leaves at least half of the 12,000 tokens to your `AGENTS.md`. The
+[rules guide](https://github.com/larchanka-training/dmc-268-api-t6/blob/main/examples/rules/RULES_GUIDE.md)
+has their sizes and shows how to write your own rules.
+
+A rule that says "do not report X" is a request to the model and may not hold. To keep generated
+or vendored code out of a review, use `review-ignore`: it applies without asking the model, and
+it removes the whole file from the review, real defects included.
