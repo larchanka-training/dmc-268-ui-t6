@@ -67,7 +67,7 @@ describe('OnboardingChecklist', () => {
       `/repositories/${repository.id}/settings`,
     )
     expect(screen.getByRole('link', { name: 'Open a pull request' }).getAttribute('href')).toBe(
-      repository.url,
+      `${repository.url}/compare`,
     )
     expect(screen.getByRole('link', { name: 'View review result' }).getAttribute('href')).toBe(
       '/runs/run-1',

@@ -56,6 +56,7 @@ export const OnboardingChecklist: FC<OnboardingChecklistProps> = ({
     ? `https://github.com/apps/${GITHUB_APP_SLUG}/installations/new`
     : undefined
   const repoUrl = activeRepo ? safeHttpUrl(activeRepo.url) : null
+  const pullRequestUrl = repoUrl ? `${repoUrl.replace(/\/$/, '')}/compare` : null
 
   if (dismissed || viewedResult) return null
 
@@ -87,8 +88,8 @@ export const OnboardingChecklist: FC<OnboardingChecklistProps> = ({
     {
       title: t('onboarding.reviewTitle'),
       description: t('onboarding.reviewDescription'),
-      action: repoUrl ? (
-        <a href={repoUrl} rel="noopener noreferrer" target="_blank">
+      action: pullRequestUrl ? (
+        <a href={pullRequestUrl} rel="noopener noreferrer" target="_blank">
           {t('onboarding.reviewAction')}
         </a>
       ) : (
