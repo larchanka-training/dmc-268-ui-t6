@@ -1,4 +1,4 @@
-import { Button, Flex, Result } from 'antd'
+import { Alert, Button, Flex, Result } from 'antd'
 import { Suspense, type FC } from 'react'
 import { Navigate, Outlet, useLocation, useNavigate, useRouteError } from 'react-router'
 
@@ -28,6 +28,14 @@ export const RouteErrorFallback: FC = () => {
         title={t('layout.routeError.title')}
       />
     </Flex>
+  )
+}
+
+export const RouteOfflineNotice: FC = () => {
+  const { t } = useTranslation()
+
+  return (
+    <Alert data-testid="route-offline" showIcon title={t('layout.routeOffline')} type="warning" />
   )
 }
 
