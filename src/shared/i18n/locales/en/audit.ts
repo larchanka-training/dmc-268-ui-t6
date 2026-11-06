@@ -18,7 +18,9 @@ export const audit = {
     tokensOut: 'Output tokens',
     cost: 'Cost',
   },
-  empty: 'No review runs',
+  empty:
+    'No review runs yet. A record appears here each time a review runs on a pull request in a connected repository.',
+  goToRepositories: 'Go to repositories',
   loadFailedTitle: 'Could not load',
   loadFailed: 'Could not load the journal',
   nextPageFailed: 'Could not load the next page',
