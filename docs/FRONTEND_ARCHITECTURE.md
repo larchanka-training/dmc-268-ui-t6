@@ -187,6 +187,8 @@ src/app/layouts/RouteLayouts.tsx
 src/app/layouts/RoutePages.test.tsx
 src/app/layouts/RoutePages.tsx
 src/app/layouts/index.ts
+src/app/layouts/lazyRoute.test.tsx
+src/app/layouts/lazyRoute.tsx
 src/app/mocks/app-state.test.ts
 src/app/mocks/app-state.ts
 src/app/mocks/mockRulesStatus.test.ts
@@ -214,6 +216,7 @@ src/app/providers/runStreamConnect.test.ts
 src/app/providers/runStreamConnect.ts
 src/app/providers/useRunStream.test.tsx
 src/app/providers/useRunStream.ts
+src/app/routes.offline.test.tsx
 src/app/routes.tsx
 src/app/runDetailLoading.page.test.tsx
 src/entities/diff/api/index.test.ts
