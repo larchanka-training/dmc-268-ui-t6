@@ -42,6 +42,7 @@ export const RepositoriesPage: FC = () => {
   })
   const accessRefreshStatus = useRepositoryAccessRefresh(refetch)
   const statusRef = useRef<HTMLDivElement>(null)
+  const headingRef = useRef<HTMLHeadingElement>(null)
   const { announcement: accessRefreshMessage } = resolveAccessRefreshPresentation(
     accessRefreshStatus,
     isFetching,
@@ -101,6 +102,9 @@ export const RepositoriesPage: FC = () => {
         <OnboardingChecklist
           hasInstallation={me.workspaces.length > 0}
           key={me.id}
+          onDismiss={() => {
+            headingRef.current?.focus()
+          }}
           repositories={repositories}
           runs={runData.pages.flatMap((page) => page.items)}
           userId={me.id}
@@ -136,6 +140,7 @@ export const RepositoriesPage: FC = () => {
           repositories={repositories}
           refreshing={isFetching}
           settingsHref={(repo) => repositorySettingsPath(repo.id)}
+          titleRef={headingRef}
           updatingRepoIds={updatingRepoIds}
         />
       ) : null}

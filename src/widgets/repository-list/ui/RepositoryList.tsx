@@ -17,7 +17,7 @@ import {
   Typography,
   type TableColumnsType,
 } from 'antd'
-import { useMemo, useState, type FC, type MouseEvent } from 'react'
+import { useMemo, useState, type FC, type MouseEvent, type Ref } from 'react'
 
 import type {
   Repository,
@@ -52,6 +52,7 @@ const { Text, Link } = Typography
 const FULL_TABLE_MIN_WIDTH = 1366
 
 export interface RepositoryListProps {
+  titleRef?: Ref<HTMLHeadingElement>
   repositories: Repository[]
   loading?: boolean
   refreshing?: boolean
@@ -129,6 +130,7 @@ const StatusCell: FC<StatusCellProps> = ({
 }
 
 export const RepositoryList: FC<RepositoryListProps> = ({
+  titleRef,
   repositories,
   loading = false,
   refreshing = false,
@@ -347,6 +349,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
   return (
     <div className={styles.root}>
       <PageHeader
+        titleRef={titleRef}
         actions={
           <>
             <Tooltip title={t('repositories.refreshTooltip')}>

@@ -32,10 +32,14 @@ afterEach(() => {
   cleanup()
 })
 
-function show(props: ComponentProps<typeof OnboardingChecklist>) {
+function show(
+  props: Omit<ComponentProps<typeof OnboardingChecklist>, 'onDismiss'> & {
+    onDismiss?: () => void
+  },
+) {
   return render(
     <MemoryRouter>
-      <OnboardingChecklist {...props} />
+      <OnboardingChecklist {...props} onDismiss={props.onDismiss ?? vi.fn()} />
     </MemoryRouter>,
   )
 }
@@ -75,9 +79,19 @@ describe('OnboardingChecklist', () => {
   })
 
   it('persists dismissal per user and hides a completed checklist', () => {
-    const props = { userId: 10, ...empty }
+    const heading = document.createElement('h1')
+    heading.tabIndex = -1
+    document.body.append(heading)
+    const props = {
+      userId: 10,
+      ...empty,
+      onDismiss: () => {
+        heading.focus()
+      },
+    }
     const view = show(props)
     fireEvent.click(screen.getByRole('button', { name: 'Hide checklist' }))
+    expect(document.activeElement).toBe(heading)
     expect(screen.queryByRole('heading', { name: 'Get started' })).toBeNull()
     view.unmount()
     show(props)
@@ -89,5 +103,6 @@ describe('OnboardingChecklist', () => {
     cleanup()
     show({ ...props, userId: 11 })
     expect(screen.queryByRole('heading', { name: 'Get started' })).toBeNull()
+    heading.remove()
   })
 })

@@ -72,6 +72,7 @@ describe('RepositoriesPage', () => {
     globalThis.fetch = originalFetch
     useAuthStore.setState(originalAuth, true)
     sessionStorage.clear()
+    localStorage.clear()
   })
 
   it('shows the Bitbucket workspace selector from the authenticated account without choosing one', async () => {
@@ -119,6 +120,8 @@ describe('RepositoriesPage', () => {
     renderWithClient(<RepositoriesPage />)
     expect(await screen.findByRole('heading', { name: 'С чего начать' })).toBeTruthy()
     expect(screen.getAllByText('Не выполнено')).toHaveLength(4)
+    fireEvent.click(screen.getByRole('button', { name: 'Скрыть чеклист' }))
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Репозитории' }))
   })
 
   it('keeps one empty status through an idle error without exposing an empty list', async () => {
