@@ -30,6 +30,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   for (const router of routers.splice(0)) router.dispose()
+  for (const link of linksInDocument()) link.remove()
   vi.restoreAllMocks()
 })
 
@@ -182,6 +183,112 @@ it('moves from the notice to the error screen when the chunk is gone after the n
 
   expect(await screen.findByText(ERROR_TITLE_RU)).toBeDefined()
   expect(screen.queryByText(OFFLINE_RU)).toBeNull()
+})
+
+const STYLESHEET = '/assets/RunDetailPage-abc.css'
+
+function stylesheetLink(): HTMLLinkElement {
+  const link = document.createElement('link')
+  link.rel = 'stylesheet'
+  link.setAttribute('href', STYLESHEET)
+  document.head.append(link)
+  return link
+}
+
+function linksInDocument(): Element[] {
+  return [...document.head.querySelectorAll(`link[href="${STYLESHEET}"]`)]
+}
+
+function fireOnLink(link: Element | undefined, type: 'load' | 'error') {
+  if (!link) throw new Error('stylesheet link missing')
+  act(() => {
+    link.dispatchEvent(new Event(type))
+  })
+}
+
+// Vite's preload helper adds the link and rejects when it fails; it never asks for it again.
+function loaderFailingOn(link: HTMLLinkElement) {
+  return loader()
+    .mockImplementationOnce(() => {
+      link.dispatchEvent(new Event('error'))
+      return Promise.reject(new Error(LOADER_ERROR))
+    })
+    .mockResolvedValue(routeModule)
+}
+
+it('requests a stylesheet that failed offline again and waits for it before opening the page', async () => {
+  browserOnline = false
+  const failed = stylesheetLink()
+  const load = loaderFailingOn(failed)
+  renderRoute(lazyRoute(load))
+  await screen.findByText(OFFLINE_RU)
+  expect(linksInDocument()).toEqual([failed])
+
+  reconnect()
+
+  const links = linksInDocument()
+  expect(links).toHaveLength(1)
+  expect(links[0]).not.toBe(failed)
+  expect(links[0]?.getAttribute('rel')).toBe('stylesheet')
+  // The page would flash unstyled if it opened now.
+  expect(load).toHaveBeenCalledOnce()
+  expect(screen.queryByRole('heading', { name: PAGE_TITLE })).toBeNull()
+
+  fireOnLink(links[0], 'load')
+
+  expect(await screen.findByRole('heading', { name: PAGE_TITLE })).toBeDefined()
+  expect(load).toHaveBeenCalledTimes(2)
+})
+
+it('shows the error screen when that stylesheet fails again with the network on', async () => {
+  vi.spyOn(console, 'error').mockImplementation(() => undefined)
+  browserOnline = false
+  const failed = stylesheetLink()
+  const load = loaderFailingOn(failed)
+  renderRoute(lazyRoute(load))
+  await screen.findByText(OFFLINE_RU)
+
+  reconnect()
+  const [fresh] = linksInDocument()
+  fireOnLink(fresh, 'error')
+
+  expect(await screen.findByText(ERROR_TITLE_RU)).toBeDefined()
+  expect(screen.queryByText(OFFLINE_RU)).toBeNull()
+  expect(load).toHaveBeenCalledOnce()
+})
+
+it('goes back to the notice when that stylesheet fails again because the network dropped', async () => {
+  browserOnline = false
+  const failed = stylesheetLink()
+  const load = loaderFailingOn(failed)
+  renderRoute(lazyRoute(load))
+  await screen.findByText(OFFLINE_RU)
+
+  // The event came, but the browser is offline again by the time the request fails.
+  fireOnline()
+  const [second] = linksInDocument()
+  fireOnLink(second, 'error')
+  expect(await screen.findByText(OFFLINE_RU)).toBeDefined()
+  expect(load).toHaveBeenCalledOnce()
+
+  reconnect()
+  const [third] = linksInDocument()
+  expect(third).not.toBe(second)
+  fireOnLink(third, 'load')
+
+  expect(await screen.findByRole('heading', { name: PAGE_TITLE })).toBeDefined()
+})
+
+it('does not touch a stylesheet that failed with the network on', async () => {
+  const gone = stylesheetLink()
+  gone.dispatchEvent(new Event('error'))
+  const load = loader().mockResolvedValue(routeModule)
+
+  renderRoute(lazyRoute(load))
+
+  // Another route opens at once: this page's lost stylesheet does not hold or fail it.
+  expect(await screen.findByRole('heading', { name: PAGE_TITLE })).toBeDefined()
+  expect(linksInDocument()).toEqual([gone])
 })
 
 it('keeps the error screen when a loaded page throws while offline', async () => {
