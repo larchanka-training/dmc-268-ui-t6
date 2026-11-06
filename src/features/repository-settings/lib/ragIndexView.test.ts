@@ -187,6 +187,7 @@ describe('ragIndexView: the reason of the last build', () => {
     ['limit_exceeded:download_bytes', 'превышен лимит размера архива'],
     ['limit_exceeded:unpacked_bytes', 'превышен лимит распакованного размера'],
     ['limit_exceeded:archive_entries', 'превышен лимит числа файлов в архиве'],
+    ['limit_exceeded:provider_requests', 'превышен лимит запросов к Git-провайдеру на сборку'],
     ['limit_exceeded:parsed_files', 'превышен лимит разобранных файлов'],
     ['limit_exceeded:symbols', 'превышен лимит символов'],
     ['limit_exceeded:edges', 'превышен лимит рёбер'],
@@ -243,6 +244,10 @@ describe('ragIndexView: the reason of the last build', () => {
   })
 
   it.each([
+    [
+      'limit_exceeded:provider_requests',
+      'the limit of requests to the Git provider per build was exceeded',
+    ],
     ['policy_document_decode_error', 'the .review/rules.md file is not valid UTF-8'],
     [
       'policy_document_control_character',
@@ -339,6 +344,26 @@ describe('ragIndexView: the reason of the last build', () => {
       expect(ragIndexView(failed, true, 'bitbucket').reason?.text).toBe(
         'Bitbucket Cloud is temporarily unavailable',
       )
+    } finally {
+      await i18n.changeLanguage('ru')
+    }
+  })
+
+  // Only the Bitbucket snapshot source throws this code so far (api `bitbucket_snapshot_source.py`):
+  // it is our request budget per build, not a rate limit of the provider (`vcs_rate_limited`).
+  it('explains the request budget of a Bitbucket build in the current language', async () => {
+    const code = 'limit_exceeded:provider_requests'
+    const failed = index({ status: 'failed', lastErrorCode: code })
+    expect(ragIndexView(failed, true, 'bitbucket').reason).toEqual({
+      code,
+      text: 'превышен лимит запросов к Git-провайдеру на сборку',
+    })
+    try {
+      await i18n.changeLanguage('en')
+      expect(ragIndexView(failed, true, 'bitbucket').reason).toEqual({
+        code,
+        text: 'the limit of requests to the Git provider per build was exceeded',
+      })
     } finally {
       await i18n.changeLanguage('ru')
     }

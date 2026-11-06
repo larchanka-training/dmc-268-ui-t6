@@ -59,6 +59,7 @@ export const settings = {
         download_bytes: 'the archive size limit was exceeded',
         unpacked_bytes: 'the unpacked size limit was exceeded',
         archive_entries: 'the limit of files in the archive was exceeded',
+        provider_requests: 'the limit of requests to the Git provider per build was exceeded',
         parsed_files: 'the limit of parsed files was exceeded',
         symbols: 'the symbol limit was exceeded',
         edges: 'the edge limit was exceeded',

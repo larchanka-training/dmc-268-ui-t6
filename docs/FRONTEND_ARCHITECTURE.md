@@ -1099,7 +1099,10 @@ Upgrade canary в `routerLocationAdapter.test.tsx` проверяет досту
   поэтому `constructor` — не известный код):
   `archive_unsafe` — «архив репозитория отклонён проверкой безопасности»; `limit_exceeded:download_bytes` —
   «превышен лимит размера архива», `limit_exceeded:unpacked_bytes` — «превышен лимит распакованного размера»,
-  `limit_exceeded:archive_entries` — «превышен лимит числа файлов в архиве», `limit_exceeded:parsed_files` —
+  `limit_exceeded:archive_entries` — «превышен лимит числа файлов в архиве»,
+  `limit_exceeded:provider_requests` — «превышен лимит запросов к Git-провайдеру на сборку» (бюджет самой сборки, а не
+  ограничение со стороны провайдера; сейчас код пишет только снимок Bitbucket, api `bitbucket_snapshot_source.py`,
+  но текст нейтральный, ключа в `settings.rag.providerReasons` нет), `limit_exceeded:parsed_files` —
   «превышен лимит разобранных файлов», `limit_exceeded:symbols` — «превышен лимит символов»,
   `limit_exceeded:edges` — «превышен лимит рёбер», `limit_exceeded:deadline` — «превышено время сборки»,
   `limit_exceeded:repository_storage` — «превышен лимит хранения для репозитория»,
