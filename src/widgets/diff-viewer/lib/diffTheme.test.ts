@@ -355,6 +355,13 @@ describe('diff-layout.css', () => {
     const css = readFileSync(new URL('../ui/diff-layout.css', import.meta.url), 'utf8')
     expect(css).toMatch(/^\.diff-theme \.diff-gutter-omit::before \{\n {2}content: none;\n\}$/m)
   })
+
+  it('wraps a long file name, so it cannot widen the page (jsdom loads no CSS, so only the source shows it)', () => {
+    const css = readFileSync(new URL('../ui/diff-layout.css', import.meta.url), 'utf8')
+    const fileName = /^\.diff-file-name \{\n([^}]*)\}$/m.exec(css)?.[1]
+    expect(fileName).toContain('overflow-wrap: anywhere;')
+    expect(fileName).not.toContain('nowrap')
+  })
 })
 
 describe('diff-theme.css wiring', () => {
