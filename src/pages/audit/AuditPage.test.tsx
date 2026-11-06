@@ -250,6 +250,25 @@ describe('AuditPage', () => {
     })
   })
 
+  it('offers all runs when the filter finds nothing and moves focus to the heading', async () => {
+    const fetchMock = stubFetch((url) => ({
+      items: url.searchParams.has('status') ? [] : [session()],
+      nextCursor: null,
+    }))
+    renderPage('/audit?status=failed')
+    await screen.findByText('Нет прогонов, подходящих под фильтр.')
+    expect(screen.queryByText(EMPTY_JOURNAL)).toBeNull()
+    expect(screen.queryByRole('link', { name: 'К репозиториям' })).toBeNull()
+
+    const showAll = screen.getByRole('button', { name: 'Показать все прогоны' })
+    showAll.focus()
+    fireEvent.click(showAll)
+    await screen.findByText('feat: audit row')
+    const urls = requestedUrls(fetchMock)
+    expect(urls[urls.length - 1]?.searchParams.get('status')).toBeNull()
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Аудит' }))
+  })
+
   it('requests the next page with the cursor and keeps rows when that page fails', async () => {
     const second = session({
       id: '11111111-1111-4111-8111-000000000306',
