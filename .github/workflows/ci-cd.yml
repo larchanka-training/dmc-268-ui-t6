@@ -88,8 +88,8 @@ jobs:
         run: pnpm --dir docs-site build
 
   prod-browser-smoke:
-    # Keep this separate from the required UI quality check until the tech lead decides
-    # whether the ruleset should require browser smoke.
+    # The name is a required status check on main; keep it verbatim.
+    # Push Docker image needs this job: a red smoke stops the push and the staging deploy.
     name: Production browser smoke
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -407,6 +407,7 @@ jobs:
       actions: read
     needs:
       - ui-quality
+      - prod-browser-smoke
       - docker-build
       - docker-scan
     outputs:
