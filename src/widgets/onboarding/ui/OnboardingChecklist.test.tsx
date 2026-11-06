@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router'
 
 import { i18n } from '../../../shared/i18n'
+import { markRepositorySettingsViewed } from '../lib/onboarding'
 import { OnboardingChecklist } from './OnboardingChecklist'
 
 vi.mock('../../../shared/config/env', async (importOriginal) => ({
@@ -54,6 +55,7 @@ describe('OnboardingChecklist', () => {
   })
 
   it('uses repository, run and viewed result data for progress and destinations', () => {
+    markRepositorySettingsViewed(10, repository.id)
     show({
       userId: 10,
       hasInstallation: true,

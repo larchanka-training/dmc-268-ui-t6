@@ -5,6 +5,7 @@ interface ProgressInput {
   hasInstallation: boolean
   repositories: readonly Pick<Repository, 'id' | 'provider' | 'installationAvailable' | 'enabled'>[]
   runs: readonly Pick<RunSession, 'id' | 'status'>[]
+  viewedSettingsRepoIds: readonly string[]
   viewedResult: boolean
 }
 
@@ -12,6 +13,7 @@ export function getOnboardingProgress({
   hasInstallation,
   repositories,
   runs,
+  viewedSettingsRepoIds,
   viewedResult,
 }: ProgressInput): readonly [boolean, boolean, boolean, boolean] {
   const accessible = repositories.filter(
@@ -19,7 +21,7 @@ export function getOnboardingProgress({
   )
   return [
     hasInstallation && accessible.length > 0,
-    accessible.some((repo) => repo.enabled),
+    accessible.some((repo) => repo.enabled && viewedSettingsRepoIds.includes(repo.id)),
     runs.length > 0,
     viewedResult,
   ]
@@ -59,4 +61,12 @@ export function hasViewedSuccessfulRun(userId: number): boolean {
 
 export function markSuccessfulRunViewed(userId: number): void {
   writeFlag(userId, 'viewed_result')
+}
+
+export function hasViewedRepositorySettings(userId: number, repositoryId: string): boolean {
+  return readFlag(userId, `settings_${repositoryId}`)
+}
+
+export function markRepositorySettingsViewed(userId: number, repositoryId: string): void {
+  writeFlag(userId, `settings_${repositoryId}`)
 }

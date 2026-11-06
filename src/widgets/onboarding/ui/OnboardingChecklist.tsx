@@ -1,4 +1,4 @@
-import { Button, Card, Tag, Typography } from 'antd'
+import { Button, Card, Typography } from 'antd'
 import { useState, type FC, type ReactNode } from 'react'
 import { Link } from 'react-router'
 
@@ -7,9 +7,11 @@ import type { RunSession } from '../../../entities/run'
 import { GITHUB_APP_SLUG } from '../../../shared/config/env'
 import { useTranslation } from '../../../shared/i18n'
 import { safeHttpUrl } from '../../../shared/lib/safeHttpUrl'
+import { Tag } from '../../../shared/ui'
 import {
   dismissOnboarding,
   getOnboardingProgress,
+  hasViewedRepositorySettings,
   hasViewedSuccessfulRun,
   isOnboardingDismissed,
 } from '../lib/onboarding'
@@ -34,7 +36,15 @@ export const OnboardingChecklist: FC<OnboardingChecklistProps> = ({
   const { t } = useTranslation()
   const [dismissed, setDismissed] = useState(() => isOnboardingDismissed(userId))
   const viewedResult = hasViewedSuccessfulRun(userId)
-  const progress = getOnboardingProgress({ hasInstallation, repositories, runs, viewedResult })
+  const progress = getOnboardingProgress({
+    hasInstallation,
+    repositories,
+    runs,
+    viewedSettingsRepoIds: repositories
+      .filter((repo) => hasViewedRepositorySettings(userId, repo.id))
+      .map((repo) => repo.id),
+    viewedResult,
+  })
   const accessibleRepo = repositories.find(
     (repo) => repo.provider === 'github' && repo.installationAvailable,
   )
@@ -118,7 +128,7 @@ export const OnboardingChecklist: FC<OnboardingChecklistProps> = ({
           <li className={styles.step} key={step.title}>
             <div>
               <strong>{step.title}</strong>{' '}
-              <Tag color={progress[index] ? 'success' : 'default'}>
+              <Tag tone={progress[index] ? 'success' : 'neutral'}>
                 {progress[index] ? t('onboarding.done') : t('onboarding.todo')}
               </Tag>
               <div>{step.description}</div>

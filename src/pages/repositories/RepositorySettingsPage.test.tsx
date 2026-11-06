@@ -11,6 +11,8 @@ import {
   type RagIndex,
   type Repository,
 } from '../../entities/repository'
+import { AUTH_ME_QUERY_KEY } from '../../entities/user'
+import { useAuthStore } from '../../features/auth'
 import { ragPollTimedOutText } from '../../features/repository-settings'
 import { advance } from '../../test/advanceTimers'
 import { RepositorySettingsPage } from './RepositorySettingsPage'
@@ -402,9 +404,29 @@ async function chooseOption(label: string, optionText: string): Promise<void> {
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+  useAuthStore.setState({ isAuthenticated: false })
 })
 
 describe('RepositorySettingsPage', () => {
+  it('records a real settings view for the signed-in user after the repository loads', async () => {
+    localStorage.clear()
+    stubBackend([FULL_REPO])
+    useAuthStore.setState({ isAuthenticated: true })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    client.setQueryData(AUTH_ME_QUERY_KEY, {
+      id: 174,
+      login: 'new-user',
+      name: null,
+      avatarUrl: null,
+      workspaces: [],
+    })
+    renderPage(settingsPath(FULL_REPO.id), client)
+    await screen.findByLabelText(BRANCH_FILTER_LABEL)
+    await waitFor(() => {
+      expect(localStorage.getItem(`dmc_onboarding_174_settings_${FULL_REPO.id}`)).toBe('1')
+    })
+  })
+
   it('uses the Bitbucket provider in settings and unavailable-access guidance', async () => {
     const repository: Repository = {
       ...UI_REPO,
