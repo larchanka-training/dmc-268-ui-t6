@@ -208,7 +208,13 @@ scenario('a recreated backend is found at its new address without a UI restart',
 })
 
 scenario('an API_UPSTREAM that is not http://host[:port] stops the container', async () => {
-  const values = [`${API_UPSTREAM}/`, `${API_UPSTREAM}/api`, 'backend:8000', 'https://backend:8000']
+  const values = [
+    `${API_UPSTREAM}/`,
+    `${API_UPSTREAM}/api`,
+    'backend:8000',
+    'https://backend:8000',
+    `${API_UPSTREAM}\n;add_header X-Injected yes always`,
+  ]
   for (const value of values) {
     const name = await run('-e', `API_UPSTREAM=${value}`, image)
     await until(`${name} to stop on API_UPSTREAM=${value}`, async () => {

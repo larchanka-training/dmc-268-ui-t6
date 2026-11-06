@@ -8,14 +8,20 @@ set -eu
 ME=$(basename "$0")
 upstream="${API_UPSTREAM:-}"
 
-[ -n "$upstream" ] || exit 0
-
-# No path: a URI part in a proxy_pass variable would replace the whole URI of every request. No
-# https: nginx would not verify the certificate, and the backend is on the compose network anyway.
-if ! printf '%s' "$upstream" | grep -Eq '^http://[A-Za-z0-9._-]+(:[0-9]{1,5})?$'; then
+fail() {
   echo "$ME: ERROR: API_UPSTREAM must be http://<host>[:port], no path (got: $upstream)" >&2
   exit 1
-fi
+}
+
+[ -n "$upstream" ] || exit 0
+
+# Before grep, which matches line by line: the second line of a value would reach the nginx config.
+case "$upstream" in
+  *[!A-Za-z0-9:/._-]*) fail ;;
+esac
+# No path: a URI part in a proxy_pass variable would replace the whole URI of every request. No
+# https: nginx would not verify the certificate, and the backend is on the compose network anyway.
+printf '%s' "$upstream" | grep -Eq '^http://[A-Za-z0-9._-]+(:[0-9]{1,5})?$' || fail
 
 envsubst '${API_UPSTREAM} ${NGINX_LOCAL_RESOLVERS}' \
   < /etc/nginx/api-proxy.conf.template > /etc/nginx/runtime/api-proxy.conf
