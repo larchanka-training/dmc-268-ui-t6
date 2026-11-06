@@ -68,7 +68,9 @@ ui:
 ```
 
 - `API_UPSTREAM` — `http://<host>[:port]` без пути, иное значение останавливает контейнер. Имя
-  резолвится на запрос, поэтому UI может стартовать раньше backend. С `read_only: true` нужны
+  резолвится через DNS на каждый запрос, поэтому UI может стартовать раньше backend. Имя только из
+  `/etc/hosts` не найдётся и даст `502`: это касается `extra_hosts`, в том числе
+  `host.docker.internal:host-gateway`. Для API на хосте укажите IP-адрес. С `read_only: true` нужны
   `tmpfs` на `/tmp` и `/etc/nginx/runtime` (владелец `101`).
 - `VITE_GITHUB_CLIENT_ID` и `VITE_GITHUB_APP_SLUG` запекаются при сборке (`--build-arg`). Без client ID
   кнопка входа видна, но отключена. Образ `:staging` несёт данные staging App, для своего стенда его
