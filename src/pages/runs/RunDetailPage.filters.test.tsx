@@ -36,7 +36,8 @@ import { RunDetailPage } from './RunDetailPage'
 // Demo run (hand-counted from the mocks): 8 findings + 3 published comments with distinct ids,
 // so the merged displayed set is 11. By badge group: Critical 3 (critical + 2 high), Warning 6
 // (3 medium + 1 low finding, 1 medium + 1 low comment), Info 2 (1 finding + 1 comment).
-// By file: src/a.ts 8, README.md 2, src/utils/retry.ts 1; app/notify.py and package.json 0.
+// By file: src/a.ts 8, README.md 2, src/utils/retry.ts 1; app/services/notifications/notify.py
+// and package.json 0.
 const DEMO = `/runs/${DEMO_RUN_ID}`
 const TOTAL = 11
 
