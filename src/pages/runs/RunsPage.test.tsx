@@ -258,12 +258,14 @@ describe('RunsPage', () => {
     expect(screen.queryByText(`Для репозитория ${INFRA_REPO} прогонов ещё нет`)).toBeNull()
   })
 
-  it('keeps the plain empty message when no filter is set', async () => {
+  it('explains the first review and offers the next step when no filter is set', async () => {
     stubFetch(() => ({ items: [], nextCursor: null }))
 
     renderPage()
 
     expect(await screen.findByText('Нет прогонов ревью')).toBeTruthy()
+    expect(screen.getByText(/Откройте PR или добавьте лейбл ai-review/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Открыть репозитории' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Показать все прогоны' })).toBeNull()
   })
 

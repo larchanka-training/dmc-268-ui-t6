@@ -9,11 +9,13 @@ import {
   useUpdateRepository,
   type UpdateRepositoryVariables,
 } from '../../entities/repository'
+import { useRunList } from '../../entities/run'
 import { useMe } from '../../entities/user'
 import { BitbucketConnectionsPanel } from '../../features/bitbucket-connections'
 import { saveAccessRefreshIntent, saveAuthReturnTo, useAuthStore } from '../../features/auth'
 import { useTranslation } from '../../shared/i18n'
 import { RepositoryList, resolveAccessRefreshPresentation } from '../../widgets/repository-list'
+import { OnboardingChecklist } from '../../widgets/onboarding'
 import styles from './RepositoriesPage.module.css'
 import { formatErrorMessage } from './lib/formatError'
 import { repositorySettingsPath } from './lib/settingsPath'
@@ -33,14 +35,11 @@ export const RepositoriesPage: FC = () => {
     loginWithGitHub()
   }
 
-  const {
-    data: repositories = [],
-    isLoading,
-    isFetching,
-    isError,
-    error,
-    refetch,
-  } = useRepositories()
+  const { data: repositoryData, isLoading, isFetching, isError, error, refetch } = useRepositories()
+  const repositories = repositoryData ?? []
+  const { data: runData, isError: runsError } = useRunList({
+    enabled: me !== undefined && repositoryData !== undefined && !isError,
+  })
   const accessRefreshStatus = useRepositoryAccessRefresh(refetch)
   const statusRef = useRef<HTMLDivElement>(null)
   const { announcement: accessRefreshMessage } = resolveAccessRefreshPresentation(
@@ -98,6 +97,15 @@ export const RepositoriesPage: FC = () => {
         role="status"
         className={styles.accessRefreshStatus}
       />
+      {me && repositoryData !== undefined && runData !== undefined && !isError && !runsError ? (
+        <OnboardingChecklist
+          hasInstallation={me.workspaces.length > 0}
+          key={me.id}
+          repositories={repositories}
+          runs={runData.pages.flatMap((page) => page.items)}
+          userId={me.id}
+        />
+      ) : null}
       {isError ? (
         <Alert
           action={
