@@ -10,6 +10,7 @@ vi.mock('../../shared/config/env', () => ({
 }))
 
 import { MetricsSummarySchema, metricsSummaryEndpoint } from '../../entities/metrics'
+import { diffApi, fromPatch } from '../../entities/diff'
 import { RulesStatusSchema, type Repository } from '../../entities/repository'
 import {
   connectBitbucketRepository,
@@ -30,7 +31,7 @@ import {
 import { ApiError, apiClient } from '../../shared/api/client'
 import { endpoints } from '../../shared/api/endpoints'
 import { validationErrorLocations } from '../../shared/api/validationError'
-import { mockRepositories } from './app-state'
+import { mockRepositories, mockSummaryOnlyRun } from './app-state'
 import { mockRunsListPage } from './mockRunsList.fixture'
 import { mockRulesStatuses } from './mockRulesStatus'
 import { WALKING_RUN_ID } from './mockRunTimeline'
@@ -555,6 +556,20 @@ describe('initMockTransport', () => {
       await expect(list({ limit: '0' })).rejects.toMatchObject({ status: 422 })
       await expect(list({ limit: '100' })).resolves.toMatchObject({ nextCursor: null })
     })
+  })
+
+  it('serves parsed summary-only diff and detail with a finding on the patched file', async () => {
+    initMockTransport()
+    const runId = mockSummaryOnlyRun.id
+    const raw = diffApi.diff.response.parse(await apiClient<unknown>(endpoints.runs.diff(runId)))
+    const detail = RunDetailSchema.parse(await apiClient<unknown>(endpoints.runs.detail(runId)))
+    const patched = raw.find((file) => file.filename === 'src/a.ts')
+
+    expect(detail.summaryOnly).toBe(true)
+    expect(patched?.patch).not.toBeNull()
+    expect(patched && fromPatch(patched).chunks.length).toBeGreaterThan(0)
+    expect(detail.findings.map((finding) => finding.file)).toEqual(['src/a.ts'])
+    expect(detail.severityCounts).toEqual({ critical: 1, high: 0, medium: 0, low: 0, info: 0 })
   })
 
   describe('GET /repos/{id}/rules-status', () => {

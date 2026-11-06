@@ -5,7 +5,7 @@ import type { FileDiff, RawFileDiff } from '../../entities/diff'
 import type { ReviewComment } from '../../entities/review'
 import { disabledRagIndex, type Repository } from '../../entities/repository'
 import type { User } from '../../entities/user'
-import { SAMPLE_PATCHES } from '../../shared/fixtures/sample.patch'
+import { SAMPLE_PATCH_A, SAMPLE_PATCHES } from '../../shared/fixtures/sample.patch'
 
 export const MOCK_NOW = '2026-09-18T12:00:00.000Z'
 
@@ -243,6 +243,7 @@ export const mockSummaryOnlyDiff: RawFileDiff[] = [
   { filename: 'src/big-one.ts', patch: null },
   { filename: 'src/big-two.ts', patch: null },
   { filename: 'src/big-three.ts', patch: null },
+  SAMPLE_PATCH_A,
 ]
 
 export const mockFileDiffs: FileDiff[] = SAMPLE_PATCHES.map(fromPatch)

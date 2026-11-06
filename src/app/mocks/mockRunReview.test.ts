@@ -11,6 +11,7 @@ import {
 import type { FileDiff, RawFileDiff } from '../../entities/diff'
 import { RunDetailSchema } from '../../entities/run'
 import { SAMPLE_PATCHES, SAMPLE_PATCH_NO_CHUNKS } from '../../shared/fixtures/sample.patch'
+import { mockSummaryOnlyRun } from './app-state'
 
 import {
   REVIEW_ATTENTION_RUN_ID,
@@ -64,6 +65,22 @@ describe('buildMockRunDetail', () => {
 
   it.each([...runs])('builds a contract-valid run detail for %s', (_id, run) => {
     expect(RunDetailSchema.safeParse(buildMockRunDetail(run)).success).toBe(true)
+  })
+})
+
+describe('summary-only mock detail', () => {
+  it('returns a finding on the patched file with matching severity counts', () => {
+    const detail = buildMockRunDetail(mockSummaryOnlyRun)
+
+    expect(detail.findings).toHaveLength(1)
+    expect(detail.findings[0]).toMatchObject({
+      file: 'src/a.ts',
+      newLine: 2,
+      severity: 'critical',
+      title: 'Critical: patched summary finding',
+    })
+    expect(detail.severityCounts).toEqual({ critical: 1, high: 0, medium: 0, low: 0, info: 0 })
+    expect(RunDetailSchema.safeParse(detail).success).toBe(true)
   })
 })
 
