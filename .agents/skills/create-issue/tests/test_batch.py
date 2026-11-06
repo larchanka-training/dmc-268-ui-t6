@@ -32,6 +32,7 @@ import sys
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -1363,6 +1364,40 @@ def test_board_check_retries_a_status_reset_by_automation(tmp_path: Path) -> Non
     assert (fix / "calls.log").read_text().splitlines() == [
         "project_items",
         "project_items.retry",
+        "project_edit",
+        "project_items.final",
+    ]
+
+
+def test_board_check_waits_before_retrying_a_wrong_status(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fix = tmp_path / "fix"
+    fix.mkdir()
+    url = "https://github.com/acme/api/issues/1"
+    for name, status in (
+        ("project_items", "Todo"),
+        ("project_items.confirm", "Todo"),
+        ("project_items.final", "In Progress"),
+    ):
+        (fix / f"{name}.json").write_text(
+            json.dumps({"items": [{"content": {"url": url}, "status": status}]}),
+            encoding="utf-8",
+        )
+    spec = importlib.util.spec_from_file_location("issue_board", BOARD_SCRIPT)
+    assert spec is not None and spec.loader is not None
+    board_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(board_module)
+    waits: list[float] = []
+    monkeypatch.setattr(board_module, "time", SimpleNamespace(sleep=waits.append))
+    monkeypatch.setenv("ISSUE_FIXTURE_DIR", str(fix))
+    assert board_module.main(["issue-board.py", url, "In Progress"]) == 0
+    assert json.loads(capsys.readouterr().out) == {"board": "added"}
+    assert waits == [3.0]
+    assert (fix / "calls.log").read_text().splitlines() == [
+        "project_items",
+        "project_edit",
+        "project_items.confirm",
         "project_edit",
         "project_items.final",
     ]

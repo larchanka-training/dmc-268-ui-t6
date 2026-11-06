@@ -69,9 +69,12 @@ def main(argv: list[str]) -> int:
         if row.get("status") != want:
             edit(url, want)
             row = item(url, ".confirm")
-        if row is not None and row.get("status") == want and want != "Todo":
+        if row is not None and row.get("status") == want:
+            if want != "Todo":
+                time.sleep(float(os.environ.get("ISSUE_STATUS_RETRY_DELAY", "3")))
+                row = item(url, ".retry")
+        else:
             time.sleep(float(os.environ.get("ISSUE_STATUS_RETRY_DELAY", "3")))
-            row = item(url, ".retry")
         if row is None or row.get("status") != want:
             edit(url, want)
             row = item(url, ".final")
