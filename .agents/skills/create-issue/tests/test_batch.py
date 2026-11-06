@@ -436,6 +436,10 @@ def test_a_run_can_resume_after_its_process_crashes(tmp_path: Path) -> None:
             time.sleep(0.01)
         else:
             pytest.fail("first run did not reach the create seam")
+        concurrent, calls = run(tmp_path, data)
+        assert concurrent.returncode == 2
+        assert "already running" in error(concurrent)
+        assert creates(calls) == []
     finally:
         os.killpg(proc.pid, signal.SIGKILL)
         proc.communicate(timeout=5)
