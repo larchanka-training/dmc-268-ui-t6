@@ -21,6 +21,8 @@ export const audit = {
   empty:
     'No review runs yet. A record appears here each time a review runs on a pull request in a connected repository.',
   goToRepositories: 'Go to repositories',
+  emptyFiltered: 'No runs match this filter.',
+  showAll: 'Show all runs',
   loadFailedTitle: 'Could not load',
   loadFailed: 'Could not load the journal',
   nextPageFailed: 'Could not load the next page',
