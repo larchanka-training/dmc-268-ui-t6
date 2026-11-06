@@ -21,16 +21,30 @@ ENV VITE_DOCS_URL=$VITE_DOCS_URL
 
 RUN pnpm run build
 
-FROM nginxinc/nginx-unprivileged:1.30-alpine AS runtime
+# Slim: no curl, no extra nginx modules and their libraries. Nothing in the container uses them
+# (the healthcheck is busybox wget), and each is one more package for Trivy to turn red on.
+FROM nginxinc/nginx-unprivileged:1.30-alpine-slim AS runtime
 
 USER root
-RUN apk update && apk upgrade --no-cache && apk add --no-cache --upgrade pcre2 tiff "libexpat>=2.10.0-r0" brotli-libs curl
+# No package list: apk add would install what slim leaves out. apk update stays for its log line
+# (docs/CICD.md §1); it leaves its indexes in the cache, so the cache goes in this same layer.
+RUN apk update && apk upgrade --no-cache && rm -rf /var/cache/apk/*
+
+# The backend address is not part of the image: API_UPSTREAM at start adds the /api/ location, and
+# the base image's 15-local-resolvers.envsh gives it the resolver (docker/16-api-proxy.sh).
+# Group-writable like the base image's /etc/nginx dirs: an arbitrary uid with gid 0 works too.
+ENV NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1
+RUN mkdir /etc/nginx/runtime && chown nginx:root /etc/nginx/runtime && chmod 775 /etc/nginx/runtime
 
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+COPY docker/api-proxy.conf.template /etc/nginx/api-proxy.conf.template
+# Executable in git; COPY keeps the mode (no --chmod: the legacy builder lacks it).
+COPY docker/16-api-proxy.sh /docker-entrypoint.d/16-api-proxy.sh
 COPY --from=build /app/dist /usr/share/nginx/html
 
 USER nginx
 EXPOSE 8080
 
-HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
+# --start-interval: without it the first probe waits 5 s, whatever the time nginx takes to start.
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --start-interval=1s --retries=3 \
   CMD wget -qO- http://127.0.0.1:8080/health || exit 1

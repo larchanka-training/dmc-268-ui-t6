@@ -277,6 +277,11 @@ jobs:
           no-cache-filters: runtime
           provenance: false
 
+      # The image in the two ways it runs (docs/CICD.md §3), before it becomes the artifact.
+      - name: Smoke test image
+        timeout-minutes: 10
+        run: node scripts/smoke-image.mjs "${LOCAL_IMAGE}"
+
       - name: Export image artifact
         run: docker save "${LOCAL_IMAGE}" | gzip > /tmp/docker-image.tar.gz
 
