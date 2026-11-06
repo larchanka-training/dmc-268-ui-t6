@@ -17,12 +17,14 @@ const API_UPSTREAM = 'http://backend:8000'
 const STUB_IMAGE = 'node:24-alpine'
 const TIMEOUT_MS = 30_000
 
-// Answers every request with what it received, as 401 JSON. /api/stream sends one event and holds
-// the second until /api/release, so a buffering proxy delivers nothing and the read times out.
+// Answers every request with what it received, as 401 JSON. /api/stream sends one event, the second
+// on /api/release, and never ends. Not chunked, and the second event is the one that counts: a
+// buffering nginx passes on chunks and what came with the headers, and holds only this.
 const STUB = String.raw`
 const held = []
 require('node:http').createServer((req, res) => {
   if (req.url === '/api/stream') {
+    res.removeHeader('Transfer-Encoding')
     res.writeHead(200, { 'Content-Type': 'text/event-stream' })
     res.write('data: first\n\n')
     held.push(res)
@@ -31,7 +33,7 @@ require('node:http').createServer((req, res) => {
   const body = []
   req.on('data', (chunk) => body.push(chunk))
   req.on('end', () => {
-    if (req.url === '/api/release') for (const stream of held.splice(0)) stream.end('data: second\n\n')
+    if (req.url === '/api/release') for (const stream of held) stream.write('data: second\n\n')
     res.writeHead(401, { 'Content-Type': 'application/json', 'Set-Cookie': 'stub=1; Path=/api/auth' })
     res.end(JSON.stringify({
       detail: 'stub',
@@ -173,7 +175,7 @@ scenario('/api/* reaches the backend as it reaches it behind the edge proxy', as
   assert.equal(echoed.body, 'payload')
 })
 
-scenario('an SSE event reaches the client before the stream ends', async () => {
+scenario('SSE events reach the client while the stream stays open', async () => {
   const response = await fetch(`${compose.origin}/api/stream`, {
     signal: AbortSignal.timeout(TIMEOUT_MS),
   })
@@ -185,6 +187,7 @@ scenario('an SSE event reaches the client before the stream ends', async () => {
   assert.match(decoder.decode((await reader.read()).value), /first/)
   await fetch(`${compose.origin}/api/release`, { method: 'POST' })
   assert.match(decoder.decode((await reader.read()).value), /second/)
+  await reader.cancel()
 })
 
 scenario('a recreated backend is found at its new address without a UI restart', async () => {
