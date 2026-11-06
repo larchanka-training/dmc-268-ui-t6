@@ -1,4 +1,4 @@
-import { lazy, useEffect, type FC } from 'react'
+import { useEffect, type FC } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 
 import {
@@ -7,37 +7,38 @@ import {
   consumeAuthReturnTo,
   peekAuthReturnTo,
 } from '../../features/auth'
+import { lazyRoute } from './lazyRoute'
 import { PageFallback } from './RouteLayouts'
 
-const LoginPage = lazy(() =>
+const LoginPage = lazyRoute(() =>
   import('../../pages/login/LoginPage').then((m) => ({ default: m.LoginPage })),
 )
-const CallbackPage = lazy(() =>
+const CallbackPage = lazyRoute(() =>
   import('../../pages/auth/CallbackPage').then((m) => ({ default: m.CallbackPage })),
 )
-const RepositoriesPage = lazy(() =>
+const RepositoriesPage = lazyRoute(() =>
   import('../../pages/repositories/RepositoriesPage').then((m) => ({
     default: m.RepositoriesPage,
   })),
 )
-const RepositorySettingsPage = lazy(() =>
+const RepositorySettingsPage = lazyRoute(() =>
   import('../../pages/repositories/RepositorySettingsPage').then((m) => ({
     default: m.RepositorySettingsPage,
   })),
 )
-const RunsPage = lazy(() =>
+const RunsPage = lazyRoute(() =>
   import('../../pages/runs/RunsPage').then((m) => ({ default: m.RunsPage })),
 )
-const RunDetailPage = lazy(() =>
+const RunDetailPage = lazyRoute(() =>
   import('../../pages/runs/RunDetailPage').then((m) => ({ default: m.RunDetailPage })),
 )
-const ReviewRedirect = lazy(() =>
+const ReviewRedirect = lazyRoute(() =>
   import('../../pages/review/ReviewRedirect').then((m) => ({ default: m.ReviewRedirect })),
 )
-const AuditPage = lazy(() =>
+const AuditPage = lazyRoute(() =>
   import('../../pages/audit/AuditPage').then((m) => ({ default: m.AuditPage })),
 )
-const AnalyticsPage = lazy(() =>
+const AnalyticsPage = lazyRoute(() =>
   import('../../pages/analytics/AnalyticsPage').then((m) => ({ default: m.AnalyticsPage })),
 )
 

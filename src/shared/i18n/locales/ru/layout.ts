@@ -34,4 +34,5 @@ export const layout: Translation<typeof en> = {
     fallbackMessage: 'Непредвиденная ошибка приложения',
     backToDashboard: 'Вернуться в панель управления',
   },
+  routeOffline: 'Нет подключения к сети. Страница откроется, когда связь вернётся',
 }

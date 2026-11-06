@@ -32,4 +32,5 @@ export const layout = {
     fallbackMessage: 'Unexpected application error',
     backToDashboard: 'Back to the dashboard',
   },
+  routeOffline: 'No network connection. The page will open once you are back online',
 }

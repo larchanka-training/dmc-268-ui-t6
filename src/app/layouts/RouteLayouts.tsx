@@ -1,4 +1,4 @@
-import { Button, Flex, Result } from 'antd'
+import { Alert, Button, Flex, Result } from 'antd'
 import { Suspense, type FC } from 'react'
 import { Navigate, Outlet, useLocation, useNavigate, useRouteError } from 'react-router'
 
@@ -19,15 +19,33 @@ export const RouteErrorFallback: FC = () => {
     <Flex align="center" className={styles.errorContainer} justify="center">
       <Result
         extra={
-          <Button onClick={() => (window.location.href = '/repositories')} type="primary">
-            {t('layout.routeError.backToDashboard')}
-          </Button>
+          <Flex gap="small" justify="center" wrap>
+            <Button
+              onClick={() => {
+                window.location.reload()
+              }}
+              type="primary"
+            >
+              {t('common.errors.tryAgain')}
+            </Button>
+            <Button onClick={() => (window.location.href = '/repositories')}>
+              {t('layout.routeError.backToDashboard')}
+            </Button>
+          </Flex>
         }
         status="500"
         subTitle={msg}
         title={t('layout.routeError.title')}
       />
     </Flex>
+  )
+}
+
+export const RouteOfflineNotice: FC = () => {
+  const { t } = useTranslation()
+
+  return (
+    <Alert data-testid="route-offline" showIcon title={t('layout.routeOffline')} type="warning" />
   )
 }
 

@@ -187,6 +187,8 @@ src/app/layouts/RouteLayouts.tsx
 src/app/layouts/RoutePages.test.tsx
 src/app/layouts/RoutePages.tsx
 src/app/layouts/index.ts
+src/app/layouts/lazyRoute.test.tsx
+src/app/layouts/lazyRoute.tsx
 src/app/mocks/app-state.test.ts
 src/app/mocks/app-state.ts
 src/app/mocks/mockRulesStatus.test.ts
@@ -214,6 +216,7 @@ src/app/providers/runStreamConnect.test.ts
 src/app/providers/runStreamConnect.ts
 src/app/providers/useRunStream.test.tsx
 src/app/providers/useRunStream.ts
+src/app/routes.offline.test.tsx
 src/app/routes.tsx
 src/app/runDetailLoading.page.test.tsx
 src/entities/diff/api/index.test.ts
@@ -2675,7 +2678,7 @@ issue прямо выносит подключение логирования з
 документация живёт на хосте лендинга под `/docs`, `docs/CICD.md` §4.2); не `http(s)://` URL — ошибка
 разбора env при старте. Задаётся при сборке (`build-args` образа UI, `Dockerfile`), как `VITE_API_BASE_URL`; в `ci-cd.yml` для него build-arg пока нет, образ берёт `DEFAULT_DOCS_URL`.
 
-**Роутер.** Установлен **react-router 8** (^8.4.0, peer react ≥ 19.2.7 — выполняется), настроен в `src/app/routes.tsx`. Лэйауты (`AppLayoutRoute`, `ProtectedLayout`, `PageFallback`, `RouteErrorFallback`) и обёртки страниц (`RoutedRepositoriesPage` и др.) вынесены в `src/app/layouts/`, чтобы файл роутера оставался чистой конфигурацией маршрутов без отключения правил Fast Refresh (`react-refresh/only-export-components`).
+**Роутер.** Установлен **react-router 8** (^8.4.0, peer react ≥ 19.2.7 — выполняется), настроен в `src/app/routes.tsx`. Лэйауты (`AppLayoutRoute`, `ProtectedLayout`, `PageFallback`, `RouteErrorFallback`) и обёртки страниц (`RoutedRepositoriesPage` и др.) вынесены в `src/app/layouts/`, чтобы файл роутера оставался чистой конфигурацией маршрутов без отключения правил Fast Refresh (`react-refresh/only-export-components`). Страницы подключаются через `lazyRoute` (`src/app/layouts/lazyRoute.tsx`), а не `lazy`: чанк, упавший при `navigator.onLine === false`, показывает `RouteOfflineNotice` внутри лэйаута и открывается сам по событию `online`, вместе с заново запрошенными стилями, которые preload-помощник Vite сам не повторяет. Отказ при наличии сети (чанк пропал после деплоя или сеть ещё не готова после `online`) идёт в `RouteErrorFallback`: «Повторить попытку» там перезагружает страницу на том же адресе.
 `PageFallback` ничего не рисует: это метка ожидания `PageLoading` из дизайн-системы. Та же метка отмечает проверку сессии в `ProtectedLayout` и первичную загрузку данных прогона в `RunDetailPage` (`runQuery.isLoading`). Кольцо одно на приложение, его показывает `PageLoaderHost` в `UiProvider`: по центру окна, не раньше чем через 300 мс непрерывного ожидания, с плавным появлением и исчезновением (`docs/DESIGN_SYSTEM.md` §7). Фоновый refetch с данными в кэше оставляет страницу видимой; ожидание диффа и журнала действий остаётся секционным. Интеграция маршрута, страницы и хоста проверяется в `src/app/runDetailLoading.page.test.tsx`.
 
 **Маршрут настроек репозитория (Refs ui#93).** `/repositories/:repoId/settings` — дочерний маршрут
