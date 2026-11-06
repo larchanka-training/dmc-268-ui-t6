@@ -62,6 +62,7 @@ export const settings: Translation<typeof en> = {
         download_bytes: 'превышен лимит размера архива',
         unpacked_bytes: 'превышен лимит распакованного размера',
         archive_entries: 'превышен лимит числа файлов в архиве',
+        provider_requests: 'превышен лимит запросов к Git-провайдеру на сборку',
         parsed_files: 'превышен лимит разобранных файлов',
         symbols: 'превышен лимит символов',
         edges: 'превышен лимит рёбер',

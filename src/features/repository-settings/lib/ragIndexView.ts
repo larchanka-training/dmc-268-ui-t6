@@ -70,6 +70,7 @@ const ERROR_REASON_KEYS: Record<string, ParseKeys> = {
   'limit_exceeded:download_bytes': 'settings.rag.reasons.limit_exceeded.download_bytes',
   'limit_exceeded:unpacked_bytes': 'settings.rag.reasons.limit_exceeded.unpacked_bytes',
   'limit_exceeded:archive_entries': 'settings.rag.reasons.limit_exceeded.archive_entries',
+  'limit_exceeded:provider_requests': 'settings.rag.reasons.limit_exceeded.provider_requests',
   'limit_exceeded:parsed_files': 'settings.rag.reasons.limit_exceeded.parsed_files',
   'limit_exceeded:symbols': 'settings.rag.reasons.limit_exceeded.symbols',
   'limit_exceeded:edges': 'settings.rag.reasons.limit_exceeded.edges',
