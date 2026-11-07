@@ -33,6 +33,8 @@ export interface FindingFiltersBarProps {
   total: number
   /** The active run is still producing findings, so no final count is shown. */
   findingsPending?: boolean
+  /** Whether the active run can still publish findings. */
+  findingsExpected?: boolean
   /** The filters are in effect and nothing passes: shows the message with its own reset button. */
   empty?: boolean
   /**
@@ -80,6 +82,7 @@ export function FindingFiltersBar(props: FindingFiltersBarProps): JSX.Element {
     shown,
     total,
     findingsPending = false,
+    findingsExpected = true,
     empty = false,
     onChange,
     onQueryChange,
@@ -206,7 +209,7 @@ export function FindingFiltersBar(props: FindingFiltersBarProps): JSX.Element {
         <Flex align="center" className={styles.summary} gap="small">
           <Typography.Text role="status" type="secondary">
             {findingsPending
-              ? t('runs.filters.pending')
+              ? t(findingsExpected ? 'runs.filters.pending' : 'runs.filters.pendingUncertain')
               : t('runs.filters.shown', { shown, count: total })}
           </Typography.Text>
           <Button disabled={!canReset} onClick={reset}>
