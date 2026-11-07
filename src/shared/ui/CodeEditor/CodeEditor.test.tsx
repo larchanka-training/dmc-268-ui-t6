@@ -302,6 +302,16 @@ describe('CodeEditor: highlighted lines', () => {
     expect(highlighted()).toEqual(['two'])
   })
 
+  it('keeps the marks on the editor StrictMode mounts again', () => {
+    render(
+      <StrictMode>
+        <CodeEditor aria-label={LABEL} value={'one\ntwo'} highlightedLines={[2]} />
+      </StrictMode>,
+    )
+
+    expect(highlighted()).toEqual(['two'])
+  })
+
   it('moves with the text when the parent builds the array on every render', () => {
     function Parent(): JSX.Element {
       const [value, setValue] = useState('one\ntwo')
