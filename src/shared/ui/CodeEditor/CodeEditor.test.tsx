@@ -100,6 +100,17 @@ describe('CodeEditor: text', () => {
     expect(onChange).toHaveBeenLastCalledWith('a\nb')
   })
 
+  it('leaves Tab to the browser, which moves the focus on', () => {
+    const onChange = vi.fn()
+    render(<CodeEditor aria-label={LABEL} value="ab" onChange={onChange} />)
+
+    const notPrevented = fireEvent.keyDown(textbox(), { key: 'Tab', code: 'Tab', keyCode: 9 })
+
+    expect(notPrevented).toBe(true)
+    expect(renderedLines()).toEqual(['ab'])
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
   it('undoes an edit with the history keys', () => {
     const onChange = vi.fn()
     render(<CodeEditor aria-label={LABEL} value="ab" onChange={onChange} />)
