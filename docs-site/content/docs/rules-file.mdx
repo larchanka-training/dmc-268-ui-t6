@@ -154,7 +154,7 @@ findings.
 
 To add `security-baseline` to a stack template, put its `##` sections under the `# Security`
 heading of that template (add the heading if there is none), add its masks to that template's
-`review-ignore` block, and leave out the rest of the file: a second block fails the run. Each
-template leaves at least half of the 12,000 tokens to your `AGENTS.md`. The
+`review-ignore` block, and leave out the rest of the file, its own block included (see
+[Ignore files](#ignore-files)). The
 [rules guide](https://github.com/larchanka-training/dmc-268-api-t6/blob/main/examples/rules/RULES_GUIDE.md)
 has their sizes and shows how to write your own rules.
