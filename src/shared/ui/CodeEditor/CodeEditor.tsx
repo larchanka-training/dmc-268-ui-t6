@@ -37,6 +37,7 @@ export interface CodeEditorProps {
   /** The text can be read, selected and copied, and stays in the Tab order. */
   readOnly?: boolean
   'aria-label': string
+  className?: string
 }
 
 const NO_LINES: readonly number[] = []
@@ -59,6 +60,7 @@ export function CodeEditor(props: CodeEditorProps): JSX.Element {
     diagnostics = NO_DIAGNOSTICS,
     readOnly = false,
     'aria-label': ariaLabel,
+    className,
   } = props
   const invalid = diagnostics.length > 0
   const parentRef = useRef<HTMLDivElement>(null)
@@ -141,7 +143,12 @@ export function CodeEditor(props: CodeEditorProps): JSX.Element {
   return (
     <div
       ref={parentRef}
-      className={cx(styles.field, readOnly && styles.readOnly, invalid && styles.invalid)}
+      className={cx(
+        styles.field,
+        readOnly && styles.readOnly,
+        invalid && styles.invalid,
+        className,
+      )}
     />
   )
 }
