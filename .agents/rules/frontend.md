@@ -94,7 +94,8 @@ for a new component are in `docs/DESIGN_SYSTEM.md`; the showcase is `pnpm storyb
 
 1. Take base components only from Ant Design (themed by `DesignSystemProvider`) and from
    `src/shared/ui`. Do not restyle them on a screen and do not bring a component from another
-   library.
+   library. The one exception is `CodeEditor` in `src/shared/ui`, built on CodeMirror 6
+   (`docs/DESIGN_SYSTEM.md` §1).
 2. Write your own component only when it is a composite for a specific screen (a repository
    table, an action tree, a diff view). Build it from base components in `widgets`/`features`.
 3. A base component that is missing or looks wrong is fixed in the design system first
