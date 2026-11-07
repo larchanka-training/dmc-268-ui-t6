@@ -36,3 +36,12 @@ export const NarrowViewport: Story = {
     </div>
   ),
 }
+
+export const OpenWithKeyboard: Story = {
+  ...Explanation,
+  play: ({ canvasElement }) => {
+    const button = canvasElement.querySelector('button')
+    button?.focus()
+    button?.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' }))
+  },
+}

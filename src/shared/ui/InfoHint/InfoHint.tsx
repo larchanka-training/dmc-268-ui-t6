@@ -16,6 +16,8 @@ export const InfoHint: FC<InfoHintProps> = ({ label, children }) => {
   const clickPending = useRef(false)
 
   const onOpenChange = (next: boolean): void => {
+    // rc-trigger calls this after the button's capture handler for a pointer click. Treat that
+    // click as the toggle; hover may already have opened the same popover before the click.
     if (clickPending.current) {
       clickPending.current = false
       clickedOpen.current = !clickedOpen.current
@@ -28,10 +30,13 @@ export const InfoHint: FC<InfoHintProps> = ({ label, children }) => {
 
   const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>): void => {
     if (event.key === 'Escape') {
+      clickedOpen.current = false
+      clickPending.current = false
       setOpen(false)
     } else if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
-      setOpen((current) => !current)
+      clickedOpen.current = !open
+      setOpen(clickedOpen.current)
     }
   }
 

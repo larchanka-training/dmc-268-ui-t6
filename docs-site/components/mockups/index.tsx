@@ -28,7 +28,7 @@ export function AutoReviewSnippet() {
       caption="The Automatic review switch."
       name="settings-auto-review"
       alt="Screenshot of the Automatic review switch in repository settings, with its hint."
-      note="The hint under the switch is the app's own wording. Today a pull request still needs the ai-review label, see above."
+      note="The short line and ⓘ explanation use the app's own wording. Today a pull request still needs the ai-review label, see above."
     />
   )
 }
@@ -39,7 +39,7 @@ export function RagSnippet() {
       caption="The RAG switch with the index status."
       name="settings-rag"
       alt="Screenshot of the RAG section in repository settings: the switch and the index status."
-      note="The hint under the switch is the app's own wording."
+      note="The short line and ⓘ explanation use the app's own wording."
     />
   )
 }

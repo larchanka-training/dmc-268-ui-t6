@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { InfoHint } from './InfoHint'
+import styles from './InfoHint.module.css'
 
 afterEach(() => {
   cleanup()
@@ -24,6 +25,7 @@ describe('InfoHint', () => {
     fireEvent.mouseLeave(button)
     await waitFor(() => {
       expect(button.getAttribute('aria-expanded')).toBe('false')
+      expect(screen.queryByText('The index stores structure only.')).toBeNull()
     })
   })
 
@@ -61,7 +63,44 @@ describe('InfoHint', () => {
     fireEvent.click(button)
     await waitFor(() => {
       expect(button.getAttribute('aria-expanded')).toBe('false')
+      expect(screen.queryByText('The index stores structure only.')).toBeNull()
     })
+  })
+
+  it('reopens on the first click after Escape closes a click-opened hint', async () => {
+    const button = renderHint()
+    fireEvent.click(button)
+    expect(await screen.findByText('The index stores structure only.')).toBeTruthy()
+
+    fireEvent.keyDown(button, { key: 'Escape' })
+    await waitFor(() => {
+      expect(button.getAttribute('aria-expanded')).toBe('false')
+      expect(screen.queryByText('The index stores structure only.')).toBeNull()
+    })
+
+    fireEvent.click(button)
+    expect(await screen.findByText('The index stores structure only.')).toBeTruthy()
+    expect(button.getAttribute('aria-expanded')).toBe('true')
+  })
+
+  it('closes on the first pointer click after opening with the keyboard', async () => {
+    const button = renderHint()
+    button.focus()
+    fireEvent.keyDown(button, { key: 'Enter' })
+    expect(await screen.findByText('The index stores structure only.')).toBeTruthy()
+
+    fireEvent.click(button)
+    await waitFor(() => {
+      expect(button.getAttribute('aria-expanded')).toBe('false')
+      expect(screen.queryByText('The index stores structure only.')).toBeNull()
+    })
+  })
+
+  it('applies the width class to the popover root', async () => {
+    const button = renderHint()
+    fireEvent.click(button)
+    const content = await screen.findByText('The index stores structure only.')
+    expect(content.closest('.ant-popover')?.className).toContain(styles.popup)
   })
 
   it.each(['Enter', ' '])('opens with %s and closes with Escape', async (key) => {
@@ -75,6 +114,7 @@ describe('InfoHint', () => {
     fireEvent.keyDown(button, { key: 'Escape' })
     await waitFor(() => {
       expect(button.getAttribute('aria-expanded')).toBe('false')
+      expect(screen.queryByText('The index stores structure only.')).toBeNull()
     })
     expect(document.activeElement).toBe(button)
 
