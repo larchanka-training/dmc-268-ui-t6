@@ -3,70 +3,55 @@ import type { RunSession } from '../../../entities/run'
 
 interface ProgressInput {
   hasInstallation: boolean
-  repositories: readonly Pick<Repository, 'id' | 'provider' | 'installationAvailable' | 'enabled'>[]
-  runs: readonly Pick<RunSession, 'id' | 'status'>[]
-  viewedSettingsRepoIds: readonly string[]
-  viewedResult: boolean
+  repositories: readonly Pick<
+    Repository,
+    'id' | 'provider' | 'installationAvailable' | 'enabled' | 'defaultBranch'
+  >[]
+  runs: readonly Pick<RunSession, 'id' | 'status'>[] | undefined
+  successfulRuns: readonly Pick<RunSession, 'id' | 'status'>[] | undefined
+}
+
+export interface OnboardingProgress {
+  install: boolean
+  settings: boolean
+  review: boolean | null
+  result: boolean | null
 }
 
 export function getOnboardingProgress({
   hasInstallation,
   repositories,
   runs,
-  viewedSettingsRepoIds,
-  viewedResult,
-}: ProgressInput): readonly [boolean, boolean, boolean, boolean] {
+  successfulRuns,
+}: ProgressInput): OnboardingProgress {
   const accessible = repositories.filter(
     (repo) => repo.provider === 'github' && repo.installationAvailable,
   )
-  return [
-    hasInstallation && accessible.length > 0,
-    accessible.some((repo) => repo.enabled && viewedSettingsRepoIds.includes(repo.id)),
-    runs.length > 0,
-    viewedResult,
-  ]
+  const hasSuccessfulRun = successfulRuns?.some((run) => run.status === 'succeeded')
+  return {
+    install: hasInstallation && accessible.length > 0,
+    settings: accessible.some((repo) => repo.enabled && repo.defaultBranch.length > 0),
+    review: runs ? runs.length > 0 || hasSuccessfulRun === true : hasSuccessfulRun ? true : null,
+    result: hasSuccessfulRun ?? null,
+  }
 }
 
-function storageKey(userId: number, name: string): string {
-  return `dmc_onboarding_${String(userId)}_${name}`
+function dismissalKey(userId: number): string {
+  return `dmc_onboarding_${String(userId)}_dismissed`
 }
 
-function readFlag(userId: number, name: string): boolean {
+export function isOnboardingDismissed(userId: number): boolean {
   try {
-    return localStorage.getItem(storageKey(userId, name)) === '1'
+    return localStorage.getItem(dismissalKey(userId)) === '1'
   } catch {
     return false
   }
 }
 
-function writeFlag(userId: number, name: string): void {
-  try {
-    localStorage.setItem(storageKey(userId, name), '1')
-  } catch {
-    // The checklist still responds in this tab when browser storage is unavailable.
-  }
-}
-
-export function isOnboardingDismissed(userId: number): boolean {
-  return readFlag(userId, 'dismissed')
-}
-
 export function dismissOnboarding(userId: number): void {
-  writeFlag(userId, 'dismissed')
-}
-
-export function hasViewedSuccessfulRun(userId: number): boolean {
-  return readFlag(userId, 'viewed_result')
-}
-
-export function markSuccessfulRunViewed(userId: number): void {
-  writeFlag(userId, 'viewed_result')
-}
-
-export function hasViewedRepositorySettings(userId: number, repositoryId: string): boolean {
-  return readFlag(userId, `settings_${repositoryId}`)
-}
-
-export function markRepositorySettingsViewed(userId: number, repositoryId: string): void {
-  writeFlag(userId, `settings_${repositoryId}`)
+  try {
+    localStorage.setItem(dismissalKey(userId), '1')
+  } catch {
+    // The checklist still hides in this tab when browser storage is unavailable.
+  }
 }

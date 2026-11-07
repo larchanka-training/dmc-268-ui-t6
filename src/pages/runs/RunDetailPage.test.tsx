@@ -19,7 +19,6 @@ import { RawFileDiffSchema } from '../../entities/diff'
 import { mockRunsListPage } from '../../app/mocks/mockRunsList.fixture'
 import { buildMockRunDetail, mockRawDiffForRun } from '../../app/mocks/mockRunReview'
 import { mockSummaryOnlyDiff, mockSummaryOnlyRun } from '../../app/mocks/app-state'
-import { mockFailedRun } from '../../app/mocks/mockRunTimeline'
 
 const RERUN_RUN_ID = '11111111-1111-4111-8111-000000000099'
 import { initMockTransport, withMockTransportOverlay } from '../../app/mocks/mockTransport'
@@ -77,20 +76,6 @@ describe('RunDetailPage', () => {
     expect(screen.getByText('$0.42')).toBeTruthy()
     expect(screen.getByText('get_tree ×19')).toBeTruthy()
     expect(screen.getByText('src/a.ts')).toBeTruthy()
-  })
-
-  it('completes onboarding only after a successful run detail loads', async () => {
-    renderRunDetail(DEMO_RUN_ID)
-    await waitFor(() => {
-      expect(screen.getByTestId('run-detail-page')).toBeTruthy()
-      expect(localStorage.getItem('dmc_onboarding_114473628_viewed_result')).toBe('1')
-    })
-  })
-
-  it('does not complete onboarding for a failed run', async () => {
-    renderRunDetail(mockFailedRun.id)
-    await screen.findByTestId('run-detail-page')
-    expect(localStorage.getItem('dmc_onboarding_114473628_viewed_result')).toBeNull()
   })
 
   it('shows a schema error when run detail omits required review fields', async () => {

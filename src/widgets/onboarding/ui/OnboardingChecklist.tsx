@@ -6,15 +6,10 @@ import type { Repository } from '../../../entities/repository'
 import type { RunSession } from '../../../entities/run'
 import { GITHUB_APP_SLUG } from '../../../shared/config/env'
 import { useTranslation } from '../../../shared/i18n'
+import { githubAppInstallUrl } from '../../../shared/lib/githubAppInstallUrl'
 import { safeHttpUrl } from '../../../shared/lib/safeHttpUrl'
 import { Tag } from '../../../shared/ui'
-import {
-  dismissOnboarding,
-  getOnboardingProgress,
-  hasViewedRepositorySettings,
-  hasViewedSuccessfulRun,
-  isOnboardingDismissed,
-} from '../lib/onboarding'
+import { dismissOnboarding, getOnboardingProgress } from '../lib/onboarding'
 import styles from './OnboardingChecklist.module.css'
 
 interface OnboardingChecklistProps {
@@ -22,9 +17,12 @@ interface OnboardingChecklistProps {
   hasInstallation: boolean
   repositories: readonly Pick<
     Repository,
-    'id' | 'provider' | 'fullName' | 'url' | 'installationAvailable' | 'enabled'
+    'id' | 'provider' | 'fullName' | 'url' | 'installationAvailable' | 'enabled' | 'defaultBranch'
   >[]
-  runs: readonly Pick<RunSession, 'id' | 'status'>[]
+  runs: readonly Pick<RunSession, 'id' | 'status'>[] | undefined
+  successfulRuns: readonly Pick<RunSession, 'id' | 'status'>[] | undefined
+  runsError: boolean
+  onRetryRuns: () => void
   onDismiss: () => void
 }
 
@@ -33,19 +31,18 @@ export const OnboardingChecklist: FC<OnboardingChecklistProps> = ({
   hasInstallation,
   repositories,
   runs,
+  successfulRuns,
+  runsError,
+  onRetryRuns,
   onDismiss,
 }) => {
   const { t } = useTranslation()
-  const [dismissed, setDismissed] = useState(() => isOnboardingDismissed(userId))
-  const viewedResult = hasViewedSuccessfulRun(userId)
+  const [dismissed, setDismissed] = useState(false)
   const progress = getOnboardingProgress({
     hasInstallation,
     repositories,
     runs,
-    viewedSettingsRepoIds: repositories
-      .filter((repo) => hasViewedRepositorySettings(userId, repo.id))
-      .map((repo) => repo.id),
-    viewedResult,
+    successfulRuns,
   })
   const accessibleRepo = repositories.find(
     (repo) => repo.provider === 'github' && repo.installationAvailable,
@@ -53,32 +50,37 @@ export const OnboardingChecklist: FC<OnboardingChecklistProps> = ({
   const activeRepo = repositories.find(
     (repo) => repo.provider === 'github' && repo.installationAvailable && repo.enabled,
   )
-  const firstRun = runs.find((run) => run.status === 'succeeded') ?? runs[0]
-  const installUrl = GITHUB_APP_SLUG
-    ? `https://github.com/apps/${GITHUB_APP_SLUG}/installations/new`
-    : undefined
+  const installUrl = githubAppInstallUrl(GITHUB_APP_SLUG)
   const repoUrl = activeRepo ? safeHttpUrl(activeRepo.url) : null
   const pullRequestUrl = repoUrl ? `${repoUrl.replace(/\/$/, '')}/compare` : null
 
-  if (dismissed || viewedResult) return null
+  if (dismissed || progress.result) return null
 
-  const steps: { title: string; description: string; action: ReactNode }[] = [
+  const steps: {
+    title: string
+    description: string
+    action: ReactNode
+    complete: boolean | null
+  }[] = [
     {
       title: t('onboarding.installTitle'),
       description: t('onboarding.installDescription'),
+      complete: progress.install,
       action: installUrl ? (
         <a href={installUrl} rel="noopener noreferrer" target="_blank">
           {t('onboarding.installAction')}
         </a>
       ) : (
-        <Button disabled size="small">
-          {t('onboarding.installAction')}
-        </Button>
+        <span>
+          <Button disabled>{t('onboarding.installAction')}</Button>{' '}
+          <Typography.Text type="secondary">{t('onboarding.installUnavailable')}</Typography.Text>
+        </span>
       ),
     },
     {
       title: t('onboarding.settingsTitle'),
       description: t('onboarding.settingsDescription'),
+      complete: progress.settings,
       action: accessibleRepo ? (
         <Link to={`/repositories/${accessibleRepo.id}/settings`}>
           {t('onboarding.settingsAction')}
@@ -90,6 +92,7 @@ export const OnboardingChecklist: FC<OnboardingChecklistProps> = ({
     {
       title: t('onboarding.reviewTitle'),
       description: t('onboarding.reviewDescription'),
+      complete: progress.review,
       action: pullRequestUrl ? (
         <a href={pullRequestUrl} rel="noopener noreferrer" target="_blank">
           {t('onboarding.reviewAction')}
@@ -101,11 +104,8 @@ export const OnboardingChecklist: FC<OnboardingChecklistProps> = ({
     {
       title: t('onboarding.resultTitle'),
       description: t('onboarding.resultDescription'),
-      action: firstRun ? (
-        <Link to={`/runs/${firstRun.id}`}>{t('onboarding.resultAction')}</Link>
-      ) : (
-        <Link to="/runs">{t('onboarding.runsAction')}</Link>
-      ),
+      complete: progress.result,
+      action: <Link to="/runs">{t('onboarding.runsAction')}</Link>,
     },
   ]
 
@@ -118,7 +118,6 @@ export const OnboardingChecklist: FC<OnboardingChecklistProps> = ({
             setDismissed(true)
             onDismiss()
           }}
-          size="small"
           type="text"
         >
           {t('onboarding.hide')}
@@ -127,13 +126,25 @@ export const OnboardingChecklist: FC<OnboardingChecklistProps> = ({
       title={<h2 className={styles.title}>{t('onboarding.title')}</h2>}
     >
       <Typography.Paragraph>{t('onboarding.intro')}</Typography.Paragraph>
+      {runsError ? (
+        <Typography.Paragraph role="alert">
+          {t('onboarding.runsUnavailable')}{' '}
+          <Button onClick={onRetryRuns} size="small" type="link">
+            {t('common.errors.tryAgain')}
+          </Button>
+        </Typography.Paragraph>
+      ) : null}
       <ol className={styles.steps}>
-        {steps.map((step, index) => (
+        {steps.map((step) => (
           <li className={styles.step} key={step.title}>
             <div>
               <strong>{step.title}</strong>{' '}
-              <Tag tone={progress[index] ? 'success' : 'neutral'}>
-                {progress[index] ? t('onboarding.done') : t('onboarding.todo')}
+              <Tag tone={step.complete ? 'success' : 'neutral'}>
+                {step.complete === null
+                  ? t('onboarding.unknown')
+                  : step.complete
+                    ? t('onboarding.done')
+                    : t('onboarding.todo')}
               </Tag>
               <div>{step.description}</div>
             </div>

@@ -66,6 +66,10 @@ function renderPage(initialEntry = '/runs') {
         path: '/runs/:runId',
         element: <div data-testid="run-detail-route">detail</div>,
       },
+      {
+        path: '/repositories',
+        element: <div data-testid="repositories-route">repositories</div>,
+      },
     ],
     { initialEntries: [initialEntry] },
   )
@@ -261,11 +265,15 @@ describe('RunsPage', () => {
   it('explains the first review and offers the next step when no filter is set', async () => {
     stubFetch(() => ({ items: [], nextCursor: null }))
 
-    renderPage()
+    const { router } = renderPage()
 
     expect(await screen.findByText('Нет прогонов ревью')).toBeTruthy()
     expect(screen.getByText(/Откройте PR или добавьте лейбл ai-review/)).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Открыть репозитории' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Открыть репозитории' }))
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/repositories')
+    })
+    expect(screen.getByTestId('repositories-route')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Показать все прогоны' })).toBeNull()
   })
 

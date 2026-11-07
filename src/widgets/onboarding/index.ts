@@ -1,2 +1,2 @@
 export { OnboardingChecklist } from './ui/OnboardingChecklist'
-export { markSuccessfulRunViewed, markRepositorySettingsViewed } from './lib/onboarding'
+export { isOnboardingDismissed } from './lib/onboarding'
