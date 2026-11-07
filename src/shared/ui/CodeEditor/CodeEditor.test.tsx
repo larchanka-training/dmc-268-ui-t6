@@ -276,6 +276,22 @@ describe('CodeEditor: highlighted lines', () => {
     expect(renderedLines()).toEqual(['', 'one', 'two'])
     expect(highlighted()).toEqual(['two'])
   })
+
+  it('moves with the text when the parent builds the array on every render', () => {
+    function Parent(): JSX.Element {
+      const [value, setValue] = useState('one\ntwo')
+      return (
+        <CodeEditor aria-label={LABEL} value={value} onChange={setValue} highlightedLines={[2]} />
+      )
+    }
+    render(<Parent />)
+    view().dispatch({ selection: { anchor: 0 } })
+
+    pressEnter()
+
+    expect(renderedLines()).toEqual(['', 'one', 'two'])
+    expect(highlighted()).toEqual(['two'])
+  })
 })
 
 describe('CodeEditor: diagnostics', () => {
@@ -391,6 +407,27 @@ describe('CodeEditor: diagnostics', () => {
     )
 
     expect(messages()).toEqual(['1 first', '1 second'])
+  })
+
+  it('keeps a message on its text when the parent builds the array on every render', () => {
+    function Parent(): JSX.Element {
+      const [value, setValue] = useState('one\ntwo')
+      return (
+        <CodeEditor
+          aria-label={LABEL}
+          value={value}
+          onChange={setValue}
+          diagnostics={[{ line: 2, message: 'bad' }]}
+        />
+      )
+    }
+    render(<Parent />)
+    view().dispatch({ selection: { anchor: 0 } })
+
+    pressEnter()
+
+    expect(lineAbove('2 bad')).toBe('two')
+    expect(errorLines()).toEqual(['two'])
   })
 
   it('tells assistive technology that the text has errors, while it has them', () => {

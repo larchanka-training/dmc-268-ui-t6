@@ -22,7 +22,10 @@ export interface CodeEditorProps {
   onChange?: (value: string) => void
   /** Picks the syntax by extension; `.diff` and `.patch` are a unified diff. */
   fileName?: string
-  /** Lines to mark, counted from 1; a line the document does not have is skipped. */
+  /**
+   * Lines to mark, counted from 1; a line the document does not have is skipped. This and
+   * `diagnostics` are compared by content: the same marks again stay where an edit moved them.
+   */
   highlightedLines?: readonly number[]
   /** Each message is shown under its line; one past the end of the document, under the last. */
   diagnostics?: readonly CodeEditorDiagnostic[]

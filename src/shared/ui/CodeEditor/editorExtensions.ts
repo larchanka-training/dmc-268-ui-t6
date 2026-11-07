@@ -219,11 +219,17 @@ function markLines(doc: Text, marks: LineMarks): MarkedLines {
   return { marks, decorations: Decoration.set(ranges, true) }
 }
 
+// By content, not by reference: a parent may build the arrays anew on every render, and each
+// keystroke renders it. A false "different" only places the marks anew.
+function sameMarks(a: LineMarks, b: LineMarks): boolean {
+  return JSON.stringify(a) === JSON.stringify(b)
+}
+
 export const setLineMarks = StateEffect.define<LineMarks>()
 
 // A mark is about a piece of text, so it moves with the text on an edit. Text from outside is
-// another document: the line numbers are applied to it anew. A state field, not a view plugin: a
-// plugin may not provide block decorations.
+// another document, and other marks are another report: the line numbers are applied anew. A state
+// field, not a view plugin: a plugin may not provide block decorations.
 export const lineMarks = StateField.define<MarkedLines>({
   create: () => ({
     marks: { highlightedLines: [], diagnostics: [] },
@@ -231,7 +237,7 @@ export const lineMarks = StateField.define<MarkedLines>({
   }),
   update(value, transaction) {
     const effect = transaction.effects.find((item) => item.is(setLineMarks))
-    if (effect) {
+    if (effect && !sameMarks(effect.value, value.marks)) {
       return markLines(transaction.newDoc, effect.value)
     }
     if (transaction.annotation(Transaction.remote)) {
