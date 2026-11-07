@@ -9,6 +9,7 @@ import { HowItWorks } from './components/HowItWorks'
 import { AppCta } from './components/AppCta'
 
 export function App() {
+  // После коммита, но до покраски: цель уже в DOM, а instant обходит глобальный smooth-scroll.
   useLayoutEffect(() => {
     if (!location.hash) return
     const target = document.getElementById(location.hash.slice(1))
