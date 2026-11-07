@@ -121,6 +121,20 @@ describe('CodeEditor: text', () => {
     expect(onChange).not.toHaveBeenCalled()
   })
 
+  it('keeps an edit the parent did not take until the value changes', () => {
+    const onChange = vi.fn()
+    const { rerender } = render(<CodeEditor aria-label={LABEL} value="ab" onChange={onChange} />)
+
+    pressEnter()
+    expect(renderedLines()).toEqual(['', 'ab'])
+
+    rerender(<CodeEditor aria-label={LABEL} value="ab" onChange={onChange} />)
+    expect(renderedLines()).toEqual(['', 'ab'])
+
+    rerender(<CodeEditor aria-label={LABEL} value="cd" onChange={onChange} />)
+    expect(renderedLines()).toEqual(['cd'])
+  })
+
   it('keeps text that came from outside out of the undo history', () => {
     const onChange = vi.fn()
     const { rerender } = render(<CodeEditor aria-label={LABEL} value="" onChange={onChange} />)

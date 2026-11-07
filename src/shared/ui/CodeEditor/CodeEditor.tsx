@@ -17,7 +17,12 @@ import {
 export type CodeEditorDiagnostic = EditorDiagnostic
 
 export interface CodeEditorProps {
-  /** The text, the source of truth as in a controlled `<textarea>`. */
+  /**
+   * The text. A new value replaces the text in the editor, without `onChange`. An edit is shown at
+   * once and reported through `onChange`: keep it in state and pass it back. Unlike a controlled
+   * `<textarea>`, the editor does not undo an edit the parent did not take; it stays until `value`
+   * changes.
+   */
   value: string
   onChange?: (value: string) => void
   /** Picks the syntax by extension; `.diff` and `.patch` are a unified diff. */
