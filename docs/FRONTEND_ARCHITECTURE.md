@@ -2532,7 +2532,8 @@ checkpoint или ошибка до входа в `traced_step` могут ос�
 - `mockSummaryOnlyRun` + `mockSummaryOnlyDiff` — summary-only прогон (`summaryOnly: true`) и его
   провод `/diff`: 3 файла с `patch: null` и `src/a.ts` с патчем; `buildMockRunDetail` добавляет
   к нему одну critical-находку. В `mockRunSessions` прогон не входит (там по одному на статус);
-- `mockReviewComments` — 3 комментария (два — с `ruleName`, один — без);
+- `mockReviewComments` — 3 комментария для опубликованного `succeeded` (два — с `ruleName`,
+  один — без); до публикации и у прогонов без опубликованных находок `/comments` возвращает `[]`;
 - `mockRunActions` — 34 действия в Duo-подобной последовательности (`makeDuoActions`,
   `src/entities/run/lib/duoActions.fixture.ts`: `get_pull_request`, `get_diff`, 19× `get_tree`,
   11× `get_blob`, `get_pull_request`, `post_review`), 2 действия с `responseRef` вместо `response`;

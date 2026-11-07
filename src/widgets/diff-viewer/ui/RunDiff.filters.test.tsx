@@ -1174,4 +1174,25 @@ describe('RunDiff filters: search text and pending comments', () => {
 
     expect(screen.queryByTestId('findings-filter-empty')).toBeNull()
   })
+
+  it('does not show unrelated diff files while comments may still add a finding', () => {
+    const filters = filtersOf({ severities: ['warning'] })
+    const { container, rerender } = render(
+      runDiff({ findings: [], comments: [], filters, commentsPending: true }),
+    )
+
+    expect(diffCount(container)).toBe(0)
+    expect(screen.queryByTestId('findings-filter-empty')).toBeNull()
+
+    rerender(
+      runDiff({
+        findings: [],
+        comments: [makeComment('000000000008', { title: 'Late finding' })],
+        filters,
+        commentsPending: false,
+      }),
+    )
+    expect(diffCount(container)).toBe(1)
+    expect(fileNameShown('src/a.ts')).toBe(true)
+  })
 })
