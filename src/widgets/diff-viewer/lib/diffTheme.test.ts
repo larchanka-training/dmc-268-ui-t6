@@ -359,6 +359,7 @@ describe('diff-layout.css', () => {
   it('wraps a long file name, so it cannot widen the page (jsdom loads no CSS, so only the source shows it)', () => {
     const css = readFileSync(new URL('../ui/diff-layout.css', import.meta.url), 'utf8')
     const fileName = /^\.diff-file-name \{\n([^}]*)\}$/m.exec(css)?.[1]
+    expect(fileName, 'no standalone `.diff-file-name { … }` rule in diff-layout.css').toBeDefined()
     expect(fileName).toContain('overflow-wrap: anywhere;')
     expect(fileName).not.toContain('nowrap')
   })
