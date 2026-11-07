@@ -161,6 +161,7 @@ GET /config.json
 ```
 
 - **Адрес приложения задаётся при старте, не при сборке.** Переменная окружения `APP_URL` обязательна: `docker/landing/15-check-app-url.sh` пропускает только `http(s)://<host>[:port][/path]` (хост с числовой последней меткой только как IPv4 `a.b.c.d`, иначе его отверг бы `new URL()`), иначе контейнер не стартует (`compose up --wait` падает → авто-rollback). Затем шаг envsubst образа nginx пишет `/etc/nginx/runtime/config.json` из `docker/landing/config.json.template`; nginx отдаёт его как `/config.json` с `Cache-Control: no-cache`, так что новый `APP_URL` виден браузеру без ожидания кэша. Лендинг читает файл при загрузке; без файла берёт адрес по умолчанию из кода (контракт — `landing/src/lib/appUrl.ts` из PR #164 по #162, уже в `main`). Один образ годится для staging и prod.
+- **Ссылка установки GitHub App задаётся при сборке.** `VITE_GITHUB_APP_SLUG` передаётся в `landing/Dockerfile` как build-arg; без него копируемая инструкция агенту на лендинге скрыта. Это не меняет runtime-контракт `APP_URL`.
 - **Только курсовой VPS (режим `edge`).** На Terraform-хосте лендинга нет: хост выделен под UI на `:80`, своего маршрута для лендинга там нет. Образ всё равно собирается, сканируется и пушится на каждый `main`.
 - **Выкат.** Те же `deploy.sh` / `rollback.sh`, свой `APP_DIR` `/opt/dmc-268-landing-staging`, compose project `dmc-268-landing-staging`, файлы `deploy/compose/landing.yml` и `landing.edge.yml`, alias `landing-staging`. `APP_URL` = `https://staging-ui.<APP_DOMAIN>` (URL UI из резолвера), сохраняется в `<APP_DIR>/.env` вместе с `IMAGE`, `DEPLOY_MODE`, `EDGE_ALIAS`.
 - **Откат отдельно от UI.** Лендинг выкатывается после успешного health check UI того же коммита. Упал выкат или проверка лендинга — откатывается только лендинг (`ROLLBACK_MODE=auto`): исправный UI не пересоздаётся, его `:staging` продвигается, тег лендинга остаётся на прежнем релизе, job красный с `::error::` о лендинге. Так результат выката лендинга и маршруты edge-прокси в API-репозитории не влияют на приложение; сбой шагов лендинга до **Deploy image** его выкат останавливает (§2.1).
@@ -298,6 +299,8 @@ Runbook:
 | `VITE_GITHUB_CLIENT_ID`   | да, для входа         | Client ID зарегистрированного GitHub App (пробрасывается в `build-args` при сборке Docker-образа)                                                                                 |
 | `VITE_GITHUB_APP_SLUG`    | да, для подключения   | Slug зарегистрированного GitHub App для формирования ссылки установки приложения (пробрасывается в `build-args` при сборке Docker-образа)                                         |
 | `VITE_DOCS_URL`           | нет                   | адрес документации для пункта «Документация» в меню пользователя (`build-args` образа UI); пусто — `https://staging.dmc268-t6.axyi.ru/docs`, иначе только `http(s)://` URL        |
+
+`VITE_GITHUB_APP_SLUG` передаётся в build-args обоих образов: основного UI и лендинга.
 
 ### Environment `staging`
 

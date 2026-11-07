@@ -3,6 +3,7 @@
 # Landing image. Build from the repository root (the pnpm workspace lockfile lives there):
 #   docker build -f landing/Dockerfile -t dmc-268-landing:local .
 # The app address is set at container start with APP_URL, not at build time (docker/landing/).
+# The GitHub App slug for the agent setup prompt is embedded at build time.
 
 FROM node:24-alpine AS build
 WORKDIR /app
