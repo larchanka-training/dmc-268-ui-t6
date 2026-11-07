@@ -526,6 +526,13 @@ describe('CodeEditor: look', () => {
     expect(hasClass(styles.invalid)).toBe(true)
   })
 
+  it('keeps its own class next to the class of the caller', () => {
+    render(<CodeEditor aria-label={LABEL} value="a" className="mine" />)
+
+    expect(field()?.classList.contains('mine')).toBe(true)
+    expect(styles.field !== undefined && field()?.classList.contains(styles.field)).toBe(true)
+  })
+
   it('draws the field focus of DESIGN_SYSTEM §7: link border and a 3px halo', () => {
     const focus = moduleRule('.field:focus-within')
     expect(focus).toContain('border-color: var(--rv-link)')
