@@ -11,10 +11,8 @@ import {
   lineMarks,
   setLineMarks,
   syntaxClasses,
-  type EditorDiagnostic,
+  type CodeEditorDiagnostic,
 } from './editorExtensions'
-
-export type CodeEditorDiagnostic = EditorDiagnostic
 
 export interface CodeEditorProps {
   /**

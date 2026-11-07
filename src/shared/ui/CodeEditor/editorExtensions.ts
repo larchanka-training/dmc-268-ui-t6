@@ -140,7 +140,7 @@ export const editorTheme = EditorView.theme({
 })
 
 /** A problem in the text. Line and column count from 1; null when the problem has no position. */
-export interface EditorDiagnostic {
+export interface CodeEditorDiagnostic {
   line: number | null
   column?: number | null
   message: string
@@ -148,7 +148,7 @@ export interface EditorDiagnostic {
 
 export interface LineMarks {
   highlightedLines: readonly number[]
-  diagnostics: readonly EditorDiagnostic[]
+  diagnostics: readonly CodeEditorDiagnostic[]
 }
 
 class DiagnosticWidget extends WidgetType {
@@ -175,7 +175,7 @@ const highlightedLine = Decoration.line({ class: 'cm-rv-line-highlighted' })
 const errorLine = Decoration.line({ class: 'cm-rv-line-error' })
 const errorColumn = Decoration.mark({ class: 'cm-rv-column-error' })
 
-function diagnosticText({ line, column, message }: EditorDiagnostic): string {
+function diagnosticText({ line, column, message }: CodeEditorDiagnostic): string {
   if (line === null) {
     return message
   }
@@ -183,7 +183,7 @@ function diagnosticText({ line, column, message }: EditorDiagnostic): string {
   return `${String(line)}${hasColumn ? `:${String(column)}` : ''} ${message}`
 }
 
-function diagnosticDecorations(doc: Text, diagnostic: EditorDiagnostic): Range<Decoration>[] {
+function diagnosticDecorations(doc: Text, diagnostic: CodeEditorDiagnostic): Range<Decoration>[] {
   // A message must not be lost: a position past the end means a text the server read and the user
   // changed, and an empty document is a rules file with no text. `doc.line` throws out of range.
   const number = Math.min(Math.max(diagnostic.line ?? 1, 1), doc.lines)
