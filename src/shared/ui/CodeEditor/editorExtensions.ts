@@ -194,13 +194,16 @@ function diagnosticDecorations(doc: Text, diagnostic: CodeEditorDiagnostic): Ran
   const number = Math.min(Math.max(diagnostic.line ?? 1, 1), doc.lines)
   const line = doc.line(number)
   const ranges = [
-    errorLine.range(line.from),
     Decoration.widget({
       widget: new DiagnosticWidget(diagnosticText(diagnostic)),
       block: true,
       side: 1,
     }).range(line.to),
   ]
+  // Without a position the message only stands under the first line: that line is not the error.
+  if (diagnostic.line !== null) {
+    ranges.push(errorLine.range(line.from))
+  }
   const offset = (diagnostic.column ?? 0) - 1
   if (number === diagnostic.line && offset >= 0 && offset < line.length) {
     const to = line.from + findClusterBreak(line.text, offset)
