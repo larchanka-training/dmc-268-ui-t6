@@ -119,6 +119,7 @@ export const editorTheme = EditorView.theme({
     fontFamily: 'var(--rv-font-mono)',
     lineHeight: '21px',
   },
+  // The height of an empty field, a multiple of the 4px grid (DESIGN_SYSTEM §10).
   '.cm-content, .cm-gutter': { minHeight: '160px' },
   '.cm-content': { caretColor: 'var(--rv-text)' },
   '.cm-content ::selection': {
@@ -133,6 +134,8 @@ export const editorTheme = EditorView.theme({
   '.cm-rv-line-error': { backgroundColor: 'var(--rv-danger-bg)' },
   '.cm-rv-column-error': { textDecoration: 'underline wavy var(--rv-danger)' },
   '.cm-rv-diagnostic': {
+    // Off the 4px grid on purpose: the padding of `.cm-line` in the CodeMirror base theme, so the
+    // message starts where the code of its line does.
     padding: '0 2px 0 6px',
     backgroundColor: 'var(--rv-danger-bg)',
     color: 'var(--rv-text)',
