@@ -171,8 +171,13 @@ export function invalidateRunLists(queryClient: QueryClient): void {
 export const RUN_LIST_PAGE_SIZE = 20
 
 /** The runs list, one page per request. `repo` and `status` each limit it when they are set. */
-export function useRunList({ repo, status }: { repo?: string; status?: RunStatus } = {}) {
+export function useRunList({
+  repo,
+  status,
+  enabled = true,
+}: { repo?: string; status?: RunStatus; enabled?: boolean } = {}) {
   return useInfiniteQuery({
+    enabled,
     queryKey: runQueryKeys.listFiltered({ repo, status }),
     queryFn: ({ pageParam }) =>
       fetchRunList({

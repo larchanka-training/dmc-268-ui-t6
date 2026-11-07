@@ -1,0 +1,15 @@
+.title {
+  margin: 0;
+  font-size: var(--rv-fs-lg);
+}
+
+.steps {
+  display: grid;
+  gap: 16px;
+  padding-left: 24px;
+  margin: 0;
+}
+
+.step {
+  padding-left: 4px;
+}
