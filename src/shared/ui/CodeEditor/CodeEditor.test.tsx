@@ -609,6 +609,14 @@ describe('CodeEditor: look', () => {
   })
 })
 
+describe('shared/ui/index.ts', () => {
+  // The barrel is in the first chunk of every screen; the build check of a page that uses the editor
+  // is the real proof, this one fails earlier.
+  it('does not export the editor, so CodeMirror stays out of the first chunk', () => {
+    expect(sourceText('../index.ts')).not.toMatch(/CodeEditor|codemirror/i)
+  })
+})
+
 describe('tokens.css: code colours', () => {
   const css = sourceText('../styles/tokens.css')
 
