@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 
 import { apiClient } from '../../../shared/api/client'
@@ -31,8 +31,14 @@ export async function discoverBitbucketRepositories(
   return BitbucketDiscoveryResponseSchema.parse(data)
 }
 
-export async function listBitbucketConnections(workspaceId: string) {
-  const data = await apiClient<unknown>(endpoints.bitbucket.connections(id(workspaceId)))
+export async function listBitbucketConnections(
+  workspaceId: string,
+  cursor?: string | null,
+  signal?: AbortSignal,
+) {
+  const data = await apiClient<unknown>(endpoints.bitbucket.connections(id(workspaceId), cursor), {
+    signal,
+  })
   return BitbucketConnectionListSchema.parse(data)
 }
 
@@ -80,9 +86,12 @@ export async function rotateBitbucketWebhookSecret(
 }
 
 export function useBitbucketConnections(workspaceId: string | null) {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: [...BITBUCKET_CONNECTIONS_QUERY_KEY, workspaceId],
-    queryFn: () => listBitbucketConnections(id(workspaceId ?? '')),
+    queryFn: ({ pageParam, signal }) =>
+      listBitbucketConnections(id(workspaceId ?? ''), pageParam, signal),
+    initialPageParam: null as string | null,
+    getNextPageParam: (page) => page.nextCursor,
     enabled: workspaceId !== null,
   })
 }

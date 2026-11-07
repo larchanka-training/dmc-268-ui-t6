@@ -10,6 +10,7 @@ export type FocusTarget =
   | { kind: 'disconnect'; portalRepositoryId: string }
   | { kind: 'discover-submit' }
   | { kind: 'credential-submit' }
+  | { kind: 'connections-pager' }
 
 type BindingActionKind = 'credential' | 'hook' | 'disconnect'
 
@@ -32,6 +33,7 @@ export function useFocusHandoff({ busy, epoch, latestSetupId }: FocusHandoffOpti
   const workspaceInputRef = useRef<HTMLInputElement | null>(null)
   const discoverySubmitRef = useRef<HTMLButtonElement | null>(null)
   const credentialSubmitRef = useRef<HTMLAnchorElement | HTMLButtonElement | null>(null)
+  const connectionsPagerRef = useRef<HTMLButtonElement | null>(null)
   const setupActions = useRef(new Map<number, HTMLElement>())
   const connectActions = useRef(new Map<string, HTMLElement>())
   const credentialActions = useRef(new Map<string, HTMLElement>())
@@ -74,6 +76,9 @@ export function useFocusHandoff({ busy, epoch, latestSetupId }: FocusHandoffOpti
         break
       case 'credential-submit':
         element = credentialSubmitRef.current
+        break
+      case 'connections-pager':
+        element = connectionsPagerRef.current
         break
     }
     const active = document.activeElement
@@ -122,6 +127,7 @@ export function useFocusHandoff({ busy, epoch, latestSetupId }: FocusHandoffOpti
     workspaceInputRef,
     discoverySubmitRef,
     credentialSubmitRef,
+    connectionsPagerRef,
     requestFocus,
     clearFocusRequest: () => {
       focusRequestRef.current = null

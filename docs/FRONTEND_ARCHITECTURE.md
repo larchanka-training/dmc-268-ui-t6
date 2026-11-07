@@ -698,8 +698,11 @@ src/widgets/run-inspector/ui/RunProgressBar.tsx
 
 **Подключения Bitbucket Cloud (ui#195, api#333).** `BitbucketConnectionsPanel` на странице
 репозиториев получает доступные portal workspaces из `Me.workspaces` и требует явного выбора:
-первый workspace сам не выбирается. Список подключений — отдельный TanStack Query с ключом
-`['bitbucketConnections', workspaceId]`; ответ целиком за один запрос (`nextCursor: null`).
+первый workspace сам не выбирается. Список подключений — `useInfiniteQuery` с ключом
+`['bitbucketConnections', workspaceId]`; при строковом `nextCursor` кнопка «Показать ещё подключения»
+загружает следующую страницу, сохраняя предыдущие строки без дублей. После загрузки фокус с этой
+кнопки переходит к первому новому подключению, а если новых строк нет — возвращается к кнопке
+или к полю Bitbucket workspace, когда страниц больше нет.
 Поиск в Bitbucket Cloud использует введённый workspace и API token, а следующая страница —
 сохранённые критерии первого запроса и серверный cursor. Подключение различает удалённый
 `repositoryUuid`, portal `repositoryId` и общий `installationId`: кнопка отключения и

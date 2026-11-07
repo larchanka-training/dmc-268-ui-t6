@@ -1,5 +1,5 @@
 import { Alert, App, Button, Flex, Input, Select, Typography } from 'antd'
-import { useRef, useState, type FC } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState, type FC } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
 import type { Workspace } from '../../../entities/user'
@@ -57,11 +57,30 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
   const discoveryCriteria = useRef<{ bitbucketWorkspace: string; apiToken: string } | null>(null)
   const setupSequence = useRef(0)
   const credentialOrigin = useRef<string | null>(null)
+  const pendingConnectionPageFocus = useRef<{
+    epoch: number
+    from: HTMLElement
+    pageCount: number
+    repositoryIds: Set<string>
+  } | null>(null)
   const connections = useBitbucketConnections(workspaceId)
+  const visibleConnections = useMemo(() => {
+    const seen = new Set<string>()
+    return (
+      connections.data?.pages.flatMap((page) =>
+        page.connections.filter((connection) => {
+          if (seen.has(connection.repositoryId)) return false
+          seen.add(connection.repositoryId)
+          return true
+        }),
+      ) ?? []
+    )
+  }, [connections.data])
   const {
     workspaceInputRef,
     discoverySubmitRef,
     credentialSubmitRef,
+    connectionsPagerRef,
     requestFocus,
     clearFocusRequest,
     trackSetupAction,
@@ -72,6 +91,41 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
     epoch: workspaceEpoch,
     latestSetupId: setups[setups.length - 1]?.id ?? null,
   })
+
+  useLayoutEffect(() => {
+    const pending = pendingConnectionPageFocus.current
+    if (!pending || connections.isFetchingNextPage) return
+    if (pending.epoch !== workspaceEpoch.current) {
+      pendingConnectionPageFocus.current = null
+      return
+    }
+    if (
+      (connections.data?.pages.length ?? 0) <= pending.pageCount &&
+      !connections.isFetchNextPageError
+    )
+      return
+
+    pendingConnectionPageFocus.current = null
+    const firstNew = visibleConnections.find(
+      (connection) => !pending.repositoryIds.has(connection.repositoryId),
+    )
+    requestFocus(
+      pending.epoch,
+      pending.from,
+      firstNew
+        ? { kind: 'credential', portalRepositoryId: firstNew.repositoryId }
+        : connections.hasNextPage
+          ? { kind: 'connections-pager' }
+          : { kind: 'workspace' },
+    )
+  }, [
+    connections.data,
+    connections.hasNextPage,
+    connections.isFetchNextPageError,
+    connections.isFetchingNextPage,
+    requestFocus,
+    visibleConnections,
+  ])
 
   const showSetup = (
     repositoryId: string,
@@ -135,6 +189,7 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
     setReplacementToken('')
     setRotationInstallation(null)
     credentialOrigin.current = null
+    pendingConnectionPageFocus.current = null
     clearFocusRequest()
     discoveryCriteria.current = null
   }
@@ -408,7 +463,7 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
           {connections.isError ? (
             <Alert description={bitbucketErrorMessage(connections.error)} showIcon type="error" />
           ) : null}
-          {connections.data?.connections.map((connection) => (
+          {visibleConnections.map((connection) => (
             <Flex align="center" gap="small" key={connection.repositoryId} wrap>
               <Text>{`${connection.workspaceSlug}/${connection.repositorySlug}`}</Text>
               <Text type="secondary">
@@ -472,6 +527,29 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
               </Button>
             </Flex>
           ))}
+          {connections.hasNextPage ? (
+            <Button
+              disabled={busy || connections.isFetching}
+              loading={connections.isFetchingNextPage}
+              onClick={(event) => {
+                const trigger = event.currentTarget
+                if (document.activeElement === trigger) {
+                  pendingConnectionPageFocus.current = {
+                    epoch: workspaceEpoch.current,
+                    from: trigger,
+                    pageCount: connections.data?.pages.length ?? 0,
+                    repositoryIds: new Set(
+                      visibleConnections.map((connection) => connection.repositoryId),
+                    ),
+                  }
+                }
+                void connections.fetchNextPage()
+              }}
+              ref={connectionsPagerRef}
+            >
+              {t('bitbucket.panel.showMoreConnections')}
+            </Button>
+          ) : null}
           {rotationInstallation ? (
             <Flex gap="small" wrap>
               <Input.Password
