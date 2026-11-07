@@ -29,6 +29,7 @@ import {
   useRepositories,
   type Repository,
 } from '../../entities/repository'
+import { runQueryKeys } from '../../entities/run'
 import { setMockTransport } from '../../shared/api/client'
 
 import { RepositoriesPage } from './RepositoriesPage'
@@ -146,12 +147,12 @@ describe('RepositoriesPage', () => {
     })
     localStorage.setItem('dmc_onboarding_174_dismissed', '1')
     const first = renderWithClient(<RepositoriesPage />)
-    await screen.findByRole('heading', { name: 'Репозитории' })
+    await screen.findByText(/Репозитории ещё не подключены/)
     expect(screen.queryByRole('heading', { name: 'С чего начать' })).toBeNull()
     expect(requests.filter((path) => path.startsWith('/runs?'))).toHaveLength(0)
     first.unmount()
     renderWithClient(<RepositoriesPage />)
-    await screen.findByRole('heading', { name: 'Репозитории' })
+    await screen.findByText(/Репозитории ещё не подключены/)
     expect(requests.filter((path) => path.startsWith('/runs?'))).toHaveLength(0)
   })
 
@@ -171,9 +172,10 @@ describe('RepositoriesPage', () => {
       }
       throw new Error(`Unexpected request ${endpoint.path}`)
     })
-    renderWithClient(<RepositoriesPage />)
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    renderWithClient(<RepositoriesPage />, client)
     await waitFor(() => {
-      expect(requests.some((path) => path.startsWith('/runs?status=succeeded'))).toBe(true)
+      expect(client.getQueryData(runQueryKeys.listFiltered({ status: 'succeeded' }))).toBeDefined()
     })
     await waitFor(() => {
       expect(screen.queryByRole('heading', { name: 'С чего начать' })).toBeNull()
@@ -198,7 +200,7 @@ describe('RepositoriesPage', () => {
     })
     renderWithClient(<RepositoriesPage />)
     expect(await screen.findByRole('heading', { name: 'С чего начать' })).toBeTruthy()
-    expect(await screen.findByRole('alert')).toBeTruthy()
+    expect(await screen.findByText('Статус прогонов недоступен.')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Повторить попытку' }))
     await waitFor(() => {
       expect(runRequests).toBeGreaterThan(1)
@@ -220,6 +222,7 @@ describe('RepositoriesPage', () => {
     expect(status.getAttribute('aria-atomic')).toBe('true')
     expect(status.textContent).toBe('')
     expect(screen.queryByRole('heading', { name: 'Репозитории' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'С чего начать' })).toBeNull()
     expect(screen.queryByText(/ещё не подключены/i)).toBeNull()
   })
 
