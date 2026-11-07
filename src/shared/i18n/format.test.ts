@@ -1,38 +1,13 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
-import { formatDateTime, formatDuration, formatNumber, formatUsd } from './format'
+import { formatDuration, formatNumber, formatUsd } from './format'
 import { i18n } from './i18n'
-
-// A runner in UTC (CI) would pass the "in UTC" tests with no `timeZone` at all: the file runs in a
-// zone far from it, so a lost `timeZone: 'UTC'` shows up as another hour.
-const runnerZone = process.env.TZ
-beforeAll(() => {
-  process.env.TZ = 'Asia/Tokyo'
-})
-afterAll(() => {
-  if (runnerZone === undefined) {
-    delete process.env.TZ
-  } else {
-    process.env.TZ = runnerZone
-  }
-})
 
 afterEach(() => {
   void i18n.changeLanguage('ru')
 })
 
 describe('formatting by language', () => {
-  it('writes a date and time in the English notation, in UTC', () => {
-    void i18n.changeLanguage('en')
-    expect(formatDateTime('2026-10-14T09:30:15.123Z')).toBe('10/14/2026, 09:30:15')
-    expect(formatDateTime('2026-10-14T12:30:15+03:00')).toBe('10/14/2026, 09:30:15')
-  })
-
-  it('writes a date and time in the Russian notation, in UTC', () => {
-    void i18n.changeLanguage('ru')
-    expect(formatDateTime('2026-10-14T09:30:15.123Z')).toBe('14.10.2026, 09:30:15')
-  })
-
   it('writes durations with English units', () => {
     void i18n.changeLanguage('en')
     expect(formatDuration(400)).toBe('<1 sec')

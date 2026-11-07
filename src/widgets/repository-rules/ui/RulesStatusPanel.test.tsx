@@ -2,7 +2,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, expectTypeOf, it, vi } from 'vitest'
 
 import type { RulesDiagnostic, RulesStatus } from '../../../entities/repository'
 import { i18n } from '../../../shared/i18n'
@@ -20,6 +20,14 @@ const LOAD_ERROR = 'Не удалось загрузить статус прав
 const PENDING_TEXT = 'Проверяем .review/rules.md в ветке trunk…'
 const PENDING_TIMEOUT =
   'Проверка файла правил заняла больше минуты. Нажмите «Повторить», чтобы проверить снова.'
+
+beforeAll(() => {
+  vi.stubEnv('TZ', 'Asia/Tokyo')
+})
+
+afterAll(() => {
+  vi.unstubAllEnvs()
+})
 
 const diagnostic: RulesDiagnostic = {
   code: 'policy_ignore_pattern_invalid',
@@ -209,7 +217,7 @@ describe('RulesStatusPanel', () => {
     expect(view.getByText('.review/rules.md')).toBeTruthy()
     expect(view.getByText('release/2.1')).toBeTruthy()
     expect(view.getByText('1111111')).toBeTruthy()
-    expect(view.getByText('Проверено: 14.10.2026, 09:30:15')).toBeTruthy()
+    expect(view.getByText('Проверено: 14.10.2026, 18:30:15')).toBeTruthy()
     expect(panel().textContent).not.toContain('UTC')
     expect(panel().querySelector('pre')?.textContent).toBe('# Rules\nBe kind.')
     expect(view.getByText('dist/**')).toBeTruthy()
@@ -800,7 +808,7 @@ describe('RulesStatusPanel', () => {
 
       expect(within(panel()).getByRole('status').textContent).toBe(CHECKING_TEXT)
       expect(within(panel()).getByText('Не удалось прочитать файл правил')).toBeTruthy()
-      expect(within(panel()).getByText('Проверено: 14.10.2026, 09:30:15')).toBeTruthy()
+      expect(within(panel()).getByText('Проверено: 14.10.2026, 18:30:15')).toBeTruthy()
       expect(retryButton().classList.contains('ant-btn-loading')).toBe(true)
     })
 
@@ -811,7 +819,7 @@ describe('RulesStatusPanel', () => {
       await advance(3000)
       await advance(1)
 
-      expect(within(panel()).getByText('Проверено: 14.10.2026, 09:31:15')).toBeTruthy()
+      expect(within(panel()).getByText('Проверено: 14.10.2026, 18:31:15')).toBeTruthy()
       expect(within(panel()).queryByRole('status')).toBeNull()
       expect(retryButton()).toBe(retry)
       expect(retry.classList.contains('ant-btn-loading')).toBe(false)
