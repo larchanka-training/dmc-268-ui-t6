@@ -309,6 +309,26 @@ describe('AnalyticsPage', () => {
     })
   })
 
+  it('keeps the repository filter when 30 days for that repository are empty', async () => {
+    const fetchMock = stubFetch((url) =>
+      url.pathname.endsWith('/repos')
+        ? { status: 200, body: [REPO] }
+        : { status: 200, body: emptySummary() },
+    )
+    const { router } = renderPage('/analytics?range=30d&repo=org/repo')
+    await screen.findByText(EMPTY_PERIOD)
+    const requests = summaryRequests(fetchMock)
+    const last = requests[requests.length - 1]
+    expect(last?.searchParams.get('range')).toBe('30d')
+    expect(last?.searchParams.get('repo')).toBe('org/repo')
+    expect(screen.queryByRole('button', { name: 'Показать за 30 дней' })).toBeNull()
+    expect(screen.getByRole('link', { name: 'К репозиториям' }).getAttribute('href')).toBe(
+      '/repositories',
+    )
+    expect(screen.getByRole('button', { name: 'Сбросить фильтр' })).toBeTruthy()
+    expect(new URLSearchParams(router.state.location.search).get('repo')).toBe('org/repo')
+  })
+
   it('shows an error alert with retry instead of the empty state', async () => {
     let fail = true
     stubFetch((url) => {
