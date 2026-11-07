@@ -292,6 +292,23 @@ describe('AnalyticsPage', () => {
     expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Аналитика' }))
   })
 
+  it('leads to the repositories when 30 days are empty too', async () => {
+    stubFetch((url) =>
+      url.pathname.endsWith('/repos')
+        ? { status: 200, body: [] }
+        : { status: 200, body: emptySummary() },
+    )
+    const { router } = renderPage('/analytics?range=30d')
+    await screen.findByText(EMPTY_PERIOD)
+    expect(screen.queryByRole('button', { name: 'Показать за 30 дней' })).toBeNull()
+    const link = screen.getByRole('link', { name: 'К репозиториям' })
+    expect(link.getAttribute('href')).toBe('/repositories')
+    fireEvent.click(link)
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/repositories')
+    })
+  })
+
   it('shows an error alert with retry instead of the empty state', async () => {
     let fail = true
     stubFetch((url) => {
