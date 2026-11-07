@@ -17,7 +17,7 @@ import {
   Typography,
   type TableColumnsType,
 } from 'antd'
-import { useMemo, useState, type FC, type MouseEvent, type Ref } from 'react'
+import { useMemo, useState, type FC, type MouseEvent, type ReactNode, type Ref } from 'react'
 
 import type {
   Repository,
@@ -27,6 +27,7 @@ import type {
 } from '../../../entities/repository'
 import { GITHUB_APP_SLUG, GITHUB_CLIENT_ID, isMockMode } from '../../../shared/config/env'
 import { useTranslation } from '../../../shared/i18n'
+import { githubAppInstallUrl } from '../../../shared/lib/githubAppInstallUrl'
 import { safeHttpUrl } from '../../../shared/lib/safeHttpUrl'
 import { VCS_ACCESS_NAME, VCS_PROVIDER_LABEL } from '../../../shared/model/provider'
 import { DataTable, IconSettings, PageHeader, Segmented, Tag } from '../../../shared/ui'
@@ -53,6 +54,7 @@ const FULL_TABLE_MIN_WIDTH = 1366
 
 export interface RepositoryListProps {
   titleRef?: Ref<HTMLHeadingElement>
+  intro?: ReactNode
   repositories: Repository[]
   loading?: boolean
   refreshing?: boolean
@@ -131,6 +133,7 @@ const StatusCell: FC<StatusCellProps> = ({
 
 export const RepositoryList: FC<RepositoryListProps> = ({
   titleRef,
+  intro,
   repositories,
   loading = false,
   refreshing = false,
@@ -153,9 +156,7 @@ export const RepositoryList: FC<RepositoryListProps> = ({
 
   const isAppConfigured = Boolean(GITHUB_APP_SLUG)
   const isSyncConfigured = Boolean(GITHUB_CLIENT_ID || isMockMode())
-  const appInstallUrl = isAppConfigured
-    ? `https://github.com/apps/${GITHUB_APP_SLUG}/installations/new`
-    : undefined
+  const appInstallUrl = githubAppInstallUrl(GITHUB_APP_SLUG)
 
   const filteredRepositories = useMemo(() => {
     return repositories.filter((repo) => {
@@ -386,6 +387,8 @@ export const RepositoryList: FC<RepositoryListProps> = ({
         }
         title={t('repositories.title')}
       />
+
+      {intro}
 
       {accessRefreshStatus !== 'idle' ? (
         <div className={styles.accessRefreshStatus}>

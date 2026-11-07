@@ -1,15 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import {
-  getOnboardingProgress,
-  isOnboardingDismissed,
-  hasViewedSuccessfulRun,
-  dismissOnboarding,
-  markSuccessfulRunViewed,
-  hasViewedRepositorySettings,
-  markRepositorySettingsViewed,
-} from './onboarding'
+import { dismissOnboarding, getOnboardingProgress, isOnboardingDismissed } from './onboarding'
 
 describe('onboarding progress', () => {
   const connectedRepo = {
@@ -17,87 +9,68 @@ describe('onboarding progress', () => {
     provider: 'github' as const,
     installationAvailable: true,
     enabled: false,
+    defaultBranch: 'main',
   }
 
-  it('waits for an installation and an accessible repository before completing the first step', () => {
+  it('does not claim run progress while the run requests are unresolved', () => {
     expect(
       getOnboardingProgress({
         hasInstallation: false,
         repositories: [],
-        runs: [],
-        viewedSettingsRepoIds: [],
-        viewedResult: false,
+        runs: undefined,
+        successfulRuns: undefined,
       }),
-    ).toEqual([false, false, false, false])
-    expect(
-      getOnboardingProgress({
-        hasInstallation: true,
-        repositories: [],
-        runs: [],
-        viewedSettingsRepoIds: [],
-        viewedResult: false,
-      })[0],
-    ).toBe(false)
+    ).toEqual({ install: false, settings: false, review: null, result: null })
+  })
+
+  it('uses installation, accessible repository settings and real runs for each step', () => {
+    const readyRepo = { ...connectedRepo, enabled: true }
     expect(
       getOnboardingProgress({
         hasInstallation: true,
         repositories: [connectedRepo],
         runs: [],
-        viewedSettingsRepoIds: [],
-        viewedResult: false,
+        successfulRuns: [],
       }),
-    ).toEqual([true, false, false, false])
-  })
-
-  it('uses enabled review, an actual run and a viewed successful result for later steps', () => {
-    const enabledRepo = { ...connectedRepo, enabled: true }
-    const input = {
-      hasInstallation: true,
-      repositories: [enabledRepo],
-      runs: [{ id: 'run-1', status: 'running' as const }],
-      viewedSettingsRepoIds: [],
-      viewedResult: false,
-    }
-    expect(getOnboardingProgress(input)).toEqual([true, false, true, false])
-    expect(getOnboardingProgress({ ...input, viewedSettingsRepoIds: ['repo-1'] })).toEqual([
-      true,
-      true,
-      true,
-      false,
-    ])
-    expect(
-      getOnboardingProgress({ ...input, viewedSettingsRepoIds: ['repo-1'], viewedResult: true }),
-    ).toEqual([true, true, true, true])
-  })
-
-  it('does not treat a Bitbucket repository as a GitHub App installation', () => {
+    ).toEqual({ install: true, settings: false, review: false, result: false })
     expect(
       getOnboardingProgress({
         hasInstallation: true,
-        repositories: [{ ...connectedRepo, provider: 'bitbucket' }],
-        runs: [],
-        viewedSettingsRepoIds: [],
-        viewedResult: false,
+        repositories: [readyRepo],
+        runs: [{ id: 'run-1', status: 'running' }],
+        successfulRuns: [],
       }),
-    ).toEqual([false, false, false, false])
+    ).toEqual({ install: true, settings: true, review: true, result: false })
+    expect(
+      getOnboardingProgress({
+        hasInstallation: true,
+        repositories: [readyRepo],
+        runs: [],
+        successfulRuns: [{ id: 'old-success', status: 'succeeded' }],
+      }),
+    ).toEqual({ install: true, settings: true, review: true, result: true })
+  })
+
+  it('does not count Bitbucket settings as GitHub App setup', () => {
+    expect(
+      getOnboardingProgress({
+        hasInstallation: true,
+        repositories: [{ ...connectedRepo, provider: 'bitbucket', enabled: true }],
+        runs: [],
+        successfulRuns: [],
+      }),
+    ).toEqual({ install: false, settings: false, review: false, result: false })
   })
 })
 
-describe('onboarding persistence', () => {
+describe('onboarding dismissal', () => {
   beforeEach(() => {
     localStorage.clear()
   })
 
-  it('keeps dismissal and viewed results separate for each user', () => {
+  it('persists the hidden state for the current browser and user only', () => {
     dismissOnboarding(10)
-    markSuccessfulRunViewed(10)
     expect(isOnboardingDismissed(10)).toBe(true)
-    expect(hasViewedSuccessfulRun(10)).toBe(true)
     expect(isOnboardingDismissed(11)).toBe(false)
-    expect(hasViewedSuccessfulRun(11)).toBe(false)
-    markRepositorySettingsViewed(10, 'repo-1')
-    expect(hasViewedRepositorySettings(10, 'repo-1')).toBe(true)
-    expect(hasViewedRepositorySettings(10, 'repo-2')).toBe(false)
-    expect(hasViewedRepositorySettings(11, 'repo-1')).toBe(false)
   })
 })

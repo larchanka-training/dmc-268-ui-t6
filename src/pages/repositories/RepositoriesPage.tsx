@@ -1,6 +1,6 @@
 import { useMutationState } from '@tanstack/react-query'
 import { Alert, App, Button, Flex } from 'antd'
-import { useEffect, useMemo, useRef, type FC } from 'react'
+import { useEffect, useMemo, useRef, useState, type FC } from 'react'
 import { useNavigate } from 'react-router'
 
 import {
@@ -15,7 +15,7 @@ import { BitbucketConnectionsPanel } from '../../features/bitbucket-connections'
 import { saveAccessRefreshIntent, saveAuthReturnTo, useAuthStore } from '../../features/auth'
 import { useTranslation } from '../../shared/i18n'
 import { RepositoryList, resolveAccessRefreshPresentation } from '../../widgets/repository-list'
-import { OnboardingChecklist } from '../../widgets/onboarding'
+import { isOnboardingDismissed, OnboardingChecklist } from '../../widgets/onboarding'
 import styles from './RepositoriesPage.module.css'
 import { formatErrorMessage } from './lib/formatError'
 import { repositorySettingsPath } from './lib/settingsPath'
@@ -37,8 +37,17 @@ export const RepositoriesPage: FC = () => {
 
   const { data: repositoryData, isLoading, isFetching, isError, error, refetch } = useRepositories()
   const repositories = repositoryData ?? []
-  const { data: runData, isError: runsError } = useRunList({
-    enabled: me !== undefined && repositoryData !== undefined && !isError,
+  const [dismissedUserId, setDismissedUserId] = useState<number | null>(null)
+  const dismissed = useMemo(
+    () => me !== undefined && (dismissedUserId === me.id || isOnboardingDismissed(me.id)),
+    [me, dismissedUserId],
+  )
+  const canCheckRuns = me !== undefined && repositoryData !== undefined && !isError && !dismissed
+  const successfulRunQuery = useRunList({ status: 'succeeded', enabled: canCheckRuns })
+  const successfulRuns = successfulRunQuery.data?.pages.flatMap((page) => page.items)
+  const hasSuccessfulRun = successfulRuns !== undefined && successfulRuns.length > 0
+  const runQuery = useRunList({
+    enabled: canCheckRuns && successfulRunQuery.data !== undefined && !hasSuccessfulRun,
   })
   const accessRefreshStatus = useRepositoryAccessRefresh(refetch)
   const statusRef = useRef<HTMLDivElement>(null)
@@ -98,18 +107,6 @@ export const RepositoriesPage: FC = () => {
         role="status"
         className={styles.accessRefreshStatus}
       />
-      {me && repositoryData !== undefined && runData !== undefined && !isError && !runsError ? (
-        <OnboardingChecklist
-          hasInstallation={me.workspaces.length > 0}
-          key={me.id}
-          onDismiss={() => {
-            headingRef.current?.focus()
-          }}
-          repositories={repositories}
-          runs={runData.pages.flatMap((page) => page.items)}
-          userId={me.id}
-        />
-      ) : null}
       {isError ? (
         <Alert
           action={
@@ -132,6 +129,30 @@ export const RepositoriesPage: FC = () => {
       {!isError || repositories.length > 0 || accessRefreshStatus !== 'idle' ? (
         <RepositoryList
           accessRefreshStatus={accessRefreshStatus}
+          intro={
+            me && repositoryData !== undefined && !dismissed && !hasSuccessfulRun ? (
+              <OnboardingChecklist
+                hasInstallation={me.workspaces.length > 0}
+                key={me.id}
+                onDismiss={() => {
+                  setDismissedUserId(me.id)
+                  headingRef.current?.focus()
+                }}
+                onRetryRuns={() => {
+                  if (successfulRunQuery.isError) {
+                    void successfulRunQuery.refetch()
+                  } else {
+                    void runQuery.refetch()
+                  }
+                }}
+                repositories={repositories}
+                runs={runQuery.data?.pages.flatMap((page) => page.items)}
+                runsError={successfulRunQuery.isError || runQuery.isError}
+                successfulRuns={successfulRuns}
+                userId={me.id}
+              />
+            ) : null
+          }
           loading={isLoading}
           onRefresh={() => void refetch({ cancelRefetch: false })}
           onSyncAccess={handleSyncAccess}
