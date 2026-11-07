@@ -55,7 +55,8 @@ const meta: Meta<typeof CodeEditor> = {
   title: 'Свои компоненты/CodeEditor',
   component: CodeEditor,
   args: { 'aria-label': 'Код', fileName: 'token.py', value: PYTHON },
-  render: (args) => <Editable {...args} />,
+  // A new `value` in Controls starts the text anew, as a screen does when it loads another file.
+  render: (args) => <Editable key={args.value} {...args} />,
 }
 
 export default meta
