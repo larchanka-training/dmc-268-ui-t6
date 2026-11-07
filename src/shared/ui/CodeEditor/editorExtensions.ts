@@ -13,7 +13,7 @@ import {
   type Text,
 } from '@codemirror/state'
 import { Decoration, EditorView, WidgetType, type DecorationSet } from '@codemirror/view'
-import { tagHighlighter, tags as t } from '@lezer/highlight'
+import { tagHighlighter, tags as t, type Tag } from '@lezer/highlight'
 
 // A table of its own: `languageFromFilename` is in `entities/diff`, which `shared` cannot import, and
 // it names refractor grammars, not CodeMirror languages.
@@ -41,50 +41,65 @@ export function languageForFile(fileName: string | undefined): Extension {
   return LANGUAGES.get(extension)?.() ?? []
 }
 
-// Stable class names instead of `HighlightStyle`, which generates them: the theme colours these, and
-// the tests read what a token is. The same split as `diff-theme.css`, so a token looks alike there.
-export const syntaxClasses = syntaxHighlighting(
-  tagHighlighter([
-    { tag: [t.keyword, t.operator], class: 'tok-keyword' },
-    { tag: [t.string, t.monospace], class: 'tok-string' },
-    { tag: [t.number, t.bool, t.atom, t.null], class: 'tok-number' },
-    {
-      tag: [
-        t.function(t.variableName),
-        t.function(t.propertyName),
-        t.typeName,
-        t.className,
-        t.namespace,
-      ],
-      class: 'tok-function',
-    },
-    { tag: t.tagName, class: 'tok-tag' },
-    { tag: t.propertyName, class: 'tok-attribute' },
-    { tag: [t.regexp, t.escape, t.annotation], class: 'tok-special' },
-    { tag: [t.comment, t.quote], class: 'tok-comment' },
-    { tag: t.meta, class: 'tok-meta' },
-    { tag: t.heading, class: 'tok-heading' },
-    { tag: t.strong, class: 'tok-strong' },
-    { tag: t.emphasis, class: 'tok-emphasis' },
-    { tag: [t.link, t.url], class: 'tok-link' },
-    { tag: t.inserted, class: 'tok-inserted' },
-    { tag: t.deleted, class: 'tok-deleted' },
-    { tag: t.invalid, class: 'tok-invalid' },
-  ]),
-)
-
-const CODE_COLOURS: Record<string, string> = {
-  keyword: '--rv-code-keyword',
-  string: '--rv-code-string',
-  number: '--rv-code-number',
-  function: '--rv-code-function',
-  tag: '--rv-code-tag',
-  attribute: '--rv-code-attribute',
-  special: '--rv-code-special',
-  comment: '--rv-text-2',
-  meta: '--rv-text-2',
-  link: '--rv-link',
+interface SyntaxToken {
+  /** The class is `tok-<name>`. */
+  name: string
+  tags: readonly Tag[]
+  style: Record<string, string | number>
 }
+
+// Mixed with the text as a tinted `Tag` is: the status colours alone are under 4.5:1 here.
+const INSERTED = 'color-mix(in srgb, var(--rv-success) 85%, var(--rv-text))'
+const DELETED = 'color-mix(in srgb, var(--rv-danger) 85%, var(--rv-text))'
+
+// One table for the class of a token and its look: the highlighter and the theme are both built
+// from it, so a class cannot lose its colour. Stable class names instead of `HighlightStyle`, which
+// generates them: the tests read what a token is. The same split as `diff-theme.css`, so a token
+// looks alike there.
+const SYNTAX: readonly SyntaxToken[] = [
+  { name: 'keyword', tags: [t.keyword, t.operator], style: { color: 'var(--rv-code-keyword)' } },
+  { name: 'string', tags: [t.string, t.monospace], style: { color: 'var(--rv-code-string)' } },
+  {
+    name: 'number',
+    tags: [t.number, t.bool, t.atom, t.null],
+    style: { color: 'var(--rv-code-number)' },
+  },
+  {
+    name: 'function',
+    tags: [
+      t.function(t.variableName),
+      t.function(t.propertyName),
+      t.typeName,
+      t.className,
+      t.namespace,
+    ],
+    style: { color: 'var(--rv-code-function)' },
+  },
+  { name: 'tag', tags: [t.tagName], style: { color: 'var(--rv-code-tag)' } },
+  { name: 'attribute', tags: [t.propertyName], style: { color: 'var(--rv-code-attribute)' } },
+  {
+    name: 'special',
+    tags: [t.regexp, t.escape, t.annotation],
+    style: { color: 'var(--rv-code-special)' },
+  },
+  { name: 'comment', tags: [t.comment, t.quote], style: { color: 'var(--rv-text-2)' } },
+  { name: 'meta', tags: [t.meta], style: { color: 'var(--rv-text-2)' } },
+  { name: 'link', tags: [t.link, t.url], style: { color: 'var(--rv-link)' } },
+  {
+    name: 'heading',
+    tags: [t.heading],
+    style: { color: 'var(--rv-code-keyword)', fontWeight: 600 },
+  },
+  { name: 'strong', tags: [t.strong], style: { fontWeight: 600 } },
+  { name: 'emphasis', tags: [t.emphasis], style: { fontStyle: 'italic' } },
+  { name: 'inserted', tags: [t.inserted], style: { color: INSERTED } },
+  { name: 'deleted', tags: [t.deleted], style: { color: DELETED } },
+  { name: 'invalid', tags: [t.invalid], style: { color: DELETED } },
+]
+
+export const syntaxClasses = syntaxHighlighting(
+  tagHighlighter(SYNTAX.map(({ name, tags }) => ({ tag: tags, class: `tok-${name}` }))),
+)
 
 /**
  * What is inside the field. In a theme and not the CSS Module: CodeMirror scopes these rules itself,
@@ -123,20 +138,7 @@ export const editorTheme = EditorView.theme({
     color: 'var(--rv-text)',
     whiteSpace: 'pre-wrap',
   },
-  ...Object.fromEntries(
-    Object.entries(CODE_COLOURS).map(([name, token]) => [
-      `.tok-${name}`,
-      { color: `var(${token})` },
-    ]),
-  ),
-  '.tok-heading': { color: 'var(--rv-code-keyword)', fontWeight: 600 },
-  '.tok-strong': { fontWeight: 600 },
-  '.tok-emphasis': { fontStyle: 'italic' },
-  // Mixed with the text as a tinted `Tag` is: the status colours alone are under 4.5:1 here.
-  '.tok-inserted': { color: 'color-mix(in srgb, var(--rv-success) 85%, var(--rv-text))' },
-  '.tok-deleted, .tok-invalid': {
-    color: 'color-mix(in srgb, var(--rv-danger) 85%, var(--rv-text))',
-  },
+  ...Object.fromEntries(SYNTAX.map(({ name, style }) => [`.tok-${name}`, style])),
 })
 
 /** A problem in the text. Line and column count from 1; null when the problem has no position. */
