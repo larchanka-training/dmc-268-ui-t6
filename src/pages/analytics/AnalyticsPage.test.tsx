@@ -115,11 +115,18 @@ function stubFetch(handler: (url: URL) => Answer) {
   return fetchMock
 }
 
+const EMPTY_PERIOD =
+  'В этом периоде нет завершённых прогонов. Аналитика считает только завершённые ревью pull request в подключённых репозиториях.'
+
 function renderPage(initialEntry = '/analytics') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  const router = createMemoryRouter([{ path: '/analytics', element: <AnalyticsPage /> }], {
-    initialEntries: [initialEntry],
-  })
+  const router = createMemoryRouter(
+    [
+      { path: '/analytics', element: <AnalyticsPage /> },
+      { path: '/repositories', element: <div>repositories</div> },
+    ],
+    { initialEntries: [initialEntry] },
+  )
   return {
     router,
     ...render(
@@ -249,13 +256,40 @@ describe('AnalyticsPage', () => {
         : { status: 200, body: emptySummary() },
     )
     const { container } = renderPage()
-    expect(await screen.findByText('В этом периоде нет завершённых прогонов')).toBeTruthy()
+    expect(await screen.findByText(EMPTY_PERIOD)).toBeTruthy()
     expect(container.querySelector('svg[role="img"]')).toBeNull()
     expect(screen.queryByRole('heading', { name: 'Числа по дням' })).toBeNull()
     expect(screen.queryByRole('table')).toBeNull()
     expect(screen.queryByText('Критические')).toBeNull()
     expect(screen.getByText('acme')).toBeTruthy()
     expect(screen.getByText('paused-team')).toBeTruthy()
+  })
+
+  it('offers 30 days for an empty week, keeps the repository and moves focus to the heading', async () => {
+    const fetchMock = stubFetch((url) => {
+      if (url.pathname.endsWith('/repos')) {
+        return { status: 200, body: [REPO] }
+      }
+      return {
+        status: 200,
+        body: url.searchParams.get('range') === '30d' ? summary() : emptySummary(),
+      }
+    })
+    const { router } = renderPage('/analytics?repo=org/repo')
+    await screen.findByText(EMPTY_PERIOD)
+    expect(screen.queryByRole('link', { name: 'К репозиториям' })).toBeNull()
+
+    const showMonth = screen.getByRole('button', { name: 'Показать за 30 дней' })
+    showMonth.focus()
+    fireEvent.click(showMonth)
+    await screen.findByText('Критические')
+    const requests = summaryRequests(fetchMock)
+    const last = requests[requests.length - 1]
+    expect(last?.searchParams.get('range')).toBe('30d')
+    expect(last?.searchParams.get('repo')).toBe('org/repo')
+    expect(router.state.location.search).toContain('range=30d')
+    expect(router.state.location.search).toContain('repo=org%2Frepo')
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Аналитика' }))
   })
 
   it('shows an error alert with retry instead of the empty state', async () => {
@@ -271,7 +305,7 @@ describe('AnalyticsPage', () => {
     })
     renderPage()
     expect(await screen.findByText('Ошибка загрузки')).toBeTruthy()
-    expect(screen.queryByText('В этом периоде нет завершённых прогонов')).toBeNull()
+    expect(screen.queryByText(EMPTY_PERIOD)).toBeNull()
     fail = false
     fireEvent.click(screen.getByRole('button', { name: 'Повторить' }))
     expect(await screen.findByText('Критические')).toBeTruthy()

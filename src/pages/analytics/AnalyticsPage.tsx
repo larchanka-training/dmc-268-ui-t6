@@ -1,5 +1,5 @@
 import { Alert, Button, Empty, Select, Spin } from 'antd'
-import type { JSX } from 'react'
+import { useRef, type JSX } from 'react'
 
 import { useMetricsSummary, type MetricsSummary } from '../../entities/metrics'
 import { useRepositories } from '../../entities/repository'
@@ -32,10 +32,15 @@ export function AnalyticsPage(): JSX.Element {
   const repositoriesQuery = useRepositories()
   const summary = summaryQuery.data
   const periodEmpty = summary !== undefined && finishedRuns(summary) === 0
+  const titleRef = useRef<HTMLHeadingElement>(null)
 
   return (
     <>
-      <PageHeader description={t('analytics.description')} title={t('analytics.title')} />
+      <PageHeader
+        description={t('analytics.description')}
+        title={t('analytics.title')}
+        titleRef={titleRef}
+      />
       <div className={styles.toolbar}>
         <Segmented
           aria-label={t('analytics.period')}
@@ -96,7 +101,18 @@ export function AnalyticsPage(): JSX.Element {
       ) : null}
 
       {summary !== undefined && periodEmpty ? (
-        <Empty description={t('analytics.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        <Empty description={t('analytics.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE}>
+          {filter.range === '7d' ? (
+            <Button
+              onClick={() => {
+                setFilter({ ...filter, range: '30d' })
+                titleRef.current?.focus()
+              }}
+            >
+              {t('analytics.showDays30')}
+            </Button>
+          ) : null}
+        </Empty>
       ) : null}
 
       {summary !== undefined && !periodEmpty ? (
