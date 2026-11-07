@@ -107,6 +107,12 @@ const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
   const comments = commentsQuery.data ?? []
   const diffFiles = diffQuery.data
   const showDiffLoadError = diffQuery.isError && diffFiles === undefined
+  const findingsPending = isActive(run.status)
+  const findingsExpected =
+    !isStaleRunning(run, now) && (!run.cancelRequested || run.status === 'publishing')
+  // Failed and skipped runs cannot gain published comments while the request is pending.
+  const commentsPending =
+    commentsQuery.isPending && (run.status === 'succeeded' || run.status === 'cancelled')
 
   return (
     <div className={styles.page} data-testid="run-detail-page">
@@ -154,16 +160,14 @@ const RunDetailPageContent: FC<{ runId: string }> = ({ runId }) => {
             <RunDiff
               budgetFiles={diffFiles}
               comments={comments}
-              commentsPending={commentsQuery.isPending}
+              commentsPending={commentsPending}
               files={displayFiles}
               filters={filters}
               filtersNavigationKey={navigationKey}
               subscribeToFiltersNavigation={subscribeToNavigation}
               findings={Array.isArray(run.findings) ? run.findings : []}
-              findingsExpected={
-                !isStaleRunning(run, now) && (!run.cancelRequested || run.status === 'publishing')
-              }
-              findingsPending={isActive(run.status)}
+              findingsExpected={findingsExpected}
+              findingsPending={findingsPending}
               onFiltersChange={setFilters}
               onFiltersQueryChange={setQuery}
               onFiltersReset={resetFilters}

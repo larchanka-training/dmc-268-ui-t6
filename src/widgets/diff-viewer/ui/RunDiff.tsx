@@ -37,7 +37,7 @@ interface RunDiffProps {
   onFiltersReset?: () => void
   /** The debounced search text; defaults to `onFiltersChange({ query }, { replace: true })`. */
   onFiltersQueryChange?: (query: string) => void
-  /** `/comments` has not answered yet: the set is still incomplete, so "nothing matches" is not shown. */
+  /** Comments may still add findings, so "nothing matches" is not shown. */
   commentsPending?: boolean
   /** The active run has not finished producing findings; content filters must keep its files visible. */
   findingsPending?: boolean
@@ -113,7 +113,7 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
 
   const activeFilters = onFiltersChange === undefined ? EMPTY_FINDING_FILTERS : filters
   const displayed = displayedFindings(summaryOnly, findings, comments)
-  const noFindings = displayed.length === 0
+  const noFindings = displayed.length === 0 && !commentsPending
   const runFiles = [
     ...new Set([...files.map((file) => file.filename), ...displayed.map((f) => f.file)]),
   ]

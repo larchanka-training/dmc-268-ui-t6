@@ -243,6 +243,32 @@ describe('RunDetailPage filters in the URL', () => {
     expect(screen.queryByTestId('findings-filter-empty')).toBeNull()
   })
 
+  it.each(['failed', 'skipped'] as const)(
+    'keeps the diff visible for %s while /comments is pending',
+    async (status) => {
+      const release: { open: () => void } = { open: () => undefined }
+      const gate = new Promise<void>((resolve) => {
+        release.open = resolve
+      })
+      withMockTransportOverlay((endpoint) => {
+        if (endpoint.method === 'GET' && endpoint.path === `/runs/${DEMO_RUN_ID}`) {
+          return runWithStatus(status)
+        }
+        if (endpoint.method === 'GET' && endpoint.path === `/runs/${DEMO_RUN_ID}/comments`) {
+          return gate.then(() => [])
+        }
+        return undefined
+      })
+      const { container } = renderRunDetail(`${DEMO}?severity=critical`)
+
+      await findBar()
+      expect(container.querySelectorAll('.diff-theme')).toHaveLength(4)
+      expect(screen.queryByTestId('findings-filter-empty')).toBeNull()
+
+      release.open()
+    },
+  )
+
   it.each(
     (['queued', 'running', 'publishing'] as const).flatMap((status) =>
       ['?severity=critical', '?q=unmatched'].map((query) => ({ status, query })),
