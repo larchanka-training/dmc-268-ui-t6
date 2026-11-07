@@ -12,12 +12,12 @@
   "settings-auto-review": {
     "src": "/screens/settings-auto-review.webp",
     "width": 560,
-    "height": 81
+    "height": 93
   },
   "settings-rag": {
     "src": "/screens/settings-rag.webp",
     "width": 560,
-    "height": 128
+    "height": 121
   },
   "settings-review-options": {
     "src": "/screens/settings-review-options.webp",
