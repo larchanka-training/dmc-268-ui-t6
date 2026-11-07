@@ -30,7 +30,10 @@ export interface CodeEditorProps {
    * `diagnostics` are compared by content: the same marks again stay where an edit moved them.
    */
   highlightedLines?: readonly number[]
-  /** Each message is shown under its line; one past the end of the document, under the last. */
+  /**
+   * Each message is shown under its line, which is marked; one past the end of the document, under
+   * the last. One with `line: null` stands under the first line and marks no line.
+   */
   diagnostics?: readonly CodeEditorDiagnostic[]
   /** The text can be read, selected and copied, and stays in the Tab order. */
   readOnly?: boolean

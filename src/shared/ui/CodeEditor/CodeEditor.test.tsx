@@ -353,7 +353,7 @@ describe('CodeEditor: diagnostics', () => {
     expect(columnMarks()).toEqual([])
   })
 
-  it('shows a message without a position on the first line', () => {
+  it('shows a message without a position under the first line, which it does not mark', () => {
     render(
       <CodeEditor
         aria-label={LABEL}
@@ -363,7 +363,20 @@ describe('CodeEditor: diagnostics', () => {
     )
 
     expect(lineAbove('too large')).toBe('one')
-    expect(errorLines()).toEqual(['one'])
+    expect(errorLines()).toEqual([])
+    expect(textbox().getAttribute('aria-invalid')).toBe('true')
+  })
+
+  it('marks the last line for a message past the end: it has a position', () => {
+    render(
+      <CodeEditor
+        aria-label={LABEL}
+        value={'one\ntwo'}
+        diagnostics={[{ line: 12, message: 'bad' }]}
+      />,
+    )
+
+    expect(errorLines()).toEqual(['two'])
   })
 
   it('keeps a message past the end of the document, with its real position', () => {
