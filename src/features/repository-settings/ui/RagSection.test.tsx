@@ -17,6 +17,7 @@ beforeAll(() => {
 afterAll(() => {
   vi.unstubAllEnvs()
 })
+
 const READY_INDEX: RagIndex = {
   status: 'ready',
   indexedCommitSha: SHA,
@@ -362,7 +363,7 @@ describe('RagSection: the index status', () => {
     const short = within(statusLine()).getByText('0123456')
     expect(short.tagName).toBe('CODE')
     expect(short.tabIndex).toBe(0)
-    expect(within(statusLine()).getByText('обновлён 2026-10-14 18:30:15')).toBeTruthy()
+    expect(within(statusLine()).getByText('обновлён 14.10.2026, 18:30:15')).toBeTruthy()
     expect(statusLine().textContent).not.toContain('UTC')
     expect(screen.queryByText(SHA)).toBeNull()
 
@@ -388,7 +389,7 @@ describe('RagSection: the index status', () => {
     expect(line.getByText('Устарел').getAttribute('data-tone')).toBe('warning')
     expect(line.getByText('индекс отстаёт от default branch, используется')).toBeTruthy()
     expect(line.getByText('0123456')).toBeTruthy()
-    expect(line.getByText('обновлён 2026-10-14 18:30:15')).toBeTruthy()
+    expect(line.getByText('обновлён 14.10.2026, 18:30:15')).toBeTruthy()
     expect(statusLine().textContent).not.toContain('UTC')
   })
 

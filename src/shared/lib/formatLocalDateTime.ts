@@ -1,5 +1,13 @@
+import { i18n } from '../i18n'
+
 export function formatLocalDateTime(iso: string): string {
-  const date = new Date(iso)
-  const twoDigits = (value: number): string => String(value).padStart(2, '0')
-  return `${String(date.getFullYear()).padStart(4, '0')}-${twoDigits(date.getMonth() + 1)}-${twoDigits(date.getDate())} ${twoDigits(date.getHours())}:${twoDigits(date.getMinutes())}:${twoDigits(date.getSeconds())}`
+  return new Intl.DateTimeFormat(i18n.language, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).format(new Date(iso))
 }

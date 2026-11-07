@@ -107,7 +107,7 @@ describe('AuditPage', () => {
       nextCursor: null,
     }))
     renderPage()
-    expect(await screen.findByText('2026-09-18 20:00:00')).toBeTruthy()
+    expect(await screen.findByText('18.09.2026, 20:00:00')).toBeTruthy()
     for (const heading of [
       'Начат',
       'Репозиторий',
