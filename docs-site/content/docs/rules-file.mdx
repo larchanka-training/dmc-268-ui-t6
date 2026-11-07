@@ -94,6 +94,10 @@ they disagree, `.review/rules.md` wins over `AGENTS.md`, and both win over the b
 guidelines; rules cannot change the format of the review. The `review-ignore` block still keeps
 the matching files out of the review.
 
+A rule that says "do not report X" is a request to the model and may not hold. To keep generated
+or vendored code out of a review, use `review-ignore`: it applies without asking the model, and
+it removes the whole file from the review, real defects included.
+
 <Accordions>
 <Accordion title="Example, shortened from the format spec">
 
@@ -129,3 +133,28 @@ applies. Both files together must fit in 12,000 tokens.
 
 </Accordion>
 </Accordions>
+
+## Templates
+
+Ready files to start from, one folder per template, are in the
+[examples/rules](https://github.com/larchanka-training/dmc-268-api-t6/tree/main/examples/rules)
+catalog.
+
+| Template | For |
+| --- | --- |
+| `python-fastapi` | Python services on FastAPI. |
+| `typescript-react` | TypeScript frontends on React. |
+| `go` | Go services. |
+| `security-baseline` | Any stack, on its own or added to one of the above. |
+
+Copy the `.review` folder of a template to the root of your repository. The first line of the
+file names the paths and masks to change: change them, then delete that line. Delete the rules
+your project does not follow, because a rule about code you do not have can produce false
+findings.
+
+To add `security-baseline` to a stack template, put its `##` sections under the `# Security`
+heading of that template (add the heading if there is none), add its masks to that template's
+`review-ignore` block, and leave out the rest of the file, its own block included (see
+[Ignore files](#ignore-files)). The
+[rules guide](https://github.com/larchanka-training/dmc-268-api-t6/blob/main/examples/rules/RULES_GUIDE.md)
+has their sizes and shows how to write your own rules.
