@@ -76,6 +76,10 @@
   animation-delay: 0.4s;
 }
 
+.content > :nth-child(4) {
+  animation-delay: 0.56s;
+}
+
 @keyframes rise {
   from {
     opacity: 0;

@@ -1,28 +1,23 @@
 import { useState } from 'react'
 
 import { getAppUrl } from '../lib/appUrl'
+import { buildAgentInstruction } from '../lib/agentInstruction'
 import { HeroGlass } from './HeroGlass'
 import { ReviewDemo } from './ReviewDemo'
 import { cx } from '../lib/cx'
 import styles from './Hero.module.css'
 
 export function Hero() {
-  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
-  const appSlug: unknown = import.meta.env.VITE_GITHUB_APP_SLUG
-  const installUrl =
-    typeof appSlug === 'string' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(appSlug)
-      ? `https://github.com/apps/${appSlug}/installations/new`
-      : null
-  const instruction = installUrl
-    ? `Connect AI Code Reviewer to this GitHub repository. If needed, ask me to install its GitHub App at ${installUrl}. Then read and follow ${new URL('/api/agent/instructions', getAppUrl()).href}. Ask me to approve GitHub access, confirm the review settings, and select a test PR for the first review.`
-    : ''
+  const [copyStatus, setCopyStatus] = useState('')
+  const instruction = buildAgentInstruction(import.meta.env.VITE_GITHUB_APP_SLUG, getAppUrl())
 
   async function copyInstruction() {
+    if (instruction === null) return
     try {
       await navigator.clipboard.writeText(instruction)
-      setCopyState('copied')
+      setCopyStatus('Copied')
     } catch {
-      setCopyState('failed')
+      setCopyStatus('Select the text to copy')
     }
   }
 
@@ -46,7 +41,7 @@ export function Hero() {
         <a href={getAppUrl()} className={styles.cta}>
           Try it now
         </a>
-        {installUrl && (
+        {instruction !== null && (
           <div className={styles.agentSetup}>
             <label htmlFor="agent-setup-instruction" className={styles.agentLabel}>
               Prefer your coding agent? Give it this instruction.
@@ -74,11 +69,7 @@ export function Hero() {
               </button>
             </div>
             <span className={styles.agentStatus} role="status">
-              {copyState === 'copied'
-                ? 'Copied'
-                : copyState === 'failed'
-                  ? 'Select the text to copy'
-                  : ''}
+              {copyStatus}
             </span>
           </div>
         )}

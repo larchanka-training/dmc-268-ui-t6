@@ -1,4 +1,6 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+// @vitest-environment jsdom
+
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import { loadAppUrl, resetAppUrl } from '../lib/appUrl'
@@ -10,6 +12,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  cleanup()
   vi.unstubAllEnvs()
   vi.unstubAllGlobals()
 })
@@ -50,4 +53,22 @@ it('does not show an incomplete instruction without a configured App slug', () =
   render(<Hero />)
 
   expect(screen.queryByRole('textbox', { name: 'Agent setup instruction' })).toBeNull()
+})
+
+it('does not use an invalid nonempty App slug in the copied instruction', () => {
+  vi.stubEnv('VITE_GITHUB_APP_SLUG', 'Bad Slug/../x')
+  render(<Hero />)
+
+  expect(screen.queryByRole('textbox', { name: 'Agent setup instruction' })).toBeNull()
+})
+
+it('offers manual selection when clipboard write fails', async () => {
+  const writeText = vi.fn().mockRejectedValue(new Error('clipboard unavailable'))
+  vi.stubGlobal('navigator', { clipboard: { writeText } })
+  render(<Hero />)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Copy agent setup instruction' }))
+
+  expect(writeText).toHaveBeenCalledOnce()
+  expect(await screen.findByText('Select the text to copy')).toBeTruthy()
 })
