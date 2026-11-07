@@ -4,6 +4,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { App } from './App'
 
+function mockScroll(path: string) {
+  history.replaceState(null, '', path)
+  const scrollIntoView = vi.fn()
+  Element.prototype.scrollIntoView = scrollIntoView
+  const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
+  return { scrollIntoView, scrollTo }
+}
+
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
@@ -15,10 +23,7 @@ describe('initial landing fragment', () => {
   it.each(['how-it-works', 'features'])(
     'scrolls the rendered #%s section below the header',
     (id) => {
-      history.replaceState(null, '', `/#${id}`)
-      const scrollIntoView = vi.fn()
-      const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
-      Element.prototype.scrollIntoView = scrollIntoView
+      const { scrollIntoView, scrollTo } = mockScroll(`/#${id}`)
 
       render(<App />)
 
@@ -31,10 +36,7 @@ describe('initial landing fragment', () => {
   )
 
   it('resets an unknown fragment to the Hero', () => {
-    history.replaceState(null, '', '/#несуществующий')
-    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
-    const scrollIntoView = vi.fn()
-    Element.prototype.scrollIntoView = scrollIntoView
+    const { scrollIntoView, scrollTo } = mockScroll('/#несуществующий')
 
     render(<App />)
 
@@ -43,10 +45,7 @@ describe('initial landing fragment', () => {
   })
 
   it('leaves a visit without a fragment to the bootstrap top reset', () => {
-    history.replaceState(null, '', '/')
-    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
-    const scrollIntoView = vi.fn()
-    Element.prototype.scrollIntoView = scrollIntoView
+    const { scrollIntoView, scrollTo } = mockScroll('/')
 
     render(<App />)
 
