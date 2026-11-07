@@ -3,7 +3,10 @@ import { Compartment, EditorState, Transaction } from '@codemirror/state'
 import { EditorView, keymap, lineNumbers } from '@codemirror/view'
 import { useLayoutEffect, useRef, type JSX } from 'react'
 
+import { cx } from '../lib/cx'
+import styles from './CodeEditor.module.css'
 import {
+  editorTheme,
   languageForFile,
   lineMarks,
   setLineMarks,
@@ -23,6 +26,8 @@ export interface CodeEditorProps {
   highlightedLines?: readonly number[]
   /** Each message is shown under its line; one past the end of the document, under the last. */
   diagnostics?: readonly CodeEditorDiagnostic[]
+  /** The text can be read, selected and copied, and stays in the Tab order. */
+  readOnly?: boolean
   'aria-label': string
 }
 
@@ -31,6 +36,7 @@ const NO_DIAGNOSTICS: readonly CodeEditorDiagnostic[] = []
 
 const attributes = new Compartment()
 const language = new Compartment()
+const readOnlyMode = new Compartment()
 
 /**
  * A code editor on CodeMirror 6. Not exported from `shared/ui/index.ts`: the barrel is in the first
@@ -43,6 +49,7 @@ export function CodeEditor(props: CodeEditorProps): JSX.Element {
     fileName,
     highlightedLines = NO_LINES,
     diagnostics = NO_DIAGNOSTICS,
+    readOnly = false,
     'aria-label': ariaLabel,
   } = props
   const invalid = diagnostics.length > 0
@@ -61,11 +68,15 @@ export function CodeEditor(props: CodeEditorProps): JSX.Element {
         extensions: [
           lineNumbers(),
           history(),
+          // No Tab key here: Tab leaves the editor, as everywhere else on a page (UI checklist §3b).
           keymap.of([...defaultKeymap, ...historyKeymap]),
+          EditorView.lineWrapping,
+          editorTheme,
           syntaxClasses,
           lineMarks,
           attributes.of([]),
           language.of([]),
+          readOnlyMode.of([]),
           EditorView.updateListener.of((update) => {
             const fromOutside = update.transactions.some((tr) => tr.annotation(Transaction.remote))
             if (update.docChanged && !fromOutside) {
@@ -97,6 +108,12 @@ export function CodeEditor(props: CodeEditorProps): JSX.Element {
     viewRef.current?.dispatch({ effects: language.reconfigure(languageForFile(fileName)) })
   }, [fileName])
 
+  useLayoutEffect(() => {
+    viewRef.current?.dispatch({
+      effects: readOnlyMode.reconfigure(EditorState.readOnly.of(readOnly)),
+    })
+  }, [readOnly])
+
   // A layout effect: a passive one could run after the next keystroke and put the older text back.
   useLayoutEffect(() => {
     const view = viewRef.current
@@ -113,5 +130,10 @@ export function CodeEditor(props: CodeEditorProps): JSX.Element {
     viewRef.current?.dispatch({ effects: setLineMarks.of({ highlightedLines, diagnostics }) })
   }, [highlightedLines, diagnostics])
 
-  return <div ref={parentRef} />
+  return (
+    <div
+      ref={parentRef}
+      className={cx(styles.field, readOnly && styles.readOnly, invalid && styles.invalid)}
+    />
+  )
 }

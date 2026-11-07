@@ -73,6 +73,72 @@ export const syntaxClasses = syntaxHighlighting(
   ]),
 )
 
+const CODE_COLOURS: Record<string, string> = {
+  keyword: '--rv-code-keyword',
+  string: '--rv-code-string',
+  number: '--rv-code-number',
+  function: '--rv-code-function',
+  tag: '--rv-code-tag',
+  attribute: '--rv-code-attribute',
+  special: '--rv-code-special',
+  comment: '--rv-text-2',
+  meta: '--rv-text-2',
+  link: '--rv-link',
+}
+
+/**
+ * What is inside the field. In a theme and not the CSS Module: CodeMirror scopes these rules itself,
+ * above its own base theme, and they only name `--rv-*` tokens, so they follow the theme switch.
+ */
+export const editorTheme = EditorView.theme({
+  '&': {
+    maxHeight: '480px',
+    backgroundColor: 'transparent',
+    color: 'var(--rv-text)',
+    fontSize: 'var(--rv-fs-xs)',
+  },
+  // The field draws the focus (DESIGN_SYSTEM §7).
+  '&.cm-focused': { outline: 'none' },
+  '.cm-scroller': {
+    overflow: 'auto',
+    fontFamily: 'var(--rv-font-mono)',
+    lineHeight: '21px',
+  },
+  '.cm-content, .cm-gutter': { minHeight: '160px' },
+  '.cm-content': { caretColor: 'var(--rv-text)' },
+  '.cm-content ::selection': {
+    backgroundColor: 'color-mix(in srgb, var(--rv-link) 30%, transparent)',
+  },
+  '.cm-gutters': {
+    backgroundColor: 'transparent',
+    color: 'var(--rv-text-3)',
+    borderRight: '1px solid var(--rv-border)',
+  },
+  '.cm-rv-line-highlighted': { backgroundColor: 'var(--rv-selected)' },
+  '.cm-rv-line-error': { backgroundColor: 'var(--rv-danger-bg)' },
+  '.cm-rv-column-error': { textDecoration: 'underline wavy var(--rv-danger)' },
+  '.cm-rv-diagnostic': {
+    padding: '0 2px 0 6px',
+    backgroundColor: 'var(--rv-danger-bg)',
+    color: 'var(--rv-text)',
+    whiteSpace: 'pre-wrap',
+  },
+  ...Object.fromEntries(
+    Object.entries(CODE_COLOURS).map(([name, token]) => [
+      `.tok-${name}`,
+      { color: `var(${token})` },
+    ]),
+  ),
+  '.tok-heading': { color: 'var(--rv-code-keyword)', fontWeight: 600 },
+  '.tok-strong': { fontWeight: 600 },
+  '.tok-emphasis': { fontStyle: 'italic' },
+  // Mixed with the text as a tinted `Tag` is: the status colours alone are under 4.5:1 here.
+  '.tok-inserted': { color: 'color-mix(in srgb, var(--rv-success) 85%, var(--rv-text))' },
+  '.tok-deleted, .tok-invalid': {
+    color: 'color-mix(in srgb, var(--rv-danger) 85%, var(--rv-text))',
+  },
+})
+
 /** A problem in the text. Line and column count from 1; null when the problem has no position. */
 export interface EditorDiagnostic {
   line: number | null

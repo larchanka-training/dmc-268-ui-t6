@@ -490,6 +490,11 @@ src/shared/ui/CodeBlock/CodeBlock.module.css
 src/shared/ui/CodeBlock/CodeBlock.stories.tsx
 src/shared/ui/CodeBlock/CodeBlock.test.tsx
 src/shared/ui/CodeBlock/CodeBlock.tsx
+src/shared/ui/CodeEditor/CodeEditor.module.css
+src/shared/ui/CodeEditor/CodeEditor.stories.tsx
+src/shared/ui/CodeEditor/CodeEditor.test.tsx
+src/shared/ui/CodeEditor/CodeEditor.tsx
+src/shared/ui/CodeEditor/editorExtensions.ts
 src/shared/ui/DataTable/DataTable.module.css
 src/shared/ui/DataTable/DataTable.stories.tsx
 src/shared/ui/DataTable/DataTable.test.tsx

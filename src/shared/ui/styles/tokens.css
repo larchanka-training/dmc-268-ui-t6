@@ -26,6 +26,13 @@
   --rv-danger: #f87171;
   --rv-danger-bg: #281d2b;
   --rv-danger-bg-active: #1b1624;
+  --rv-code-keyword: #f27eb9;
+  --rv-code-string: #e89a3c;
+  --rv-code-number: #60a5fa;
+  --rv-code-function: #33bcb7;
+  --rv-code-tag: #f0845c;
+  --rv-code-attribute: #92adff;
+  --rv-code-special: #c09cf0;
   --rv-hover: rgb(148 163 184 / 6%);
   --rv-selected: rgb(248 250 252 / 8%);
   --rv-overlay: rgb(0 0 0 / 55%);
@@ -72,6 +79,13 @@
   --rv-danger: #d92626;
   --rv-danger-bg: #fdecec;
   --rv-danger-bg-active: #fbd6d6;
+  --rv-code-keyword: #b01a72;
+  --rv-code-string: #a14700;
+  --rv-code-number: #0958d9;
+  --rv-code-function: #00656d;
+  --rv-code-tag: #b02f0a;
+  --rv-code-attribute: #1d39c4;
+  --rv-code-special: #531dab;
   --rv-hover: rgb(15 23 42 / 4%);
   --rv-selected: rgb(15 23 42 / 6%);
   --rv-overlay: rgb(15 23 42 / 35%);

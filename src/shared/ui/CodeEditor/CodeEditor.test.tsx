@@ -5,6 +5,18 @@ import { StrictMode, useState, type JSX } from 'react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { CodeEditor, type CodeEditorProps } from './CodeEditor'
+import styles from './CodeEditor.module.css'
+
+// No @types/node here and Vitest zeroes `.css?raw`: load `fs` untyped to read the real stylesheets.
+const FS_MODULE = 'node:fs'
+const { readFileSync } = (await import(/* @vite-ignore */ FS_MODULE)) as {
+  readFileSync: (path: URL, encoding: 'utf8') => string
+}
+
+// A variable, not a literal: Vite rewrites `new URL('literal', import.meta.url)` into an asset URL.
+function sourceText(path: string): string {
+  return readFileSync(new URL(path, import.meta.url), 'utf8')
+}
 
 const LABEL = 'Код'
 
@@ -392,5 +404,199 @@ describe('CodeEditor: diagnostics', () => {
 
     expect(textbox().hasAttribute('aria-invalid')).toBe(false)
     expect(messages()).toEqual([])
+  })
+})
+
+describe('CodeEditor: read only', () => {
+  it('keeps the text on a key press and on typing, and stays focusable', async () => {
+    const onChange = vi.fn()
+    render(<CodeEditor aria-label={LABEL} value="ab" readOnly onChange={onChange} />)
+
+    pressEnter()
+    typeAtEndOfDocument('c')
+
+    await waitFor(() => {
+      expect(renderedLines()).toEqual(['ab'])
+    })
+    expect(onChange).not.toHaveBeenCalled()
+    expect(textbox().getAttribute('aria-readonly')).toBe('true')
+    textbox().focus()
+    expect(document.activeElement).toBe(textbox())
+  })
+
+  it('still takes a new value from outside', () => {
+    const { rerender } = render(<CodeEditor aria-label={LABEL} value="old" readOnly />)
+
+    rerender(<CodeEditor aria-label={LABEL} value="new" readOnly />)
+
+    expect(renderedLines()).toEqual(['new'])
+  })
+
+  it('follows the prop on the same editor', () => {
+    const onChange = vi.fn()
+    const { rerender } = render(
+      <CodeEditor aria-label={LABEL} value="ab" readOnly onChange={onChange} />,
+    )
+    const editor = view()
+
+    rerender(<CodeEditor aria-label={LABEL} value="ab" onChange={onChange} />)
+    pressEnter()
+
+    expect(view()).toBe(editor)
+    expect(onChange).toHaveBeenLastCalledWith('\nab')
+    expect(textbox().hasAttribute('aria-readonly')).toBe(false)
+  })
+})
+
+describe('CodeEditor: look', () => {
+  function field(): Element | null | undefined {
+    return textbox().closest('.cm-editor')?.parentElement
+  }
+
+  /** A declared property of one rule of the CSS Module, comments stripped. */
+  function moduleRule(selector: string): string {
+    const css = sourceText('./CodeEditor.module.css').replace(/\/\*[\s\S]*?\*\//g, '')
+    const start = css.indexOf(`${selector} {`)
+    expect(start, selector).toBeGreaterThanOrEqual(0)
+    return css.slice(css.indexOf('{', start) + 1, css.indexOf('}', start))
+  }
+
+  it('marks the field as read only or invalid for its stylesheet', () => {
+    const diagnostics = [{ line: 1, message: 'bad' }]
+    const hasClass = (name: string | undefined): boolean =>
+      name !== undefined && field()?.classList.contains(name) === true
+    const { rerender } = render(<CodeEditor aria-label={LABEL} value="a" />)
+    expect(hasClass(styles.readOnly)).toBe(false)
+    expect(hasClass(styles.invalid)).toBe(false)
+
+    rerender(<CodeEditor aria-label={LABEL} value="a" readOnly diagnostics={diagnostics} />)
+
+    expect(hasClass(styles.readOnly)).toBe(true)
+    expect(hasClass(styles.invalid)).toBe(true)
+  })
+
+  it('draws the field focus of DESIGN_SYSTEM §7: link border and a 3px halo', () => {
+    const focus = moduleRule('.field:focus-within')
+    expect(focus).toContain('border-color: var(--rv-link)')
+    expect(focus).toContain('box-shadow: 0 0 0 3px var(--halo)')
+  })
+
+  it('keeps the red border in focus with an error, the halo in the focus colour', () => {
+    const focus = moduleRule('.invalid:focus-within')
+    expect(focus).toContain('border-color: var(--rv-danger)')
+    expect(focus).toContain('box-shadow: 0 0 0 3px var(--rv-link)')
+  })
+
+  it('takes the numbers of §7 for the halo in both themes', () => {
+    expect(moduleRule('.field')).toContain('color-mix(in srgb, var(--rv-link) 25%, transparent)')
+    expect(moduleRule(":global([data-rv-theme='light']) .field")).toContain(
+      'color-mix(in srgb, var(--rv-link) 20%, transparent)',
+    )
+  })
+
+  // jsdom cascades the rules CodeMirror injects, so the link from a token to its colour is real here;
+  // the values and their rendering are checked in a browser.
+  it.each([
+    ['app.py', 'def f(): pass', 'tok-keyword', '--rv-code-keyword'],
+    ['app.py', 'x = "s"', 'tok-string', '--rv-code-string'],
+    ['app.py', 'x = 1', 'tok-number', '--rv-code-number'],
+    ['app.py', 'def f(): pass', 'tok-function', '--rv-code-function'],
+    ['App.tsx', 'let a = <b />', 'tok-tag', '--rv-code-tag'],
+    ['App.tsx', 'let a = <b c="d" />', 'tok-attribute', '--rv-code-attribute'],
+    ['app.js', 'let a = /x/', 'tok-special', '--rv-code-special'],
+    ['app.py', '# note', 'tok-comment', '--rv-text-2'],
+    ['fix.diff', '@@ -1 +1 @@', 'tok-meta', '--rv-text-2'],
+  ])('%s: %s colours %s with %s', async (fileName, value, className, token) => {
+    render(<CodeEditor aria-label={LABEL} value={value} fileName={fileName} />)
+
+    const node = await waitFor(() => {
+      const found = document.querySelector(`.${className}`)
+      if (!found) {
+        throw new Error(`no ${className} yet`)
+      }
+      return found
+    })
+    expect(getComputedStyle(node).color).toBe(`var(${token})`)
+  })
+
+  it('has no colour or font literal in the theme', () => {
+    const source = sourceText('./editorExtensions.ts')
+
+    expect(source).not.toMatch(/#[0-9a-f]{3,8}\b|\brgba?\(|\bhsla?\(/i)
+    expect(source).not.toMatch(/fontFamily: '(?!var\(--rv-)/)
+  })
+})
+
+describe('tokens.css: code colours', () => {
+  const css = sourceText('../styles/tokens.css')
+
+  function themeTokens(theme: string): Map<string, string> {
+    const start = css.indexOf(`[data-rv-theme='${theme}'] {`)
+    const body = css.slice(start, css.indexOf('}', start))
+    return new Map(
+      [...body.matchAll(/(--rv-[a-z0-9-]+):\s*([^;]+);/g)].map(
+        ([, name = '', value = '']): [string, string] => [name, value],
+      ),
+    )
+  }
+
+  type Rgb = readonly [number, number, number]
+
+  function channels(colour: string): Rgb {
+    const full = colour.replace(/^#(.)(.)(.)$/, '#$1$1$2$2$3$3')
+    if (!/^#[0-9a-f]{6}$/i.test(full)) {
+      throw new Error(`not a hex colour: ${colour}`)
+    }
+    const value = parseInt(full.slice(1), 16)
+    return [value >> 16, (value >> 8) & 255, value & 255]
+  }
+
+  /** The selected-line tint of §3 laid over a surface. */
+  function selectedOver(surface: string, tint: Rgb, alpha: number): Rgb {
+    const [r, g, b] = channels(surface)
+    return [r + alpha * (tint[0] - r), g + alpha * (tint[1] - g), b + alpha * (tint[2] - b)]
+  }
+
+  function luminance([r, g, b]: Rgb): number {
+    const linear = (value: number): number => {
+      const channel = value / 255
+      return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+    }
+    return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
+  }
+
+  function contrast(a: Rgb, b: Rgb): number {
+    const [first, second] = [luminance(a), luminance(b)]
+    return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05)
+  }
+
+  // The literal values of `--rv-selected` in §3: the test does not parse rgb() notation.
+  const SELECTED: Record<'dark' | 'light', { tint: Rgb; alpha: number }> = {
+    dark: { tint: [248, 250, 252], alpha: 0.08 },
+    light: { tint: [15, 23, 42], alpha: 0.06 },
+  }
+
+  const NAMES = ['keyword', 'string', 'number', 'function', 'tag', 'attribute', 'special']
+
+  it.each(['dark', 'light'] as const)('hold 4.5:1 on every editor background: %s', (theme) => {
+    const tokens = themeTokens(theme)
+    const token = (name: string): string => tokens.get(name) ?? ''
+    const { tint, alpha } = SELECTED[theme]
+    const surface = token('--rv-surface')
+    const readOnly = token('--rv-surface-2')
+    const backgrounds = [
+      channels(surface),
+      channels(readOnly),
+      channels(token('--rv-danger-bg')),
+      selectedOver(surface, tint, alpha),
+      selectedOver(readOnly, tint, alpha),
+    ]
+
+    for (const name of NAMES) {
+      const colour = channels(token(`--rv-code-${name}`))
+      for (const background of backgrounds) {
+        expect(contrast(colour, background), `${theme} ${name}`).toBeGreaterThanOrEqual(4.5)
+      }
+    }
   })
 })
