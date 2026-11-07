@@ -20,7 +20,11 @@ export const audit: Translation<typeof en> = {
     tokensOut: 'Токены на выходе',
     cost: 'Стоимость',
   },
-  empty: 'Нет прогонов ревью',
+  empty:
+    'Прогонов ревью пока нет. Запись появляется здесь при каждом прогоне ревью на pull request в подключённом репозитории.',
+  goToRepositories: 'К репозиториям',
+  emptyFiltered: 'Нет прогонов, подходящих под фильтр.',
+  showAll: 'Показать все прогоны',
   loadFailedTitle: 'Ошибка загрузки',
   loadFailed: 'Не удалось загрузить журнал',
   nextPageFailed: 'Не удалось загрузить следующую страницу',

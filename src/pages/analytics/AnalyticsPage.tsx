@@ -1,5 +1,6 @@
 import { Alert, Button, Empty, Select, Spin } from 'antd'
-import type { JSX } from 'react'
+import { useRef, type JSX, type ReactNode } from 'react'
+import { useHref, useLinkClickHandler } from 'react-router'
 
 import { useMetricsSummary, type MetricsSummary } from '../../entities/metrics'
 import { useRepositories } from '../../entities/repository'
@@ -25,6 +26,16 @@ function Tile(props: { label: string; value: string }): JSX.Element {
   )
 }
 
+function LinkButton(props: { to: string; children: ReactNode }): JSX.Element {
+  const href = useHref(props.to)
+  const handleClick = useLinkClickHandler<HTMLAnchorElement | HTMLButtonElement>(props.to)
+  return (
+    <Button href={href} onClick={handleClick}>
+      {props.children}
+    </Button>
+  )
+}
+
 export function AnalyticsPage(): JSX.Element {
   const { t } = useTranslation()
   const { filter, setFilter } = useAnalyticsFilterParams()
@@ -32,10 +43,15 @@ export function AnalyticsPage(): JSX.Element {
   const repositoriesQuery = useRepositories()
   const summary = summaryQuery.data
   const periodEmpty = summary !== undefined && finishedRuns(summary) === 0
+  const titleRef = useRef<HTMLHeadingElement>(null)
 
   return (
     <>
-      <PageHeader description={t('analytics.description')} title={t('analytics.title')} />
+      <PageHeader
+        description={t('analytics.description')}
+        title={t('analytics.title')}
+        titleRef={titleRef}
+      />
       <div className={styles.toolbar}>
         <Segmented
           aria-label={t('analytics.period')}
@@ -96,7 +112,20 @@ export function AnalyticsPage(): JSX.Element {
       ) : null}
 
       {summary !== undefined && periodEmpty ? (
-        <Empty description={t('analytics.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        <Empty description={t('analytics.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE}>
+          {filter.range === '7d' ? (
+            <Button
+              onClick={() => {
+                setFilter({ ...filter, range: '30d' })
+                titleRef.current?.focus()
+              }}
+            >
+              {t('analytics.showDays30')}
+            </Button>
+          ) : (
+            <LinkButton to="/repositories">{t('analytics.goToRepositories')}</LinkButton>
+          )}
+        </Empty>
       ) : null}
 
       {summary !== undefined && !periodEmpty ? (
