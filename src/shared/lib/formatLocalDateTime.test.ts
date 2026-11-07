@@ -1,24 +1,31 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { i18n } from '../i18n'
 import { formatLocalDateTime } from './formatLocalDateTime'
 
-afterEach(() => {
+afterEach(async () => {
   vi.unstubAllEnvs()
+  await i18n.changeLanguage('ru')
 })
 
 describe('formatLocalDateTime', () => {
-  it('shows the next calendar day in a timezone east of UTC', () => {
+  it('shows the next calendar day in Tokyo with English notation', async () => {
     vi.stubEnv('TZ', 'Asia/Tokyo')
-    expect(formatLocalDateTime('2026-09-18T23:30:00Z')).toBe('2026-09-19 08:30:00')
+    await i18n.changeLanguage('en')
+    expect(formatLocalDateTime('2026-09-18T23:30:00Z')).toBe('09/19/2026, 08:30:00')
   })
 
-  it('shows the earlier local hour in a timezone west of UTC', () => {
+  it('shows the earlier local hour in Los Angeles with Russian notation', async () => {
     vi.stubEnv('TZ', 'America/Los_Angeles')
-    expect(formatLocalDateTime('2026-09-18T23:30:00Z')).toBe('2026-09-18 16:30:00')
+    await i18n.changeLanguage('ru')
+    expect(formatLocalDateTime('2026-09-18T23:30:00Z')).toBe('18.09.2026, 16:30:00')
   })
 
-  it('keeps the four-digit year layout for early dates', () => {
-    vi.stubEnv('TZ', 'UTC')
-    expect(formatLocalDateTime('0001-01-01T00:00:00Z')).toBe('0001-01-01 00:00:00')
+  it('changes notation when the interface language changes', async () => {
+    vi.stubEnv('TZ', 'Asia/Tokyo')
+    await i18n.changeLanguage('en')
+    expect(formatLocalDateTime('2026-09-18T23:30:00Z')).toBe('09/19/2026, 08:30:00')
+    await i18n.changeLanguage('ru')
+    expect(formatLocalDateTime('2026-09-18T23:30:00Z')).toBe('19.09.2026, 08:30:00')
   })
 })

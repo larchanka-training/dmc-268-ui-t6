@@ -37,7 +37,7 @@ function index(overrides: Partial<RagIndex>): RagIndex {
 const PUBLICATION: RagIndexView['publication'] = {
   sha: SHA,
   shortSha: '0123456',
-  indexedAt: '2026-10-14 18:30:15',
+  indexedAt: '14.10.2026, 18:30:15',
 }
 
 describe('ragIndexView', () => {
