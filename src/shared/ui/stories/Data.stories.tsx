@@ -1,32 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { Breadcrumb, Button, Card, Collapse, Descriptions, Pagination, Tree } from 'antd'
+import { Breadcrumb, Button, Collapse, Pagination, Tree } from 'antd'
 
-const meta: Meta<typeof Descriptions> = {
+const meta: Meta = {
   title: 'Ant Design/Data',
-  component: Descriptions,
 }
 
 export default meta
-type Story = StoryObj<typeof Descriptions>
-
-export const RunMeta: Story = {
-  render: () => (
-    <Card>
-      <Descriptions
-        column={4}
-        items={[
-          { key: 'repo', label: 'Репозиторий', children: 'larchanka-training/dmc-268-ui-t6' },
-          { key: 'sha', label: 'Commit', children: 'abcdef1' },
-          { key: 'author', label: 'Автор', children: 'AndrewBlinets' },
-          { key: 'engine', label: 'Движок', children: 'deep' },
-          { key: 'model', label: 'Модель', children: 'claude-sonnet-5' },
-          { key: 'duration', label: 'Длительность', children: '5 мин 12 с' },
-        ]}
-        size="small"
-      />
-    </Card>
-  ),
-}
+type Story = StoryObj
 
 /** The second row is selected: neutral grey, as everywhere. */
 export const ActionTree: Story = {

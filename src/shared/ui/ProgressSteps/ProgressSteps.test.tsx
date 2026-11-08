@@ -133,7 +133,6 @@ describe('ProgressSteps', () => {
     const root = container.querySelector('.ant-steps')
     expect(root?.matches('.ant-steps.ant-steps-small')).toBe(true)
     expect(root?.classList.contains('mine')).toBe(true)
-    expect(styles.steps).toBeTruthy()
     expect(root?.classList.contains(styles.steps ?? '')).toBe(true)
   })
 

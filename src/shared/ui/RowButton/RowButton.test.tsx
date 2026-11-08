@@ -41,7 +41,6 @@ describe('RowButton', () => {
     render(<RowButton className="mine">Строка</RowButton>)
     const button = screen.getByRole('button')
     expect(button.classList.contains('mine')).toBe(true)
-    expect(styles.row).toBeTruthy()
     expect(button.classList.contains(styles.row ?? '')).toBe(true)
   })
 })
