@@ -1,0 +1,32 @@
+/* The field around the editor; what is inside it is `editorTheme`. Numbers: DESIGN_SYSTEM §5, §7. */
+.field {
+  --halo: color-mix(in srgb, var(--rv-link) 25%, transparent);
+
+  overflow: hidden;
+  border: 1px solid var(--rv-border-strong);
+  border-radius: var(--rv-radius-ctl);
+  background: var(--rv-surface);
+}
+
+:global([data-rv-theme='light']) .field {
+  --halo: color-mix(in srgb, var(--rv-link) 20%, transparent);
+}
+
+.field:focus-within {
+  border-color: var(--rv-link);
+  box-shadow: 0 0 0 3px var(--halo);
+}
+
+.readOnly {
+  background: var(--rv-surface-2);
+}
+
+.invalid {
+  border-color: var(--rv-danger);
+}
+
+/* The border stays red, so the halo is what shows the focus. */
+.invalid:focus-within {
+  border-color: var(--rv-danger);
+  box-shadow: 0 0 0 3px var(--rv-link);
+}
