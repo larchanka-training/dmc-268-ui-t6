@@ -1,6 +1,6 @@
-import { Alert, Button, Flex, Select, Spin, Typography, type TableColumnsType } from 'antd'
-import { useCallback, useEffect, useMemo, useRef, type FC } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { Alert, Button, Empty, Flex, Select, Spin, Typography, type TableColumnsType } from 'antd'
+import { useCallback, useEffect, useMemo, useRef, type FC, type ReactNode } from 'react'
+import { Link, useHref, useLinkClickHandler, useNavigate } from 'react-router'
 
 import {
   errorReason,
@@ -40,6 +40,16 @@ function reasonTextOf(run: RunSession): string {
     return '—'
   }
   return errorReason(run.errorCode) ?? reasonText(run.errorCode)
+}
+
+const LinkButton: FC<{ to: string; children: ReactNode }> = ({ to, children }) => {
+  const href = useHref(to)
+  const handleClick = useLinkClickHandler<HTMLAnchorElement | HTMLButtonElement>(to)
+  return (
+    <Button href={href} onClick={handleClick}>
+      {children}
+    </Button>
+  )
 }
 
 export const AuditPage: FC = () => {
@@ -274,11 +284,25 @@ export const AuditPage: FC = () => {
         />
       ) : null}
 
-      {data !== undefined ? (
+      {data !== undefined && runSessions.length === 0 ? (
+        <Empty
+          description={
+            <span className={styles.emptyText}>
+              {filtered ? t('audit.emptyFiltered') : t('audit.empty')}
+            </span>
+          }
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+        >
+          {filtered ? null : (
+            <LinkButton to="/repositories">{t('audit.goToRepositories')}</LinkButton>
+          )}
+        </Empty>
+      ) : null}
+
+      {data !== undefined && runSessions.length > 0 ? (
         <DataTable<RunSession>
           columns={columns}
           dataSource={runSessions}
-          locale={{ emptyText: t('audit.empty') }}
           onRow={(run) => ({
             onClick: (event) => {
               if (event.target instanceof Element && event.target.closest('a') !== null) {

@@ -1,5 +1,6 @@
 import { Alert, Button, Empty, Select, Spin } from 'antd'
-import type { JSX } from 'react'
+import type { JSX, ReactNode } from 'react'
+import { useHref, useLinkClickHandler } from 'react-router'
 
 import { useMetricsSummary, type MetricsSummary } from '../../entities/metrics'
 import { useRepositories } from '../../entities/repository'
@@ -22,6 +23,16 @@ function Tile(props: { label: string; value: string }): JSX.Element {
       <dt>{props.label}</dt>
       <dd>{props.value}</dd>
     </div>
+  )
+}
+
+function LinkButton(props: { to: string; children: ReactNode }): JSX.Element {
+  const href = useHref(props.to)
+  const handleClick = useLinkClickHandler<HTMLAnchorElement | HTMLButtonElement>(props.to)
+  return (
+    <Button href={href} onClick={handleClick}>
+      {props.children}
+    </Button>
   )
 }
 
@@ -96,7 +107,12 @@ export function AnalyticsPage(): JSX.Element {
       ) : null}
 
       {summary !== undefined && periodEmpty ? (
-        <Empty description={t('analytics.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        <Empty
+          description={<span className={styles.emptyText}>{t('analytics.empty')}</span>}
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+        >
+          <LinkButton to="/repositories">{t('analytics.goToRepositories')}</LinkButton>
+        </Empty>
       ) : null}
 
       {summary !== undefined && !periodEmpty ? (

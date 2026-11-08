@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -115,11 +115,18 @@ function stubFetch(handler: (url: URL) => Answer) {
   return fetchMock
 }
 
+const EMPTY_PERIOD =
+  'В этом периоде нет завершённых прогонов. Учитываются только завершённые ревью в подключённых репозиториях.'
+
 function renderPage(initialEntry = '/analytics') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  const router = createMemoryRouter([{ path: '/analytics', element: <AnalyticsPage /> }], {
-    initialEntries: [initialEntry],
-  })
+  const router = createMemoryRouter(
+    [
+      { path: '/analytics', element: <AnalyticsPage /> },
+      { path: '/repositories', element: <div>repositories</div> },
+    ],
+    { initialEntries: [initialEntry] },
+  )
   return {
     router,
     ...render(
@@ -249,13 +256,72 @@ describe('AnalyticsPage', () => {
         : { status: 200, body: emptySummary() },
     )
     const { container } = renderPage()
-    expect(await screen.findByText('В этом периоде нет завершённых прогонов')).toBeTruthy()
+    expect(await screen.findByText(EMPTY_PERIOD)).toBeTruthy()
     expect(container.querySelector('svg[role="img"]')).toBeNull()
     expect(screen.queryByRole('heading', { name: 'Числа по дням' })).toBeNull()
     expect(screen.queryByRole('table')).toBeNull()
     expect(screen.queryByText('Критические')).toBeNull()
     expect(screen.getByText('acme')).toBeTruthy()
     expect(screen.getByText('paused-team')).toBeTruthy()
+  })
+
+  it('leads to the repositories from an empty week and keeps the repository', async () => {
+    const fetchMock = stubFetch((url) =>
+      url.pathname.endsWith('/repos')
+        ? { status: 200, body: [REPO] }
+        : { status: 200, body: emptySummary() },
+    )
+    const { router } = renderPage('/analytics?repo=org/repo')
+    const description = await screen.findByText(EMPTY_PERIOD)
+    const requests = summaryRequests(fetchMock)
+    const last = requests[requests.length - 1]
+    expect(last?.searchParams.get('range')).toBe('7d')
+    expect(last?.searchParams.get('repo')).toBe('org/repo')
+
+    const empty = description.closest('.ant-empty')
+    expect(empty).toBeTruthy()
+    expect(within(empty as HTMLElement).queryAllByRole('button')).toHaveLength(0)
+    const link = within(empty as HTMLElement).getByRole('link', { name: 'К репозиториям' })
+    expect(link.getAttribute('href')).toBe('/repositories')
+    fireEvent.click(link)
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/repositories')
+    })
+  })
+
+  it('leads to the repositories when 30 days are empty', async () => {
+    stubFetch((url) =>
+      url.pathname.endsWith('/repos')
+        ? { status: 200, body: [] }
+        : { status: 200, body: emptySummary() },
+    )
+    const { router } = renderPage('/analytics?range=30d')
+    await screen.findByText(EMPTY_PERIOD)
+    const link = screen.getByRole('link', { name: 'К репозиториям' })
+    expect(link.getAttribute('href')).toBe('/repositories')
+    fireEvent.click(link)
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/repositories')
+    })
+  })
+
+  it('keeps the repository filter when 30 days for that repository are empty', async () => {
+    const fetchMock = stubFetch((url) =>
+      url.pathname.endsWith('/repos')
+        ? { status: 200, body: [REPO] }
+        : { status: 200, body: emptySummary() },
+    )
+    const { router } = renderPage('/analytics?range=30d&repo=org/repo')
+    await screen.findByText(EMPTY_PERIOD)
+    const requests = summaryRequests(fetchMock)
+    const last = requests[requests.length - 1]
+    expect(last?.searchParams.get('range')).toBe('30d')
+    expect(last?.searchParams.get('repo')).toBe('org/repo')
+    expect(screen.getByRole('link', { name: 'К репозиториям' }).getAttribute('href')).toBe(
+      '/repositories',
+    )
+    expect(screen.getByRole('button', { name: 'Сбросить фильтр' })).toBeTruthy()
+    expect(new URLSearchParams(router.state.location.search).get('repo')).toBe('org/repo')
   })
 
   it('shows an error alert with retry instead of the empty state', async () => {
@@ -271,7 +337,7 @@ describe('AnalyticsPage', () => {
     })
     renderPage()
     expect(await screen.findByText('Ошибка загрузки')).toBeTruthy()
-    expect(screen.queryByText('В этом периоде нет завершённых прогонов')).toBeNull()
+    expect(screen.queryByText(EMPTY_PERIOD)).toBeNull()
     fail = false
     fireEvent.click(screen.getByRole('button', { name: 'Повторить' }))
     expect(await screen.findByText('Критические')).toBeTruthy()

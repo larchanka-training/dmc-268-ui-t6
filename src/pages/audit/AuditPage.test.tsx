@@ -72,11 +72,17 @@ function renderPage(initialEntry = '/audit') {
         ),
       },
       { path: '/runs/:runId', element: <div>detail</div> },
+      { path: '/repositories', element: <div>repositories</div> },
     ],
     { initialEntries: [initialEntry] },
   )
   return { router, ...render(<RouterProvider router={router} />) }
 }
+
+const EMPTY_JOURNAL =
+  'Прогонов ревью пока нет. Они появятся здесь, когда в подключённом репозитории пройдёт ревью.'
+const EMPTY_FILTERED =
+  'Нет прогонов, подходящих под фильтр. Сбросьте его, чтобы увидеть все прогоны.'
 
 afterEach(() => {
   cleanup()
@@ -229,8 +235,57 @@ describe('AuditPage', () => {
   it('drops an unknown status and does not send it', async () => {
     const fetchMock = stubFetch(() => ({ items: [], nextCursor: null }))
     renderPage('/audit?status=nope')
-    await screen.findByText('Нет прогонов ревью')
+    await screen.findByText(EMPTY_JOURNAL)
     expect(requestedUrls(fetchMock)[0]?.searchParams.get('status')).toBeNull()
+  })
+
+  it('explains an empty journal instead of the table and leads to the repositories', async () => {
+    stubFetch(() => ({ items: [], nextCursor: null }))
+    const { router } = renderPage()
+    await screen.findByText(EMPTY_JOURNAL)
+    expect(screen.queryByRole('table')).toBeNull()
+    const link = screen.getByRole('link', { name: 'К репозиториям' })
+    expect(link.getAttribute('href')).toBe('/repositories')
+    fireEvent.click(link)
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/repositories')
+    })
+  })
+
+  it('points a filter that finds nothing to the reset in the header', async () => {
+    const fetchMock = stubFetch((url) => ({
+      items: url.searchParams.has('status') ? [] : [session()],
+      nextCursor: null,
+    }))
+    renderPage('/audit?status=failed')
+    await screen.findByText(EMPTY_FILTERED)
+    expect(screen.queryByText(EMPTY_JOURNAL)).toBeNull()
+    expect(screen.queryByRole('link', { name: 'К репозиториям' })).toBeNull()
+
+    // getByRole throws on a second match: the empty state adds no reset of its own.
+    const reset = screen.getByRole('button', { name: 'Сбросить фильтр' })
+    reset.focus()
+    fireEvent.click(reset)
+    await screen.findByText('feat: audit row')
+    const urls = requestedUrls(fetchMock)
+    expect(urls[urls.length - 1]?.searchParams.get('status')).toBeNull()
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Аудит' }))
+  })
+
+  it('treats a repository filter that finds nothing as a filtered journal', async () => {
+    const fetchMock = stubFetch((url) => ({
+      items: url.searchParams.has('repo') ? [] : [session()],
+      nextCursor: null,
+    }))
+    renderPage('/audit?repo=org/repo')
+    await screen.findByText(EMPTY_FILTERED)
+    expect(screen.queryByText(EMPTY_JOURNAL)).toBeNull()
+    expect(screen.queryByRole('link', { name: 'К репозиториям' })).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Сбросить фильтр' }))
+    await screen.findByText('feat: audit row')
+    const urls = requestedUrls(fetchMock)
+    expect(urls[urls.length - 1]?.searchParams.get('repo')).toBeNull()
   })
 
   it('requests the next page with the cursor and keeps rows when that page fails', async () => {

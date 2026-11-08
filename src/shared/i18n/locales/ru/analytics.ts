@@ -10,7 +10,9 @@ export const analytics: Translation<typeof en> = {
   repository: 'Репозиторий',
   allRepositories: 'Все репозитории',
   resetRepository: 'Сбросить фильтр',
-  empty: 'В этом периоде нет завершённых прогонов',
+  empty:
+    'В этом периоде нет завершённых прогонов. Учитываются только завершённые ревью в подключённых репозиториях.',
+  goToRepositories: 'К репозиториям',
   loadFailedTitle: 'Ошибка загрузки',
   loadFailed: 'Не удалось загрузить сводку',
   retry: 'Повторить',

@@ -6,6 +6,12 @@
   margin-bottom: 16px;
 }
 
+.emptyText {
+  display: block;
+  max-width: 520px;
+  margin-inline: auto;
+}
+
 .tiles {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
