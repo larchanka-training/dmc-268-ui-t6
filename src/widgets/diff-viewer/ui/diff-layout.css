@@ -30,17 +30,16 @@
   border-bottom: 0;
 }
 
+/* A long name wraps instead of cutting: the end of a path tells files apart. */
 .diff-file-name {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
   font-family: var(--rv-font-mono);
   font-size: var(--rv-fs-xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
-/* A file without a diff: the note moves under the name, and a long name wraps instead of cutting. */
+/* A file without a diff: the note moves under the name. */
 .diff-file-head-text {
   display: flex;
   flex: 1;
@@ -53,8 +52,6 @@
 
 .diff-file-head-text > .diff-file-name {
   flex: 0 1 auto;
-  overflow-wrap: anywhere;
-  white-space: normal;
 }
 
 /* react-diff-view sets its own font on the cells, so the table alone is not enough. */
