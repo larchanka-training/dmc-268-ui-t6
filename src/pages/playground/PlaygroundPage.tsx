@@ -1,6 +1,5 @@
 import { Alert, Button, Empty, Form, Input, Select, Skeleton } from 'antd'
-import { useId, useState, type JSX, type ReactNode } from 'react'
-import { useHref, useLinkClickHandler } from 'react-router'
+import { useId, useState, type JSX } from 'react'
 
 import {
   useRepositories,
@@ -9,7 +8,7 @@ import {
   type RulesStatus,
 } from '../../entities/repository'
 import { useTranslation } from '../../shared/i18n'
-import { PageHeader, Segmented } from '../../shared/ui'
+import { LinkButton, PageHeader, Segmented } from '../../shared/ui'
 import { CodeEditor } from '../../shared/ui/CodeEditor/CodeEditor'
 import type {
   CodeEditorCompletion,
@@ -39,16 +38,6 @@ const RULES_COMPLETIONS: readonly CodeEditorCompletion[] = [
 ]
 
 const NO_DIAGNOSTICS: readonly CodeEditorDiagnostic[] = []
-
-function LinkButton(props: { to: string; children: ReactNode }): JSX.Element {
-  const href = useHref(props.to)
-  const handleClick = useLinkClickHandler<HTMLAnchorElement | HTMLButtonElement>(props.to)
-  return (
-    <Button href={href} onClick={handleClick}>
-      {props.children}
-    </Button>
-  )
-}
 
 /** The text of `.review/rules.md` the server read, or nothing while there is none to show. */
 function serverRulesText(status: RulesStatus | undefined): string {

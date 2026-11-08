@@ -1,12 +1,11 @@
 import { Alert, Button, Empty, Select, Spin } from 'antd'
-import type { JSX, ReactNode } from 'react'
-import { useHref, useLinkClickHandler } from 'react-router'
+import type { JSX } from 'react'
 
 import { useMetricsSummary, type MetricsSummary } from '../../entities/metrics'
 import { useRepositories } from '../../entities/repository'
 import { useAnalyticsFilterParams } from '../../features/analytics-filter'
 import { formatDuration, formatNumber, formatUsd, useTranslation } from '../../shared/i18n'
-import { DataTable, ErrorBoundary, PageHeader, Segmented } from '../../shared/ui'
+import { DataTable, ErrorBoundary, LinkButton, PageHeader, Segmented } from '../../shared/ui'
 import styles from './AnalyticsPage.module.css'
 import { DurationByDay } from './ui/DurationByDay'
 import { FindingsByDay } from './ui/FindingsByDay'
@@ -23,16 +22,6 @@ function Tile(props: { label: string; value: string }): JSX.Element {
       <dt>{props.label}</dt>
       <dd>{props.value}</dd>
     </div>
-  )
-}
-
-function LinkButton(props: { to: string; children: ReactNode }): JSX.Element {
-  const href = useHref(props.to)
-  const handleClick = useLinkClickHandler<HTMLAnchorElement | HTMLButtonElement>(props.to)
-  return (
-    <Button href={href} onClick={handleClick}>
-      {props.children}
-    </Button>
   )
 }
 
