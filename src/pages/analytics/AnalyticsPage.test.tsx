@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, assert, describe, expect, it, vi } from 'vitest'
 
 import { disabledRagIndex } from '../../entities/repository'
 import type { MetricsSummary } from '../../entities/metrics'
@@ -210,11 +210,11 @@ describe('AnalyticsPage', () => {
     expect(tile('Токены на выходе')).toBe('4')
     expect(screen.getByRole('heading', { name: 'Числа по дням' })).toBeTruthy()
     expect(screen.getByRole('table')).toBeTruthy()
-    const titles = [...container.querySelectorAll('title')].map((node) => node.textContent)
-    expect(titles).toContain('Безопасность 2')
-    expect(titles).toContain('Дефект 7')
-    expect(titles).toContain('Стиль 8')
-    expect(titles).toContain('4')
+    expect(container.querySelectorAll('title')).toHaveLength(0)
+    expect(screen.getByLabelText('2026-10-26: Безопасность — 2')).toBeTruthy()
+    expect(screen.getByLabelText('2026-10-26: Дефект — 7')).toBeTruthy()
+    expect(screen.getByLabelText('2026-10-26: Стиль — 8')).toBeTruthy()
+    expect(screen.getByLabelText('2026-10-26: 4 с')).toBeTruthy()
     for (const name of ['Безопасность', 'Дефект', 'Производительность', 'Стиль']) {
       expect(screen.getAllByText(name).length).toBeGreaterThan(0)
     }
@@ -247,8 +247,8 @@ describe('AnalyticsPage', () => {
       expect(screen.getAllByText('Не удалось загрузить этот блок, обновите страницу')).toHaveLength(
         1,
       )
-      expect(screen.queryByRole('img', { name: failed })).toBeNull()
-      const otherFigure = screen.getByRole('img', { name: other }).closest('figure')
+      expect(screen.queryByRole('group', { name: failed })).toBeNull()
+      const otherFigure = screen.getByRole('group', { name: other }).closest('figure')
       expect(stub?.parentElement).toBe(otherFigure?.parentElement)
       expect(stub?.[side]).toBe(otherFigure)
       expect(screen.getByText('Критические')).toBeTruthy()
@@ -319,7 +319,7 @@ describe('AnalyticsPage', () => {
     )
     const { container } = renderPage()
     expect(await screen.findByText(EMPTY_PERIOD)).toBeTruthy()
-    expect(container.querySelector('svg[role="img"]')).toBeNull()
+    expect(container.querySelector('svg[role="group"]')).toBeNull()
     expect(screen.queryByRole('heading', { name: 'Числа по дням' })).toBeNull()
     expect(screen.queryByRole('table')).toBeNull()
     expect(screen.queryByText('Критические')).toBeNull()
@@ -548,18 +548,182 @@ describe('AnalyticsPage', () => {
     expect(row.textContent).not.toContain('<1')
   })
 
-  it('paints series with theme tokens and no hex', () => {
+  it('paints series with theme tokens, specific :focus-visible rules, and no hex', () => {
     const root = join(process.cwd(), 'src/pages/analytics')
-    const css = [
-      readFileSync(join(root, 'ui/FindingsByDay.module.css'), 'utf8'),
-      readFileSync(join(root, 'ui/DurationByDay.module.css'), 'utf8'),
-      readFileSync(join(root, 'AnalyticsPage.module.css'), 'utf8'),
-    ].join('\n')
-    expect(css).toContain('var(--rv-critical)')
-    expect(css).toContain('var(--rv-high)')
-    expect(css).toContain('var(--rv-warning)')
-    expect(css).toContain('var(--rv-link)')
-    expect(css).toContain('var(--rv-accent)')
-    expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b/)
+    const findingsCss = readFileSync(join(root, 'ui/FindingsByDay.module.css'), 'utf8')
+    const durationCss = readFileSync(join(root, 'ui/DurationByDay.module.css'), 'utf8')
+    const tooltipCss = readFileSync(join(root, 'ui/MetricTooltip.module.css'), 'utf8')
+    const pageCss = readFileSync(join(root, 'AnalyticsPage.module.css'), 'utf8')
+
+    expect(findingsCss).toMatch(/\.bar:focus-visible\b/)
+    expect(durationCss).toMatch(/\.point:focus-visible\b/)
+    expect(pageCss).toMatch(/\.tile:focus-visible\b/)
+
+    const allCss = [findingsCss, durationCss, tooltipCss, pageCss].join('\n')
+    expect(allCss).toContain('var(--rv-critical)')
+    expect(allCss).toContain('var(--rv-high)')
+    expect(allCss).toContain('var(--rv-warning)')
+    expect(allCss).toContain('var(--rv-link)')
+    expect(allCss).toContain('var(--rv-accent)')
+    expect(allCss).not.toMatch(/#[0-9a-fA-F]{3,8}\b/)
+  })
+
+  it('shows tooltips explaining all 17 tiles on focus and hover', async () => {
+    stubFetch((url) =>
+      url.pathname.endsWith('/repos')
+        ? { status: 200, body: [REPO] }
+        : { status: 200, body: summary() },
+    )
+    renderPage()
+    const tilesList = (await screen.findByText('Критические')).closest('dl')
+    assert(tilesList)
+    const criticalTile = screen.getByRole('group', { name: /Критические/ })
+    expect(criticalTile).toBeDefined()
+    expect(criticalTile.getAttribute('tabindex')).toBe('0')
+
+    const tiles = [
+      ['Прогоны: Успешные', /статусом «Успешные» за выбранный период/],
+      ['Прогоны: С ошибкой', /статусом «С ошибкой» за выбранный период/],
+      ['Прогоны: Отменённые', /статусом «Отменённые» за выбранный период/],
+      ['Прогоны: Пропущенные', /статусом «Пропущенные» за выбранный период/],
+      ['Pull request: Блокирующие', /вердиктом «Блокирующие» за выбранный период/],
+      ['Pull request: Требуют внимания', /вердиктом «Требуют внимания» за выбранный период/],
+      ['Pull request: Чистые', /вердиктом «Чистые» за выбранный период/],
+      ['Pull request: Без вердикта', /без вердикта за выбранный период/],
+      ['Критические', /критических находок за выбранный период/],
+      ['Высокие', /высокой важности за выбранный период/],
+      ['Средние', /средней важности за выбранный период/],
+      ['Низкие', /низкой важности за выбранный период/],
+      ['Информационные', /информационных находок за выбранный период/],
+      ['Средняя длительность', /по успешным прогонам за выбранный период/i],
+      ['Токены на входе', /входных токенов за выбранный период/],
+      ['Токены на выходе', /выходных токенов за выбранный период/],
+      ['Стоимость', /стоимость в долларах США.*за выбранный период/],
+    ] as const
+    expect(tilesList.querySelectorAll('dt')).toHaveLength(tiles.length)
+
+    for (const [label, expectedText] of tiles) {
+      const tile = within(tilesList).getByText(label).closest('div')
+      assert(tile)
+      fireEvent.focus(tile)
+      expect(await screen.findByText(expectedText)).toBeTruthy()
+      fireEvent.blur(tile)
+    }
+
+    const costTile = within(tilesList).getByText('Стоимость').closest('div')
+    assert(costTile)
+    fireEvent.mouseEnter(costTile)
+    expect(await screen.findByText(/стоимость в долларах США.*за выбранный период/)).toBeTruthy()
+    fireEvent.mouseLeave(costTile)
+  })
+
+  it('explains chart axes, scales bars to period max, omits zero values, formats point duration, and closes on Escape', async () => {
+    stubFetch((url) =>
+      url.pathname.endsWith('/repos')
+        ? { status: 200, body: [REPO] }
+        : {
+            status: 200,
+            body: summary({
+              series: [
+                {
+                  day: '2026-10-25',
+                  findingsByCategory: {
+                    security: 4,
+                    correctness: 6,
+                    performance: 0,
+                    readability: 0,
+                  },
+                  runCount: 2,
+                  averageDurationSeconds: 12.7,
+                  costUsd: 0.2,
+                },
+                {
+                  day: '2026-10-26',
+                  findingsByCategory: {
+                    security: 0,
+                    correctness: 5,
+                    performance: 0,
+                    readability: 0,
+                  },
+                  runCount: 0,
+                  averageDurationSeconds: 0,
+                  costUsd: 0,
+                },
+                {
+                  day: '2026-10-27',
+                  findingsByCategory: {
+                    security: 0,
+                    correctness: 0,
+                    performance: 0,
+                    readability: 2,
+                  },
+                  runCount: 1,
+                  averageDurationSeconds: 125,
+                  costUsd: 0,
+                },
+              ],
+            }),
+          },
+    )
+    const { container } = renderPage()
+
+    // 1. Native <title> removed and 1px axis <line> is not a focus stop
+    const findingsCaption = await screen.findByRole('button', { name: 'Находки по дням' })
+    expect(container.querySelectorAll('title')).toHaveLength(0)
+    expect(container.querySelector('line[tabindex]')).toBeNull()
+
+    // 2. Chart caption buttons explain Y axis, period scaling, units, and line gaps
+    fireEvent.focus(findingsCaption)
+    expect(
+      await screen.findByText(/Ось Y показывает число находок за день по четырём категориям/i),
+    ).toBeTruthy()
+
+    const durationCaption = screen.getByRole('button', { name: 'Средняя длительность по дням' })
+    fireEvent.focus(durationCaption)
+    expect(
+      await screen.findByText(/среднюю длительность успешных прогонов в секундах.*разрыв линии/i),
+    ).toBeTruthy()
+
+    // 3. Bars: proportional to period max (max day total = 10 -> 196px; correctness=5 -> 98px), zero omitted
+    const findingsGroup = screen.getByRole('group', { name: 'Находки по дням' })
+    const rects = [...findingsGroup.querySelectorAll('rect')]
+    expect(rects).toHaveLength(4)
+    expect(rects.map((node) => node.getAttribute('tabindex'))).toEqual(['0', '-1', '-1', '-1'])
+    expect(screen.queryByLabelText(/Производительность/)).toBeNull()
+
+    const halfMaxBar = screen.getByLabelText('2026-10-26: Дефект — 5')
+    expect(Number(halfMaxBar.getAttribute('height'))).toBeCloseTo(98, 2)
+    expect(halfMaxBar.getAttribute('class')).toContain('bar')
+    expect(halfMaxBar.getAttribute('class')).toContain('correctness')
+
+    fireEvent.mouseEnter(halfMaxBar)
+    expect(await screen.findByText('2026-10-26: Дефект — 5')).toBeTruthy()
+
+    // Roving ArrowRight moves focus across bars
+    const firstBar = rects[0]
+    assert(firstBar)
+    fireEvent.focus(firstBar)
+    fireEvent.keyDown(firstBar, { key: 'ArrowRight' })
+    await waitFor(() => {
+      expect(rects[1]?.getAttribute('tabindex')).toBe('0')
+    })
+
+    // 4. Points: fractional & >60s formatted with formatDuration, zero duration omitted, Esc closes
+    const durationGroup = screen.getByRole('group', { name: 'Средняя длительность по дням' })
+    const circles = [...durationGroup.querySelectorAll('circle')]
+    expect(circles).toHaveLength(2)
+    expect(circles.map((node) => node.getAttribute('tabindex'))).toEqual(['0', '-1'])
+    expect(screen.queryByLabelText(/0 с/)).toBeNull()
+
+    const fractionalPoint = screen.getByLabelText('2026-10-25: 12 с')
+    expect(screen.getByLabelText('2026-10-27: 2 мин 5 с')).toBeTruthy()
+
+    fireEvent.focus(fractionalPoint)
+    expect(await screen.findByText('2026-10-25: 12 с')).toBeTruthy()
+
+    fireEvent.keyDown(fractionalPoint, { key: 'Escape', code: 'Escape' })
+    await waitFor(() => {
+      expect(screen.queryByText('2026-10-25: 12 с')).toBeNull()
+    })
   })
 })

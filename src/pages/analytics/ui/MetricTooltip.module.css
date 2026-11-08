@@ -1,0 +1,11 @@
+.caption {
+  margin-bottom: 4px;
+}
+
+.headingButton {
+  padding: 0 4px;
+  height: auto;
+  font: inherit;
+  font-weight: 600;
+  cursor: help;
+}

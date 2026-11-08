@@ -21,6 +21,13 @@
 
 .tile {
   margin: 0;
+  border-radius: var(--rv-radius-xs);
+  cursor: help;
+}
+
+.tile:focus-visible {
+  outline: 2px solid var(--rv-link);
+  outline-offset: 4px;
 }
 
 .tile dt {

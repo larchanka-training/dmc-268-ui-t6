@@ -21,6 +21,15 @@
   vertical-align: middle;
 }
 
+.bar {
+  cursor: help;
+}
+
+.bar:focus-visible {
+  outline: 2px solid var(--rv-link);
+  outline-offset: 2px;
+}
+
 .security {
   fill: var(--rv-critical);
   background-color: var(--rv-critical);
