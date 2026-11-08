@@ -1,5 +1,5 @@
 import { Alert, Button, Empty, Select, Spin } from 'antd'
-import { useRef, type JSX, type ReactNode } from 'react'
+import type { JSX, ReactNode } from 'react'
 import { useHref, useLinkClickHandler } from 'react-router'
 
 import { useMetricsSummary, type MetricsSummary } from '../../entities/metrics'
@@ -43,15 +43,10 @@ export function AnalyticsPage(): JSX.Element {
   const repositoriesQuery = useRepositories()
   const summary = summaryQuery.data
   const periodEmpty = summary !== undefined && finishedRuns(summary) === 0
-  const titleRef = useRef<HTMLHeadingElement>(null)
 
   return (
     <>
-      <PageHeader
-        description={t('analytics.description')}
-        title={t('analytics.title')}
-        titleRef={titleRef}
-      />
+      <PageHeader description={t('analytics.description')} title={t('analytics.title')} />
       <div className={styles.toolbar}>
         <Segmented
           aria-label={t('analytics.period')}
@@ -112,19 +107,11 @@ export function AnalyticsPage(): JSX.Element {
       ) : null}
 
       {summary !== undefined && periodEmpty ? (
-        <Empty description={t('analytics.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE}>
-          {filter.range === '7d' ? (
-            <Button
-              onClick={() => {
-                setFilter({ ...filter, range: '30d' })
-                titleRef.current?.focus()
-              }}
-            >
-              {t('analytics.showDays30')}
-            </Button>
-          ) : (
-            <LinkButton to="/repositories">{t('analytics.goToRepositories')}</LinkButton>
-          )}
+        <Empty
+          description={<span className={styles.emptyText}>{t('analytics.empty')}</span>}
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+        >
+          <LinkButton to="/repositories">{t('analytics.goToRepositories')}</LinkButton>
         </Empty>
       ) : null}
 

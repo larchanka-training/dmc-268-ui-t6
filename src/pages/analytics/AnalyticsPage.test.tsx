@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -116,7 +116,7 @@ function stubFetch(handler: (url: URL) => Answer) {
 }
 
 const EMPTY_PERIOD =
-  'В этом периоде нет завершённых прогонов. Аналитика считает только завершённые ревью pull request в подключённых репозиториях.'
+  'В этом периоде нет завершённых прогонов. Учитываются только завершённые ревью в подключённых репозиториях.'
 
 function renderPage(initialEntry = '/analytics') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -265,34 +265,31 @@ describe('AnalyticsPage', () => {
     expect(screen.getByText('paused-team')).toBeTruthy()
   })
 
-  it('offers 30 days for an empty week, keeps the repository and moves focus to the heading', async () => {
-    const fetchMock = stubFetch((url) => {
-      if (url.pathname.endsWith('/repos')) {
-        return { status: 200, body: [REPO] }
-      }
-      return {
-        status: 200,
-        body: url.searchParams.get('range') === '30d' ? summary() : emptySummary(),
-      }
-    })
+  it('leads to the repositories from an empty week and keeps the repository', async () => {
+    const fetchMock = stubFetch((url) =>
+      url.pathname.endsWith('/repos')
+        ? { status: 200, body: [REPO] }
+        : { status: 200, body: emptySummary() },
+    )
     const { router } = renderPage('/analytics?repo=org/repo')
-    await screen.findByText(EMPTY_PERIOD)
-    expect(screen.queryByRole('link', { name: 'К репозиториям' })).toBeNull()
-
-    const showMonth = screen.getByRole('button', { name: 'Показать за 30 дней' })
-    showMonth.focus()
-    fireEvent.click(showMonth)
-    await screen.findByText('Критические')
+    const description = await screen.findByText(EMPTY_PERIOD)
     const requests = summaryRequests(fetchMock)
     const last = requests[requests.length - 1]
-    expect(last?.searchParams.get('range')).toBe('30d')
+    expect(last?.searchParams.get('range')).toBe('7d')
     expect(last?.searchParams.get('repo')).toBe('org/repo')
-    expect(router.state.location.search).toContain('range=30d')
-    expect(router.state.location.search).toContain('repo=org%2Frepo')
-    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Аналитика' }))
+
+    const empty = description.closest('.ant-empty')
+    expect(empty).toBeTruthy()
+    expect(within(empty as HTMLElement).queryAllByRole('button')).toHaveLength(0)
+    const link = within(empty as HTMLElement).getByRole('link', { name: 'К репозиториям' })
+    expect(link.getAttribute('href')).toBe('/repositories')
+    fireEvent.click(link)
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/repositories')
+    })
   })
 
-  it('leads to the repositories when 30 days are empty too', async () => {
+  it('leads to the repositories when 30 days are empty', async () => {
     stubFetch((url) =>
       url.pathname.endsWith('/repos')
         ? { status: 200, body: [] }
@@ -300,7 +297,6 @@ describe('AnalyticsPage', () => {
     )
     const { router } = renderPage('/analytics?range=30d')
     await screen.findByText(EMPTY_PERIOD)
-    expect(screen.queryByRole('button', { name: 'Показать за 30 дней' })).toBeNull()
     const link = screen.getByRole('link', { name: 'К репозиториям' })
     expect(link.getAttribute('href')).toBe('/repositories')
     fireEvent.click(link)
@@ -321,7 +317,6 @@ describe('AnalyticsPage', () => {
     const last = requests[requests.length - 1]
     expect(last?.searchParams.get('range')).toBe('30d')
     expect(last?.searchParams.get('repo')).toBe('org/repo')
-    expect(screen.queryByRole('button', { name: 'Показать за 30 дней' })).toBeNull()
     expect(screen.getByRole('link', { name: 'К репозиториям' }).getAttribute('href')).toBe(
       '/repositories',
     )

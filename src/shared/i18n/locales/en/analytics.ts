@@ -8,9 +8,7 @@ export const analytics = {
   repository: 'Repository',
   allRepositories: 'All repositories',
   resetRepository: 'Reset filter',
-  empty:
-    'No finished runs in this period. Analytics counts only finished reviews of pull requests in connected repositories.',
-  showDays30: 'Show 30 days',
+  empty: 'No finished runs in this period. Only finished reviews in connected repositories count.',
   goToRepositories: 'Go to repositories',
   loadFailedTitle: 'Could not load',
   loadFailed: 'Could not load the summary',
