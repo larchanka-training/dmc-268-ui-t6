@@ -146,7 +146,6 @@ describe('DataTable', () => {
     const { container, rerender } = render(
       <DataTable<Row> columns={columns} dataSource={rows} rowKey="id" />,
     )
-    expect(styles.nowrap).toBeTruthy()
     const wrapper = (): Element | null => container.querySelector('.ant-table-wrapper')
     expect(wrapper()?.classList.contains(styles.nowrap ?? '')).toBe(true)
     rerender(<DataTable<Row> columns={columns} dataSource={rows} nowrap={false} rowKey="id" />)

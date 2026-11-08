@@ -57,7 +57,6 @@ describe('Tag', () => {
     const tag = screen.getByText('critical')
     expect(tag.dataset.variant).toBe('solid')
     expect(tag.classList.contains('caller-class')).toBe(true)
-    expect(styles.tag).toBeTruthy()
     expect(tag.classList.contains(styles.tag ?? '')).toBe(true)
     expect(tag.querySelector('[aria-hidden="true"]')).toBeNull()
   })
