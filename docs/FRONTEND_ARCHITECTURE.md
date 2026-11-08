@@ -322,6 +322,7 @@ src/features/bitbucket-connections/lib/useFocusHandoff.test.tsx
 src/features/bitbucket-connections/lib/useFocusHandoff.ts
 src/features/bitbucket-connections/model/schemas.ts
 src/features/bitbucket-connections/ui/BitbucketConnectionsPanel.module.css
+src/features/bitbucket-connections/ui/BitbucketConnectionsPanel.pagination.test.tsx
 src/features/bitbucket-connections/ui/BitbucketConnectionsPanel.test.tsx
 src/features/bitbucket-connections/ui/BitbucketConnectionsPanel.tsx
 src/features/finding-filters/index.ts
@@ -503,6 +504,9 @@ src/shared/ui/FilePath/FilePath.module.css
 src/shared/ui/FilePath/FilePath.stories.tsx
 src/shared/ui/FilePath/FilePath.test.tsx
 src/shared/ui/FilePath/FilePath.tsx
+src/shared/ui/InfoHint/InfoHint.module.css
+src/shared/ui/InfoHint/InfoHint.test.tsx
+src/shared/ui/InfoHint/InfoHint.tsx
 src/shared/ui/Logo/Logo.stories.tsx
 src/shared/ui/Logo/Logo.test.tsx
 src/shared/ui/Logo/Logo.tsx
@@ -560,6 +564,7 @@ src/shared/ui/stories/Form.stories.tsx
 src/shared/ui/stories/Input.stories.tsx
 src/shared/ui/stories/Layout.stories.tsx
 src/shared/ui/stories/Modal.stories.tsx
+src/shared/ui/stories/Popover.stories.tsx
 src/shared/ui/stories/Segmented.stories.tsx
 src/shared/ui/stories/Select.stories.tsx
 src/shared/ui/stories/Switch.stories.tsx
