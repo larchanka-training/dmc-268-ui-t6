@@ -10,6 +10,12 @@
   margin-top: 16px;
 }
 
+.emptyText {
+  display: block;
+  max-width: 520px;
+  margin-inline: auto;
+}
+
 .filters {
   display: flex;
   gap: 8px;

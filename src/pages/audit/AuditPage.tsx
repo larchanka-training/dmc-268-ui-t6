@@ -286,12 +286,14 @@ export const AuditPage: FC = () => {
 
       {data !== undefined && runSessions.length === 0 ? (
         <Empty
-          description={filtered ? t('audit.emptyFiltered') : t('audit.empty')}
+          description={
+            <span className={styles.emptyText}>
+              {filtered ? t('audit.emptyFiltered') : t('audit.empty')}
+            </span>
+          }
           image={Empty.PRESENTED_IMAGE_SIMPLE}
         >
-          {filtered ? (
-            <Button onClick={resetFilterAndFocus}>{t('audit.showAll')}</Button>
-          ) : (
+          {filtered ? null : (
             <LinkButton to="/repositories">{t('audit.goToRepositories')}</LinkButton>
           )}
         </Empty>
