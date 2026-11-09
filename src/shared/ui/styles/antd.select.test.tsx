@@ -20,6 +20,7 @@ const RULES = {
   focusedClear: '.ant-select .ant-select-clear:focus-visible',
   arrowUnderFocusedClear: '.ant-select:has(.ant-select-clear:focus-visible) .ant-select-suffix',
   disabledArrow: '.ant-select.ant-select-disabled .ant-select-suffix',
+  openValue: '.ant-select.ant-select-open .ant-select-content.ant-select-content-has-value',
 } as const
 
 const CSS = readFileSync('src/shared/ui/styles/antd.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
@@ -68,6 +69,7 @@ describe('the Select rules of antd.css', () => {
       `${RULES.disabledArrow} { color: var(--ant-color-text-disabled); }`,
       `${RULES.focusedClear} { border-radius: 50%; opacity: 1; outline: 2px solid var(--rv-link); outline-offset: 2px; }`,
       `${RULES.arrowUnderFocusedClear} { opacity: 0; }`,
+      `${RULES.openValue} { opacity: 1; }`,
     ])
   })
 
@@ -103,5 +105,18 @@ describe('the Select rules of antd.css', () => {
     ]
     expect(selected?.matches(RULES.checkMark)).toBe(true)
     expect(other?.matches(RULES.checkMark) ?? false).toBe(false)
+  })
+
+  it('match the value of an open select and not of a closed one: it keeps full contrast (#239 D13)', () => {
+    const options = [{ value: 'a', label: 'A' }]
+    const { container } = render(
+      <>
+        <Select open options={options} value="a" />
+        <Select options={options} value="a" />
+      </>,
+    )
+    const [open, closed] = [...container.querySelectorAll('.ant-select-content-has-value')]
+    expect(open?.matches(RULES.openValue)).toBe(true)
+    expect(closed?.matches(RULES.openValue)).toBe(false)
   })
 })

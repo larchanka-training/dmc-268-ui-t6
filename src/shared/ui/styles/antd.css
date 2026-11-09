@@ -167,6 +167,14 @@
   opacity: 0;
 }
 
+/* Select, open: the chosen value keeps full contrast (§3). Ant Design dims it to 25% while the list
+   is open (no token for it), which leaves 1.75:1 in the light theme; an open list is not disabled.
+   Typed search text still hides it through Ant Design's own `-has-search-value` rule. The selector
+   repeats the one of Ant Design with one more class, otherwise the library wins. */
+.ant-select.ant-select-open .ant-select-content.ant-select-content-has-value {
+  opacity: 1;
+}
+
 /* Input: the clear button's focus ring is 2px like every ring of §7; Ant Design draws it 1px, and
    its `lineWidthFocus` token for Input empties the library's variable instead of widening it. One
    class heavier than the library's rule. */
