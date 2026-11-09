@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 import { getAppUrl } from '../lib/appUrl'
 import { buildAgentInstruction } from '../lib/agentInstruction'
@@ -8,15 +8,19 @@ import { cx } from '../lib/cx'
 import styles from './Hero.module.css'
 
 export function Hero() {
+  const instructionRef = useRef<HTMLInputElement>(null)
   const [copyStatus, setCopyStatus] = useState('')
   const instruction = buildAgentInstruction(import.meta.env.VITE_GITHUB_APP_SLUG, getAppUrl())
 
   async function copyInstruction() {
     if (instruction === null) return
+    setCopyStatus('')
     try {
       await navigator.clipboard.writeText(instruction)
       setCopyStatus('Copied')
     } catch {
+      instructionRef.current?.focus()
+      instructionRef.current?.select()
       setCopyStatus('Select the text to copy')
     }
   }
@@ -49,7 +53,7 @@ export function Hero() {
             <div className={styles.agentRow}>
               <input
                 id="agent-setup-instruction"
-                aria-label="Agent setup instruction"
+                ref={instructionRef}
                 className={styles.agentInput}
                 readOnly
                 value={instruction}
