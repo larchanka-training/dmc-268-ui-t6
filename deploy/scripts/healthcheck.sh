@@ -16,7 +16,8 @@ fi
 
 for attempt in $(seq 1 "${ATTEMPTS}"); do
   if body="$(curl -fsS --max-time 5 "${TARGET}")"; then
-    if printf '%s' "${body}" | grep -q '"status":"ok"'; then
+    # The service name too: behind the shared edge proxy another app's /health must not pass.
+    if printf '%s' "${body}" | grep -q '"status":"ok"' && printf '%s' "${body}" | grep -q '"service":"dmc-268-ui"'; then
       echo "health check passed on attempt ${attempt}: ${body}"
       exit 0
     fi
