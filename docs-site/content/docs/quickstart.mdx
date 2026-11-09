@@ -12,6 +12,8 @@ icon: Rocket
 Open the <AppLink /> and click **Sign in with GitHub**. If you installed the app before signing
 in, your next sign-in links that installation to your account.
 
+On **Repositories**, the **Get started** checklist follows these steps. See [Your first review](/first-review) for the checklist.
+
 </Step>
 <Step>
 
@@ -31,10 +33,18 @@ appear.
 </Step>
 <Step>
 
+### Check repository settings
+
+Open the connected repository's settings. Check that **Automatic review** is on and the branch
+settings cover the pull request you want reviewed.
+
+</Step>
+<Step>
+
 ### Add the label
 
-On a pull request in that repository, add the label `ai-review`. On GitHub, adding labels needs
-triage access or higher.
+Open a pull request in that repository and add the label `ai-review`. Today the label is required
+even when **Automatic review** is on. On GitHub, adding labels needs triage access or higher.
 
 </Step>
 <Step>
@@ -42,12 +52,15 @@ triage access or higher.
 ### Get the review
 
 Once CI passes, the Reviewer bot posts its review. If the repository has no CI, it starts about
-two minutes after the label or the latest push, whichever is later. Follow each step in
-<AppLink path="/runs">**Runs**</AppLink> in the dashboard.
+two minutes after the label or the latest push, whichever is later. Follow the run in
+<AppLink path="/runs">**Runs**</AppLink>, then open a successful run to read the verdict and findings.
 
 </Step>
 </Steps>
 
 Nothing happened? See [No review appeared](/faq#no-review-appeared).
+
+The **Get started** checklist disappears when a successful run is available. You can hide it
+earlier; that choice is saved in your current browser.
 
 Using Bitbucket Cloud? Follow [Connect Bitbucket Cloud](/bitbucket) for token scopes, webhook setup and review results.

@@ -1,6 +1,6 @@
 import { useMutationState } from '@tanstack/react-query'
 import { Alert, App, Button, Flex } from 'antd'
-import { useEffect, useMemo, useRef, type FC } from 'react'
+import { useEffect, useMemo, useRef, useState, type FC } from 'react'
 import { useNavigate } from 'react-router'
 
 import {
@@ -9,11 +9,13 @@ import {
   useUpdateRepository,
   type UpdateRepositoryVariables,
 } from '../../entities/repository'
+import { useRunList } from '../../entities/run'
 import { useMe } from '../../entities/user'
 import { BitbucketConnectionsPanel } from '../../features/bitbucket-connections'
 import { saveAccessRefreshIntent, saveAuthReturnTo, useAuthStore } from '../../features/auth'
 import { useTranslation } from '../../shared/i18n'
 import { RepositoryList, resolveAccessRefreshPresentation } from '../../widgets/repository-list'
+import { isOnboardingDismissed, OnboardingChecklist } from '../../widgets/onboarding'
 import styles from './RepositoriesPage.module.css'
 import { formatErrorMessage } from './lib/formatError'
 import { repositorySettingsPath } from './lib/settingsPath'
@@ -33,16 +35,25 @@ export const RepositoriesPage: FC = () => {
     loginWithGitHub()
   }
 
-  const {
-    data: repositories = [],
-    isLoading,
-    isFetching,
-    isError,
-    error,
-    refetch,
-  } = useRepositories()
+  const { data: repositoryData, isLoading, isFetching, isError, error, refetch } = useRepositories()
+  const repositories = repositoryData ?? []
+  const [dismissedUserId, setDismissedUserId] = useState<number | null>(null)
+  const dismissed = useMemo(
+    () => me !== undefined && (dismissedUserId === me.id || isOnboardingDismissed(me.id)),
+    [me, dismissedUserId],
+  )
+  const canCheckRuns = me !== undefined && repositoryData !== undefined && !isError && !dismissed
+  const successfulRunQuery = useRunList({ status: 'succeeded', enabled: canCheckRuns })
+  const successfulRuns = successfulRunQuery.data?.pages.flatMap((page) => page.items)
+  const hasSuccessfulRun = successfulRuns !== undefined && successfulRuns.length > 0
+  const successfulRunCheckFinished =
+    successfulRunQuery.data !== undefined || successfulRunQuery.isError
+  const runQuery = useRunList({
+    enabled: canCheckRuns && successfulRunQuery.data !== undefined && !hasSuccessfulRun,
+  })
   const accessRefreshStatus = useRepositoryAccessRefresh(refetch)
   const statusRef = useRef<HTMLDivElement>(null)
+  const headingRef = useRef<HTMLHeadingElement>(null)
   const { announcement: accessRefreshMessage } = resolveAccessRefreshPresentation(
     accessRefreshStatus,
     isFetching,
@@ -120,6 +131,34 @@ export const RepositoriesPage: FC = () => {
       {!isError || repositories.length > 0 || accessRefreshStatus !== 'idle' ? (
         <RepositoryList
           accessRefreshStatus={accessRefreshStatus}
+          intro={
+            me &&
+            repositoryData !== undefined &&
+            successfulRunCheckFinished &&
+            !dismissed &&
+            !hasSuccessfulRun ? (
+              <OnboardingChecklist
+                hasInstallation={me.workspaces.length > 0}
+                key={me.id}
+                onDismiss={() => {
+                  setDismissedUserId(me.id)
+                  headingRef.current?.focus()
+                }}
+                onRetryRuns={() => {
+                  if (successfulRunQuery.isError) {
+                    void successfulRunQuery.refetch()
+                  } else {
+                    void runQuery.refetch()
+                  }
+                }}
+                repositories={repositories}
+                runs={runQuery.data?.pages.flatMap((page) => page.items)}
+                runsError={successfulRunQuery.isError || runQuery.isError}
+                successfulRuns={successfulRuns}
+                userId={me.id}
+              />
+            ) : null
+          }
           loading={isLoading}
           onRefresh={() => void refetch({ cancelRefetch: false })}
           onSyncAccess={handleSyncAccess}
@@ -128,6 +167,7 @@ export const RepositoriesPage: FC = () => {
           repositories={repositories}
           refreshing={isFetching}
           settingsHref={(repo) => repositorySettingsPath(repo.id)}
+          titleRef={headingRef}
           updatingRepoIds={updatingRepoIds}
         />
       ) : null}

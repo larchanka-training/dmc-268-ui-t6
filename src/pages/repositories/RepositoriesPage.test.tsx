@@ -15,6 +15,7 @@ import { StrictMode } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { mockRunsListPage } from '../../app/mocks/mockRunsList.fixture'
 import {
   activateAccessRefreshIntent,
   peekAuthReturnTo,
@@ -28,6 +29,7 @@ import {
   useRepositories,
   type Repository,
 } from '../../entities/repository'
+import { runQueryKeys, type RunListPage } from '../../entities/run'
 import { setMockTransport } from '../../shared/api/client'
 
 import { RepositoriesPage } from './RepositoriesPage'
@@ -72,6 +74,7 @@ describe('RepositoriesPage', () => {
     globalThis.fetch = originalFetch
     useAuthStore.setState(originalAuth, true)
     sessionStorage.clear()
+    localStorage.clear()
   })
 
   it('shows the Bitbucket workspace selector from the authenticated account without choosing one', async () => {
@@ -95,6 +98,7 @@ describe('RepositoriesPage', () => {
         }
       }
       if (endpoint.path === '/repos') return []
+      if (endpoint.path.startsWith('/runs?')) return { items: [], nextCursor: null }
       throw new Error(`Unexpected request ${endpoint.path}`)
     })
     renderWithClient(<RepositoriesPage />)
@@ -103,6 +107,118 @@ describe('RepositoriesPage', () => {
     expect(requests).not.toContain(
       '/workspaces/11111111-1111-4111-8111-111111111111/bitbucket/connections',
     )
+  })
+
+  it('shows first steps after account and repository load, then resolves run status', async () => {
+    useAuthStore.setState({ isAuthenticated: true })
+    setMockTransport((endpoint) => {
+      if (endpoint.path === '/auth/me') {
+        return { id: 174, login: 'new-user', name: null, avatarUrl: null, workspaces: [] }
+      }
+      if (endpoint.path === '/repos') return []
+      if (endpoint.path.startsWith('/runs?')) return { items: [], nextCursor: null }
+      throw new Error(`Unexpected request ${endpoint.path}`)
+    })
+    renderWithClient(<RepositoriesPage />)
+    expect(await screen.findByRole('heading', { name: 'С чего начать' })).toBeTruthy()
+    const pageHeading = screen.getByRole('heading', { name: 'Репозитории' })
+    const checklistHeading = screen.getByRole('heading', { name: 'С чего начать' })
+    expect(
+      pageHeading.compareDocumentPosition(checklistHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    await waitFor(() => {
+      expect(screen.getAllByText('Не выполнено')).toHaveLength(4)
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Скрыть чеклист' }))
+    expect(document.activeElement).toBe(pageHeading)
+  })
+
+  it('does not request runs after dismissal, including after remount', async () => {
+    const requests: string[] = []
+    useAuthStore.setState({ isAuthenticated: true })
+    setMockTransport((endpoint) => {
+      requests.push(endpoint.path)
+      if (endpoint.path === '/auth/me') {
+        return { id: 174, login: 'new-user', name: null, avatarUrl: null, workspaces: [] }
+      }
+      if (endpoint.path === '/repos') return []
+      if (endpoint.path.startsWith('/runs?')) return { items: [], nextCursor: null }
+      throw new Error(`Unexpected request ${endpoint.path}`)
+    })
+    localStorage.setItem('dmc_onboarding_174_dismissed', '1')
+    const first = renderWithClient(<RepositoriesPage />)
+    await screen.findByText(/Репозитории ещё не подключены/)
+    expect(screen.queryByRole('heading', { name: 'С чего начать' })).toBeNull()
+    expect(requests.filter((path) => path.startsWith('/runs?'))).toHaveLength(0)
+    first.unmount()
+    renderWithClient(<RepositoriesPage />)
+    await screen.findByText(/Репозитории ещё не подключены/)
+    expect(requests.filter((path) => path.startsWith('/runs?'))).toHaveLength(0)
+  })
+
+  it('hides a completed checklist without requesting the unfiltered run list', async () => {
+    const requests: string[] = []
+    const successfulRun = mockRunsListPage.items.find((run) => run.status === 'succeeded')
+    if (!successfulRun) throw new Error('Fixture needs a successful run')
+    let resolveSuccessfulRuns!: (page: RunListPage) => void
+    useAuthStore.setState({ isAuthenticated: true })
+    setMockTransport((endpoint) => {
+      requests.push(endpoint.path)
+      if (endpoint.path === '/auth/me') {
+        return { id: 174, login: 'existing-user', name: null, avatarUrl: null, workspaces: [] }
+      }
+      if (endpoint.path === '/repos') return []
+      if (endpoint.path.startsWith('/runs?status=succeeded')) {
+        return new Promise<RunListPage>((resolve) => {
+          resolveSuccessfulRuns = resolve
+        })
+      }
+      throw new Error(`Unexpected request ${endpoint.path}`)
+    })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    renderWithClient(<RepositoriesPage />, client)
+    await screen.findByText(/Репозитории ещё не подключены/)
+    await waitFor(() => {
+      expect(requests.some((path) => path.startsWith('/runs?status=succeeded'))).toBe(true)
+    })
+    expect(screen.queryByRole('heading', { name: 'С чего начать' })).toBeNull()
+    act(() => {
+      resolveSuccessfulRuns({ items: [successfulRun], nextCursor: null })
+    })
+    await waitFor(() => {
+      expect(client.getQueryData(runQueryKeys.listFiltered({ status: 'succeeded' }))).toBeDefined()
+    })
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: 'С чего начать' })).toBeNull()
+    })
+    expect(requests.filter((path) => path.startsWith('/runs?limit='))).toHaveLength(0)
+  })
+
+  it('keeps setup visible on a run error and offers retry', async () => {
+    let runRequests = 0
+    useAuthStore.setState({ isAuthenticated: true })
+    setMockTransport((endpoint) => {
+      if (endpoint.path === '/auth/me') {
+        return { id: 174, login: 'new-user', name: null, avatarUrl: null, workspaces: [] }
+      }
+      if (endpoint.path === '/repos') return []
+      if (endpoint.path.startsWith('/runs?')) {
+        runRequests += 1
+        if (runRequests === 1) throw new Error('Run service unavailable')
+        return { items: [], nextCursor: null }
+      }
+      throw new Error(`Unexpected request ${endpoint.path}`)
+    })
+    renderWithClient(<RepositoriesPage />)
+    expect(await screen.findByRole('heading', { name: 'С чего начать' })).toBeTruthy()
+    expect(await screen.findByText('Статус прогонов недоступен.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить попытку' }))
+    await waitFor(() => {
+      expect(runRequests).toBeGreaterThan(1)
+    })
+    await waitFor(() => {
+      expect(screen.queryByText('Статус прогонов недоступен.')).toBeNull()
+    })
   })
 
   it('keeps one empty status through an idle error without exposing an empty list', async () => {
@@ -117,6 +233,7 @@ describe('RepositoriesPage', () => {
     expect(status.getAttribute('aria-atomic')).toBe('true')
     expect(status.textContent).toBe('')
     expect(screen.queryByRole('heading', { name: 'Репозитории' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'С чего начать' })).toBeNull()
     expect(screen.queryByText(/ещё не подключены/i)).toBeNull()
   })
 
