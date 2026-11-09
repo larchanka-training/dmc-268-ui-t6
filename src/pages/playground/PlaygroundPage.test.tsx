@@ -233,9 +233,7 @@ describe('PlaygroundPage: rules editor', () => {
 
     await choose(REPOSITORY, DOCS_REPO.fullName)
     // The first answer of a new repository is `pending`; reopening is not needed: the hook polls.
-    expect(
-      await within(rulesStatus()).findByText(MISSING_WARNING, {}, { timeout: 8000 }),
-    ).toBeTruthy()
+    expect(await within(rulesStatus()).findByText(MISSING_WARNING)).toBeTruthy()
 
     expect(editorText(RULES_TEXT)).toBe('')
     typeInto(RULES_TEXT, '# Security')
@@ -329,9 +327,7 @@ describe('PlaygroundPage: rules editor', () => {
 
     typeInto(RULES_TEXT, '# Mine')
     // The hook asks again after RULES_STATUS_POLL_MS and gets the present file.
-    expect(
-      await within(rulesStatus()).findByText('Файл найден', {}, { timeout: 8000 }),
-    ).toBeTruthy()
+    expect(await within(rulesStatus()).findByText('Файл найден')).toBeTruthy()
 
     expect(editorText(RULES_TEXT)).toBe('# Mine')
   })
