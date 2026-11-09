@@ -63,6 +63,7 @@ CodeMirror 6. В Ant Design редактора кода нет, а CodeMirror 6 
 | `CodeBlock`     | блок кода или JSON моноширинным шрифтом                                     |
 | `CodeEditor`    | редактор кода на CodeMirror 6; импорт напрямую, не из `index.ts` (§10)      |
 | `FilePath`      | путь файла среди другого текста: моноширинный, длинный путь переносится     |
+| `ErrorBoundary` | граница ошибок: на месте упавшего при рендере блока `Alert`                 |
 | `Logo`          | знак Reviewer                                                               |
 | иконки          | `IconRepositories`, `IconRuns`, `IconReview`, `IconSidebar`, `IconSettings` |
 
