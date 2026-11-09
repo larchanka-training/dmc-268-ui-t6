@@ -32,5 +32,10 @@ export const layout = {
     fallbackMessage: 'Unexpected application error',
     backToDashboard: 'Back to the dashboard',
   },
+  rootError: {
+    title: 'Something went wrong',
+    description: 'The app stopped because of an error. Reload the page to continue.',
+    reload: 'Reload',
+  },
   routeOffline: 'No network connection. The page will open once you are back online',
 }

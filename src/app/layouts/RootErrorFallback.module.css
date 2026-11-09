@@ -1,0 +1,55 @@
+/* The root 500 screen stands above UiProvider (see RootErrorFallback.tsx): no Ant Design here,
+   only the `--rv-*` tokens. Sizes follow the design system: page title 24px/600, body 13px,
+   button 32px high with 12.5px/500 text, focus ring 2px `--rv-link`. */
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+  color: var(--rv-text);
+  font-family: var(--rv-font-sans);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+  background: var(--rv-bg);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--rv-fs-title);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+}
+
+.description {
+  max-width: 520px;
+  margin: 0;
+  color: var(--rv-text-2);
+}
+
+.reload {
+  height: 32px;
+  margin-top: 4px;
+  padding: 0 15px;
+  color: var(--rv-accent-fg);
+  font: inherit;
+  font-size: var(--rv-fs-sm);
+  font-weight: 500;
+  background: var(--rv-accent);
+  border: 0;
+  border-radius: var(--rv-radius-ctl);
+  cursor: pointer;
+}
+
+.reload:hover {
+  background: var(--rv-accent-hover);
+}
+
+.reload:focus-visible {
+  outline: 2px solid var(--rv-link);
+  outline-offset: 2px;
+}
