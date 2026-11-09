@@ -9,6 +9,20 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { disabledRagIndex } from '../../entities/repository'
 import type { MetricsSummary } from '../../entities/metrics'
 import { AnalyticsPage } from './AnalyticsPage'
+import * as findingsByDay from './ui/FindingsByDay'
+
+// Flipped by the test of a chart that throws: no data makes the real chart throw.
+const crash = vi.hoisted(() => ({ findingsByDay: false }))
+
+vi.mock('./ui/FindingsByDay', async (importOriginal) => {
+  const actual = await importOriginal<typeof findingsByDay>()
+  return {
+    FindingsByDay: (props: Parameters<typeof actual.FindingsByDay>[0]) => {
+      if (crash.findingsByDay) throw new Error('chart failed')
+      return <actual.FindingsByDay {...props} />
+    },
+  }
+})
 
 const REPO = {
   id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
@@ -149,6 +163,8 @@ function summaryRequests(fetchMock: ReturnType<typeof stubFetch>): URL[] {
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+  crash.findingsByDay = false
 })
 
 describe('AnalyticsPage', () => {
@@ -193,6 +209,31 @@ describe('AnalyticsPage', () => {
     const legend = container.querySelector('ul')
     const dots = legend?.querySelectorAll('li span')
     expect(dots?.length).toBe(4)
+  })
+
+  it('shows the block stub in place of a chart that throws and keeps the rest', async () => {
+    // React reports the error the boundary caught to the console.
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    crash.findingsByDay = true
+    stubFetch((url) =>
+      url.pathname.endsWith('/repos')
+        ? { status: 200, body: [REPO] }
+        : { status: 200, body: summary() },
+    )
+    renderPage()
+
+    const stub = (
+      await screen.findByText('Не удалось загрузить этот блок, обновите страницу')
+    ).closest('[role="alert"]')
+    expect(screen.queryByRole('img', { name: 'Находки по дням' })).toBeNull()
+    const duration = screen.getByRole('img', { name: 'Средняя длительность по дням' })
+    // The stub stands where the findings chart stood: first in the charts, before the duration.
+    const durationFigure = duration.closest('figure')
+    expect(stub?.parentElement).toBe(durationFigure?.parentElement)
+    expect(stub?.nextElementSibling).toBe(durationFigure)
+    expect(screen.getByText('Критические')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Числа по дням' })).toBeTruthy()
+    expect(screen.getByRole('table')).toBeTruthy()
   })
 
   it('requests 7d when the address says 24h, and 30d after the period changes', async () => {
