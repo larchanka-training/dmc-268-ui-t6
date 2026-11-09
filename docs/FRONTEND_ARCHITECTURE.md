@@ -160,6 +160,7 @@ flowchart TD
 | Правила: статус `.review/rules.md`               | `entities/repository`, `widgets/repository-rules`, `pages/repositories/RepositorySettingsPage`          |
 | Журнал прогонов (`/audit`)                       | `entities/run`, `features/audit-filter`, `pages/audit`                                                  |
 | Дашборд качества (`/analytics`)                  | `entities/metrics`, `features/analytics-filter`, `pages/analytics`                                      |
+| Песочница правил (`/playground`)                 | `entities/repository`, `widgets/repository-rules`, `pages/playground`                                   |
 
 Границы срезов ui#93:
 
@@ -405,6 +406,9 @@ src/pages/login/LoginPage.module.css
 src/pages/login/LoginPage.motion.test.tsx
 src/pages/login/LoginPage.test.tsx
 src/pages/login/LoginPage.tsx
+src/pages/playground/PlaygroundPage.module.css
+src/pages/playground/PlaygroundPage.test.tsx
+src/pages/playground/PlaygroundPage.tsx
 src/pages/repositories/RepositoriesPage.module.css
 src/pages/repositories/RepositoriesPage.test.tsx
 src/pages/repositories/RepositoriesPage.tsx
@@ -467,6 +471,7 @@ src/shared/i18n/locales/en/common.ts
 src/shared/i18n/locales/en/index.ts
 src/shared/i18n/locales/en/layout.ts
 src/shared/i18n/locales/en/limitReasons.ts
+src/shared/i18n/locales/en/playground.ts
 src/shared/i18n/locales/en/reasons.ts
 src/shared/i18n/locales/en/repositories.ts
 src/shared/i18n/locales/en/rules.ts
@@ -480,6 +485,7 @@ src/shared/i18n/locales/ru/common.ts
 src/shared/i18n/locales/ru/index.ts
 src/shared/i18n/locales/ru/layout.ts
 src/shared/i18n/locales/ru/limitReasons.ts
+src/shared/i18n/locales/ru/playground.ts
 src/shared/i18n/locales/ru/reasons.ts
 src/shared/i18n/locales/ru/repositories.ts
 src/shared/i18n/locales/ru/rules.ts
@@ -644,6 +650,7 @@ src/widgets/repository-rules/ui/RulesStatusDetails.tsx
 src/widgets/repository-rules/ui/RulesStatusPanel.module.css
 src/widgets/repository-rules/ui/RulesStatusPanel.test.tsx
 src/widgets/repository-rules/ui/RulesStatusPanel.tsx
+src/widgets/repository-rules/ui/RulesStatusView.test.tsx
 src/widgets/run-inspector/index.ts
 src/widgets/run-inspector/lib/format.ts
 src/widgets/run-inspector/model/store.ts
@@ -695,6 +702,7 @@ src/widgets/run-inspector/ui/RunProgressBar.tsx
 | Текущий workspace                     | id в Zustand и localStorage (`dmc_current_workspace`), `features/workspace`; читать — `useCurrentWorkspace` (ниже)         | — (список — `['auth', 'me']`; выбранного id нет в ответе — текущий первый доступный)                                                                                                                                                                                                                                              |
 | Статус `.review/rules.md`             | TanStack Query, ключ `['repoRulesStatus', id]` — вне `['repos']` (ниже)                                                    | открытие (`'always'`), `gcTime: 0`, опрос `pending` и повтора `retryable unavailable` раз в 3 с до 60 с                                                                                                                                                                                                                           |
 | Черновик настроек репозитория         | `useState` в `RepositorySettingsForm`: снимок на открытии (baseline) и правки пользователя, не копия кэша                  | — (живёт с формой; `key={repoId}`, `resetTo`)                                                                                                                                                                                                                                                                                     |
+| Песочница правил (`/playground`)      | `useState` в `PlaygroundPage`: репозиторий, источник правил, режим, файл, код, черновик правил `{ repoId, text }`          | — (живёт со страницей; текст файла правил — из `['repoRulesStatus', id]`, не копируется; ответ сервера, в том числе после опроса `pending`, черновик не затирает)                                                                                                                                                                 |
 | Черновики комментариев                | —                                                                                                                          | future (не реализовано в этом спринте)                                                                                                                                                                                                                                                                                            |
 
 **Текущий workspace (ui#207, Ф-27).** Где хранится: выбранный id — в `useWorkspaceStore`
@@ -2753,6 +2761,13 @@ issue прямо выносит подключение логирования з
 и `AppLayoutRoute`, что `/runs`. В меню после «Прогоны» идут «Аудит» и «Аналитика». Журнал фильтруется
 `repo` и `status` в адресе; дашборд — `range` (`7d` или `30d`) и `repo`. Ядерные страницы docs-site
 в этот контракт не входят: их обновление — отдельная фаза после выката.
+
+**Песочница правил (ui#187).** `/playground` — ленивая страница за тем же `ProtectedLayout` и
+`AppLayoutRoute`; в меню идёт после «Аналитики». `CodeEditor` она берёт из
+`shared/ui/CodeEditor/CodeEditor`, не из `shared/ui/index.ts`, поэтому CodeMirror попадает только в её
+чанк (DESIGN_SYSTEM §10). Статус `.review/rules.md` держит страница (`useRepositoryRulesStatusRetry`, §2)
+и показывает его через `RulesStatusView` виджета `repository-rules` без текста файла: текст стоит в
+редакторе правил.
 
 **Сборка и чанки.** `vite.config.ts`: `build.rolldownOptions.output.codeSplitting`
 (`vendor-react`, `vendor-query`, `vendor-zod`, `includeDependenciesRecursively: false`);
