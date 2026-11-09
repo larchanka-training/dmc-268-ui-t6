@@ -125,6 +125,7 @@ describe('UserMenu', () => {
     fireEvent.click(trigger)
     expect(await screen.findByText('Выйти')).toBeDefined()
     expect(trigger.getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getByText('Токены агента')).toBeDefined()
   })
 })
 
