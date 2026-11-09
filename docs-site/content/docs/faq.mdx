@@ -111,6 +111,26 @@ browser. It does not filter runs or repositories: those pages still show everyth
 
 ## Troubleshooting
 
+### Reviewer seems to be down
+
+Open the status page at [status.dmc268-t6.axyi.ru](https://status.dmc268-t6.axyi.ru/). It needs no
+sign-in, is in Russian and refreshes itself every 30 seconds. The `prod` section is the production
+service, and `staging` is the test environment.
+[staging-status.dmc268-t6.axyi.ru](https://staging-status.dmc268-t6.axyi.ru/) shows only `staging`.
+
+Each section lists four components: `API`, `UI` (the dashboard), `Ревью PR` (pull request reviews)
+and `Приём вебхуков` (receiving webhooks). Each shows one of three states, with times in UTC:
+
+- `работает` (up), with `с <time>` (since the end of its last failure in the past 7 days) or
+  `сбоев за 7 дн. не было` (no failures in 7 days).
+- `не работает` (down), with `с <time>` (since it failed) and, below it, each alert behind it as
+  `<alert name>: <what does not work>`.
+- `нет данных` (no data): the page cannot tell whether it works. Every component shows this while
+  the page has no fresh data.
+
+The page shows outages only: a failed or skipped run does not change it, see
+[A run failed](/faq#a-run-failed).
+
 ### No review appeared
 
 Check these in order:
