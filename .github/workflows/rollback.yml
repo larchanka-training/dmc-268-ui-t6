@@ -35,10 +35,12 @@ permissions:
   packages: read
 
 # Whole-run lock for main only: a dispatch from another branch gets its own throwaway group,
-# so it cannot replace a pending main deploy or promotion before its jobs are skipped.
+# so it never waits for the VPS lock before its jobs are skipped. queue: max, as every member
+# of staging-deploy: a waiting member is not cancelled when the next one joins (docs/CICD.md §7).
 concurrency:
   group: ${{ github.ref == 'refs/heads/main' && 'staging-deploy' || format('rollback-ignored-{0}', github.run_id) }}
   cancel-in-progress: false
+  queue: max
 
 jobs:
   rollback:

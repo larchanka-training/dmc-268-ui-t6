@@ -272,6 +272,10 @@ jobs:
             VITE_GITHUB_CLIENT_ID=${{ vars.VITE_GITHUB_CLIENT_ID }}
             VITE_GITHUB_APP_SLUG=${{ vars.VITE_GITHUB_APP_SLUG }}
             VITE_DOCS_URL=${{ vars.VITE_DOCS_URL }}
+          # Deploy prod rebuilds the commit under :staging and reads it from this label: the
+          # :<sha> tag can move to a rebuild (docs/CICD.md §7).
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           no-cache-filters: runtime
@@ -508,9 +512,13 @@ jobs:
       contents: read
       packages: read
     needs: push-image
+    # The VPS lock shared with Promote staging tag, Rollback staging and Deploy prod: one member
+    # at a time, the others wait in turn; queue: max keeps a waiting member from being cancelled
+    # when the next one joins (docs/CICD.md §7).
     concurrency:
       group: staging-deploy
       cancel-in-progress: false
+      queue: max
     environment:
       name: staging
       url: ${{ steps.target.outputs.base_url }}
@@ -1032,6 +1040,7 @@ jobs:
     concurrency:
       group: staging-deploy
       cancel-in-progress: false
+      queue: max
     # Terraform SSH host, port, user and key are scoped to the staging environment.
     environment:
       name: staging
