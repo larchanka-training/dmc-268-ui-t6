@@ -13,8 +13,25 @@ export function App() {
   useLayoutEffect(() => {
     if (!location.hash) return
     const target = document.getElementById(location.hash.slice(1))
-    if (target) target.scrollIntoView({ block: 'start', behavior: 'instant' })
-    else window.scrollTo(0, 0)
+    if (!target) {
+      window.scrollTo(0, 0)
+      return
+    }
+    target.scrollIntoView({ block: 'start', behavior: 'instant' })
+    const fontReady = document.fonts.ready
+
+    let cancelled = false
+    const events = ['wheel', 'touchstart', 'keydown', 'pointerdown']
+    const stopWatching = () => {
+      cancelled = true
+      for (const type of events) window.removeEventListener(type, stopWatching)
+    }
+    for (const type of events) window.addEventListener(type, stopWatching, { passive: true })
+    void fontReady.then(() => {
+      if (!cancelled) target.scrollIntoView({ block: 'start', behavior: 'instant' })
+      stopWatching()
+    })
+    return stopWatching
   }, [])
 
   return (

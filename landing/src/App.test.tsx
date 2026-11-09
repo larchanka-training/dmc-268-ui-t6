@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render } from '@testing-library/react'
+import { act, cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { App } from './App'
@@ -10,6 +10,15 @@ function mockScroll(path: string) {
   Element.prototype.scrollIntoView = scrollIntoView
   const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
   return { scrollIntoView, scrollTo }
+}
+
+function mockFontReady() {
+  let resolve!: () => void
+  const ready = new Promise<void>((done) => {
+    resolve = done
+  })
+  Object.defineProperty(document, 'fonts', { configurable: true, value: { ready } })
+  return { ready, resolve }
 }
 
 afterEach(() => {
@@ -34,6 +43,56 @@ describe('initial landing fragment', () => {
       expect(scrollTo).not.toHaveBeenCalled()
     },
   )
+
+  it.each(['how-it-works', 'features'])(
+    'realigns #%s after the web fonts finish loading',
+    async (id) => {
+      const fonts = mockFontReady()
+      const { scrollIntoView } = mockScroll(`/#${id}`)
+
+      render(<App />)
+      expect(scrollIntoView).toHaveBeenCalledTimes(1)
+
+      await act(() => {
+        fonts.resolve()
+        return fonts.ready
+      })
+
+      expect(scrollIntoView).toHaveBeenCalledTimes(2)
+      expect(scrollIntoView.mock.contexts[1]).toBe(document.getElementById(id))
+    },
+  )
+
+  it.each(['wheel', 'touchstart', 'keydown', 'pointerdown'])(
+    'does not pull the page back after %s before fonts finish loading',
+    async (eventType) => {
+      const fonts = mockFontReady()
+      const { scrollIntoView } = mockScroll('/#features')
+
+      render(<App />)
+      window.dispatchEvent(new Event(eventType))
+      await act(() => {
+        fonts.resolve()
+        return fonts.ready
+      })
+
+      expect(scrollIntoView).toHaveBeenCalledTimes(1)
+    },
+  )
+
+  it('does not realign after unmounting while fonts are pending', async () => {
+    const fonts = mockFontReady()
+    const { scrollIntoView } = mockScroll('/#features')
+
+    const view = render(<App />)
+    view.unmount()
+    await act(() => {
+      fonts.resolve()
+      return fonts.ready
+    })
+
+    expect(scrollIntoView).toHaveBeenCalledTimes(1)
+  })
 
   it('resets an unknown fragment to the Hero', () => {
     const { scrollIntoView, scrollTo } = mockScroll('/#несуществующий')

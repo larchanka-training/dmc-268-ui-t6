@@ -49,6 +49,9 @@ it('waits for config before rendering a fragment and never resets its scroll aft
   Element.prototype.scrollIntoView = scrollIntoView
 
   await import('./main')
+  await act(async () => {
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+  })
 
   expect(fetch).toHaveBeenCalledWith('/config.json', expect.any(Object))
   expect(root.querySelector('#features')).toBeNull()
