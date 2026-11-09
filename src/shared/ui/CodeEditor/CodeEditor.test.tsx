@@ -625,6 +625,17 @@ describe('CodeEditor: completions', () => {
 
     expect(startCompletion(view())).toBe(false)
   })
+
+  it('offers nothing while read only, where a completion would change the text', () => {
+    const { rerender } = render(
+      <CodeEditor aria-label={LABEL} completions={completions} readOnly value="" />,
+    )
+
+    expect(startCompletion(view())).toBe(false)
+
+    rerender(<CodeEditor aria-label={LABEL} completions={completions} value="" />)
+    expect(startCompletion(view())).toBe(true)
+  })
 })
 
 describe('CodeEditor: look', () => {

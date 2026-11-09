@@ -366,6 +366,8 @@ describe('PlaygroundPage: rules editor', () => {
     expect(screen.getByRole('textbox', { name: RULES_TEXT }).getAttribute('aria-readonly')).toBe(
       'true',
     )
+    // A completion would write into the locked editor and leave a draft for the repository.
+    expect(startCompletion(editor(RULES_TEXT))).toBe(false)
   })
 
   it('suggests the recommended headings and the review-ignore block', async () => {

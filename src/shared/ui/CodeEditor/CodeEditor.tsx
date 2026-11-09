@@ -43,7 +43,7 @@ export interface CodeEditorProps {
   readOnly?: boolean
   /**
    * Offered at the start of a line, as the user types (Ctrl-Space on an empty line); Enter takes
-   * one, Escape closes the list, Tab still leaves the editor.
+   * one, Escape closes the list, Tab still leaves the editor. None while `readOnly`.
    */
   completions?: readonly CodeEditorCompletion[]
   'aria-label': string
@@ -138,11 +138,14 @@ export function CodeEditor(props: CodeEditorProps): JSX.Element {
     })
   }, [readOnly])
 
+  // None while read only: a completion is applied by a transaction, which `readOnly` does not stop.
   useLayoutEffect(() => {
     viewRef.current?.dispatch({
-      effects: completion.reconfigure(completionsExtension(completions)),
+      effects: completion.reconfigure(
+        completionsExtension(readOnly ? NO_COMPLETIONS : completions),
+      ),
     })
-  }, [completions])
+  }, [completions, readOnly])
 
   // A layout effect: a passive one could run after the next keystroke and put the older text back.
   useLayoutEffect(() => {
