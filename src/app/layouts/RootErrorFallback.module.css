@@ -1,7 +1,7 @@
 /* The root 500 screen stands above UiProvider (see RootErrorFallback.tsx): no Ant Design here,
    only the `--rv-*` tokens. Sizes follow the design system: page title, body text, a button of
-   control height with 12.5px/500 text, focus ring 2px `--rv-link`. The button has no border, so
-   its 16px side padding equals Ant Design's 15px plus the 1px border. */
+   control height with 12.5px/500 text and 12px side padding (the theme's `paddingInline`,
+   DESIGN_SYSTEM §5), focus ring 2px `--rv-link`. */
 .screen {
   display: flex;
   flex-direction: column;
@@ -35,7 +35,7 @@
 .reload {
   height: var(--rv-ctl-md);
   margin-top: 4px;
-  padding: 0 16px;
+  padding: 0 12px;
   color: var(--rv-accent-fg);
   font: inherit;
   font-size: var(--rv-fs-sm);
