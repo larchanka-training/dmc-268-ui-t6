@@ -188,3 +188,10 @@ nothing until the run knows it, for example from a finding or a comment. The dif
 by it. Adding a file or removing one of several keeps it. Clearing **Files** or removing its last
 file takes it out of the page address, so it does not come back. If **Files** is empty, pick a file
 and remove it.
+
+### A severity or search link still shows the whole diff
+
+A failed or skipped run, or one cancelled before its review was published, has no findings to
+filter. The dashboard keeps the diff visible and shows a count of zero findings instead of saying
+that none matched the filter. A cancelled run can still have findings when cancellation was
+requested during publication; in that case, severity and search filter them normally.

@@ -37,10 +37,12 @@ interface RunDiffProps {
   onFiltersReset?: () => void
   /** The debounced search text; defaults to `onFiltersChange({ query }, { replace: true })`. */
   onFiltersQueryChange?: (query: string) => void
-  /** `/comments` has not answered yet: the set is still incomplete, so "nothing matches" is not shown. */
+  /** Comments may still add findings, so "nothing matches" is not shown. */
   commentsPending?: boolean
   /** The active run has not finished producing findings; content filters must keep its files visible. */
   findingsPending?: boolean
+  /** Whether the active run can still publish findings. Only affects the waiting text. */
+  findingsExpected?: boolean
   /** Fallback after commit for navigation the page did not make when no subscription is supplied. */
   filtersNavigationKey?: number
   /** Notifies the search box before an external navigation commits so it drops pending text. */
@@ -104,12 +106,14 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
     onFiltersQueryChange,
     commentsPending = false,
     findingsPending = false,
+    findingsExpected = true,
     filtersNavigationKey,
     subscribeToFiltersNavigation,
   } = props
 
   const activeFilters = onFiltersChange === undefined ? EMPTY_FINDING_FILTERS : filters
   const displayed = displayedFindings(summaryOnly, findings, comments)
+  const noFindings = displayed.length === 0 && !commentsPending
   const runFiles = [
     ...new Set([...files.map((file) => file.filename), ...displayed.map((f) => f.file)]),
   ]
@@ -124,7 +128,7 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
   const visibleFiles = files.filter(
     (file) =>
       (effectiveFiles.length === 0 || effectiveFiles.includes(file.filename)) &&
-      (findingsPending || !contentFilter || filesWithHits.has(file.filename)),
+      (findingsPending || noFindings || !contentFilter || filesWithHits.has(file.filename)),
   )
 
   const outsideFindings = summaryOnly
@@ -150,12 +154,19 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
     : undefined
   const filtersBar = controls ? (
     <FindingFiltersBar
-      empty={filtering && shownFindings.length === 0 && !commentsPending && !findingsPending}
+      empty={
+        filtering &&
+        !noFindings &&
+        shownFindings.length === 0 &&
+        !commentsPending &&
+        !findingsPending
+      }
       fileOptions={runFiles.map((file) => ({
         file,
         count: displayed.filter((finding) => finding.file === file).length,
       }))}
       filters={filters}
+      findingsExpected={findingsExpected}
       findingsPending={findingsPending}
       navigationKey={filtersNavigationKey}
       subscribeToNavigation={subscribeToFiltersNavigation}

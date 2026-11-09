@@ -747,10 +747,13 @@ describe('RunDiff filters: empty result', () => {
     expect(onFiltersChange).toHaveBeenCalledWith(EMPTY_FINDING_FILTERS)
   })
 
-  it('is shown for a content filter that nothing passes in a run without findings', () => {
-    render(runDiff({ findings: [], comments: [], filters: filtersOf({ severities: ['info'] }) }))
+  it('keeps the diff and skips the filter-empty message when the run has no findings', () => {
+    const { container } = render(
+      runDiff({ findings: [], comments: [], filters: filtersOf({ severities: ['info'] }) }),
+    )
 
-    expect(screen.getByTestId('findings-filter-empty')).toBeTruthy()
+    expect(diffCount(container)).toBe(2)
+    expect(screen.queryByTestId('findings-filter-empty')).toBeNull()
     expect(screen.getByText(counter(0, 0))).toBeTruthy()
   })
 
@@ -1170,5 +1173,26 @@ describe('RunDiff filters: search text and pending comments', () => {
     )
 
     expect(screen.queryByTestId('findings-filter-empty')).toBeNull()
+  })
+
+  it('does not show unrelated diff files while comments may still add a finding', () => {
+    const filters = filtersOf({ severities: ['warning'] })
+    const { container, rerender } = render(
+      runDiff({ findings: [], comments: [], filters, commentsPending: true }),
+    )
+
+    expect(diffCount(container)).toBe(0)
+    expect(screen.queryByTestId('findings-filter-empty')).toBeNull()
+
+    rerender(
+      runDiff({
+        findings: [],
+        comments: [makeComment('000000000008', { title: 'Late finding' })],
+        filters,
+        commentsPending: false,
+      }),
+    )
+    expect(diffCount(container)).toBe(1)
+    expect(fileNameShown('src/a.ts')).toBe(true)
   })
 })

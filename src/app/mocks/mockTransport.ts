@@ -686,16 +686,13 @@ function handleMockTransport(
   const runCommentsMatch = /^\/runs\/([^/]+)\/comments$/.exec(endpoint.path)
   if (runCommentsMatch && endpoint.method === 'GET') {
     const runId = runCommentsMatch[1]
-    if (!runId || !findRunSession(runId)) {
+    const session = runId ? findRunSession(runId) : undefined
+    if (!session) {
       throw new ApiError(404, 'Not Found', { message: 'Run not found' })
     }
-    // Created runs have no review; fixture reviews follow the existing timeline.
+    // Only succeeded fixtures have a published review; cancelled fixtures stopped before it.
     const published =
-      createdRunIds.has(runId) ||
-      runId === FAILED_RUN_ID ||
-      (runId === WALKING_RUN_ID && currentWalkingRun().session.status !== 'succeeded')
-        ? []
-        : mockReviewComments
+      createdRunIds.has(session.id) || session.status !== 'succeeded' ? [] : mockReviewComments
     return published.map((comment) => ({ ...comment }))
   }
 
