@@ -12,9 +12,15 @@ it('uses the configured App and app origin for the copied instruction', () => {
   expect(instruction).toContain('https://app.example.com/api/agent/instructions')
 })
 
-it.each(['', 'Bad Slug/../x', '../reviewer', 'reviewer.example'])(
-  'rejects an unsafe GitHub App slug %j',
-  (slug) => {
-    expect(buildAgentInstruction(slug, 'https://app.example.com')).toBeNull()
-  },
-)
+it.each([
+  undefined,
+  '',
+  '-a',
+  'a--b',
+  'Reviewer',
+  'Bad Slug/../x',
+  '../reviewer',
+  'reviewer.example',
+])('rejects an unsafe GitHub App slug %j', (slug) => {
+  expect(buildAgentInstruction(slug, 'https://app.example.com')).toBeNull()
+})
