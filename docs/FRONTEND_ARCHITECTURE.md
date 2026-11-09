@@ -181,6 +181,8 @@ src/App.returnTo.test.tsx
 src/App.test.tsx
 src/App.tsx
 src/app/layouts/ProtectedLayout.returnTo.test.tsx
+src/app/layouts/RootErrorFallback.module.css
+src/app/layouts/RootErrorFallback.tsx
 src/app/layouts/RouteLayouts.module.css
 src/app/layouts/RouteLayouts.test.tsx
 src/app/layouts/RouteLayouts.tsx
@@ -216,6 +218,7 @@ src/app/providers/runStreamConnect.test.ts
 src/app/providers/runStreamConnect.ts
 src/app/providers/useRunStream.test.tsx
 src/app/providers/useRunStream.ts
+src/app/rootErrorBoundary.test.tsx
 src/app/routes.offline.test.tsx
 src/app/routes.tsx
 src/app/runDetailLoading.page.test.tsx
@@ -500,6 +503,9 @@ src/shared/ui/DataTable/DataTable.module.css
 src/shared/ui/DataTable/DataTable.stories.tsx
 src/shared/ui/DataTable/DataTable.test.tsx
 src/shared/ui/DataTable/DataTable.tsx
+src/shared/ui/ErrorBoundary/ErrorBoundary.stories.tsx
+src/shared/ui/ErrorBoundary/ErrorBoundary.test.tsx
+src/shared/ui/ErrorBoundary/ErrorBoundary.tsx
 src/shared/ui/FilePath/FilePath.module.css
 src/shared/ui/FilePath/FilePath.stories.tsx
 src/shared/ui/FilePath/FilePath.test.tsx
@@ -2714,6 +2720,17 @@ issue прямо выносит подключение логирования з
 
 **Роутер.** Установлен **react-router 8** (^8.4.0, peer react ≥ 19.2.7 — выполняется), настроен в `src/app/routes.tsx`. Лэйауты (`AppLayoutRoute`, `ProtectedLayout`, `PageFallback`, `RouteErrorFallback`) и обёртки страниц (`RoutedRepositoriesPage` и др.) вынесены в `src/app/layouts/`, чтобы файл роутера оставался чистой конфигурацией маршрутов без отключения правил Fast Refresh (`react-refresh/only-export-components`). Страницы подключаются через `lazyRoute` (`src/app/layouts/lazyRoute.tsx`), а не `lazy`: чанк, упавший при `navigator.onLine === false`, показывает `RouteOfflineNotice` внутри лэйаута и открывается сам по событию `online`, вместе с заново запрошенными стилями, которые preload-помощник Vite сам не повторяет. Отказ при наличии сети (чанк пропал после деплоя или сеть ещё не готова после `online`) идёт в `RouteErrorFallback`: «Повторить попытку» там перезагружает страницу на том же адресе.
 `PageFallback` ничего не рисует: это метка ожидания `PageLoading` из дизайн-системы. Та же метка отмечает проверку сессии в `ProtectedLayout` и первичную загрузку данных прогона в `RunDetailPage` (`runQuery.isLoading`). Кольцо одно на приложение, его показывает `PageLoaderHost` в `UiProvider`: по центру окна, не раньше чем через 300 мс непрерывного ожидания, с плавным появлением и исчезновением (`docs/DESIGN_SYSTEM.md` §7). Фоновый refetch с данными в кэше оставляет страницу видимой; ожидание диффа и журнала действий остаётся секционным. Интеграция маршрута, страницы и хоста проверяется в `src/app/runDetailLoading.page.test.tsx`.
+
+**Корневая граница ошибок (Refs ui#238).** `App` (`src/App.tsx`) оборачивает в `ErrorBoundary`
+из `src/shared/ui` всё приложение: провайдеры, роутер и собственные хуки (`AppContent`).
+Исключение при рендере вне маршрутов показывает экран 500 `RootErrorFallback`
+(`src/app/layouts/RootErrorFallback.tsx`) с кнопкой «Перезагрузить»; ошибка внутри маршрута, как и
+раньше, идёт в `RouteErrorFallback`. Экран стоит над `UiProvider`, который мог упасть сам, поэтому
+не берёт ни Ant Design, ни `useTranslation`: простая разметка на токенах `--rv-*` статического
+`tokens.css` и тексты `layout.rootError.*` через `i18n.t`. Это вынужденное исключение из правила
+«базовые компоненты только из дизайн-системы». `error.message` экран не показывает, ошибку пишет в
+консоль сам React. Тот же `ErrorBoundary` без `fallback` держит упавший график `/analytics` внутри
+его блока: на месте графика `Alert` «Не удалось загрузить этот блок, обновите страницу».
 
 **Маршрут настроек репозитория (Refs ui#93).** `/repositories/:repoId/settings` — дочерний маршрут
 `AppLayoutRoute` за `ProtectedLayout`; ленивая страница `RepositorySettingsPage` подключена обёрткой
