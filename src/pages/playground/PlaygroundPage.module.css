@@ -1,0 +1,73 @@
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 16px;
+}
+
+.field {
+  flex: 1 1 280px;
+  max-width: 420px;
+}
+
+/* One column on a narrow screen; the inputs and the result side by side from 992px (§5). */
+.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+@media (width >= 992px) {
+  .columns {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+}
+
+.inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+.codeFields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: flex-end;
+}
+
+.codeFields .field {
+  margin-bottom: 0;
+}
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.label {
+  margin: 0;
+  color: var(--rv-text-2);
+  font-size: var(--rv-fs-xs);
+  font-weight: 500;
+}
+
+.note {
+  color: var(--rv-text-2);
+}
+
+.result {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.emptyText {
+  display: block;
+  max-width: 520px;
+  margin-inline: auto;
+}
