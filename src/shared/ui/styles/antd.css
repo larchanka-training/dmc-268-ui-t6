@@ -121,7 +121,7 @@
 .ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-item-group .ant-dropdown-menu-item-group-title {
   padding: 4px 12px 2px;
   color: var(--rv-text-3);
-  font-size: 11.5px;
+  font-size: var(--rv-fs-xs);
 }
 
 /* Dropdown: a danger item under the pointer or the keyboard is tinted, not filled. Ant Design

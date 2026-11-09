@@ -35,6 +35,10 @@
   line-height: 1.35;
 }
 
+.userName {
+  font-weight: 600;
+}
+
 .userText small {
   color: var(--rv-text-2);
   font-size: var(--rv-fs-xs);

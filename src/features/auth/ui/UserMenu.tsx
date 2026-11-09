@@ -34,7 +34,7 @@ export const UserMenu: FC<UserMenuProps> = ({ extraItems, compact = false }) => 
             className: styles.userInfo,
             label: (
               <span className={styles.userText}>
-                <b>{user.name ?? user.login}</b>
+                <span className={styles.userName}>{user.name ?? user.login}</span>
                 <small>ID: {user.id}</small>
               </span>
             ),
