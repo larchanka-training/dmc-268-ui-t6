@@ -2,7 +2,7 @@
 import { cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { IconAnalytics, IconAudit, IconRuns } from './icons'
+import { IconAnalytics, IconAudit, IconPlayground, IconRuns } from './icons'
 
 afterEach(() => {
   cleanup()
@@ -12,6 +12,7 @@ describe('navigation icons', () => {
   it.each([
     ['IconAudit', IconAudit],
     ['IconAnalytics', IconAnalytics],
+    ['IconPlayground', IconPlayground],
   ] as const)('%s is a 16×16 stroke icon with no color of its own', (_name, Icon) => {
     const { container } = render(<Icon />)
     const svg = container.querySelector('svg')

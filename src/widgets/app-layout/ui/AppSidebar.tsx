@@ -18,6 +18,7 @@ import { LANGUAGE_NAMES, LANGUAGES, useTranslation } from '../../../shared/i18n'
 import {
   IconAnalytics,
   IconAudit,
+  IconPlayground,
   IconRepositories,
   IconReview,
   IconRuns,
@@ -78,6 +79,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({ currentPath = HOME_PATH, onNav
     { path: '/runs', icon: <IconRuns />, label: t('layout.nav.runs') },
     { path: '/audit', icon: <IconAudit />, label: t('layout.nav.audit') },
     { path: '/analytics', icon: <IconAnalytics />, label: t('layout.nav.analytics') },
+    { path: '/playground', icon: <IconPlayground />, label: t('layout.nav.playground') },
     ...(mocksEnabledAtRuntime(isMockMode)
       ? [{ path: '/review', icon: <IconReview />, label: t('layout.nav.review') }]
       : []),

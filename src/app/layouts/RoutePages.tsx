@@ -41,6 +41,9 @@ const AuditPage = lazyRoute(() =>
 const AnalyticsPage = lazyRoute(() =>
   import('../../pages/analytics/AnalyticsPage').then((m) => ({ default: m.AnalyticsPage })),
 )
+const PlaygroundPage = lazyRoute(() =>
+  import('../../pages/playground/PlaygroundPage').then((m) => ({ default: m.PlaygroundPage })),
+)
 
 export const RoutedRepositoriesPage: FC = () => {
   return <RepositoriesPage />
@@ -68,6 +71,10 @@ export const RoutedAuditPage: FC = () => {
 
 export const RoutedAnalyticsPage: FC = () => {
   return <AnalyticsPage />
+}
+
+export const RoutedPlaygroundPage: FC = () => {
+  return <PlaygroundPage />
 }
 
 export const RoutedLoginPage: FC = () => {
