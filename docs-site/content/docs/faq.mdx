@@ -125,8 +125,8 @@ and `Приём вебхуков` (receiving webhooks). Each shows one of three 
   `сбоев за 7 дн. не было` (no failures in 7 days).
 - `не работает` (down), with `с <time>` (since it failed) and, below it, each alert behind it as
   `<alert name>: <what does not work>`.
-- `нет данных` (no data): the page cannot tell whether it works. Every component shows this while
-  the page has no fresh data.
+- `нет данных` (no data): the page cannot tell whether it works. Either it has no data on this
+  component, or it has no fresh data at all: then every component shows this.
 
 The page shows outages only: a failed or skipped run does not change it, see
 [A run failed](/faq#a-run-failed).
