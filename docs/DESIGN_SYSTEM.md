@@ -246,7 +246,9 @@ Ant Design пересчитывает исходные цвета своим а�
 Шрифты: `Inter Variable` для интерфейса, `JetBrains Mono Variable` для кода, путей и хешей.
 Насыщенности только 400, 500 и 600. Body `Typography.Text` и `Typography.Paragraph` получают
 13px/1.5 локальными токенами `Typography`; шрифт кнопок — 12.5px во всех трёх размерах, включая
-`small` и `large`. `CodeBlock` сохраняет отдельный ритм 12px/21px.
+`small` и `large`. `CodeBlock` сохраняет отдельный ритм 12px/21px. Заголовок `Alert` с описанием —
+13px, размер основного текста: Ant Design берёт его из `fontSizeLG` (14px), тема задаёт
+`Alert.fontSizeLG`, глобальный токен не меняется.
 
 ## 5. Размеры и форма
 

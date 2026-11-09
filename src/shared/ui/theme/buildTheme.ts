@@ -295,7 +295,9 @@ export function buildTheme(mode: RvThemeMode, options: BuildThemeOptions = {}): 
       // An avatar without a picture is a neutral circle with the text colour.
       Avatar: { colorTextPlaceholder: p.surface3, colorTextLightSolid: p.text },
       Card: { colorBgContainer: p.bgRaised, bodyPadding: 16 },
-      Alert: { withDescriptionPadding: '12px 14px', withDescriptionIconSize: 18 },
+      // An Alert with a description takes its title size from `fontSizeLG` (14px): 13px is the
+      // body size of DS §4.
+      Alert: { withDescriptionPadding: '12px 14px', withDescriptionIconSize: 18, fontSizeLG: 13 },
       Checkbox: { colorPrimary: p.accent, colorPrimaryHover: p.accentHover },
       Radio: { colorPrimary: p.accent, colorPrimaryHover: p.accentHover },
       // Steps draws its marks through `ProgressSteps`. Ant Design still colours the box around a

@@ -190,6 +190,13 @@ describe('buildTheme', () => {
     ])
   })
 
+  it('sets the title of an Alert with a description at 13px, a size of the DS §4 scale (#239 D6)', () => {
+    for (const mode of MODES) {
+      // Ant Design takes that title from `fontSizeLG`, 14px by default; the global value stays.
+      expect(buildTheme(mode).components?.Alert?.fontSizeLG).toBe(13)
+    }
+  })
+
   it('rounds a modal by 10px and keeps a large button at the control radius', () => {
     for (const mode of MODES) {
       const { components } = buildTheme(mode)
