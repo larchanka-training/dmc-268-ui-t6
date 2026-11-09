@@ -18,6 +18,7 @@ import {
 } from '../../../features/finding-filters'
 import type { ContextGap } from '../model/types'
 import { useTranslation } from '../../../shared/i18n'
+import { FilePath } from '../../../shared/ui'
 import { InlineComment } from './InlineComment'
 import { DiffViewer } from './DiffViewer'
 
@@ -190,7 +191,11 @@ export function RunDiff(props: RunDiffProps): JSX.Element {
         {visibleFiles.length > 0 || !filtering ? (
           <List
             dataSource={visibleFiles.map((f) => f.filename)}
-            renderItem={(filename) => <List.Item>{filename}</List.Item>}
+            renderItem={(filename) => (
+              <List.Item>
+                <FilePath path={filename} />
+              </List.Item>
+            )}
           />
         ) : null}
         {outsideFindings.length > 0 ? (
