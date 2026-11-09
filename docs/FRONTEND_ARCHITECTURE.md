@@ -582,6 +582,7 @@ src/shared/ui/stories/Select.stories.tsx
 src/shared/ui/stories/Switch.stories.tsx
 src/shared/ui/styles/antd.button.test.tsx
 src/shared/ui/styles/antd.css
+src/shared/ui/styles/antd.dropdown.test.tsx
 src/shared/ui/styles/antd.form.lifecycle.test.tsx
 src/shared/ui/styles/antd.form.test.tsx
 src/shared/ui/styles/antd.input.test.tsx
@@ -589,7 +590,9 @@ src/shared/ui/styles/antd.pagination.test.tsx
 src/shared/ui/styles/antd.select.test.tsx
 src/shared/ui/styles/antd.steps.test.tsx
 src/shared/ui/styles/antd.table.test.tsx
+src/shared/ui/styles/antd.typography.test.tsx
 src/shared/ui/styles/tokens.css
+src/shared/ui/styles/tokens.test.ts
 src/shared/ui/theme/DesignSystemProvider.test.tsx
 src/shared/ui/theme/DesignSystemProvider.tsx
 src/shared/ui/theme/buildTheme.test.ts
