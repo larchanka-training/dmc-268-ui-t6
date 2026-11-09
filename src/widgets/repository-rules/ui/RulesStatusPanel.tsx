@@ -12,6 +12,14 @@ export interface RulesStatusPanelProps {
   provider: VcsProvider
 }
 
+export interface RulesStatusViewProps {
+  /** The status and its retry, from `useRepositoryRulesStatusRetry` of the screen that owns it. */
+  rules: ReturnType<typeof useRepositoryRulesStatusRetry>
+  provider: VcsProvider
+  /** False where the file text is shown elsewhere (the rules editor of the playground). */
+  showFileText?: boolean
+}
+
 /**
  * Status of `.review/rules.md` of a repository. Only a 200 with `status: 'missing'` is "no file":
  * every failure to learn the status (network, 5xx, 401, 404, a body that fails the schema) is a
@@ -28,8 +36,21 @@ export interface RulesStatusPanelProps {
  * error), else to the heading of the block, not to `<body>`.
  */
 export const RulesStatusPanel: FC<RulesStatusPanelProps> = ({ repoId, provider }) => {
+  const rules = useRepositoryRulesStatusRetry(repoId)
+  return <RulesStatusView provider={provider} rules={rules} />
+}
+
+/**
+ * The panel without its request: a screen that needs the status itself (the playground puts the
+ * file text in its editor) owns `useRepositoryRulesStatusRetry` and shows the same texts here.
+ */
+export const RulesStatusView: FC<RulesStatusViewProps> = ({
+  rules,
+  provider,
+  showFileText = true,
+}) => {
   const { t } = useTranslation()
-  const { query, awaitingResult, retry: retryRulesStatus } = useRepositoryRulesStatusRetry(repoId)
+  const { query, awaitingResult, retry: retryRulesStatus } = rules
   // Through the whole wait, not only while a request runs: the wait goes on between the polls.
   const busy = query.isFetching || awaitingResult
   const deadline = query.getPendingPollDeadline()
@@ -127,6 +148,7 @@ export const RulesStatusPanel: FC<RulesStatusPanelProps> = ({ repoId, provider }
         onRetry={retry}
         retryRef={trackRetry}
         retrying={busy}
+        showFileText={showFileText}
         status={query.data}
       />
     )

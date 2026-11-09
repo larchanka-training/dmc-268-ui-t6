@@ -145,6 +145,8 @@ export interface RulesStatusDetailsProps {
   /** For the owner of the focus: the retry button reports here when it comes and goes. */
   retryRef: Ref<HTMLButtonElement>
   retrying: boolean
+  /** False where the file text is shown elsewhere; an empty or unreadable text is not noted. */
+  showFileText?: boolean
 }
 
 /** One of the five answers the server gives for `.review/rules.md`. */
@@ -154,6 +156,7 @@ export const RulesStatusDetails: FC<RulesStatusDetailsProps> = ({
   onRetry,
   retryRef,
   retrying,
+  showFileText = true,
 }) => {
   const { t } = useTranslation()
   switch (status.status) {
@@ -161,9 +164,11 @@ export const RulesStatusDetails: FC<RulesStatusDetailsProps> = ({
       return (
         <Flex gap={12} vertical>
           <Meta status={status} tag={<Tag tone="success">{t('rules.fileFound')}</Tag>} />
-          <Section title={t('rules.fileText')}>
-            <FileText text={status.text} />
-          </Section>
+          {showFileText ? (
+            <Section title={t('rules.fileText')}>
+              <FileText text={status.text} />
+            </Section>
+          ) : null}
           <Section title={t('rules.ignoredPaths')}>
             {status.ignoreMasks.length > 0 ? (
               <ul className={styles.list}>
@@ -212,9 +217,11 @@ export const RulesStatusDetails: FC<RulesStatusDetailsProps> = ({
             type="error"
           />
           <Meta status={status} />
-          <Section title={t('rules.fileText')}>
-            <FileText text={status.text} />
-          </Section>
+          {showFileText ? (
+            <Section title={t('rules.fileText')}>
+              <FileText text={status.text} />
+            </Section>
+          ) : null}
         </Flex>
       )
     case 'unavailable':
