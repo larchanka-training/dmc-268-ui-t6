@@ -12,6 +12,10 @@ export const endpoints = {
     me: (): Endpoint => ({ method: 'GET', path: '/auth/me' }),
     logout: (): Endpoint => ({ method: 'POST', path: '/auth/logout' }),
   },
+  agentTokens: {
+    list: (): Endpoint => ({ method: 'GET', path: '/agent/tokens' }),
+    revoke: (id: string): Endpoint => ({ method: 'DELETE', path: `/agent/tokens/${id}` }),
+  },
   repos: {
     list: (): Endpoint => ({ method: 'GET', path: '/repos' }),
     detail: (id: string): Endpoint => ({ method: 'GET', path: `/repos/${id}` }),

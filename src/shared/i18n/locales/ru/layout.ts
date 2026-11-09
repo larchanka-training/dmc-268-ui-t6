@@ -29,6 +29,17 @@ export const layout: Translation<typeof en> = {
     label: 'Меню пользователя',
     fallbackLogin: 'Пользователь',
     logout: 'Выйти',
+    agentTokens: {
+      title: 'Токены агента',
+      empty: 'Активных токенов агента нет',
+      expires: 'Действует до {{date}}',
+      revoke: 'Отозвать',
+      confirm: 'Отозвать этот токен агента?',
+      cancel: 'Отмена',
+      loadError: 'Не удалось загрузить токены агента',
+      revokeError: 'Не удалось отозвать токен агента',
+      retry: 'Повторить',
+    },
   },
   routeError: {
     title: 'Произошла непредвиденная ошибка',

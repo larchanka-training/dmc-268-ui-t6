@@ -27,6 +27,17 @@ export const layout = {
     label: 'User menu',
     fallbackLogin: 'User',
     logout: 'Sign out',
+    agentTokens: {
+      title: 'Agent tokens',
+      empty: 'No active agent tokens',
+      expires: 'Expires {{date}}',
+      revoke: 'Revoke',
+      confirm: 'Revoke this agent token?',
+      cancel: 'Cancel',
+      loadError: 'Could not load agent tokens',
+      revokeError: 'Could not revoke the agent token',
+      retry: 'Retry',
+    },
   },
   routeError: {
     title: 'Something went wrong',
