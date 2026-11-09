@@ -2,3 +2,9 @@
 .nowrap :global(.ant-table-tbody > tr > td) {
   white-space: nowrap;
 }
+
+/* A wrapping table breaks text between words only. Typography sets `word-break: break-word`, which in
+   the automatic layout of a table lets a column shrink below its longest word (#239 D3). */
+.wrap :global(.ant-table-cell .ant-typography) {
+  word-break: normal;
+}

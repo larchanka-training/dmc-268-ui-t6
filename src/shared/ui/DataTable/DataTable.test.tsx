@@ -5,6 +5,12 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { DataTable } from './DataTable'
 import styles from './DataTable.module.css'
 
+// No @types/node here and Vitest zeroes `.css?raw`: load `fs` untyped to read the real stylesheet.
+const FS_MODULE = 'node:fs'
+const { readFileSync } = (await import(/* @vite-ignore */ FS_MODULE)) as {
+  readFileSync: (path: string, encoding: 'utf8') => string
+}
+
 afterEach(() => {
   cleanup()
 })
@@ -127,6 +133,20 @@ describe('DataTable', () => {
     expect(wrapper()?.classList.contains(styles.nowrap ?? '')).toBe(true)
     rerender(<DataTable<Row> columns={columns} dataSource={rows} nowrap={false} rowKey="id" />)
     expect(wrapper()?.classList.contains(styles.nowrap ?? '')).toBe(false)
+  })
+
+  it('wraps text between words only, also inside Typography (DS §8, #239 D3)', () => {
+    const { container } = render(
+      <DataTable<Row> columns={columns} dataSource={rows} nowrap={false} rowKey="id" />,
+    )
+    expect(styles.wrap).toBeTruthy()
+    const wrapper = container.querySelector('.ant-table-wrapper')
+    expect(wrapper?.classList.contains(styles.wrap ?? '')).toBe(true)
+    // jsdom computes no layout: the rule itself is what keeps a column from shrinking below a word.
+    const css = readFileSync('src/shared/ui/DataTable/DataTable.module.css', 'utf8')
+    expect(css).toMatch(
+      /^\.wrap :global\(\.ant-table-cell \.ant-typography\) \{\n {2}word-break: normal;\n\}$/m,
+    )
   })
 
   it('keeps its own class next to a class of the caller', () => {

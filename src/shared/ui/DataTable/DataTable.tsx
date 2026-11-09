@@ -28,7 +28,7 @@ export function DataTable<Row extends object>(props: DataTableProps<Row>): JSX.E
     <Table<Row>
       {...rest}
       scroll={tableScroll}
-      className={cx(nowrap && styles.nowrap, className)}
+      className={cx(nowrap ? styles.nowrap : styles.wrap, className)}
       pagination={
         pagination === false || pagination === undefined
           ? false
