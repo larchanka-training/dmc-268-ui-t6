@@ -79,6 +79,11 @@ describe('LoginPage.module.css', () => {
     return css.slice(css.indexOf('{', start) + 1, css.indexOf('}', start))
   }
 
+  it('sets the subtitle and the note in the main text colour: the canvas behind them gets bright (DS §3, #239 D2)', () => {
+    // `--rv-text-2` measured 1.87-3.80:1 over the bright band of the glass at 1280-1440px.
+    expect(declarations('.subtitle, .note')).toContain('color: var(--rv-text);')
+  })
+
   it('fades the sign-in block in with the tokens of the design system', () => {
     expect(declarations('.form')).toContain(
       'animation: form-fade-in var(--rv-motion-fade) var(--rv-ease);',
