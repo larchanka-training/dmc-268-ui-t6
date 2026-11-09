@@ -16,13 +16,12 @@ export const onboarding = {
   settingsAction: 'Review settings',
   repositoriesAction: 'Open repositories',
   reviewTitle: 'Request your first review',
-  reviewDescription: 'Open a pull request or add the ai-review label, then wait for a run.',
+  reviewDescription: 'Open a pull request, add the ai-review label, then wait for a run.',
   reviewAction: 'Open a pull request',
   reviewSetupAction: 'Set up review',
   resultTitle: 'Get a successful review result',
   resultDescription: 'Open Runs to read the verdict and findings when a review succeeds.',
-  resultAction: 'View review result',
   runsAction: 'View runs',
   emptyRuns:
-    'Open a pull request or add the ai-review label to an enabled repository. Your review will appear here.',
+    'Open a pull request in an enabled repository and add the ai-review label. Your review will appear here after CI passes, or shortly if no CI is configured.',
 }

@@ -72,6 +72,17 @@ describe('OnboardingChecklist', () => {
     )
   })
 
+  it.each([
+    { name: 'disabled review', repo: { ...repository, enabled: false } },
+    { name: 'unsafe repository URL', repo: { ...repository, url: 'javascript:alert(1)' } },
+  ])('links to repository setup when $name prevents a pull request link', ({ repo }) => {
+    show({ repositories: [repo] })
+    expect(screen.getByRole('link', { name: 'Set up review' }).getAttribute('href')).toBe(
+      '/repositories',
+    )
+    expect(screen.queryByRole('link', { name: 'Open a pull request' })).toBeNull()
+  })
+
   it('shows unknown run status and offers retry when run loading fails', () => {
     const onRetryRuns = vi.fn()
     show({ runs: undefined, successfulRuns: undefined, runsError: true, onRetryRuns })

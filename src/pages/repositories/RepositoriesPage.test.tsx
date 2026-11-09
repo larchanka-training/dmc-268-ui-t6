@@ -29,7 +29,7 @@ import {
   useRepositories,
   type Repository,
 } from '../../entities/repository'
-import { runQueryKeys } from '../../entities/run'
+import { runQueryKeys, type RunListPage } from '../../entities/run'
 import { setMockTransport } from '../../shared/api/client'
 
 import { RepositoriesPage } from './RepositoriesPage'
@@ -160,6 +160,7 @@ describe('RepositoriesPage', () => {
     const requests: string[] = []
     const successfulRun = mockRunsListPage.items.find((run) => run.status === 'succeeded')
     if (!successfulRun) throw new Error('Fixture needs a successful run')
+    let resolveSuccessfulRuns!: (page: RunListPage) => void
     useAuthStore.setState({ isAuthenticated: true })
     setMockTransport((endpoint) => {
       requests.push(endpoint.path)
@@ -168,12 +169,22 @@ describe('RepositoriesPage', () => {
       }
       if (endpoint.path === '/repos') return []
       if (endpoint.path.startsWith('/runs?status=succeeded')) {
-        return { items: [successfulRun], nextCursor: null }
+        return new Promise<RunListPage>((resolve) => {
+          resolveSuccessfulRuns = resolve
+        })
       }
       throw new Error(`Unexpected request ${endpoint.path}`)
     })
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     renderWithClient(<RepositoriesPage />, client)
+    await screen.findByText(/Репозитории ещё не подключены/)
+    await waitFor(() => {
+      expect(requests.some((path) => path.startsWith('/runs?status=succeeded'))).toBe(true)
+    })
+    expect(screen.queryByRole('heading', { name: 'С чего начать' })).toBeNull()
+    act(() => {
+      resolveSuccessfulRuns({ items: [successfulRun], nextCursor: null })
+    })
     await waitFor(() => {
       expect(client.getQueryData(runQueryKeys.listFiltered({ status: 'succeeded' }))).toBeDefined()
     })

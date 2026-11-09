@@ -46,6 +46,8 @@ export const RepositoriesPage: FC = () => {
   const successfulRunQuery = useRunList({ status: 'succeeded', enabled: canCheckRuns })
   const successfulRuns = successfulRunQuery.data?.pages.flatMap((page) => page.items)
   const hasSuccessfulRun = successfulRuns !== undefined && successfulRuns.length > 0
+  const successfulRunCheckFinished =
+    successfulRunQuery.data !== undefined || successfulRunQuery.isError
   const runQuery = useRunList({
     enabled: canCheckRuns && successfulRunQuery.data !== undefined && !hasSuccessfulRun,
   })
@@ -130,7 +132,11 @@ export const RepositoriesPage: FC = () => {
         <RepositoryList
           accessRefreshStatus={accessRefreshStatus}
           intro={
-            me && repositoryData !== undefined && !dismissed && !hasSuccessfulRun ? (
+            me &&
+            repositoryData !== undefined &&
+            successfulRunCheckFinished &&
+            !dismissed &&
+            !hasSuccessfulRun ? (
               <OnboardingChecklist
                 hasInstallation={me.workspaces.length > 0}
                 key={me.id}

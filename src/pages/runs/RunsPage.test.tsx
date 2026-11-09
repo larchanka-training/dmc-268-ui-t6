@@ -268,7 +268,9 @@ describe('RunsPage', () => {
     const { router } = renderPage()
 
     expect(await screen.findByText('Нет прогонов ревью')).toBeTruthy()
-    expect(screen.getByText(/Откройте PR или добавьте лейбл ai-review/)).toBeTruthy()
+    expect(
+      screen.getByText(/Откройте PR в активном репозитории и добавьте лейбл ai-review/),
+    ).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Открыть репозитории' }))
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/repositories')
