@@ -244,6 +244,32 @@ describe('RunDetailPage filters in the URL', () => {
     expect(screen.queryByTestId('findings-filter-empty')).toBeNull()
   })
 
+  it('waits for comments before showing filtered files on a cancelled run', async () => {
+    const release: { open: () => void } = { open: () => undefined }
+    const gate = new Promise<void>((resolve) => {
+      release.open = resolve
+    })
+    withMockTransportOverlay((endpoint) => {
+      if (endpoint.method === 'GET' && endpoint.path === `/runs/${DEMO_RUN_ID}`) {
+        return runWithStatus('cancelled')
+      }
+      if (endpoint.method === 'GET' && endpoint.path === `/runs/${DEMO_RUN_ID}/comments`) {
+        return gate.then(() => mockReviewComments.slice(0, 1))
+      }
+      return undefined
+    })
+    const { container } = renderRunDetail(`${DEMO}?severity=warning`)
+
+    await findBar()
+    expect(container.querySelectorAll('.diff-theme')).toHaveLength(0)
+    expect(screen.queryByTestId('findings-filter-empty')).toBeNull()
+
+    release.open()
+    await screen.findByText(counter(1, 1))
+    expect(container.querySelectorAll('.diff-theme')).toHaveLength(1)
+    expect(cardTitles()).toEqual(['Magic number replaced a named line'])
+  })
+
   it.each(['failed', 'skipped'] as const)(
     'keeps the diff visible for %s while /comments is pending',
     async (status) => {

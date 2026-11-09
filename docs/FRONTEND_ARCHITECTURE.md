@@ -1837,13 +1837,13 @@ PATCH с переключателя, ничем другим не дополня
 
 Компоненты (`src/widgets/diff-viewer/`):
 
-| Компонент         | Файл                     | Props                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| ----------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DiffViewer`      | `ui/DiffViewer.tsx`      | `file: FileDiff`, `findings?: FindingView[]`, `comments?: ReviewComment[]`, `totalLines?: number`, `diffTotalLines?: number`, `searchActive?: boolean`, `onLoadMore?: (gap: ContextGap) => void`                                                                                                                                                                                                                                             |
-| `InlineComment`   | `ui/InlineComment.tsx`   | `finding: FindingView`, `file?: FileDiff`, `defaultExpanded?: boolean`, `showFile?: boolean` — находка или комментарий, привязанный к строке диффа (виджет `react-diff-view`); свёрнут, пока не раскрыт или не задан `defaultExpanded`; `showFile` называет файл в шапке карточки                                                                                                                                                            |
-| `DiffSuggestion`  | `ui/DiffSuggestion.tsx`  | `filename: string`, `removedLines: string[]`, `addedText: string` — правка из `suggestion` находки, через `<Diff>`                                                                                                                                                                                                                                                                                                                           |
-| `LoadMoreContext` | `ui/LoadMoreContext.tsx` | кнопка дочитывания контекста в зазоре между хунками                                                                                                                                                                                                                                                                                                                                                                                          |
-| `RunDiff`         | `ui/RunDiff.tsx`         | `summaryOnly: boolean`, `files: FileDiff[]`, `findings: FindingView[]`, `comments?: ReviewComment[]`, `budgetFiles?: FileDiff[]`, `fileTotalLines?`, `onLoadMore?`, `filters?: FindingFilters`, `onFiltersChange?`, `onFiltersQueryChange?`, `onFiltersReset?`, `commentsPending?: boolean`, `findingsPending?: boolean`, `filtersNavigationKey?: number`, `subscribeToFiltersNavigation?: SubscribeFilterNavigation` — дифф прогона целиком |
+| Компонент         | Файл                     | Props                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ----------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DiffViewer`      | `ui/DiffViewer.tsx`      | `file: FileDiff`, `findings?: FindingView[]`, `comments?: ReviewComment[]`, `totalLines?: number`, `diffTotalLines?: number`, `searchActive?: boolean`, `onLoadMore?: (gap: ContextGap) => void`                                                                                                                                                                                                                                                                           |
+| `InlineComment`   | `ui/InlineComment.tsx`   | `finding: FindingView`, `file?: FileDiff`, `defaultExpanded?: boolean`, `showFile?: boolean` — находка или комментарий, привязанный к строке диффа (виджет `react-diff-view`); свёрнут, пока не раскрыт или не задан `defaultExpanded`; `showFile` называет файл в шапке карточки                                                                                                                                                                                          |
+| `DiffSuggestion`  | `ui/DiffSuggestion.tsx`  | `filename: string`, `removedLines: string[]`, `addedText: string` — правка из `suggestion` находки, через `<Diff>`                                                                                                                                                                                                                                                                                                                                                         |
+| `LoadMoreContext` | `ui/LoadMoreContext.tsx` | кнопка дочитывания контекста в зазоре между хунками                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `RunDiff`         | `ui/RunDiff.tsx`         | `summaryOnly: boolean`, `files: FileDiff[]`, `findings: FindingView[]`, `comments?: ReviewComment[]`, `budgetFiles?: FileDiff[]`, `fileTotalLines?`, `onLoadMore?`, `filters?: FindingFilters`, `onFiltersChange?`, `onFiltersQueryChange?`, `onFiltersReset?`, `commentsPending?: boolean`, `findingsPending?: boolean`, `findingsExpected?: boolean`, `filtersNavigationKey?: number`, `subscribeToFiltersNavigation?: SubscribeFilterNavigation` — дифф прогона целиком |
 
 Поток данных:
 
@@ -1958,8 +1958,10 @@ next.newStart - startLine }`; хвостовой зазор после посл�
 в `FindingFiltersBar` как `subscribeToNavigation`; `filtersNavigationKey` служит fallback после
 коммита, если подписки нет. Без `onFiltersReset` сброс — `onFiltersChange(EMPTY_FINDING_FILTERS)`; без
 `onFiltersQueryChange` текст поиска уходит в `onFiltersChange({ ...filters, query }, { replace: true })`.
-Кроме того, страница передаёт два независимых признака: `commentsPending` — `/comments` ещё не ответил; `findingsPending` —
-прогон ещё активен (`isActive(run.status)`). Если ссылка содержит `file` для файла,
+Кроме того, страница передаёт два независимых признака: `commentsPending` — `/comments` ещё не
+ответил у `succeeded` или `cancelled`, где комментарии могут дополнить находки (у `failed` и
+`skipped` признак `false` даже во время запроса); `findingsPending` — прогон ещё активен
+(`isActive(run.status)`). Если ссылка содержит `file` для файла,
 известного только из комментария, до ответа этот файл неизвестен и его фильтр не действует;
 после ответа файл входит в варианты и фильтр начинает сужать результат. Значение в URL
 сохраняется, пока загружаются комментарии.
@@ -2070,7 +2072,10 @@ Enter в поле поиска страницу не перезагружает.
 - пока `findingsPending`, содержательный фильтр (критичность или непустой поиск) сохраняется
   в панели и URL, но не скрывает файлы без находок; эффективный выбор файлов продолжает
   ограничивать дифф и список summary-only. Уже доступные карточки фильтруются как обычно;
-- если отображаемых находок нет совсем (в том числе у `failed`, `skipped`, отменённого до
+- пока `commentsPending` у `succeeded` или `cancelled`, содержательный фильтр показывает только
+  файлы с уже известными подходящими находками. Если известных находок нет, дифф временно скрыт
+  до ответа `/comments`; у `failed` и `skipped` этот признак `false`, поэтому дифф виден сразу;
+- если отображаемых находок нет совсем и `commentsPending` равен `false` (в том числе у `failed`, `skipped`, отменённого до
   публикации `cancelled`), содержательный фильтр из URL не скрывает дифф и не вызывает сообщение
   о пустом результате фильтра. Эффективный выбор файлов продолжает действовать;
 - после завершения прогона содержательный фильтр скрывает файлы без подходящей находки: дифф, блок «Замечания вне диффа» и строка в списке summary-only. Если скрыты все
@@ -2087,7 +2092,7 @@ Enter в поле поиска страницу не перезагружает.
   панель (`empty`), чтобы кнопка в сообщении очищала и поле поиска. Одинокий `file=` неизвестного
   файла и прогон без замечаний даже при содержательном фильтре сообщения не вызывают. В summary-only ветке
   сообщение стоит под панелью, выше «Дифф слишком большой». Пока `findingsPending`, итогового
-  пустого состояния нет. Пока `/comments` не ответил, сообщения тоже нет: набор ещё неполон, и запрос, который подходит только комментарию, не
+  пустого состояния нет. Пока `commentsPending`, сообщения тоже нет: набор ещё неполон, и запрос, который подходит только комментарию, не
   должен мигать «ничего нет» (счётчик при этом может поменяться, когда комментарии придут);
 - бюджет подсветки Ф-18 считается по всем файлам, как пришли (`budgetFiles ?? files`), а не по
   видимым: фильтр не включает и не выключает подсветку.
