@@ -20,6 +20,7 @@ export const common = {
     apiWithStatusText: 'API error ({{status}}: {{statusText}})',
     loadTitle: 'Could not load the data',
     tryAgain: 'Try again',
+    blockFailed: "Couldn't load this block. Refresh the page.",
     http: {
       unexpectedFormat: 'Unexpected data format from the server. Please reload the page.',
       server: 'Internal server error ({{status}}). Please try again later.',
