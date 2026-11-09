@@ -100,6 +100,12 @@
   font-weight: 500;
 }
 
+/* Typography: code in text takes the smallest radius of §5; Ant Design rounds it by 3px with no
+   token for it. */
+.ant-typography code {
+  border-radius: var(--rv-radius-xs);
+}
+
 /* Breadcrumb: small and quiet. */
 .ant-breadcrumb {
   font-size: var(--rv-fs-sm);

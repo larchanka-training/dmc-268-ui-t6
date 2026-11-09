@@ -271,6 +271,8 @@ export function buildTheme(mode: RvThemeMode, options: BuildThemeOptions = {}): 
         itemHoverBg: p.hover,
         itemSelectedBg: p.surface3,
         itemSelectedColor: p.text,
+        // A small Segmented rounds its items by `borderRadiusXS`, 2px by default; DS §5 starts at 4px.
+        borderRadiusXS: 4,
       },
       Modal: {
         contentBg: p.popover,
