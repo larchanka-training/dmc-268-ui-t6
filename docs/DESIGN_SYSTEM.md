@@ -516,6 +516,7 @@ Storybook; не добавлять экранную логику перепис�
 | CodeBlock                                             | свой компонент и CSS Module: 12px/21px, scroll-focus 2px/link |
 | CodeEditor                                            | свой компонент, тема CodeMirror и CSS Module: 12px/21px       |
 | FilePath                                              | свой компонент и CSS Module: 12px, перенос в любом месте      |
+| ErrorBoundary                                         | свой компонент: на месте упавшего блока `Alert` с токенами    |
 | Table, Pagination                                     | токены и `antd.css`                                           |
 | Select, Input, Form, Breadcrumb, Dropdown             | токены и `antd.css`                                           |
 | Steps                                                 | токены и `antd.css`; для этапов обёртка `ProgressSteps`       |
