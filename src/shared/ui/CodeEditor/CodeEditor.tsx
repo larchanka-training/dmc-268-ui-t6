@@ -6,11 +6,13 @@ import { useLayoutEffect, useRef, type JSX } from 'react'
 import { cx } from '../lib/cx'
 import styles from './CodeEditor.module.css'
 import {
+  completionsExtension,
   editorTheme,
   languageForFile,
   lineMarks,
   setLineMarks,
   syntaxClasses,
+  type CodeEditorCompletion,
   type CodeEditorDiagnostic,
 } from './editorExtensions'
 
@@ -37,16 +39,23 @@ export interface CodeEditorProps {
   diagnostics?: readonly CodeEditorDiagnostic[]
   /** The text can be read, selected and copied, and stays in the Tab order. */
   readOnly?: boolean
+  /**
+   * Offered at the start of a line, as the user types (Ctrl-Space on an empty line); Enter takes
+   * one, Escape closes the list, Tab still leaves the editor.
+   */
+  completions?: readonly CodeEditorCompletion[]
   'aria-label': string
   className?: string
 }
 
 const NO_LINES: readonly number[] = []
 const NO_DIAGNOSTICS: readonly CodeEditorDiagnostic[] = []
+const NO_COMPLETIONS: readonly CodeEditorCompletion[] = []
 
 const attributes = new Compartment()
 const language = new Compartment()
 const readOnlyMode = new Compartment()
+const completion = new Compartment()
 
 /**
  * A code editor on CodeMirror 6. Not exported from `shared/ui/index.ts`: the barrel is in the first
@@ -60,6 +69,7 @@ export function CodeEditor(props: CodeEditorProps): JSX.Element {
     highlightedLines = NO_LINES,
     diagnostics = NO_DIAGNOSTICS,
     readOnly = false,
+    completions = NO_COMPLETIONS,
     'aria-label': ariaLabel,
     className,
   } = props
@@ -88,6 +98,7 @@ export function CodeEditor(props: CodeEditorProps): JSX.Element {
           attributes.of([]),
           language.of([]),
           readOnlyMode.of([]),
+          completion.of([]),
           EditorView.updateListener.of((update) => {
             const fromOutside = update.transactions.some((tr) => tr.annotation(Transaction.remote))
             if (update.docChanged && !fromOutside) {
@@ -124,6 +135,12 @@ export function CodeEditor(props: CodeEditorProps): JSX.Element {
       effects: readOnlyMode.reconfigure(EditorState.readOnly.of(readOnly)),
     })
   }, [readOnly])
+
+  useLayoutEffect(() => {
+    viewRef.current?.dispatch({
+      effects: completion.reconfigure(completionsExtension(completions)),
+    })
+  }, [completions])
 
   // A layout effect: a passive one could run after the next keystroke and put the older text back.
   useLayoutEffect(() => {
