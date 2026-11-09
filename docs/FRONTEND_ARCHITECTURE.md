@@ -2181,21 +2181,21 @@ flowchart LR
 Палитра подсветки — восемь слотов, классы refractor сгруппированы по слотам; каждый класс стоит
 ровно в одном правиле `diff-theme.css`, порядок правил цвет не решает:
 
-| Слот `--diff-token-*` | Токен antd          | Классы `.token.*`                                                                |
-| --------------------- | ------------------- | -------------------------------------------------------------------------------- |
-| `keyword`             | `magenta7`          | `keyword`, `operator`, `important`, `rule`                                       |
-| `string`              | `orange7`           | `string`, `template-string`, `triple-quoted-string`, `char`, `url`, `attr-value` |
-| `number`              | `blue7`             | `number`, `boolean`, `constant`                                                  |
-| `function`            | `cyan7`             | `function`, `class-name`, `builtin`                                              |
-| `tag`                 | `volcano7`          | `tag`, `selector`                                                                |
-| `attribute`           | `geekblue7`         | `attr-name`, `property`, `key`                                                   |
-| `special`             | `purple8`           | `decorator`, `annotation`, `regex`                                               |
-| `comment`             | `colorTextTertiary` | `comment`                                                                        |
+| Слот `--diff-token-*` | Токен                 | Классы `.token.*`                                                                |
+| --------------------- | --------------------- | -------------------------------------------------------------------------------- |
+| `keyword`             | `--rv-code-keyword`   | `keyword`, `operator`, `important`, `rule`                                       |
+| `string`              | `--rv-code-string`    | `string`, `template-string`, `triple-quoted-string`, `char`, `url`, `attr-value` |
+| `number`              | `--rv-code-number`    | `number`, `boolean`, `constant`                                                  |
+| `function`            | `--rv-code-function`  | `function`, `class-name`, `builtin`                                              |
+| `tag`                 | `--rv-code-tag`       | `tag`, `selector`                                                                |
+| `attribute`           | `--rv-code-attribute` | `attr-name`, `property`, `key`                                                   |
+| `special`             | `--rv-code-special`   | `decorator`, `annotation`, `regex`                                               |
+| `comment`             | `--rv-text-2`         | `comment`                                                                        |
 
-Цветные слоты, кроме `special`, берут шаг 7 пресет-палитры: тёмный и насыщенный под
-`defaultAlgorithm`, под `darkAlgorithm` antd пересчитывает палитры светлее. `special` берёт
-`purple8`: `purple7` даёт 2.824:1 на тёмном insert-фоне `#132a2c`, ниже порога 3:1 в
-`diffTheme.test.ts` ([`DESIGN_SYSTEM.md` §3](DESIGN_SYSTEM.md#3-цвет)). Остальные классы
+Слоты ссылаются на общую палитру кода `tokens.css`, ту же, что у `CodeEditor`: код — это текст, и
+каждый цвет держит 4.5:1 на обычном фоне, insert, delete и выделенной строке обеих тем
+([`DESIGN_SYSTEM.md` §3](DESIGN_SYSTEM.md#3-цвет), #239 D1). Шаг 7 пресет-палитр antd, который
+стоял здесь раньше, давал на этих фонах 3.1–4.4. Остальные классы
 (`punctuation`, `null`, `interpolation`, `atrule`, `title`, …) остаются цветом текста;
 `punctuation` не стилизуется намеренно: Prism алиасит его на декораторы и интерполяцию, а те
 должны сохранить свой цвет.
@@ -2203,7 +2203,9 @@ flowchart LR
 Тема переключается без перезагрузки: выбор в меню пользователя → `setPreference()` →
 `useThemeStore.mode` → `UiProvider` отдаёт `DesignSystemProvider` другой `mode` → `theme.useToken()` в `DiffViewer` /
 `DiffSuggestion` возвращает новый токен → `diffThemeVars` → новый inline `style` в том же коммите,
-без `useEffect` и вспышки старых цветов. `data-theme` и `@media (prefers-color-scheme)` не нужны.
+без `useEffect` и вспышки старых цветов. Слоты синтаксиса — ссылки `var(--rv-code-*)`: их значения
+переключает `data-rv-theme` на корне документа, как у остальных токенов `--rv-*`
+(`DesignSystemProvider`). `@media (prefers-color-scheme)` не нужен.
 С пустым `localStorage` и тёмной ОС тема тёмная уже в первом рендере: `getInitialTheme()`
 (`features/theme/model/store.ts`) выполняется при создании стора — до рендера — и читает
 `dmc_theme_mode`, затем `matchMedia('(prefers-color-scheme: dark)')`; `UiProvider` с первого кадра
@@ -2229,13 +2231,14 @@ refractor, а не компонент — CSS Modules их всё равно п�
 строки рисуются), неизвестное расширение — `tokens` не строится, без ошибки. Текст идёт через
 React, без `innerHTML`.
 
-Новых зависимостей нет и темы Prism нет: цвета берутся из токенов antd, а CDN и внешние стили
+Новых зависимостей нет и темы Prism нет: цвета берутся из токенов antd и `tokens.css`, а CDN и внешние стили
 режет CSP (`default-src 'self'`, `docker/nginx.conf`).
 
 Что закреплено тестами: `lib/diffTheme.test.ts` — контраст (WCAG, альфа-цвета сперва кладутся на
 фон контейнера) в обеих темах: текст на каждой поверхности диффа (контейнер, строки, гаттеры,
-`-edit`, выделение) ≥ 4,5:1, цвет каждого слота на фоне контейнера и строк добавления / удаления
-≥ 3:1, ни один слот не равен цвету текста; литеральные роли токенов (добавление — `colorSuccessBg*`,
+`-edit`, выделение) ≥ 4,5:1, слоты ссылаются на `--rv-code-*` и `--rv-text-2`, а цвет каждого
+слота из `tokens.css` на фоне контейнера, строк добавления / удаления и выделенной строки ≥ 4,5:1,
+ни один слот не равен цвету текста; литеральные роли токенов (добавление — `colorSuccessBg*`,
 удаление — `colorErrorBg*`, текст — `colorText`); у линии пропуска цвета нет, а правило, снимающее
 её, сверяется по исходнику `diff-layout.css`; набор из восьми
 слотов `--diff-token-*` задан в тесте литералом, и с ним сверяются и маппер, и CSS; согласованность

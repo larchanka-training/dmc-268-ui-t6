@@ -180,35 +180,30 @@ Ant Design пересчитывает исходные цвета своим а�
 Насыщенность всех тегов, включая `critical solid`, — 500. Вычисленные цвета, alpha-композиция
 и контраст обеих тем сохранены в [browser proof #127](https://github.com/larchanka-training/dmc-268-ui-t6/blob/008ee59afbe1d1e0598c9a44dea0e4c32d48ced2/docs/plans/127-browser-proof.md).
 
-Подсветка синтаксиса диффа получает восемь слотов из `theme.getDesignToken(buildTheme(mode))`.
-Mapper живёт в `src/widgets/diff-viewer/lib/diffTheme.ts`, CSS-классы — в
+Подсветка синтаксиса диффа и `CodeEditor` берут цвета из одних токенов `--rv-code-*`. Mapper
+диффа живёт в `src/widgets/diff-viewer/lib/diffTheme.ts`, CSS-классы — в
 `src/widgets/diff-viewer/ui/diff-theme.css`; устройство виджета описано в
 [`FRONTEND_ARCHITECTURE.md` §6](FRONTEND_ARCHITECTURE.md#6-просмотрщик-диффа).
 
-| Слот CSS                 | Токен Ant Design    | Тёмная    | Светлая   |
-| ------------------------ | ------------------- | --------- | --------- |
-| `--diff-token-keyword`   | `magenta7`          | `#e0529c` | `#c41d7f` |
-| `--diff-token-string`    | `orange7`           | `#e89a3c` | `#d46b08` |
-| `--diff-token-number`    | `blue7`             | `#3c89e8` | `#0958d9` |
-| `--diff-token-function`  | `cyan7`             | `#33bcb7` | `#08979c` |
-| `--diff-token-tag`       | `volcano7`          | `#e87040` | `#d4380d` |
-| `--diff-token-attribute` | `geekblue7`         | `#5273e0` | `#1d39c4` |
-| `--diff-token-special`   | `purple8`           | `#ab7ae0` | `#391085` |
-| `--diff-token-comment`   | `colorTextTertiary` | `#7786a0` | `#627289` |
+| Слот CSS диффа           | Токен                 |
+| ------------------------ | --------------------- |
+| `--diff-token-keyword`   | `--rv-code-keyword`   |
+| `--diff-token-string`    | `--rv-code-string`    |
+| `--diff-token-number`    | `--rv-code-number`    |
+| `--diff-token-function`  | `--rv-code-function`  |
+| `--diff-token-tag`       | `--rv-code-tag`       |
+| `--diff-token-attribute` | `--rv-code-attribute` |
+| `--diff-token-special`   | `--rv-code-special`   |
+| `--diff-token-comment`   | `--rv-text-2`         |
 
-`special` используется для decorator, annotation и regex. Для него выбран `purple8`: `purple7`
-даёт 2.824:1 на тёмном insert-фоне `#132a2c`. Остальные цветные слоты используют шаг 7 палитры,
-пересчитанный алгоритмом соответствующей темы. `punctuation` отдельно не перекрашивается.
+`special` используется для decorator, annotation и regex. `punctuation` отдельно не
+перекрашивается.
 
-`diffTheme.test.ts` проверяет реальные темы приложения с альфа-композицией: текст строк,
-номера, выделения и edit-фрагменты — не ниже 4.5:1; дополнительно сохранена регрессионная
-проверка синтаксиса с порогом 3:1 на обычном, insert- и delete-фоне. Эта дополнительная
-проверка не заменяет общую норму контраста текста ниже.
-
-Подсветка синтаксиса в `CodeEditor` берёт цвета из своих токенов. Основа та же, что у диффа;
-значения сдвинуты, чтобы держать 4.5:1 на всех фонах редактора: поверхность, вложенная поверхность
-(только чтение), подсвеченная строка на них и строка с ошибкой. Минимум на этих фонах проверяет
-`CodeEditor.test.tsx`.
+Код — это текст, поэтому каждый цвет держит 4.5:1 на всех фонах кода. В редакторе это поверхность,
+вложенная поверхность (только чтение), подсвеченная строка на них и строка с ошибкой; минимум
+проверяет `CodeEditor.test.tsx`, он в таблице ниже. В диффе это обычный фон, insert, delete и
+выделенная строка; `diffTheme.test.ts` проверяет их с альфа-композицией, минимум 5.85:1 в тёмной
+теме и 5.38:1 в светлой. Там же текст строк, номера, выделения и edit-фрагменты — не ниже 4.5:1.
 
 | Токен                 | Тёмная    | Светлая   | Минимум: тёмная, светлая |
 | --------------------- | --------- | --------- | ------------------------ |

@@ -126,6 +126,25 @@ function varOf(vars: Record<string, string>, name: string): string {
   return value
 }
 
+const TOKENS_CSS = readFileSync(
+  new URL('../../../shared/ui/styles/tokens.css', import.meta.url),
+  'utf8',
+)
+
+/** The `--rv-*` custom properties of one theme block of `tokens.css`. */
+function themeTokens(mode: (typeof MODES)[number]): Map<string, string> {
+  const start = TOKENS_CSS.indexOf(`[data-rv-theme='${mode}'] {`)
+  if (start < 0) {
+    throw new Error(`tokens.css has no ${mode} block`)
+  }
+  const body = TOKENS_CSS.slice(start, TOKENS_CSS.indexOf('}', start))
+  return new Map(
+    [...body.matchAll(/(--rv-[a-z0-9-]+):\s*([^;]+);/g)].map(
+      ([, name = '', value = '']): [string, string] => [name, value],
+    ),
+  )
+}
+
 describe('contrast helper', () => {
   it('measures black on white as 21:1 and identical colours as 1:1', () => {
     expect(contrastRatio(parseColor('#000000'), parseColor('#ffffff'))).toBeCloseTo(21, 5)
@@ -151,6 +170,20 @@ describe.each(MODES)('diffThemeVars (%s Flat Console theme)', (mode) => {
 
   /** A surface colour as seen on screen: laid over the container background. */
   const surface = (name: string): Rgba => composite(parseColor(varOf(vars, name)), container())
+
+  const tokens = themeTokens(mode)
+  /** A value as the theme paints it: `var(--rv-*)` is looked up in this theme's `tokens.css` block. */
+  const resolve = (value: string): string => {
+    const ref = /^var\((--rv-[a-z0-9-]+)\)$/.exec(value)?.[1]
+    if (ref === undefined) {
+      return value
+    }
+    const resolved = tokens.get(ref)
+    if (resolved === undefined) {
+      throw new Error(`tokens.css (${mode}) does not define ${ref}`)
+    }
+    return resolved
+  }
 
   it('is deterministic for a given token', () => {
     expect(diffThemeVars(token)).toEqual(vars)
@@ -200,47 +233,35 @@ describe.each(MODES)('diffThemeVars (%s Flat Console theme)', (mode) => {
     expect([...tokenVars].sort()).toEqual([...TOKEN_SLOTS].sort())
   })
 
-  it('pins the eight syntax slot colours of the application theme', () => {
-    const expected = {
-      light: [
-        '#c41d7f',
-        '#d46b08',
-        '#0958d9',
-        '#08979c',
-        '#d4380d',
-        '#1d39c4',
-        '#391085',
-        '#627289',
-      ],
-      dark: [
-        '#e0529c',
-        '#e89a3c',
-        '#3c89e8',
-        '#33bcb7',
-        '#e87040',
-        '#5273e0',
-        '#ab7ae0',
-        '#7786a0',
-      ],
-    }
-    expect(TOKEN_SLOTS.map((slot) => varOf(vars, slot))).toEqual(expected[mode])
+  it('points the eight syntax slots at the shared code palette of tokens.css (DS §3, #239 D1)', () => {
+    expect(TOKEN_SLOTS.map((slot) => varOf(vars, slot))).toEqual([
+      'var(--rv-code-keyword)',
+      'var(--rv-code-string)',
+      'var(--rv-code-number)',
+      'var(--rv-code-function)',
+      'var(--rv-code-tag)',
+      'var(--rv-code-attribute)',
+      'var(--rv-code-special)',
+      'var(--rv-text-2)',
+    ])
   })
 
-  it.each(['container', 'code insert', 'code delete'])(
-    'every syntax colour holds 3:1 on the %s background',
+  it.each(['container', 'code insert', 'code delete', 'code selected'])(
+    'every syntax colour holds 4.5:1 on the %s background (DS §3: code is text)',
     (where) => {
       const bgName = {
         container: '--diff-background-color',
         'code insert': '--diff-code-insert-background-color',
         'code delete': '--diff-code-delete-background-color',
+        'code selected': '--diff-code-selected-background-color',
       }[where]
       if (bgName === undefined) {
         throw new Error(where)
       }
       const bg = surface(bgName)
       for (const name of tokenVars) {
-        const fg = composite(parseColor(varOf(vars, name)), bg)
-        expect(contrastRatio(fg, bg), `${name} on ${where}`).toBeGreaterThanOrEqual(3)
+        const fg = composite(parseColor(resolve(varOf(vars, name))), bg)
+        expect(contrastRatio(fg, bg), `${name} on ${where}`).toBeGreaterThanOrEqual(4.5)
       }
     },
   )
@@ -249,8 +270,8 @@ describe.each(MODES)('diffThemeVars (%s Flat Console theme)', (mode) => {
     const text = varOf(vars, '--diff-text-color')
     const textOnContainer = composite(parseColor(text), container())
     for (const name of tokenVars) {
-      expect(varOf(vars, name), name).not.toBe(text)
-      const onContainer = composite(parseColor(varOf(vars, name)), container())
+      expect(resolve(varOf(vars, name)), name).not.toBe(text)
+      const onContainer = composite(parseColor(resolve(varOf(vars, name))), container())
       expect(onContainer, name).not.toEqual(textOnContainer)
     }
   })
