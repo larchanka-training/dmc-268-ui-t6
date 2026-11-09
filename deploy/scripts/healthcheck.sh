@@ -2,11 +2,15 @@
 set -euo pipefail
 
 TARGET="${1:-}"
+# Optional: the "service" the /health body must name. Behind the shared edge proxy another app's
+# /health must not pass (Deploy prod passes dmc-268-ui). The landing and docs checks call this
+# script without it.
+SERVICE="${2:-}"
 ATTEMPTS="${HEALTHCHECK_ATTEMPTS:-12}"
 SLEEP_SECONDS="${HEALTHCHECK_SLEEP:-5}"
 
 if [[ -z "${TARGET}" ]]; then
-  echo "usage: healthcheck.sh <url>" >&2
+  echo "usage: healthcheck.sh <url> [service]" >&2
   exit 1
 fi
 
@@ -16,8 +20,8 @@ fi
 
 for attempt in $(seq 1 "${ATTEMPTS}"); do
   if body="$(curl -fsS --max-time 5 "${TARGET}")"; then
-    # The service name too: behind the shared edge proxy another app's /health must not pass.
-    if printf '%s' "${body}" | grep -q '"status":"ok"' && printf '%s' "${body}" | grep -q '"service":"dmc-268-ui"'; then
+    if printf '%s' "${body}" | grep -q '"status":"ok"' \
+      && { [[ -z "${SERVICE}" ]] || printf '%s' "${body}" | grep -qF "\"service\":\"${SERVICE}\""; }; then
       echo "health check passed on attempt ${attempt}: ${body}"
       exit 0
     fi

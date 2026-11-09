@@ -171,7 +171,7 @@ GET /health
 200 {"status":"ok","service":"dmc-268-ui"}
 ```
 
-После `compose up --wait` runner проверяет URL из резолвера снаружи, 12 попыток × 5 с: курсовой VPS — `https://staging-ui.<APP_DOMAIN>/health` через edge-прокси (prod — `https://ui.<APP_DOMAIN>/health`); Terraform-хост — `STAGING_HEALTH_URL` или `http://<STAGING_HOST>/health`. Нужны и `"status":"ok"`, и `"service":"dmc-268-ui"` (`deploy/scripts/healthcheck.sh`): `/health` другого приложения за тем же прокси не проходит. Иначе → авто-rollback, job красный. Bootstrap nginx `/health` не отдаёт: после отката на bootstrap проверяется `GET <base_url>/` с HTTP 200.
+После `compose up --wait` runner проверяет URL из резолвера снаружи, 12 попыток × 5 с: курсовой VPS — `https://staging-ui.<APP_DOMAIN>/health` через edge-прокси (prod — `https://ui.<APP_DOMAIN>/health`); Terraform-хост — `STAGING_HEALTH_URL` или `http://<STAGING_HOST>/health`. Нужен `"status":"ok"` (`deploy/scripts/healthcheck.sh`); prod ещё и `"service":"dmc-268-ui"` (второй аргумент скрипта), чтобы `/health` другого приложения за тем же прокси не прошёл. Иначе → авто-rollback, job красный. Bootstrap nginx `/health` не отдаёт: после отката на bootstrap проверяется `GET <base_url>/` с HTTP 200.
 
 ### 4.1 Лендинг
 

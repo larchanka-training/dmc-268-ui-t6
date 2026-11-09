@@ -443,7 +443,8 @@ jobs:
           HEALTH_URL: ${{ steps.target.outputs.health_url }}
         run: |
           chmod +x deploy/scripts/healthcheck.sh
-          deploy/scripts/healthcheck.sh "${HEALTH_URL}"
+          # The service name too: the UI, not another app behind ui.<APP_DOMAIN>.
+          deploy/scripts/healthcheck.sh "${HEALTH_URL}" dmc-268-ui
 
       # Every value explicit: if deploy.sh failed on docker pull, <APP_DIR>/.env does not exist
       # yet, and rollback.sh would otherwise fall back to ports mode and a bootstrap on port 80.
