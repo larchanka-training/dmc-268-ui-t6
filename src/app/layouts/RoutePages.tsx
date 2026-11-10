@@ -44,6 +44,9 @@ const AnalyticsPage = lazyRoute(() =>
 const PlaygroundPage = lazyRoute(() =>
   import('../../pages/playground/PlaygroundPage').then((m) => ({ default: m.PlaygroundPage })),
 )
+const NotFoundPage = lazyRoute(() =>
+  import('../../pages/not-found/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
+)
 
 export const RoutedRepositoriesPage: FC = () => {
   return <RepositoriesPage />
@@ -75,6 +78,10 @@ export const RoutedAnalyticsPage: FC = () => {
 
 export const RoutedPlaygroundPage: FC = () => {
   return <PlaygroundPage />
+}
+
+export const RoutedNotFoundPage: FC = () => {
+  return <NotFoundPage />
 }
 
 export const RoutedLoginPage: FC = () => {
