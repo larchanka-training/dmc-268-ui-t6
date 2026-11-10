@@ -5,7 +5,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { RunListPage, RunSession } from '../../entities/run'
-import { DataTable } from '../../shared/ui'
+import dataTableStyles from '../../shared/ui/DataTable/DataTable.module.css'
 import { AuditPage } from './AuditPage'
 
 type Handler = (url: URL, call: number) => RunListPage | Response
@@ -190,23 +190,12 @@ describe('AuditPage', () => {
     expect(width).toMatch(/^\d+px$/)
     expect(Number.parseInt(width, 10)).toBeLessThanOrEqual(967)
 
-    // An explicit `scroll.x` sets that width in both modes, so the wrapping mode itself is checked:
-    // its class is read off two reference tables, one per mode.
-    const classes = (nowrap: boolean): Set<string> => {
-      const { container: reference, unmount } = render(
-        <DataTable<RunSession> columns={[]} dataSource={[]} nowrap={nowrap} rowKey="id" />,
-      )
-      const found = new Set(reference.querySelector('.ant-table-wrapper')?.classList)
-      unmount()
-      return found
-    }
-    const [wrapping, oneLine] = [classes(false), classes(true)]
-    const wrapOnly = [...wrapping].filter((name) => !oneLine.has(name))
-    const oneLineOnly = [...oneLine].filter((name) => !wrapping.has(name))
-    expect([wrapOnly.length, oneLineOnly.length]).toEqual([1, 1])
+    // An explicit `scroll.x` sets that width in both modes, so the wrapping mode itself is checked.
+    expect(dataTableStyles.wrap).toBeTruthy()
+    expect(dataTableStyles.nowrap).toBeTruthy()
     const wrapper = container.querySelector('.ant-table-wrapper')
-    expect(wrapper?.classList.contains(wrapOnly[0] ?? '')).toBe(true)
-    expect(wrapper?.classList.contains(oneLineOnly[0] ?? '')).toBe(false)
+    expect(wrapper?.classList.contains(dataTableStyles.wrap ?? '')).toBe(true)
+    expect(wrapper?.classList.contains(dataTableStyles.nowrap ?? '')).toBe(false)
   })
 
   it('shows a dash without an initiator and zeros without usage', async () => {

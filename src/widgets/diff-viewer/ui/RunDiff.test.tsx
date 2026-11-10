@@ -8,7 +8,7 @@ import type { FindingView, ReviewComment } from '../../../entities/review'
 import { RunSessionSchema } from '../../../entities/run'
 import { EMPTY_FINDING_FILTERS } from '../../../features/finding-filters'
 import { SAMPLE_PATCH_A, SAMPLE_PATCHES } from '../../../shared/fixtures/sample.patch'
-import { FilePath } from '../../../shared/ui'
+import filePathStyles from '../../../shared/ui/FilePath/FilePath.module.css'
 import {
   countDiffSideLines,
   MAX_LINES_FOR_SYNC_HIGHLIGHT,
@@ -111,14 +111,12 @@ describe('RunDiff', () => {
 
   it('sets the summary-only file names as FilePath, in the monospace font (DS §8, #239 D9)', () => {
     const files = diffApi.diff.response.parse(SUMMARY_ONLY_DIFF_WIRE).map(fromPatch)
-    const { container: reference } = render(<FilePath path="reference" />)
-    const filePathClass = reference.firstElementChild?.className
-    expect(filePathClass).toBeTruthy()
+    expect(filePathStyles.path).toBeTruthy()
 
     render(<RunDiff findings={[]} files={files} summaryOnly />)
 
     for (const name of ['src/big-one.ts', 'src/big-two.ts']) {
-      expect(screen.getByText(name).className, name).toBe(filePathClass)
+      expect(screen.getByText(name).classList.contains(filePathStyles.path ?? ''), name).toBe(true)
     }
   })
 
