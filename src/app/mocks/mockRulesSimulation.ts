@@ -4,11 +4,11 @@ import {
   type RulesSimulationAccepted,
   type RulesSimulationInput,
   type SimulationFinding,
-} from '../../entities/rules-simulation'
+} from '../../entities/review'
 import { ApiError } from '../../shared/api/client'
 
 // Review simulations of the rules playground (api#311, not implemented yet): what the provisional
-// contract in `entities/rules-simulation` says the api answers. As with the RAG index, the
+// contract in `entities/review/model/rulesSimulation.ts` says the api answers. As with the RAG index, the
 // simulation moves by the number of GETs, not by time (FRONTEND_ARCHITECTURE §8): the first GET
 // sees it `queued`, the second `running`, the third and later `succeeded`. Refusals other than
 // these (budget, rules that do not parse, a failed model) are the tests' business

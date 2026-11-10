@@ -1,30 +1,27 @@
 import { Alert, Empty, Typography } from 'antd'
 import type { JSX } from 'react'
 
-import { SEVERITY_LABEL, SEVERITY_TAG } from '../../../entities/review'
 import {
   isFinalSimulationError,
+  SEVERITY_LABEL,
+  SEVERITY_TAG,
+  type RulesSimulation,
+  type SimulationFinding,
+} from '../../../entities/review'
+import { formatPercent, formatUsd, useTranslation } from '../../../shared/i18n'
+import { Spinner, Tag } from '../../../shared/ui'
+import { RulesDiagnosticList } from '../../../widgets/repository-rules'
+import {
   rejectedRulesDiagnostics,
   simulationFailureMessage,
   simulationReadErrorMessage,
   simulationStartErrorMessage,
-  type RulesSimulation,
-  type SimulationFinding,
-} from '../../../entities/rules-simulation'
-import { formatPercent, formatUsd, useTranslation } from '../../../shared/i18n'
-import { Spinner, Tag } from '../../../shared/ui'
-import { RulesDiagnosticList } from '../../../widgets/repository-rules'
+} from '../lib/simulationErrors'
+import type { SimulationLaunch } from '../lib/simulationLaunch'
 import styles from './SimulationResult.module.css'
 
 const RULES_FILE = '.review/rules.md'
 const DEFAULT_CHECK_PREFIX = 'service-defaults:'
-
-/** The simulation the page follows. */
-export interface SimulationLaunch {
-  id: string
-  /** The repository that pays, as it was when sent; null for one taken over from a `409`. */
-  repositoryName: string | null
-}
 
 export interface SimulationResultProps {
   /** The POST is on its way. */

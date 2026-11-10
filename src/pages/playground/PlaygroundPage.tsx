@@ -10,12 +10,10 @@ import {
   type RulesStatus,
 } from '../../entities/repository'
 import {
-  activeSimulationId,
   isFinalSimulationError,
-  rejectedRulesDiagnostics,
   useRulesSimulation,
   useStartRulesSimulation,
-} from '../../entities/rules-simulation'
+} from '../../entities/review'
 import { useTranslation } from '../../shared/i18n'
 import { ErrorBoundary, PageHeader, Segmented } from '../../shared/ui'
 import { CodeEditor } from '../../shared/ui/CodeEditor/CodeEditor'
@@ -25,7 +23,9 @@ import type {
 } from '../../shared/ui/CodeEditor/editorExtensions'
 import { diagnosticText, RulesStatusView } from '../../widgets/repository-rules'
 import styles from './PlaygroundPage.module.css'
-import { SimulationResult, type SimulationLaunch } from './ui/SimulationResult'
+import { activeSimulationId, rejectedRulesDiagnostics } from './lib/simulationErrors'
+import type { SimulationLaunch } from './lib/simulationLaunch'
+import { SimulationResult } from './ui/SimulationResult'
 
 type RulesSource = 'repository' | 'defaults'
 type Mode = 'code' | 'diff'

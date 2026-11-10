@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ZodError } from 'zod'
 
-import { fetchRulesSimulation, startRulesSimulation } from './index'
+import { fetchRulesSimulation, startRulesSimulation } from './rulesSimulation'
 
 const ID = '5a5a5a5a-5a5a-4a5a-8a5a-000000000001'
 const REPO_ID = '22222222-2222-4222-8222-000000000001'

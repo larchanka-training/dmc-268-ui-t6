@@ -4,7 +4,7 @@ import {
   RulesSimulationAcceptedSchema,
   RulesSimulationInputSchema,
   RulesSimulationSchema,
-} from './schemas'
+} from './rulesSimulation'
 
 const ID = '5a5a5a5a-5a5a-4a5a-8a5a-000000000001'
 

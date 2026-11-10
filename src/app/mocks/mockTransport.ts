@@ -19,7 +19,7 @@ import {
   type RulesStatus,
   type UpdateRepositoryInput,
 } from '../../entities/repository'
-import type { RulesSimulation } from '../../entities/rules-simulation'
+import type { RulesSimulation } from '../../entities/review'
 import { setMockAuthAdapter, useAuthStore } from '../../features/auth'
 import type { BitbucketConnectionItem } from '../../features/bitbucket-connections'
 import {

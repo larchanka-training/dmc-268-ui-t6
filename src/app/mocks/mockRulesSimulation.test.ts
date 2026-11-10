@@ -9,10 +9,7 @@ vi.mock('../../shared/config/env', () => ({
   GITHUB_APP_SLUG: '',
 }))
 
-import {
-  RulesSimulationAcceptedSchema,
-  RulesSimulationSchema,
-} from '../../entities/rules-simulation'
+import { RulesSimulationAcceptedSchema, RulesSimulationSchema } from '../../entities/review'
 import { apiClient, setMockTransport } from '../../shared/api/client'
 import { endpoints } from '../../shared/api/endpoints'
 import { mockRepositories } from './app-state'
