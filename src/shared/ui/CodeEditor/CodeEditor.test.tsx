@@ -587,6 +587,18 @@ describe('CodeEditor: completions', () => {
     expect(labels('Intro\n', true)).toEqual(completions.map((item) => item.label))
   })
 
+  it('opens by itself only on a line start that begins a completion, any case', () => {
+    expect(labels('#')).toEqual(completions.map((item) => item.label))
+    expect(labels('# s')).toEqual(completions.map((item) => item.label))
+  })
+
+  it('stays quiet on a word that starts no completion until asked', () => {
+    // Enter on an open list would take the word, not break the line.
+    expect(labels('Style')).toBeNull()
+    expect(labels('Intro\nSecurity')).toBeNull()
+    expect(labels('Style', true)).toEqual(completions.map((item) => item.label))
+  })
+
   it('shows the matching completions in the editor that has them', async () => {
     render(<Controlled completions={completions} value="" />)
     typeDoc('# S')

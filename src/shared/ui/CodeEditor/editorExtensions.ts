@@ -185,13 +185,15 @@ export interface CodeEditorCompletion {
 const LINE_START = /^[#`\w-]*(?: [\w-]*)?$/
 
 /**
- * Offers `completions` while the line, up to the cursor, can still become one of them: typing
- * `# S` or `` ```rev `` at the start of a line opens the list. On an empty line only when asked
- * (Ctrl-Space).
+ * Offers `completions` at the start of a line. The list opens by itself only while the line, up to
+ * the cursor, begins one of the labels (any case): typing `# S` or `` ```rev `` opens it, a line
+ * that starts with a plain word such as `Style` does not, so Enter still breaks that line. On such
+ * a line and on an empty one the list opens only when asked (Ctrl-Space).
  */
 export function lineStartCompletions(
   completions: readonly CodeEditorCompletion[],
 ): CompletionSource {
+  const starts = completions.map(({ label }) => label.toLowerCase())
   const options = completions.map(
     ({ label, insert, cursor = insert.length, detail }): Completion => ({
       label,
@@ -209,7 +211,11 @@ export function lineStartCompletions(
   )
   return (context) => {
     const typed = context.matchBefore(LINE_START)
-    if (typed === null || (typed.from === typed.to && !context.explicit)) {
+    if (typed === null) {
+      return null
+    }
+    const start = typed.text.toLowerCase()
+    if (!context.explicit && (start === '' || !starts.some((label) => label.startsWith(start)))) {
       return null
     }
     return { from: typed.from, options, validFor: LINE_START }
