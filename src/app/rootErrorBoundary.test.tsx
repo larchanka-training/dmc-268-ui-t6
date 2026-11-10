@@ -77,6 +77,8 @@ describe('root error boundary', () => {
     const location = stubReload()
     fireEvent.click(screen.getByRole('button', { name: 'Перезагрузить' }))
     expect(location.reload).toHaveBeenCalledTimes(1)
+    // The error message is developer text: the screen does not show it.
+    expect(document.body.textContent).not.toContain('provider failed')
   })
 
   it('shows the 500 screen when the app throws above the providers', () => {
@@ -85,6 +87,7 @@ describe('root error boundary', () => {
 
     expect(screen.getByRole('heading', { name: 'Произошла непредвиденная ошибка' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Перезагрузить' })).toBeTruthy()
+    expect(document.body.textContent).not.toContain('router failed')
   })
 
   it('does not need the translation hook, which may be what failed', () => {
@@ -93,6 +96,7 @@ describe('root error boundary', () => {
     render(<App />)
 
     expect(screen.getByRole('button', { name: 'Перезагрузить' })).toBeTruthy()
+    expect(document.body.textContent).not.toContain('failed')
   })
 
   it('speaks English for an English user', async () => {
