@@ -62,6 +62,9 @@ Lock files, build output, binaries and files that match `review-ignore` are not 
 - A copy of `.review/rules.md` from the default branch, shown in **Review rules**.
 - The generated summary of your project's conventions, reused across reviews.
 - A cache of file contents, used for up to 7 days.
+- A cache of accepted model responses (review and verification) in Redis for up to 7 days, holding
+  the text of findings for the repository's code. A rerun on the same head reuses the cached
+  response instead of calling the model again.
 - The GitHub webhook payloads Reviewer receives, deleted 30 days after they are processed.
 - If RAG is on, the code index: structure only (symbols, imports, paths, line numbers), no code
   text.
