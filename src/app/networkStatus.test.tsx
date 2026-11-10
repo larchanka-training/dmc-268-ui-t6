@@ -69,22 +69,43 @@ describe('the app-wide network notice', () => {
   it('appears when the network is lost and leaves when it returns, with the page kept', async () => {
     useAuthStore.setState({ isAuthenticated: true, isLoading: false, isInitialized: true })
     const router = renderAt('/repositories')
-    expect(await screen.findByRole('heading', { name: 'RepositoriesPage' })).toBeTruthy()
+    const page = await screen.findByRole('heading', { name: 'RepositoriesPage' })
     expect(screen.queryByText(OFFLINE_RU)).toBeNull()
 
     goOffline()
 
     expect((await screen.findByText(OFFLINE_RU)).closest('[role="alert"]')).toBeTruthy()
-    // The loaded page stays as it was, under the notice.
-    expect(screen.getByRole('heading', { name: 'RepositoriesPage' })).toBeTruthy()
+    // The loaded page stays as it was under the notice: the same node, not a new render.
+    expect(screen.getByRole('heading', { name: 'RepositoriesPage' })).toBe(page)
 
     goOnline()
 
     await waitFor(() => {
       expect(screen.queryByText(OFFLINE_RU)).toBeNull()
     })
-    expect(screen.getByRole('heading', { name: 'RepositoriesPage' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'RepositoriesPage' })).toBe(page)
     expect(router.state.location.pathname).toBe('/repositories')
+  })
+
+  // Queries pause on `onlineManager`, which can also be set without a browser event.
+  it('follows the online state that pauses queries, not the browser events', async () => {
+    useAuthStore.setState({ isAuthenticated: true, isLoading: false, isInitialized: true })
+    renderAt('/repositories')
+    expect(await screen.findByRole('heading', { name: 'RepositoriesPage' })).toBeTruthy()
+
+    act(() => {
+      onlineManager.setOnline(false)
+    })
+
+    expect(await screen.findByText(OFFLINE_RU)).toBeTruthy()
+
+    act(() => {
+      onlineManager.setOnline(true)
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByText(OFFLINE_RU)).toBeNull()
+    })
   })
 
   it('shows on a page outside the app shell too', async () => {
