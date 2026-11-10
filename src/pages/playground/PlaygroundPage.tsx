@@ -17,7 +17,7 @@ import {
   useStartRulesSimulation,
 } from '../../entities/rules-simulation'
 import { useTranslation } from '../../shared/i18n'
-import { PageHeader, Segmented } from '../../shared/ui'
+import { ErrorBoundary, PageHeader, Segmented } from '../../shared/ui'
 import { CodeEditor } from '../../shared/ui/CodeEditor/CodeEditor'
 import type {
   CodeEditorCompletion,
@@ -204,87 +204,96 @@ function Playground({ repositories, fallback }: PlaygroundProps): JSX.Element {
         </Form.Item>
       </Form>
       <div className={styles.columns}>
-        <div className={styles.inputs}>
-          <Form className={styles.codeFields} component="div" layout="vertical">
-            <Segmented<Mode>
-              aria-label={t('playground.mode')}
-              options={[
-                { value: 'code', label: t('playground.modeCode') },
-                { value: 'diff', label: t('playground.modeDiff') },
-              ]}
-              value={mode}
-              onChange={setMode}
-            />
-            <Form.Item
-              className={styles.field}
-              htmlFor={fileNameId}
-              label={t('playground.fileName')}
-            >
-              <Input
-                id={fileNameId}
-                placeholder={t('playground.fileNamePlaceholder')}
-                value={path}
-                onChange={(event) => {
-                  setPath(event.target.value)
+        {/* A column that throws shows the block stub; the other one and what was typed stay. */}
+        <ErrorBoundary>
+          <div className={styles.inputs}>
+            <Form className={styles.codeFields} component="div" layout="vertical">
+              <Segmented<Mode>
+                aria-label={t('playground.mode')}
+                options={[
+                  { value: 'code', label: t('playground.modeCode') },
+                  { value: 'diff', label: t('playground.modeDiff') },
+                ]}
+                value={mode}
+                onChange={setMode}
+              />
+              <Form.Item
+                className={styles.field}
+                htmlFor={fileNameId}
+                label={t('playground.fileName')}
+              >
+                <Input
+                  id={fileNameId}
+                  placeholder={t('playground.fileNamePlaceholder')}
+                  value={path}
+                  onChange={(event) => {
+                    setPath(event.target.value)
+                  }}
+                />
+              </Form.Item>
+            </Form>
+            <div className={styles.block}>
+              {/* The visible name of the editor; assistive tech reads it from `aria-label`. */}
+              <span aria-hidden className={styles.label}>
+                {t('playground.code')}
+              </span>
+              <CodeEditor
+                aria-label={t('playground.code')}
+                fileName={mode === 'diff' ? DIFF_FILE_NAME : path}
+                value={code}
+                onChange={setCode}
+              />
+            </div>
+            <div className={styles.block}>
+              {fromRepository ? (
+                <RulesStatusView
+                  provider={repository.provider}
+                  rules={rules}
+                  showFileText={false}
+                />
+              ) : null}
+              <span aria-hidden className={styles.label}>
+                {t('playground.rulesText')}
+              </span>
+              <CodeEditor
+                aria-label={t('playground.rulesText')}
+                completions={RULES_COMPLETIONS}
+                diagnostics={diagnostics}
+                fileName=".review/rules.md"
+                readOnly={!fromRepository}
+                value={rulesText}
+                onChange={(text) => {
+                  setRulesDraft({ repoId: repository.id, text })
                 }}
               />
-            </Form.Item>
-          </Form>
-          <div className={styles.block}>
-            {/* The visible name of the editor; assistive tech reads it from `aria-label`. */}
-            <span aria-hidden className={styles.label}>
-              {t('playground.code')}
-            </span>
-            <CodeEditor
-              aria-label={t('playground.code')}
-              fileName={mode === 'diff' ? DIFF_FILE_NAME : path}
-              value={code}
-              onChange={setCode}
-            />
+              {fromRepository ? null : (
+                <span className={styles.note}>{t('playground.defaultsOnlyNote')}</span>
+              )}
+            </div>
           </div>
-          <div className={styles.block}>
-            {fromRepository ? (
-              <RulesStatusView provider={repository.provider} rules={rules} showFileText={false} />
-            ) : null}
-            <span aria-hidden className={styles.label}>
-              {t('playground.rulesText')}
-            </span>
-            <CodeEditor
-              aria-label={t('playground.rulesText')}
-              completions={RULES_COMPLETIONS}
-              diagnostics={diagnostics}
-              fileName=".review/rules.md"
-              readOnly={!fromRepository}
-              value={rulesText}
-              onChange={(text) => {
-                setRulesDraft({ repoId: repository.id, text })
-              }}
+        </ErrorBoundary>
+        <ErrorBoundary>
+          <section aria-labelledby={resultId} className={styles.result}>
+            <h2 className={styles.label} id={resultId}>
+              {t('playground.result')}
+            </h2>
+            <Button
+              className={styles.simulate}
+              disabled={!canSimulate}
+              onClick={simulate}
+              type="primary"
+            >
+              {t('playground.simulate')}
+            </Button>
+            <SimulationResult
+              launch={launch}
+              readError={simulation.error}
+              simulation={simulation.data}
+              startError={startError}
+              starting={start.isPending}
             />
-            {fromRepository ? null : (
-              <span className={styles.note}>{t('playground.defaultsOnlyNote')}</span>
-            )}
-          </div>
-        </div>
-        <section aria-labelledby={resultId} className={styles.result}>
-          <h2 className={styles.label} id={resultId}>
-            {t('playground.result')}
-          </h2>
-          <Button
-            className={styles.simulate}
-            disabled={!canSimulate}
-            onClick={simulate}
-            type="primary"
-          >
-            {t('playground.simulate')}
-          </Button>
-          <SimulationResult
-            launch={launch}
-            readError={simulation.error}
-            simulation={simulation.data}
-            startError={startError}
-            starting={start.isPending}
-          />
-        </section>
+          </section>
+        </ErrorBoundary>
       </div>
     </>
   )
