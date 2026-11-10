@@ -599,6 +599,7 @@ describe('tokens.css', () => {
     '--rv-text-3': 'text3',
     '--rv-accent': 'accent',
     '--rv-accent-hover': 'accentHover',
+    '--rv-accent-active': 'accentActive',
     '--rv-accent-fg': 'accentFg',
     '--rv-link': 'link',
     '--rv-success': 'success',
