@@ -1,21 +1,35 @@
+import { ProviderMark } from './ProviderMark'
 import { Reveal } from './Reveal'
 import { SectionHeading } from './SectionHeading'
 import styles from './HowItWorks.module.css'
 
 function ConnectVisual() {
   return (
-    <div className={styles.visual} aria-hidden="true">
-      <div className={styles.repoRow}>
+    <div className={styles.visual}>
+      {/* Иконки ниже скрыты от скринридеров, поэтому смысл строки провайдеров дублируется текстом. */}
+      <span className="visually-hidden">GitHub · GitLab and Bitbucket coming soon</span>
+      <div className={styles.providerRow} aria-hidden="true">
+        <span className={styles.providerOn}>
+          <ProviderMark name="GitHub" size={14} />
+          GitHub
+        </span>
+        <span className={styles.providerSoon}>
+          <span title="GitLab">
+            <ProviderMark name="GitLab" size={14} />
+          </span>
+          <span title="Bitbucket">
+            <ProviderMark name="Bitbucket" size={14} />
+          </span>
+          <em className={styles.badge}>Coming soon</em>
+        </span>
+      </div>
+      <div className={styles.repoRow} aria-hidden="true">
         <span className={styles.checkbox} data-checked="true" />
         acme/api
       </div>
-      <div className={styles.repoRow}>
+      <div className={styles.repoRow} aria-hidden="true">
         <span className={styles.checkbox} data-checked="true" />
         acme/web
-      </div>
-      <div className={styles.repoRow} data-muted="true">
-        <span className={styles.checkbox} />
-        acme/docs
       </div>
     </div>
   )

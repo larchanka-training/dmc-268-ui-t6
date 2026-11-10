@@ -67,10 +67,6 @@
   font-size: 12.5px;
 }
 
-.repoRow[data-muted='true'] {
-  color: var(--text-3);
-}
-
 .checkbox {
   position: relative;
   width: 14px;
@@ -204,4 +200,42 @@
   .section {
     padding-block: 80px;
   }
+}
+
+.providerRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 2px;
+}
+
+.providerOn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.providerSoon {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-2);
+}
+
+/* Only the icons are dimmed: the Coming soon text keeps full --text-2 contrast. */
+.providerSoon > span {
+  display: inline-flex;
+  color: var(--text-3);
+  opacity: 0.55;
+}
+
+.badge {
+  padding: 1px 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-style: normal;
+  white-space: nowrap;
 }
