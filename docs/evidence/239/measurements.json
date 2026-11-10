@@ -8,7 +8,8 @@
       "build": "VITE_USE_MOCKS=true vite build",
       "commit": "b76d68f02d795dceed229a995aeecedd6060071d",
       "note": "D2 (login) was measured on the same tree before the rebase onto fc3781f2; the rebase changed no file under src/pages/login or tokens.css"
-    }
+    },
+    "review": "The 390 records of D6, D10, D12 and D13 and the settings Select at 1280 were added in review round 1 of PR #315, from the same two builds."
   },
   "before": [
     {
@@ -1209,6 +1210,118 @@
         "belowPct": 0,
         "color": "rgb(148, 163, 184)"
       }
+    },
+    {
+      "id": "D10",
+      "what": "segmented-selected",
+      "theme": "light",
+      "width": 390,
+      "radius": "2px"
+    },
+    {
+      "id": "D6",
+      "where": "settings 0002",
+      "theme": "light",
+      "width": 390,
+      "alertTitles": ["The rules file has errors: 14px"]
+    },
+    {
+      "id": "D10",
+      "what": "typography-code",
+      "theme": "light",
+      "width": 390,
+      "codeRadius": ["limit_exceeded:symbols: 3px"]
+    },
+    {
+      "id": "D13",
+      "where": "/audit status filter",
+      "theme": "light",
+      "width": 390,
+      "value": "All",
+      "opacity": 0.25,
+      "contrast": 1.75
+    },
+    {
+      "id": "D13",
+      "where": "settings 0001 first select",
+      "theme": "light",
+      "width": 1280,
+      "value": "Auto (wait for CI when the commit has checks)",
+      "opacity": 0.25,
+      "contrast": 1.75
+    },
+    {
+      "id": "D13",
+      "where": "settings 0001 first select",
+      "theme": "light",
+      "width": 390,
+      "value": "Auto (wait for CI when the commit has checks)",
+      "opacity": 0.25,
+      "contrast": 1.75
+    },
+    {
+      "id": "D12",
+      "theme": "light",
+      "width": 390,
+      "nameTag": "B",
+      "nameWeight": "700",
+      "groupTitles": ["Theme: 11.5px", "Language: 11.5px"]
+    },
+    {
+      "id": "D10",
+      "what": "segmented-selected",
+      "theme": "dark",
+      "width": 390,
+      "radius": "2px"
+    },
+    {
+      "id": "D6",
+      "where": "settings 0002",
+      "theme": "dark",
+      "width": 390,
+      "alertTitles": ["The rules file has errors: 14px"]
+    },
+    {
+      "id": "D10",
+      "what": "typography-code",
+      "theme": "dark",
+      "width": 390,
+      "codeRadius": ["limit_exceeded:symbols: 3px"]
+    },
+    {
+      "id": "D13",
+      "where": "/audit status filter",
+      "theme": "dark",
+      "width": 390,
+      "value": "All",
+      "opacity": 0.25,
+      "contrast": 2.13
+    },
+    {
+      "id": "D13",
+      "where": "settings 0001 first select",
+      "theme": "dark",
+      "width": 1280,
+      "value": "Auto (wait for CI when the commit has checks)",
+      "opacity": 0.25,
+      "contrast": 2.13
+    },
+    {
+      "id": "D13",
+      "where": "settings 0001 first select",
+      "theme": "dark",
+      "width": 390,
+      "value": "Auto (wait for CI when the commit has checks)",
+      "opacity": 0.25,
+      "contrast": 2.13
+    },
+    {
+      "id": "D12",
+      "theme": "dark",
+      "width": 390,
+      "nameTag": "B",
+      "nameWeight": "700",
+      "groupTitles": ["Theme: 11.5px", "Language: 11.5px"]
     }
   ],
   "after": [
@@ -2584,6 +2697,118 @@
         "belowPct": 0,
         "color": "rgb(248, 250, 252)"
       }
+    },
+    {
+      "id": "D10",
+      "what": "segmented-selected",
+      "theme": "light",
+      "width": 390,
+      "radius": "4px"
+    },
+    {
+      "id": "D6",
+      "where": "settings 0002",
+      "theme": "light",
+      "width": 390,
+      "alertTitles": ["The rules file has errors: 13px"]
+    },
+    {
+      "id": "D10",
+      "what": "typography-code",
+      "theme": "light",
+      "width": 390,
+      "codeRadius": ["limit_exceeded:symbols: 4px"]
+    },
+    {
+      "id": "D13",
+      "where": "/audit status filter",
+      "theme": "light",
+      "width": 390,
+      "value": "All",
+      "opacity": 1,
+      "contrast": 18.72
+    },
+    {
+      "id": "D13",
+      "where": "settings 0001 first select",
+      "theme": "light",
+      "width": 1280,
+      "value": "Auto (wait for CI when the commit has checks)",
+      "opacity": 1,
+      "contrast": 18.72
+    },
+    {
+      "id": "D13",
+      "where": "settings 0001 first select",
+      "theme": "light",
+      "width": 390,
+      "value": "Auto (wait for CI when the commit has checks)",
+      "opacity": 1,
+      "contrast": 18.72
+    },
+    {
+      "id": "D12",
+      "theme": "light",
+      "width": 390,
+      "nameTag": "SPAN",
+      "nameWeight": "600",
+      "groupTitles": ["Theme: 12px", "Language: 12px"]
+    },
+    {
+      "id": "D10",
+      "what": "segmented-selected",
+      "theme": "dark",
+      "width": 390,
+      "radius": "4px"
+    },
+    {
+      "id": "D6",
+      "where": "settings 0002",
+      "theme": "dark",
+      "width": 390,
+      "alertTitles": ["The rules file has errors: 13px"]
+    },
+    {
+      "id": "D10",
+      "what": "typography-code",
+      "theme": "dark",
+      "width": 390,
+      "codeRadius": ["limit_exceeded:symbols: 4px"]
+    },
+    {
+      "id": "D13",
+      "where": "/audit status filter",
+      "theme": "dark",
+      "width": 390,
+      "value": "All",
+      "opacity": 1,
+      "contrast": 18.54
+    },
+    {
+      "id": "D13",
+      "where": "settings 0001 first select",
+      "theme": "dark",
+      "width": 1280,
+      "value": "Auto (wait for CI when the commit has checks)",
+      "opacity": 1,
+      "contrast": 18.54
+    },
+    {
+      "id": "D13",
+      "where": "settings 0001 first select",
+      "theme": "dark",
+      "width": 390,
+      "value": "Auto (wait for CI when the commit has checks)",
+      "opacity": 1,
+      "contrast": 18.54
+    },
+    {
+      "id": "D12",
+      "theme": "dark",
+      "width": 390,
+      "nameTag": "SPAN",
+      "nameWeight": "600",
+      "groupTitles": ["Theme: 12px", "Language: 12px"]
     }
   ]
 }
