@@ -227,3 +227,10 @@ A failed or skipped run, or one cancelled before its review was published, has n
 filter. The dashboard keeps the diff visible and shows a count of zero findings instead of saying
 that none matched the filter. A cancelled run can still have findings when cancellation was
 requested during publication; in that case, severity and search filter them normally.
+
+### How do I add a review badge to my README?
+
+The section is available for GitHub repositories only. Open the repository settings in the dashboard, and in the **README badge** section, copy the Markdown snippet and paste it into your `README.md`.
+
+The badge displays the verdict (`passed`, `attention`, `blocking`) of the latest review for public repositories. It shows a neutral `no data` status for private repositories, before the first successful review run with a verdict, if the GitHub App loses access, or if public visibility has not been verified within the last 72 hours.
+

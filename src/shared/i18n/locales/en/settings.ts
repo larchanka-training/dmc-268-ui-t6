@@ -139,6 +139,16 @@ export const settings = {
     serverRejectedThreshold: 'The server did not accept the threshold',
     serverRejectedValue: 'The server did not accept the value',
   },
+  badge: {
+    title: 'README badge',
+    snippetLabel: 'Markdown snippet',
+    copy: 'Copy',
+    copied: 'Snippet copied to clipboard',
+    copyFailed: 'Failed to copy to clipboard',
+    previewUnavailable: 'Preview unavailable',
+    publicOnlyNotice:
+      'The badge displays the status of public repositories only. For private repositories, a neutral "no data" status is shown.',
+  },
   branchMask: {
     tooLong: 'The mask on line {{line}} is longer than 255 characters',
     tooMany: 'No more than 20 masks',

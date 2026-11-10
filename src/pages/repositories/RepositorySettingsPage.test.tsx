@@ -423,6 +423,21 @@ describe('RepositorySettingsPage', () => {
     expect(screen.getByText(/У Bitbucket Cloud нет доступа к этому репозиторию/)).toBeTruthy()
     expect(screen.getByText('Нет доступа Bitbucket Cloud — RAG недоступен')).toBeTruthy()
     expect(screen.queryByText(/GitHub App/)).toBeNull()
+    expect(screen.queryByText('Бейдж для README')).toBeNull()
+  })
+
+  it('renders the README badge section for a GitHub repository', async () => {
+    stubBackend([UI_REPO])
+    renderPage(settingsPath(UI_REPO.id))
+
+    expect(await screen.findByText('Бейдж для README')).toBeTruthy()
+    expect(screen.getByRole('img', { name: 'Бейдж для README' }).getAttribute('src')).toBe(
+      `/api/badges/github/${UI_REPO.fullName}.svg`,
+    )
+    const snippetBox = screen.getByRole('region', { name: 'Markdown-сниппет' })
+    expect(snippetBox.textContent).toBe(
+      `![Reviewer](${window.location.origin}/api/badges/github/${UI_REPO.fullName}.svg)`,
+    )
   })
 
   it('sends only supported settings from a Bitbucket repository page', async () => {

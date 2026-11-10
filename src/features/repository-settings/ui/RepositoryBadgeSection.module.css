@@ -1,0 +1,41 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 560px;
+}
+
+.previewContainer {
+  display: flex;
+  align-items: center;
+  min-height: 24px;
+}
+
+.previewImage {
+  display: block;
+  max-height: 24px;
+  object-fit: contain;
+}
+
+.notice {
+  font-size: var(--rv-fs-xs);
+}
+
+.snippetRow {
+  width: 100%;
+}
+
+.snippetBox {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 10px;
+  overflow-x: auto;
+  background: var(--rv-surface-2);
+  border: 1px solid var(--rv-border);
+  border-radius: var(--rv-radius-md);
+}
+
+.snippetBox:focus-visible {
+  outline: 2px solid var(--rv-link);
+  outline-offset: 2px;
+}

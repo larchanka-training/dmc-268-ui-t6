@@ -137,6 +137,16 @@ export const settings: Translation<typeof en> = {
     serverRejectedThreshold: 'Сервер не принял порог',
     serverRejectedValue: 'Сервер не принял значение',
   },
+  badge: {
+    title: 'Бейдж для README',
+    snippetLabel: 'Markdown-сниппет',
+    copy: 'Копировать',
+    copied: 'Сниппет скопирован в буфер обмена',
+    copyFailed: 'Не удалось скопировать в буфер обмена',
+    previewUnavailable: 'Превью недоступно',
+    publicOnlyNotice:
+      'Бейдж показывает статус только для публичных репозиториев. Для приватных репозиториев отображается нейтральный статус «нет данных».',
+  },
   branchMask: {
     tooLong: 'Маска в строке {{line}} длиннее 255 символов',
     tooMany: 'Не больше 20 масок',
