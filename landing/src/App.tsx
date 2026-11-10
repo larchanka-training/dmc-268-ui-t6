@@ -6,7 +6,7 @@ import { Footer } from './components/Footer'
 import { Header } from './components/Header'
 import { Hero } from './components/Hero'
 import { HowItWorks } from './components/HowItWorks'
-import { AppCta } from './components/AppCta'
+import { Ending } from './components/Ending'
 
 export function App() {
   // После коммита, но до покраски: цель уже в DOM, а instant обходит глобальный smooth-scroll.
@@ -46,7 +46,7 @@ export function App() {
         <HowItWorks />
         <Features />
         <CustomRules />
-        <AppCta />
+        <Ending />
       </main>
       <Footer />
     </>

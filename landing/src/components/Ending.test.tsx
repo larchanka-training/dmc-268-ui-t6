@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { App } from '../App'
 import { getAppUrl, loadAppUrl, resetAppUrl } from '../lib/appUrl'
-import { AppCta } from './AppCta'
+import { Ending } from './Ending'
 import { Header } from './Header'
 import { Hero } from './Hero'
 
@@ -18,11 +18,13 @@ beforeEach(() => {
   resetAppUrl()
 })
 
-describe('AppCta', () => {
+describe('Ending', () => {
   it('shows the new lead and no waitlist form', () => {
-    render(<AppCta />)
+    render(<Ending />)
 
     expect(screen.getByRole('heading', { name: 'Be first to review smarter.' })).toBeTruthy()
+    // The section is named by its heading (aria-labelledby="ending-title").
+    expect(screen.getByRole('region', { name: 'Be first to review smarter.' })).toBeTruthy()
     expect(
       screen.getByText('Connect your GitHub repo and get your first AI review in minutes.'),
     ).toBeTruthy()
@@ -31,7 +33,7 @@ describe('AppCta', () => {
   })
 
   it('marks the app as early access under the button', () => {
-    render(<AppCta />)
+    render(<Ending />)
 
     const note = screen.getByText('Early access (EAP)')
     const button = screen.getByRole('link', { name: 'Try it now' })
@@ -40,7 +42,7 @@ describe('AppCta', () => {
   })
 
   it('links the Try it now button to the default app url without config', () => {
-    render(<AppCta />)
+    render(<Ending />)
 
     const link = screen.getByRole('link', { name: 'Try it now' })
     expect(link.getAttribute('href')).toBe(STAGING)
@@ -52,7 +54,7 @@ describe('Try it now links use the loaded config url', () => {
   it.each([
     ['Header', <Header key="h" />],
     ['Hero', <Hero key="r" />],
-    ['AppCta', <AppCta key="c" />],
+    ['Ending', <Ending key="c" />],
   ])('%s links to the loaded url, not the default', async (_name, element) => {
     await loadConfig(LOADED)
     render(element)
