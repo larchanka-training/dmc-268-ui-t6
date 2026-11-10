@@ -26,11 +26,23 @@ where it matters, view, motion setting and load).
   opportunity (a run of non-space characters) that is shorter than the line. A segment longer than
   the line may break anywhere (DESIGN_SYSTEM §5) and is counted apart (`longerThanLine`). Part 1
   counted any break between two word characters, so its counts differ by one or two lines.
-- **Pictures at 390.** Added in review round 1 of #315 from the same two builds, for every fixed
-  defect whose Part 1 widths include 390 (D1, D4, D6, D9, D10, D12, D13) and for the diff at 390
-  that D8 closes, plus the settings `Select` (D13); the numbers of D6, D10, D12 and D13 at 390 are in
-  `measurements.json` too. At 390 the diff table is wider than the window and scrolls sideways: the
-  diff crops show the part around the `attempts` line of the new side, the same in both builds.
+- **Pictures at 390.** Added in the review of #315 that requested changes, from the same two builds,
+  for every fixed defect whose Part 1 widths include 390 (D1, D4, D6, D9, D10, D12, D13) and for the
+  diff at 390 that D8 closes, plus the open settings `Select` (D13) at 1280 and 390; the numbers of
+  D6, D10, D12 and D13 at 390 are in `measurements.json` too. At 390 the diff table is wider than the
+  window and scrolls sideways: the diff crops show the part around the `attempts` line of the new
+  side, the same in both builds.
+- **1440.** Pictures at 1440 are taken where the Part 1 list names 1440 apart: D2, D3 and D4, D8
+  Split. For the defects listed at every width (D1, D6, D9, D10, D12, D13) the 1280 picture stands
+  for 1440: both windows have the laptop layout of DESIGN_SYSTEM §5. The 1440 numbers of D1, D9, D10
+  (the Unified/Split switch) and D6 (the summary-only run) are in `measurements.json`; the user menu
+  (D12), the open `Select` (D13) and the settings page (D6, D10 `code`) were measured at 390 and 1280.
+- **Theme switch of the diff.** Since D1 the syntax colours follow `data-rv-theme`, which
+  `DesignSystemProvider` sets in a `useEffect`, while the diff background comes in an inline style.
+  Every DOM mutation of both was stamped with a `requestAnimationFrame` counter on the after build at
+  1280: they changed in the same frame 3 of 3 times on a choice in the user menu and 3 of 3 times on
+  an OS theme change with the preference «System» (`page.emulateMedia`). The first render is not
+  covered.
 
 ## Fixed here
 
