@@ -22,6 +22,7 @@ export const common: Translation<typeof en> = {
     apiWithStatusText: 'Ошибка API ({{status}}: {{statusText}})',
     loadTitle: 'Ошибка загрузки данных',
     tryAgain: 'Повторить попытку',
+    blockFailed: 'Не удалось загрузить этот блок, обновите страницу',
     http: {
       unexpectedFormat: 'Неожиданный формат данных от сервера. Пожалуйста, обновите страницу.',
       server: 'Внутренняя ошибка сервера ({{status}}). Повторите попытку позже.',

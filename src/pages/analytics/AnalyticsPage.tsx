@@ -6,7 +6,7 @@ import { useMetricsSummary, type MetricsSummary } from '../../entities/metrics'
 import { useRepositories } from '../../entities/repository'
 import { useAnalyticsFilterParams } from '../../features/analytics-filter'
 import { formatDuration, formatNumber, formatUsd, useTranslation } from '../../shared/i18n'
-import { DataTable, PageHeader, Segmented } from '../../shared/ui'
+import { DataTable, ErrorBoundary, PageHeader, Segmented } from '../../shared/ui'
 import styles from './AnalyticsPage.module.css'
 import { DurationByDay } from './ui/DurationByDay'
 import { FindingsByDay } from './ui/FindingsByDay'
@@ -183,8 +183,12 @@ export function AnalyticsPage(): JSX.Element {
             <Tile label={t('analytics.cost')} value={formatUsd(summary.totals.costUsd)} />
           </dl>
           <div className={styles.charts}>
-            <FindingsByDay label={t('analytics.findingsByDay')} series={summary.series} />
-            <DurationByDay label={t('analytics.durationByDay')} series={summary.series} />
+            <ErrorBoundary>
+              <FindingsByDay label={t('analytics.findingsByDay')} series={summary.series} />
+            </ErrorBoundary>
+            <ErrorBoundary>
+              <DurationByDay label={t('analytics.durationByDay')} series={summary.series} />
+            </ErrorBoundary>
           </div>
           <h2 id="analytics-daily-numbers">{t('analytics.dailyNumbers')}</h2>
           <DataTable

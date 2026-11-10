@@ -30,6 +30,12 @@ CodeMirror 6. В Ant Design редактора кода нет, а CodeMirror 6 
 [ui#187](https://github.com/larchanka-training/dmc-268-ui-t6/issues/187). На экран выходит только
 `CodeEditor`, вид задают токены `--rv-*`.
 
+Экран 500 корневой границы ошибок `RootErrorFallback` (`src/app/layouts`) не берёт базовых
+компонентов вовсе: он стоит над `UiProvider`, который мог упасть сам, поэтому это простая разметка
+на токенах `--rv-*` статического `tokens.css`
+([ui#238](https://github.com/larchanka-training/dmc-268-ui-t6/issues/238)). Прецедентом для других
+экранов он не служит.
+
 Вид компонента Ant Design (цвет, шрифт, размер, радиус, рамка, внутренние отступы) меняется только
 в `src/shared/ui`: токеном в `theme/buildTheme.ts`, правилом в `styles/antd.css` или в CSS-модуле
 своего компонента-обёртки. В CSS-модуле экрана `:global(.ant-…)` допустим только чтобы разместить
@@ -63,6 +69,7 @@ CodeMirror 6. В Ant Design редактора кода нет, а CodeMirror 6 
 | `CodeBlock`     | блок кода или JSON моноширинным шрифтом                                     |
 | `CodeEditor`    | редактор кода на CodeMirror 6; импорт напрямую, не из `index.ts` (§10)      |
 | `FilePath`      | путь файла среди другого текста: моноширинный, длинный путь переносится     |
+| `ErrorBoundary` | граница ошибок: на месте упавшего при рендере блока `Alert`                 |
 | `Logo`          | знак Reviewer                                                               |
 | иконки          | `IconRepositories`, `IconRuns`, `IconReview`, `IconSidebar`, `IconSettings` |
 
@@ -120,6 +127,7 @@ Ant Design пересчитывает исходные цвета своим а�
 | Текст третичный       | `--rv-text-3`        | `#7786a0`                | `#627289`             |
 | Акцент                | `--rv-accent`        | `#2563eb`                | `#2563eb`             |
 | Акцент при наведении  | `--rv-accent-hover`  | `#356eee`                | `#356eee`             |
+| Акцент при нажатии    | `--rv-accent-active` | `#1d4fd0`                | `#1d4fd0`             |
 | Ссылка и фокус        | `--rv-link`          | `#60a5fa`                | `#1d4ed8`             |
 | Успех                 | `--rv-success`       | `#4ade80`                | `#15803d`             |
 | Предупреждение / Low  | `--rv-warning`       | `#fbbf24`                | `#a16207`             |
@@ -515,6 +523,7 @@ Storybook; не добавлять экранную логику перепис�
 | CodeBlock                                             | свой компонент и CSS Module: 12px/21px, scroll-focus 2px/link |
 | CodeEditor                                            | свой компонент, тема CodeMirror и CSS Module: 12px/21px       |
 | FilePath                                              | свой компонент и CSS Module: 12px, перенос в любом месте      |
+| ErrorBoundary                                         | свой компонент: на месте упавшего блока `Alert` с токенами    |
 | Table, Pagination                                     | токены и `antd.css`                                           |
 | Select, Input, Form, Breadcrumb, Dropdown             | токены и `antd.css`                                           |
 | Steps                                                 | токены и `antd.css`; для этапов обёртка `ProgressSteps`       |
