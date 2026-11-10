@@ -7,6 +7,20 @@ import { App } from 'antd'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
+// Flipped by the test of a column that throws while rendering.
+const crash = vi.hoisted(() => ({ result: false }))
+
+vi.mock('./ui/SimulationResult', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./ui/SimulationResult')>()
+  return {
+    ...actual,
+    SimulationResult: (props: Parameters<typeof actual.SimulationResult>[0]) => {
+      if (crash.result) throw new Error('result failed')
+      return <actual.SimulationResult {...props} />
+    },
+  }
+})
+
 // Mock mode on: the page asks the mock transport, as it does in `pnpm dev` with mocks.
 vi.mock('../../shared/config/env', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../shared/config/env')>()
@@ -55,6 +69,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   setMockTransport(null)
+  crash.result = false
 })
 
 function renderPage() {
@@ -930,5 +945,28 @@ describe('PlaygroundPage: simulation errors', () => {
     ).toBeTruthy()
     expect(within(resultPanel()).queryByText('Замечаний нет')).toBeNull()
     expect(simulateButton()).toHaveProperty('disabled', false)
+  })
+})
+
+describe('PlaygroundPage: a column that fails', () => {
+  it('shows the block stub in place of the result column and keeps the inputs working', async () => {
+    crash.result = true
+    // React reports the error it caught; the boundary is what is under test.
+    const report = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    try {
+      renderPage()
+
+      expect(
+        await screen.findByText('Не удалось загрузить этот блок, обновите страницу'),
+      ).toBeTruthy()
+      expect(screen.queryByRole('region', { name: RESULT })).toBeNull()
+      await waitFor(() => {
+        expect(editorText(RULES_TEXT)).toBe(fixtureText(UI_REPO.id))
+      })
+      typeInto(CODE, 'x = 1')
+      expect(editorText(CODE)).toBe('x = 1')
+    } finally {
+      report.mockRestore()
+    }
   })
 })
