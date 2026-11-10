@@ -71,3 +71,7 @@
   max-width: 520px;
   margin-inline: auto;
 }
+
+.simulate {
+  align-self: flex-start;
+}

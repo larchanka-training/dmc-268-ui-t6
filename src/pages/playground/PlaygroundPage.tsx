@@ -8,6 +8,12 @@ import {
   type Repository,
   type RulesStatus,
 } from '../../entities/repository'
+import {
+  activeSimulationId,
+  isFinalSimulationError,
+  useRulesSimulation,
+  useStartRulesSimulation,
+} from '../../entities/rules-simulation'
 import { useTranslation } from '../../shared/i18n'
 import { PageHeader, Segmented } from '../../shared/ui'
 import { CodeEditor } from '../../shared/ui/CodeEditor/CodeEditor'
@@ -17,6 +23,7 @@ import type {
 } from '../../shared/ui/CodeEditor/editorExtensions'
 import { diagnosticText, RulesStatusView } from '../../widgets/repository-rules'
 import styles from './PlaygroundPage.module.css'
+import { SimulationResult, type SimulationLaunch } from './ui/SimulationResult'
 
 type RulesSource = 'repository' | 'defaults'
 type Mode = 'code' | 'diff'
@@ -62,6 +69,23 @@ function serverRulesText(status: RulesStatus | undefined): string {
   }
 }
 
+/**
+ * Whether the rules a simulation would send are known. With no edit by the user that is the text the
+ * server read, or no file (the defaults apply). While the file is not read yet (`pending`), could not
+ * be read, or is refused unread, an empty text would run the defaults in its place.
+ */
+function serverRulesKnown(status: RulesStatus | undefined): boolean {
+  switch (status?.status) {
+    case 'present':
+    case 'missing':
+      return true
+    case 'invalid':
+      return status.text !== null
+    default:
+      return false
+  }
+}
+
 /** The errors of a refused file, on their lines; a present file's warnings stay in the status. */
 function rulesDiagnostics(status: RulesStatus | undefined): readonly CodeEditorDiagnostic[] {
   if (status?.status !== 'invalid') {
@@ -94,6 +118,9 @@ function Playground({ repositories, fallback }: PlaygroundProps): JSX.Element {
   // What the user typed into the rules editor, for one repository. The text the server sends, now
   // or after a `pending` poll, is shown only until the user edits it: it never replaces an edit.
   const [rulesDraft, setRulesDraft] = useState<{ repoId: string; text: string } | null>(null)
+  const [launch, setLaunch] = useState<SimulationLaunch | null>(null)
+  const start = useStartRulesSimulation()
+  const simulation = useRulesSimulation(launch?.id ?? null)
 
   const repository = repositories.find((item) => item.id === chosenId) ?? fallback
   const rules = useRepositoryRulesStatusRetry(repository.id)
@@ -104,6 +131,33 @@ function Playground({ repositories, fallback }: PlaygroundProps): JSX.Element {
   // The errors of an invalid file point at lines of the file the server read: once the user edits
   // the text they would mark the wrong lines, so they stay only in the status above the editor.
   const diagnostics = fromRepository && draft === null ? rulesDiagnostics(status) : NO_DIAGNOSTICS
+
+  const finished = simulation.data?.status === 'succeeded' || simulation.data?.status === 'failed'
+  const stopped = simulation.isError && isFinalSimulationError(simulation.error)
+  const busy = start.isPending || (launch !== null && !finished && !stopped)
+  const rulesKnown = !fromRepository || draft !== null || serverRulesKnown(status)
+  const canSimulate = !busy && code.trim() !== '' && rulesKnown
+
+  function simulate(): void {
+    // The repository that pays is the one selected now, whatever is selected by the answer.
+    const paying = repository
+    setLaunch(null)
+    start.mutate(
+      { repoId: paying.id, input: { mode, path, content: code, rulesMd: rulesText } },
+      {
+        onSuccess: ({ id }) => {
+          setLaunch({ id, repositoryName: paying.fullName })
+        },
+        onError: (error) => {
+          // A simulation of this user is still running (say, from before a reload): follow it.
+          const id = activeSimulationId(error)
+          if (id !== null) {
+            setLaunch({ id, repositoryName: null })
+          }
+        },
+      },
+    )
+  }
 
   return (
     <>
@@ -198,7 +252,19 @@ function Playground({ repositories, fallback }: PlaygroundProps): JSX.Element {
           <h2 className={styles.label} id={resultId}>
             {t('playground.result')}
           </h2>
-          <Empty description={t('playground.resultEmpty')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
+          <Button
+            className={styles.simulate}
+            disabled={!canSimulate}
+            onClick={simulate}
+            type="primary"
+          >
+            {t('playground.simulate')}
+          </Button>
+          <SimulationResult
+            launch={launch}
+            simulation={simulation.data}
+            starting={start.isPending}
+          />
         </section>
       </div>
     </>
