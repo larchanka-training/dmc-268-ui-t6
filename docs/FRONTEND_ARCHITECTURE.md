@@ -2208,10 +2208,9 @@ flowchart LR
 `DiffSuggestion` возвращает новый токен → `diffThemeVars` → новый inline `style` в том же коммите.
 Слоты синтаксиса — ссылки `var(--rv-code-*)`: их значения переключает `data-rv-theme` на корне
 документа, как у остальных токенов `--rv-*`, а атрибут ставит `useEffect` в `DesignSystemProvider`.
-Вспышки старых цветов нет и так: `mode` приходит из стора Zustand через `useSyncExternalStore`, такой
-рендер синхронный, и его эффекты React выполняет до отрисовки. В Chrome inline `style` диффа и
-`data-rv-theme` меняются в одном кадре и при выборе в меню, и при смене темы ОС (#239).
-`@media (prefers-color-scheme)` не нужен.
+При переключении темы в Chrome inline `style` диффа и `data-rv-theme` менялись в одном кадре: 3 раза
+из 3 при выборе в меню и 3 из 3 при смене темы ОС в режиме «System»
+([`docs/evidence/239/README.md`](evidence/239/README.md)). `@media (prefers-color-scheme)` не нужен.
 С пустым `localStorage` и тёмной ОС тема тёмная уже в первом рендере: `getInitialTheme()`
 (`features/theme/model/store.ts`) выполняется при создании стора — до рендера — и читает
 `dmc_theme_mode`, затем `matchMedia('(prefers-color-scheme: dark)')`; `UiProvider` с первого кадра
