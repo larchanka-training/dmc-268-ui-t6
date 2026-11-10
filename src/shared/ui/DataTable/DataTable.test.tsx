@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react'
+import { Typography } from 'antd'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { DataTable } from './DataTable'
@@ -9,6 +10,23 @@ import styles from './DataTable.module.css'
 const FS_MODULE = 'node:fs'
 const { readFileSync } = (await import(/* @vite-ignore */ FS_MODULE)) as {
   readFileSync: (path: string, encoding: 'utf8') => string
+}
+
+// The wrap rule of DataTable.module.css, written out in full. Its selector names classes of Ant
+// Design: one that no longer matches what Ant Design renders goes dead without an error
+// (DESIGN_SYSTEM §11), so it is matched against a real table.
+const WRAP_RULE = '.wrap :global(.ant-table-cell .ant-typography)'
+
+/** `selector { declarations }` of every `.wrap` rule, comments dropped, whitespace collapsed. */
+function wrapRules(): string[] {
+  const css = readFileSync('src/shared/ui/DataTable/DataTable.module.css', 'utf8').replace(
+    /\/\*[\s\S]*?\*\//g,
+    '',
+  )
+  return [...css.matchAll(/^(\.wrap[^{]*?)\s*\{([^}]*)\}/gm)].map(
+    (match) =>
+      `${(match[1] ?? '').replace(/\s+/g, ' ')} { ${(match[2] ?? '').trim().replace(/\s+/g, ' ')} }`,
+  )
 }
 
 afterEach(() => {
@@ -143,10 +161,32 @@ describe('DataTable', () => {
     const wrapper = container.querySelector('.ant-table-wrapper')
     expect(wrapper?.classList.contains(styles.wrap ?? '')).toBe(true)
     // jsdom computes no layout: the rule itself is what keeps a column from shrinking below a word.
-    const css = readFileSync('src/shared/ui/DataTable/DataTable.module.css', 'utf8')
-    expect(css).toMatch(
-      /^\.wrap :global\(\.ant-table-cell \.ant-typography\) \{\n {2}word-break: normal;\n\}$/m,
+    expect(wrapRules()).toEqual([`${WRAP_RULE} { word-break: normal; }`])
+  })
+
+  it('matches its wrap rule to a Typography text in a cell of a wrapping table only', () => {
+    expect(styles.wrap).toBeTruthy()
+    // The selector as the browser sees it: `:global()` unwrapped, `.wrap` replaced by the module class.
+    const selector = WRAP_RULE.replace(/:global\(([^)]*)\)/, '$1').replace(
+      '.wrap',
+      `.${styles.wrap ?? ''}`,
     )
+    const typographyColumns = [
+      {
+        title: 'Название',
+        dataIndex: 'name',
+        key: 'name',
+        render: (name: string) => <Typography.Text>{name}</Typography.Text>,
+      },
+    ]
+    const { container, rerender } = render(
+      <DataTable<Row> columns={typographyColumns} dataSource={rows} nowrap={false} rowKey="id" />,
+    )
+    const text = (): Element | null => container.querySelector('.ant-table-tbody .ant-typography')
+    expect(text()).not.toBeNull()
+    expect(text()?.matches(selector)).toBe(true)
+    rerender(<DataTable<Row> columns={typographyColumns} dataSource={rows} rowKey="id" />)
+    expect(text()?.matches(selector)).toBe(false)
   })
 
   it('keeps its own class next to a class of the caller', () => {

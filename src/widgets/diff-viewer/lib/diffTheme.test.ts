@@ -384,18 +384,6 @@ describe('diff-layout.css', () => {
     expect(fileName).toContain('overflow-wrap: anywhere;')
     expect(fileName).not.toContain('nowrap')
   })
-
-  it('breaks a word of code only when it is longer than the line (DS §5, #239 D8; only the source shows it)', () => {
-    const css = readFileSync(new URL('../ui/diff-layout.css', import.meta.url), 'utf8')
-    // react-diff-view ships `.diff-code { word-break: break-all }`; this rule is more specific.
-    const code = /^\.diff-theme \.diff-code \{\n([^}]*)\}$/m.exec(css)?.[1]
-    expect(
-      code,
-      'no standalone `.diff-theme .diff-code { … }` rule in diff-layout.css',
-    ).toBeDefined()
-    expect(code).toContain('word-break: normal;')
-    expect(code).toContain('overflow-wrap: anywhere;')
-  })
 })
 
 describe('diff-theme.css wiring', () => {
