@@ -2767,7 +2767,8 @@ issue прямо выносит подключение логирования з
 `shared/ui/CodeEditor/CodeEditor`, не из `shared/ui/index.ts`, поэтому CodeMirror попадает только в её
 чанк (DESIGN_SYSTEM §10). Статус `.review/rules.md` держит страница (`useRepositoryRulesStatusRetry`, §2)
 и показывает его через `RulesStatusView` виджета `repository-rules` без текста файла: текст стоит в
-редакторе правил.
+редакторе правил. Ошибки `invalid` стоят на строках редактора, пока пользователь не правил текст: они
+относятся к файлу, который прочитал сервер, и после правки остаются только в статусе.
 
 **Сборка и чанки.** `vite.config.ts`: `build.rolldownOptions.output.codeSplitting`
 (`vendor-react`, `vendor-query`, `vendor-zod`, `includeDependenciesRecursively: false`);

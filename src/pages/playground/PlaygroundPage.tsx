@@ -99,11 +99,11 @@ function Playground({ repositories, fallback }: PlaygroundProps): JSX.Element {
   const rules = useRepositoryRulesStatusRetry(repository.id)
   const status = rules.query.data
   const fromRepository = source === 'repository'
-  const rulesText = !fromRepository
-    ? ''
-    : rulesDraft?.repoId === repository.id
-      ? rulesDraft.text
-      : serverRulesText(status)
+  const draft = rulesDraft?.repoId === repository.id ? rulesDraft.text : null
+  const rulesText = !fromRepository ? '' : (draft ?? serverRulesText(status))
+  // The errors of an invalid file point at lines of the file the server read: once the user edits
+  // the text they would mark the wrong lines, so they stay only in the status above the editor.
+  const diagnostics = fromRepository && draft === null ? rulesDiagnostics(status) : NO_DIAGNOSTICS
 
   return (
     <>
@@ -181,7 +181,7 @@ function Playground({ repositories, fallback }: PlaygroundProps): JSX.Element {
             <CodeEditor
               aria-label={t('playground.rulesText')}
               completions={RULES_COMPLETIONS}
-              diagnostics={fromRepository ? rulesDiagnostics(status) : NO_DIAGNOSTICS}
+              diagnostics={diagnostics}
               fileName=".review/rules.md"
               readOnly={!fromRepository}
               value={rulesText}

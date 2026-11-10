@@ -332,6 +332,60 @@ describe('PlaygroundPage: rules editor', () => {
     expect(editorText(RULES_TEXT)).toBe('# Mine')
   })
 
+  it('takes the errors of an invalid file off the editor once the user edits its text', async () => {
+    renderPage()
+    await screen.findByRole('textbox', { name: RULES_TEXT })
+    await choose(REPOSITORY, API_REPO.fullName)
+    await waitFor(() => {
+      expect(document.querySelector('.cm-rv-diagnostic')).not.toBeNull()
+    })
+
+    typeInto(RULES_TEXT, '\n# Mine')
+
+    // The errors belong to the file the server read, not to the text the user is typing.
+    await waitFor(() => {
+      expect(document.querySelector('.cm-rv-diagnostic')).toBeNull()
+    })
+    expect(
+      screen.getByRole('textbox', { name: RULES_TEXT }).getAttribute('aria-invalid'),
+    ).toBeNull()
+    // The status above the editor still names them.
+    expect(within(rulesStatus()).getByText('Файл правил содержит ошибки')).toBeTruthy()
+    expect(
+      within(rulesStatus()).getByText(/В блоке review-ignore недопустимая маска\./),
+    ).toBeTruthy()
+  })
+
+  it('does not put the errors of a file that arrives later on what the user typed', async () => {
+    let asked = 0
+    const pending: RulesStatus = {
+      status: 'pending',
+      branch: 'main',
+      path: '.review/rules.md',
+      sha: null,
+      checkedAt: null,
+    }
+    withMockTransportOverlay((endpoint) => {
+      if (endpoint.path !== `/repos/${UI_REPO.id}/rules-status`) return undefined
+      asked += 1
+      return Promise.resolve(asked === 1 ? pending : mockRulesStatuses[API_REPO.id])
+    })
+    renderPage()
+    await within(await screen.findByRole('region', { name: 'Правила ревью' })).findByText(
+      'Проверяем .review/rules.md в ветке main…',
+    )
+
+    typeInto(RULES_TEXT, '# Mine')
+    // The hook asks again after RULES_STATUS_POLL_MS and gets an invalid file.
+    expect(await within(rulesStatus()).findByText('Файл правил содержит ошибки')).toBeTruthy()
+
+    expect(editorText(RULES_TEXT)).toBe('# Mine')
+    expect(document.querySelector('.cm-rv-diagnostic')).toBeNull()
+    expect(
+      screen.getByRole('textbox', { name: RULES_TEXT }).getAttribute('aria-invalid'),
+    ).toBeNull()
+  })
+
   it('puts the text of the next repository in the editor when the user picks it', async () => {
     renderPage()
     await waitFor(() => {
