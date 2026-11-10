@@ -21,4 +21,19 @@ export const playground = {
   retry: 'Retry',
   empty: 'No connected repositories. Connect a repository to try rules on it.',
   goToRepositories: 'Go to repositories',
+  errors: {
+    budgetPaused:
+      'The daily budget of the workspace of this repository is used up: the simulation did not start.',
+    simulationRunning: 'An earlier simulation is still running. Wait for it to finish.',
+    rulesInvalid: 'The rules were not parsed: the errors are marked in the rules text.',
+    contentTooLarge: 'The code is over 64 KiB. Shorten it and start again.',
+    inputRejected: 'The server did not accept the input. Check the code and the file name.',
+    rateLimited: 'Too many simulations. Try again later.',
+    repositoryNotFound: 'The repository is not available. Reload the page.',
+    startFailed: 'Could not start the simulation. Try again.',
+    simulationNotFound: 'The simulation was not found.',
+    readFailed: 'Could not get the state of the simulation.',
+    deadlineExceeded: 'The simulation did not finish in the time it has.',
+    modelFailed: 'The model did not finish the review. Try again later.',
+  },
 }
