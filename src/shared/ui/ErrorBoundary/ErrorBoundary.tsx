@@ -22,7 +22,8 @@ function BlockFailed() {
 /**
  * Keeps an exception thrown while rendering its children inside them: the fallback takes their
  * place and the rest of the page keeps working. React itself reports the caught error to the
- * console. There is no reset: the stub asks to refresh the page.
+ * console. There is no reset: the stub asks to refresh the page. It is a class, the one in the app
+ * (`.agents/rules/frontend.md` §4): React catches render errors only in a class component.
  */
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   override state: ErrorBoundaryState = { failed: false }

@@ -167,7 +167,8 @@ Tests for UI code, on top of §5:
   imports.
 - React 19: function components only; `ref` is a regular prop (no `forwardRef`);
   follow the rules of hooks; do not derive state inside `useEffect` — derive it
-  during render or with `useMemo`.
+  during render or with `useMemo`. The one class is `ErrorBoundary` in
+  `src/shared/ui`: React catches render errors only in a class component.
 - Zod schemas are the single source of truth for a shape; infer TS types from
   them, not the other way round.
 - Zustand is for UI state local to a widget only — never server data.
