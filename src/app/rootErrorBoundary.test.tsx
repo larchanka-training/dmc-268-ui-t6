@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { App } from '../App'
+import { useThemeStore } from '../features/theme'
 import { i18n } from '../shared/i18n'
 import type * as i18nModule from '../shared/i18n'
 import type * as providers from './providers'
@@ -44,6 +45,8 @@ vi.mock('../shared/i18n', async (importOriginal) => {
   }
 })
 
+const initialTheme = useThemeStore.getState().mode
+
 beforeEach(() => {
   // React reports the error the boundary caught to the console.
   vi.spyOn(console, 'error').mockImplementation(() => undefined)
@@ -55,6 +58,7 @@ afterEach(() => {
   failure.provider = false
   failure.router = false
   failure.translation = false
+  useThemeStore.setState({ mode: initialTheme })
 })
 
 function stubReload() {
@@ -98,6 +102,19 @@ describe('root error boundary', () => {
     expect(screen.getByRole('button', { name: 'Перезагрузить' })).toBeTruthy()
     expect(document.body.textContent).not.toContain('failed')
   })
+
+  // `UiProvider` sets the theme on the page in an effect, which never runs when it is what failed:
+  // the screen takes the saved theme itself.
+  it.each(['light', 'dark'] as const)(
+    'paints the 500 screen in the %s theme of the user',
+    (mode) => {
+      useThemeStore.setState({ mode })
+      failure.provider = true
+      render(<App />)
+
+      expect(screen.getByRole('main').getAttribute('data-rv-theme')).toBe(mode)
+    },
+  )
 
   it('speaks English for an English user', async () => {
     await i18n.changeLanguage('en')
