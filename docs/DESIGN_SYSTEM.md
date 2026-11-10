@@ -528,7 +528,7 @@ Storybook; не добавлять экранную логику перепис�
 | Modal, Tooltip, Alert, Skeleton, Empty, Card, message | токены                                                        |
 | Popover                                               | токены и общая обёртка `InfoHint` с клавиатурным управлением  |
 | Descriptions, Collapse, Layout, Avatar, List, Result  | токены                                                        |
-| Typography                                            | токены                                                        |
+| Typography                                            | токены и `antd.css` (радиус `code` в тексте)                  |
 | Segmented                                             | токены, `antd.css` и общая обёртка с обязательным именем      |
 | CodeBlock                                             | свой компонент и CSS Module: 12px/21px, scroll-focus 2px/link |
 | CodeEditor                                            | свой компонент, тема CodeMirror и CSS Module: 12px/21px       |
