@@ -1,0 +1,590 @@
+name: Deploy prod
+
+# Manual prod deploy of the UI on the course VPS (#185): its own compose project next to staging,
+# behind the edge proxy as ui-prod. The GitHub App client ID and slug are baked into the bundle at
+# build time, so the digest under :staging (staging App) cannot go to prod: this workflow rebuilds
+# the commit under :staging with the prod App values only, smoke-tests and scans it like staging,
+# pushes it to its own package and deploys it. :staging is read at dispatch and again when the
+# deploy job gets the VPS lock; a tag that moved in between is refused (re-dispatch).
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Why prod is being deployed (one line, printed in the run summary)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
+  LOCAL_IMAGE: dmc-268-ui:prod
+
+jobs:
+  build-prod:
+    name: Build prod image
+    # workflow_dispatch can target any branch; only main may deploy prod.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      staging_image: ${{ steps.staging.outputs.image }}
+      commit: ${{ steps.staging.outputs.commit }}
+    steps:
+      - name: Record the dispatch
+        env:
+          REASON: ${{ inputs.reason }}
+          ACTOR: ${{ github.triggering_actor }}
+        run: |
+          if [[ -z "${REASON//[[:space:]]/}" ]]; then
+            echo "::error::reason must say why prod is being deployed" >&2
+            exit 1
+          fi
+          # One line of text inside a code fence of the step summary, so inline HTML or Markdown in it
+          # cannot forge lines next to the commit and digest; ``` would close the fence.
+          if [[ "${REASON}" =~ [[:cntrl:]] || "${REASON}" == *'```'* ]] || (( ${#REASON} > 300 )); then
+            echo "::error::reason must be one line of at most 300 characters without control characters or \`\`\`" >&2
+            exit 1
+          fi
+          {
+            echo "### Deploy prod"
+            echo
+            printf -- '- Dispatched by %s (run %s/%s)\n' "${ACTOR}" "${GITHUB_RUN_ID}" "${GITHUB_RUN_ATTEMPT}"
+            # shellcheck disable=SC2016  # Markdown code fence, not shell
+            printf -- '- Reason:\n\n  ```text\n  %s\n  ```\n' "${REASON}"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      # The commit comes from the label docker-build puts on the UI image, not from the :<sha> tag,
+      # which a rebuild of the same commit can move (docs/CICD.md §7).
+      - name: Resolve the commit under staging
+        id: staging
+        env:
+          REPOSITORY: ${{ github.repository }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: |
+          repo="$(printf '%s' "${REPOSITORY}" | tr '[:upper:]' '[:lower:]')"
+          if [[ ! "${repo}" =~ ^[a-z0-9][a-z0-9._-]*/[a-z0-9][a-z0-9._-]*$ ]]; then
+            echo "repository '${repo}' is not owner/name" >&2
+            exit 1
+          fi
+          tag="${REGISTRY}/${repo}:staging"
+          if ! printf '%s\n' "${GHCR_TOKEN}" | docker login "${REGISTRY}" --username "${GHCR_USER}" --password-stdin > /dev/null 2>&1; then
+            echo "registry authentication failed" >&2
+            exit 1
+          fi
+          trap 'docker logout "${REGISTRY}" > /dev/null 2>&1 || true' EXIT
+          # The manifest digest the tag points to, read from the registry (no pull). The sentinel
+          # keeps trailing newlines: one digest, at most one newline after it; any other shape is
+          # refused.
+          if ! answer="$(docker buildx imagetools inspect --format '{{.Manifest.Digest}}' "${tag}" && printf '.')"; then
+            echo "cannot read the digest of ${tag}" >&2
+            exit 1
+          fi
+          answer="${answer%.}"
+          digest="${answer%$'\n'}"
+          if [[ ! "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "${tag} did not resolve to one sha256 manifest digest; refusing to deploy" >&2
+            exit 1
+          fi
+          image="${REGISTRY}/${repo}@${digest}"
+          # The image config of that digest: one config for a single manifest, a platform map for
+          # an index (linux/amd64, the platform CI builds).
+          if ! config="$(docker buildx imagetools inspect --format '{{json .Image}}' "${image}")"; then
+            echo "cannot read the image config of ${image}" >&2
+            exit 1
+          fi
+          commit="$(printf '%s' "${config}" | jq -r '
+            (if has("config") then . else .["linux/amd64"] end)
+            | .config.Labels["org.opencontainers.image.revision"] // ""')"
+          if [[ ! "${commit}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "${image} has no org.opencontainers.image.revision label with a full git SHA (built before #185?); deploy and promote main to staging first" >&2
+            exit 1
+          fi
+          {
+            echo "image=${image}"
+            echo "commit=${commit}"
+          } >> "${GITHUB_OUTPUT}"
+          {
+            echo "- \`:staging\` at dispatch: \`${image}\`"
+            echo "- Commit under \`:staging\`: \`${commit}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
+          echo "${tag} at dispatch: ${image}, commit ${commit}"
+
+      # The staging App's client ID in a prod bundle would send sign-in on ui.<APP_DOMAIN> through
+      # the staging App, whose callback is staging-ui: fail before any build.
+      - name: Check the prod App values
+        env:
+          PROD_CLIENT_ID: ${{ vars.PROD_VITE_GITHUB_CLIENT_ID }}
+          PROD_APP_SLUG: ${{ vars.PROD_VITE_GITHUB_APP_SLUG }}
+          STAGING_CLIENT_ID: ${{ vars.VITE_GITHUB_CLIENT_ID }}
+          STAGING_APP_SLUG: ${{ vars.VITE_GITHUB_APP_SLUG }}
+        run: |
+          if [[ ! "${PROD_CLIENT_ID}" =~ ^[A-Za-z0-9.]+$ ]]; then
+            echo "repository variable PROD_VITE_GITHUB_CLIENT_ID must be the client ID of the prod GitHub App" >&2
+            exit 1
+          fi
+          if [[ ! "${PROD_APP_SLUG}" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+            echo "repository variable PROD_VITE_GITHUB_APP_SLUG must be the slug of the prod GitHub App" >&2
+            exit 1
+          fi
+          if [[ "${PROD_CLIENT_ID}" == "${STAGING_CLIENT_ID}" || "${PROD_APP_SLUG}" == "${STAGING_APP_SLUG}" ]]; then
+            echo "the prod App values equal the staging App ones (VITE_GITHUB_CLIENT_ID / VITE_GITHUB_APP_SLUG); refusing to build" >&2
+            exit 1
+          fi
+          echo "- Prod App: \`${PROD_APP_SLUG}\` (client ID \`${PROD_CLIENT_ID}\`)" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Checkout the commit under staging
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.staging.outputs.commit }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # The staging build of this commit (ci-cd.yml, docker-build) with the prod App values: no
+      # other build arg or option differs.
+      - name: Build image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: Dockerfile
+          load: true
+          tags: ${{ env.LOCAL_IMAGE }}
+          build-args: |
+            VITE_GITHUB_CLIENT_ID=${{ vars.PROD_VITE_GITHUB_CLIENT_ID }}
+            VITE_GITHUB_APP_SLUG=${{ vars.PROD_VITE_GITHUB_APP_SLUG }}
+            VITE_DOCS_URL=${{ vars.VITE_DOCS_URL }}
+          labels: |
+            org.opencontainers.image.revision=${{ steps.staging.outputs.commit }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          no-cache-filters: runtime
+          provenance: false
+
+      - name: Smoke test image
+        timeout-minutes: 10
+        run: node scripts/smoke-image.mjs "${LOCAL_IMAGE}"
+
+      # The scan of ci-cd.yml (docker-scan), same action and settings.
+      - name: Trivy scan
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
+        with:
+          image-ref: ${{ env.LOCAL_IMAGE }}
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          ignore-unfixed: true
+          format: table
+          scanners: vuln,secret,misconfig
+
+      - name: Export image artifact
+        run: docker save "${LOCAL_IMAGE}" | gzip > /tmp/prod-image.tar.gz
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: prod-image
+          path: /tmp/prod-image.tar.gz
+          retention-days: 1
+
+  # Its own package: the :<sha> tag of the staging package holds the staging image of the same
+  # commit, and Rollback staging resolves a bare digest there, so a prod image in it could reach
+  # staging with the prod App.
+  push-prod:
+    name: Push prod image
+    if: github.ref == 'refs/heads/main'
+    needs: build-prod
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_ref: ${{ steps.push.outputs.image_ref }}
+    steps:
+      - name: Download image artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: prod-image
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Load and push scanned image
+        id: push
+        env:
+          REPOSITORY: ${{ github.repository }}
+          COMMIT: ${{ needs.build-prod.outputs.commit }}
+        run: |
+          repo="$(printf '%s' "${REPOSITORY}" | tr '[:upper:]' '[:lower:]')"
+          immutable="${REGISTRY}/${repo}-prod:${COMMIT}"
+          gunzip -c prod-image.tar.gz | docker load
+          docker tag "${LOCAL_IMAGE}" "${immutable}"
+          docker push "${immutable}"
+          # The containerd image store also lists a digest for the loaded local name:
+          # keep only the pushed repository's entry.
+          image_ref="$(docker inspect --format='{{range .RepoDigests}}{{println .}}{{end}}' "${immutable}" \
+            | awk -v repository="${immutable%:*}" 'index($0, repository "@sha256:") == 1')"
+          if [[ ! "${image_ref}" =~ ^[^[:space:]]+@sha256:[a-f0-9]{64}$ ]]; then
+            echo "failed to resolve pushed image digest" >&2
+            exit 1
+          fi
+          echo "image_ref=${image_ref}" >> "${GITHUB_OUTPUT}"
+          echo "- Prod image: \`${image_ref}\` (tag \`:${COMMIT}\`)" >> "${GITHUB_STEP_SUMMARY}"
+          echo "pushed ${image_ref}"
+
+  deploy-prod:
+    name: Deploy prod
+    if: github.ref == 'refs/heads/main'
+    needs:
+      - build-prod
+      - push-prod
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    # The VPS lock of Deploy staging, Promote staging tag and Rollback staging: one member at a
+    # time, and with queue: max a later push to main never cancels this waiting job. A dispatch
+    # from another branch gets a throwaway group, whatever the timing of the `if` above.
+    # Required reviewers of Environment production, if any, are asked while the job holds the
+    # lock: approve or reject promptly (docs/CICD.md §7).
+    concurrency:
+      group: ${{ github.ref == 'refs/heads/main' && 'staging-deploy' || format('deploy-prod-ignored-{0}', github.run_id) }}
+      cancel-in-progress: false
+      queue: max
+    environment:
+      name: production
+      url: ${{ steps.target.outputs.base_url }}
+    steps:
+      - name: Re-resolve the staging tag under the lock
+        id: staging
+        env:
+          REPOSITORY: ${{ github.repository }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: |
+          repo="$(printf '%s' "${REPOSITORY}" | tr '[:upper:]' '[:lower:]')"
+          if [[ ! "${repo}" =~ ^[a-z0-9][a-z0-9._-]*/[a-z0-9][a-z0-9._-]*$ ]]; then
+            echo "repository '${repo}' is not owner/name" >&2
+            exit 1
+          fi
+          tag="${REGISTRY}/${repo}:staging"
+          if ! printf '%s\n' "${GHCR_TOKEN}" | docker login "${REGISTRY}" --username "${GHCR_USER}" --password-stdin > /dev/null 2>&1; then
+            echo "registry authentication failed" >&2
+            exit 1
+          fi
+          trap 'docker logout "${REGISTRY}" > /dev/null 2>&1 || true' EXIT
+          if ! answer="$(docker buildx imagetools inspect --format '{{.Manifest.Digest}}' "${tag}" && printf '.')"; then
+            echo "cannot read the digest of ${tag}" >&2
+            exit 1
+          fi
+          answer="${answer%.}"
+          digest="${answer%$'\n'}"
+          if [[ ! "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "${tag} did not resolve to one sha256 manifest digest; refusing to deploy" >&2
+            exit 1
+          fi
+          echo "image=${REGISTRY}/${repo}@${digest}" >> "${GITHUB_OUTPUT}"
+
+      - name: Refuse a moved staging tag
+        env:
+          DISPATCHED: ${{ needs.build-prod.outputs.staging_image }}
+          CURRENT: ${{ steps.staging.outputs.image }}
+        run: |
+          # While this job waited for the lock, a merge may have promoted a newer digest, or Rollback
+          # staging may have moved :staging away from the dispatched one because it was bad. Deploy
+          # only a commit that was under :staging at dispatch and still is (fail-closed).
+          if [[ -z "${DISPATCHED}" || "${CURRENT}" != "${DISPATCHED}" ]]; then
+            message="\`:staging\` moved since dispatch: ${DISPATCHED:-<none>} → ${CURRENT}; re-dispatch Deploy prod"
+            echo "- Refused: ${message}" >> "${GITHUB_STEP_SUMMARY}"
+            echo "${message}" >&2
+            exit 1
+          fi
+          echo "- \`:staging\` unchanged since dispatch" >> "${GITHUB_STEP_SUMMARY}"
+
+      # Prod lives only on the course VPS, behind the edge proxy. Its host key is the repository
+      # value of STAGING_SSH_FINGERPRINT (an override in Environment staging is not seen here).
+      - name: Resolve prod target
+        id: target
+        env:
+          VPS_HOST: ${{ vars.VPS_DMC268_IP_T6 }}
+          HAS_VPS_USER: ${{ secrets.VPS_DMC268_U != '' }}
+          HAS_VPS_PASSWORD: ${{ secrets.VPS_DMC268_P != '' }}
+          APP_DOMAIN: ${{ vars.APP_DOMAIN }}
+          STAGING_SSH_FINGERPRINT: ${{ vars.STAGING_SSH_FINGERPRINT }}
+        run: |
+          if [[ -z "${VPS_HOST}" || "${HAS_VPS_USER}" != "true" || "${HAS_VPS_PASSWORD}" != "true" ]]; then
+            echo "prod needs organization variable VPS_DMC268_IP_T6 and secrets VPS_DMC268_U and VPS_DMC268_P" >&2
+            exit 1
+          fi
+          if [[ ! "${VPS_HOST}" =~ ^[A-Za-z0-9.-]+$ ]]; then
+            echo "VPS host '${VPS_HOST}' is not a hostname or IPv4 address" >&2
+            exit 1
+          fi
+          if [[ ! "${APP_DOMAIN}" =~ ^[a-z0-9-]+(\.[a-z0-9-]+)+$ ]]; then
+            echo "prod needs repository variable APP_DOMAIN (base domain of the edge proxy routes)" >&2
+            exit 1
+          fi
+          # With an empty fingerprint the appleboy actions accept any host key.
+          if [[ ! "${STAGING_SSH_FINGERPRINT}" =~ ^SHA256:[A-Za-z0-9+/]{43}$ ]]; then
+            echo "GitHub variable STAGING_SSH_FINGERPRINT must be the course VPS host key fingerprint SHA256:<43 base64 chars>" >&2
+            exit 1
+          fi
+          base_url="https://ui.${APP_DOMAIN}"
+          {
+            echo "host=${VPS_HOST}"
+            echo "app_dir=/opt/dmc-268-ui-prod"
+            echo "edge_alias=ui-prod"
+            echo "base_url=${base_url}"
+            echo "health_url=${base_url}/health"
+          } >> "${GITHUB_OUTPUT}"
+          echo "prod target: ${VPS_HOST}:22, /opt/dmc-268-ui-prod, ${base_url}"
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Upload deploy files
+        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1.0.0
+        with:
+          host: ${{ steps.target.outputs.host }}
+          port: 22
+          username: ${{ secrets.VPS_DMC268_U }}
+          password: ${{ secrets.VPS_DMC268_P }}
+          fingerprint: ${{ vars.STAGING_SSH_FINGERPRINT }}
+          source: 'deploy/compose/staging.yml,deploy/compose/staging.edge.yml,deploy/scripts/provision.sh,deploy/scripts/deploy.sh,deploy/scripts/rollback.sh,deploy/scripts/env-file.sh'
+          target: ${{ steps.target.outputs.app_dir }}
+          strip_components: 2
+
+      # Also lists the staging containers before the deploy: the AC3 evidence of #185, compared in
+      # Report the prod run.
+      - name: Prepare host
+        id: prepare
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        env:
+          APP_DIR: ${{ steps.target.outputs.app_dir }}
+          EDGE_NETWORK: dmc268-edge
+        with:
+          host: ${{ steps.target.outputs.host }}
+          port: 22
+          username: ${{ secrets.VPS_DMC268_U }}
+          password: ${{ secrets.VPS_DMC268_P }}
+          fingerprint: ${{ vars.STAGING_SSH_FINGERPRINT }}
+          debug: false
+          capture_stdout: true
+          envs: APP_DIR,EDGE_NETWORK
+          script: |
+            set -euo pipefail
+            set +o xtrace
+            cd "${APP_DIR}"
+            mv staging.yml compose.yml
+            mv staging.edge.yml compose.edge.yml
+            chmod +x provision.sh deploy.sh rollback.sh env-file.sh
+            ./provision.sh
+            for project in dmc-268-ui-staging dmc-268-landing-staging dmc-268-docs-staging; do
+              docker ps -a --no-trunc --filter "label=com.docker.compose.project=${project}" \
+                --format 'staging before: {{.ID}} {{.Names}} {{.CreatedAt}}'
+            done
+
+      - name: Wait for the edge certificate
+        env:
+          BASE_URL: ${{ steps.target.outputs.base_url }}
+        run: |
+          # Wait before any app change until the TLS handshake succeeds (any HTTP status: the edge
+          # proxy answers 503 for ui.<APP_DOMAIN> while no prod release runs).
+          deadline=$((SECONDS + 180))
+          until curl -s -o /dev/null --max-time 10 "${BASE_URL}/"; do
+            if (( SECONDS >= deadline )); then
+              echo "no valid TLS certificate for ${BASE_URL} after 180 s; check DNS and the edge proxy (API repo) logs" >&2
+              curl -sS -o /dev/null --max-time 10 "${BASE_URL}/" || true
+              exit 1
+            fi
+            sleep 5
+          done
+          echo "TLS handshake with ${BASE_URL} succeeded"
+
+      # NO_PREVIOUS_RELEASE=stop: a failed first prod release is only taken down, and the edge
+      # proxy keeps answering 503 for ui.<APP_DOMAIN> instead of a stock nginx page.
+      - name: Deploy image
+        id: deploy
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+          IMAGE: ${{ needs.push-prod.outputs.image_ref }}
+          APP_DIR: ${{ steps.target.outputs.app_dir }}
+          DEPLOY_MODE: edge
+          EDGE_ALIAS: ${{ steps.target.outputs.edge_alias }}
+          NO_PREVIOUS_RELEASE: stop
+        with:
+          host: ${{ steps.target.outputs.host }}
+          port: 22
+          username: ${{ secrets.VPS_DMC268_U }}
+          password: ${{ secrets.VPS_DMC268_P }}
+          fingerprint: ${{ vars.STAGING_SSH_FINGERPRINT }}
+          debug: false
+          envs: GHCR_TOKEN,GHCR_USER,IMAGE,APP_DIR,DEPLOY_MODE,EDGE_ALIAS,NO_PREVIOUS_RELEASE
+          script: |
+            set -euo pipefail
+            set +o xtrace
+            "${APP_DIR}/deploy.sh" "${IMAGE}"
+
+      - name: Health check
+        id: health
+        if: steps.deploy.outcome == 'success'
+        continue-on-error: true
+        env:
+          HEALTH_URL: ${{ steps.target.outputs.health_url }}
+        run: |
+          chmod +x deploy/scripts/healthcheck.sh
+          # The service name too: the UI, not another app behind ui.<APP_DOMAIN>.
+          deploy/scripts/healthcheck.sh "${HEALTH_URL}" dmc-268-ui
+
+      # Every value explicit: if deploy.sh failed on docker pull, <APP_DIR>/.env does not exist
+      # yet, and rollback.sh would otherwise fall back to ports mode and a bootstrap on port 80.
+      - name: Rollback on failed deploy or health check
+        id: rollback
+        if: always() && (steps.deploy.outcome == 'failure' || steps.health.outcome == 'failure')
+        continue-on-error: true
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+          APP_DIR: ${{ steps.target.outputs.app_dir }}
+          DEPLOY_MODE: edge
+          EDGE_ALIAS: ${{ steps.target.outputs.edge_alias }}
+          NO_PREVIOUS_RELEASE: stop
+        with:
+          host: ${{ steps.target.outputs.host }}
+          port: 22
+          username: ${{ secrets.VPS_DMC268_U }}
+          password: ${{ secrets.VPS_DMC268_P }}
+          fingerprint: ${{ vars.STAGING_SSH_FINGERPRINT }}
+          debug: false
+          envs: GHCR_TOKEN,GHCR_USER,APP_DIR,DEPLOY_MODE,EDGE_ALIAS,NO_PREVIOUS_RELEASE
+          script: |
+            set -euo pipefail
+            set +o xtrace
+            ROLLBACK_MODE=auto "${APP_DIR}/rollback.sh"
+
+      - name: Read prod release and staging containers
+        id: after
+        if: always() && steps.prepare.outcome == 'success'
+        continue-on-error: true
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        env:
+          APP_DIR: ${{ steps.target.outputs.app_dir }}
+        with:
+          host: ${{ steps.target.outputs.host }}
+          port: 22
+          username: ${{ secrets.VPS_DMC268_U }}
+          password: ${{ secrets.VPS_DMC268_P }}
+          fingerprint: ${{ vars.STAGING_SSH_FINGERPRINT }}
+          debug: false
+          capture_stdout: true
+          envs: APP_DIR
+          script: |
+            set -euo pipefail
+            set +o xtrace
+            # A stop removes .deploy-state: no prod release runs and the edge proxy answers 503.
+            current=""
+            if [[ -f "${APP_DIR}/.deploy-state" ]]; then
+              current="$(awk -F= '/^current_image=/{print $2; exit}' "${APP_DIR}/.deploy-state")"
+            fi
+            echo "prod current image: ${current:-none}"
+            for project in dmc-268-ui-staging dmc-268-landing-staging dmc-268-docs-staging; do
+              docker ps -a --no-trunc --filter "label=com.docker.compose.project=${project}" \
+                --format 'staging after: {{.ID}} {{.Names}} {{.CreatedAt}}'
+            done
+
+      # The run's evidence in the job summary, after a rollback too: the prod release now and the
+      # staging containers before and after. Any change of the staging containers fails the job.
+      - name: Report the prod run
+        if: always() && steps.prepare.outcome == 'success'
+        env:
+          DEPLOY_OUTCOME: ${{ steps.deploy.outcome }}
+          HEALTH_OUTCOME: ${{ steps.health.outcome }}
+          ROLLBACK_OUTCOME: ${{ steps.rollback.outcome }}
+          BEFORE_STDOUT: ${{ steps.prepare.outputs.stdout }}
+          AFTER_OUTCOME: ${{ steps.after.outcome }}
+          AFTER_STDOUT: ${{ steps.after.outputs.stdout }}
+        run: |
+          # drone-ssh appends its own banner to every captured stdout: values come only from lines
+          # with a known prefix.
+          lines() {
+            printf '%s\n' "$1" | tr -d '\r' | awk -v prefix="$2" 'index($0, prefix) == 1 { print substr($0, length(prefix) + 1) }'
+          }
+          status=0
+          current="$(lines "${AFTER_STDOUT}" 'prod current image: ' | head -n 1)"
+          case "${current}" in
+            "") release="unknown (the host could not be read)" ;;
+            none) release="none (the prod stack is down, the edge proxy answers 503)" ;;
+            *) release="\`${current}\`" ;;
+          esac
+          if [[ "${DEPLOY_OUTCOME}" == success && "${HEALTH_OUTCOME}" == success ]]; then
+            outcome="deployed"
+          elif [[ "${ROLLBACK_OUTCOME}" == success && "${current}" == none ]]; then
+            outcome="stopped: no earlier prod release"
+          elif [[ "${ROLLBACK_OUTCOME}" == success && -n "${current}" ]]; then
+            outcome="rolled back to the previous prod release"
+          elif [[ "${ROLLBACK_OUTCOME}" == failure ]]; then
+            outcome="rollback failed"
+          elif [[ "${DEPLOY_OUTCOME}" == cancelled || "${HEALTH_OUTCOME}" == cancelled ]]; then
+            # The rollback reacts to failures only: a cancel leaves the host as it was stopped.
+            outcome="cancelled during the deploy; no rollback ran, prod may be half-switched"
+            echo "::warning::the prod deploy was cancelled; no rollback ran, check the prod release on the host"
+          else
+            outcome="not deployed"
+          fi
+
+          before="$(lines "${BEFORE_STDOUT}" 'staging before: ')"
+          after="$(lines "${AFTER_STDOUT}" 'staging after: ')"
+          if [[ "${AFTER_OUTCOME}" != success ]]; then
+            staging="not compared (host read: ${AFTER_OUTCOME:-skipped})"
+            echo "::warning::staging containers not compared: no container list after the run"
+          elif [[ "$(printf '%s\n' "${before}" | awk 'NF { print $1 }' | sort)" == "$(printf '%s\n' "${after}" | awk 'NF { print $1 }' | sort)" ]]; then
+            staging="unchanged: the same $(printf '%s\n' "${before}" | awk 'NF' | wc -l) containers before and after this run"
+          else
+            staging="CHANGED: a staging container was recreated, removed or added during the prod run"
+            echo "::error::staging containers changed during the prod run; see the job summary"
+            status=1
+          fi
+
+          {
+            echo
+            echo "### Result"
+            echo
+            echo "- Outcome: ${outcome}"
+            echo "- Prod release now: ${release}"
+            echo "- Staging containers (dmc-268-{ui,landing,docs}-staging): ${staging}"
+            echo
+            echo '```text'
+            echo "before (ID, name, created):"
+            printf '%s\n' "${before:-<none>}"
+            echo "after:"
+            printf '%s\n' "${after:-<none>}"
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+          exit "${status}"
+
+      - name: Fail the run after rollback
+        if: always() && (steps.deploy.outcome == 'failure' || steps.health.outcome == 'failure')
+        env:
+          DEPLOY_OUTCOME: ${{ steps.deploy.outcome }}
+          ROLLBACK_OUTCOME: ${{ steps.rollback.outcome }}
+        run: |
+          if [[ "${DEPLOY_OUTCOME}" == failure ]]; then
+            echo "prod deploy failed; rollback was triggered"
+          else
+            echo "prod health check failed; rollback was triggered"
+          fi
+          if [[ "${ROLLBACK_OUTCOME}" == failure ]]; then
+            echo "rollback failed" >&2
+          fi
+          exit 1
