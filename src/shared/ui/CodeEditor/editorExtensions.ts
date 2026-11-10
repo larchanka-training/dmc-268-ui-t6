@@ -159,7 +159,7 @@ export const editorTheme = EditorView.theme({
     fontFamily: 'var(--rv-font-mono)',
     fontSize: 'var(--rv-fs-xs)',
   },
-  '.cm-tooltip.cm-tooltip-autocomplete > ul > li': { padding: '2px 8px', lineHeight: '20px' },
+  '.cm-tooltip.cm-tooltip-autocomplete > ul > li': { padding: '4px 8px', lineHeight: '16px' },
   '.cm-tooltip-autocomplete ul li[aria-selected]': {
     backgroundColor: 'var(--rv-selected)',
     color: 'var(--rv-text)',
