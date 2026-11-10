@@ -9,6 +9,7 @@ export const layout: Translation<typeof en> = {
     audit: 'Аудит',
     analytics: 'Аналитика',
     playground: 'Песочница',
+    settings: 'Настройки',
     review: 'Ревью',
   },
   expandMenu: 'Развернуть меню',

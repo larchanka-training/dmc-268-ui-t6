@@ -623,11 +623,36 @@ function handleMockTransport(
           id: '123e4567-e89b-12d3-a456-426614174000',
           name: 'larchanka-training',
           installationId: 12345,
+          role: 'owner',
+        },
+        {
+          id: '323e4567-e89b-12d3-a456-426614174002',
+          name: 'dmc-team-admin',
+          installationId: 23456,
+          role: 'admin',
+        },
+        {
+          id: '423e4567-e89b-12d3-a456-426614174003',
+          name: 'dmc-finance',
+          installationId: 34567,
+          role: 'billing',
         },
         {
           id: '223e4567-e89b-12d3-a456-426614174001',
           name: `GitHub: ${mockCurrentUser.login}`,
           installationId: 67890,
+          role: 'member',
+        },
+        {
+          id: '523e4567-e89b-12d3-a456-426614174004',
+          name: 'dmc-no-role',
+          installationId: 45678,
+        },
+        {
+          id: '623e4567-e89b-12d3-a456-426614174005',
+          name: 'dmc-unknown-role',
+          installationId: 56789,
+          role: 'viewer',
         },
       ],
     }
