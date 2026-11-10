@@ -1,12 +1,20 @@
 // Копия `landing/src/components/HeroGlass.tsx`: лендинг живёт отдельным пакетом, поэтому импортировать
 // его напрямую нельзя. Отличия от лендинга:
 // 1. сила приглушения под текстом вынесена в параметр `dim`;
-// 2. контекст WebGL при размонтировании не закрывается (см. комментарий в очистке эффекта);
+// 2. потолок яркости под формой применяется ещё раз к итоговому цвету, после зерна и аберрации, и
+//    внутри блока формы не выше SAFE: так текст формы держит контраст не ниже 4.5:1 (#313);
 // 3. если шейдер не собрался, цикл кадров останавливается, а не ждёт его вечно;
 // 4. настройка «уменьшить движение» отслеживается по событию, без хука лендинга.
 import { useEffect, useRef } from 'react'
 
 import styles from './HeroGlass.module.css'
+
+/**
+ * Радиусы зоны приглушения относительно размеров блока формы (ширина, высота). Шейдер возвращает их к
+ * половине размера блока как `0.5 / TEXT_RADIUS`, поэтому множитель задаётся только здесь.
+ */
+const TEXT_RADIUS = { x: 0.62, y: 0.8 } as const
+const glslFloat = (value: number) => value.toFixed(6)
 
 const VERT = `attribute vec2 p; void main(){ gl_Position = vec4(p, 0., 1.); }`
 
@@ -28,6 +36,12 @@ uniform vec4 uText;     // heading block: center x, center y (from the top), rad
 const float CA = 0.035;    // how far apart the blue copies of the rim are
 const float GRAIN = 0.3;   // how strongly soft edges break up into dots
 const float ANGLE = 0.73;  // slope of the stripes, ~42°, as the former CSS rays
+// Brightest ramp value allowed inside the form block. The final color there is clipped to ramp(SAFE),
+// so by construction it is no lighter than ramp(0.48) (about #2395e6), 5.2:1 with --rv-text (#f8fafc);
+// the darkest real frames measured in the browser give a minimum of 6.69:1.
+const float SAFE = 0.48;
+// uText radii back to the half size of the form block: 0.5 / TEXT_RADIUS
+const vec2 TEXT_HALF = vec2(${glslFloat(0.5 / TEXT_RADIUS.x)}, ${glslFloat(0.5 / TEXT_RADIUS.y)});
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 mat2 rot(float a) { float c = cos(a), s = sin(a); return mat2(c, -s, s, c); }
@@ -56,29 +70,56 @@ float patches(vec2 p, float t) {
 // Lens profile across one stripe, f in -1..1: refraction grows towards the edge
 float lens(float f) { return f * (0.55 + 0.9 * f * f); }
 
-float field(vec2 p, float t) {
+float light(vec2 sp, float t) {
+  return (0.35 + 0.65 * plasma((sp - uMouse * 0.12) * 1.2, t * 0.07)) * patches(sp, t);
+}
+
+// One pass over the glass. The stripe shape (index, profile, shading, intro) is computed once for all
+// three channels; only the light seen through the glass is shifted. Evaluating the whole field three
+// times repeated every stripe edge and highlight as three parallel lines.
+vec3 field(vec2 p, vec2 disp, float t) {
   vec2 q = rot(ANGLE) * p;
   float w = 0.36, s = q.x / w;
+  float id = floor(s);
   float f = fract(s) * 2.0 - 1.0;
-  vec2 sp = rot(-ANGLE) * vec2((floor(s) + 0.5 + lens(f) * 1.5) * w, q.y);
-  float v = (0.35 + 0.65 * plasma((sp - uMouse * 0.12) * 1.2, t * 0.07)) * patches(sp, t);
+  float bend = lens(f) * 1.5;
+  vec2 sp = rot(-ANGLE) * vec2((id + 0.5 + bend) * w, q.y);
+  // the shift grows with the local refraction, so the fringes live inside the light and fade out
+  // instead of copying the stripe outline
+  vec2 d = disp * (0.35 + 0.65 * abs(bend) / 2.175);
+  vec3 v = vec3(light(sp - d * 1.6, t), light(sp, t), light(sp + d, t));
   // glass shading: darker towards both edges, a thin highlight on one side, a slight spread per stripe
   v = v * (1.0 - 0.8 * pow(abs(f), 5.0)) + smoothstep(0.93, 1.0, -f) * 0.06;
-  v *= 0.8 + 0.4 * hash(vec2(floor(s), 1.0));
+  v *= 0.8 + 0.4 * hash(vec2(id, 1.0));
   // intro: stripes light up one by one from the middle out and stretch along the diagonal
-  float k = smoothstep(0.0, 1.0, (uIntro - abs(floor(s) + 0.5) * 0.07) / 0.55);
+  float k = smoothstep(0.0, 1.0, (uIntro - abs(id + 0.5) * 0.07) / 0.55);
   return v * k * smoothstep(k * 3.4, k * 3.4 - 0.9, abs(q.y));
 }
 
-// Landing palette: --bg -> #1e3a8a -> --blue -> --glow -> #dbeafe
+// Landing palette: --bg -> #1e3a8a -> --blue -> --glow -> #dbeafe. Catmull-Rom through the same five
+// colors: a piecewise-linear ramp has a kink at every stop, which reads as contour lines (Mach bands)
+// where the light fades into shadow.
+vec3 cr(vec3 a, vec3 b, vec3 c, vec3 d, float x) {
+  float x2 = x * x, x3 = x2 * x;
+  return 0.5 * (2.0 * b + (c - a) * x + (2.0 * a - 5.0 * b + 4.0 * c - d) * x2 + (3.0 * b - a - 3.0 * c + d) * x3);
+}
+
 vec3 ramp(float v) {
-  v = clamp(v, 0.0, 1.0);
+  v = clamp(v, 0.0, 1.0) * 4.0;
   vec3 c0 = vec3(0.035, 0.051, 0.094), c1 = vec3(0.118, 0.227, 0.541), c2 = vec3(0.145, 0.388, 0.922),
        c3 = vec3(0.376, 0.647, 0.980), c4 = vec3(0.859, 0.918, 0.996);
-  if (v < 0.25) return mix(c0, c1, v * 4.0);
-  if (v < 0.5) return mix(c1, c2, (v - 0.25) * 4.0);
-  if (v < 0.75) return mix(c2, c3, (v - 0.5) * 4.0);
-  return mix(c3, c4, (v - 0.75) * 4.0);
+  vec3 col;
+  if (v < 1.0) col = cr(2.0 * c0 - c1, c0, c1, c2, v);
+  else if (v < 2.0) col = cr(c0, c1, c2, c3, v - 1.0);
+  else if (v < 3.0) col = cr(c1, c2, c3, c4, v - 2.0);
+  else col = cr(c2, c3, c4, 2.0 * c4 - c3, v - 3.0);
+  return clamp(col, 0.0, 1.0);
+}
+
+// Smooth minimum: approaches min(a, b) but bends over a knee of width k instead of a hard corner
+vec3 smin(vec3 a, vec3 b, float k) {
+  vec3 h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
+  return mix(b, a, h) - k * h * (1.0 - h);
 }
 
 void main() {
@@ -94,23 +135,34 @@ void main() {
 
   vec2 uv = vec2(px.x - c.x, c.y - px.y) / mix(450.0, 300.0, uMobile);
 
-  // Aberration in the blue range: two shifted copies of the shape give a dark blue rim on one side
-  // and a light blue one on the other. The rim starts closed and opens as the background appears.
+  // Aberration in the blue range: a dark blue rim on one side and a light blue one on the other.
+  // The rim starts closed and opens as the background appears.
   vec2 dir = vec2(1.0, -0.45) * CA * (0.6 + 0.6 * length(uv)) * mix(0.15, 1.0, smoothstep(0.3, 1.0, uIntro));
-  vec3 v = clamp(vec3(field(uv - dir * 1.6, uTime), field(uv, uTime), field(uv + dir, uTime)), 0.0, 1.0);
+  vec3 v = clamp(field(uv, dir, uTime), 0.0, 1.0);
   v *= vig * smoothstep(0.0, 0.5, uIntro) * mix(0.9, 0.7, uMobile);
 
-  // Under the heading the light is dimmed and capped at a medium blue: text never sits on near white
+  // Under the heading the light is dimmed and capped at a medium blue: text never sits on near white.
+  // The cap is soft: a hard min() left a flat plateau with a visible outline where the light hit it.
+  // Inside the text block itself (uText radii back to the half size, 24px feather) the cap is at most
+  // SAFE, because the elliptic falloff is already weak at the block corners.
   float tm = smoothstep(uDim.z, 0.45, length((px - uText.xy) / uText.zw));
-  v = min(v * mix(1.0, uDim.x, tm), vec3(mix(0.9, uDim.y, tm)));
+  float tb = 1.0 - smoothstep(0.0, 24.0, length(max(abs(px - uText.xy) - uText.zw * TEXT_HALF, 0.0)));
+  float cap = min(mix(0.9, uDim.y, tm), mix(1.0, SAFE, tb));
+  v = smin(v * mix(1.0, uDim.x, tm), vec3(cap), 0.12);
 
   // Grain is stronger in half tones: dense centers stay solid, soft edges break up into dots
   float n = hash(floor(gl_FragCoord.xy / max(uScale, 1.0)) + 3.7) - 0.5;
   v += n * GRAIN * (0.06 * vig + 4.0 * v * (1.0 - v));
 
   vec3 col = ramp(v.g);
-  col += vec3(0.07, 0.16, 0.62) * clamp(v.r - v.g, 0.0, 1.0) * 1.6;
-  col += vec3(0.10, 0.42, 0.62) * clamp(v.b - v.g, 0.0, 1.0) * 1.1;
+  col += vec3(0.07, 0.16, 0.62) * max(v.r - v.g, 0.0) * 1.6;
+  col += vec3(0.10, 0.42, 0.62) * max(v.b - v.g, 0.0) * 1.1;
+  // sub-LSB dither so the 8-bit output has no steps in the darkest blues
+  col += (hash(gl_FragCoord.xy * 1.37 + 9.1) - 0.5) / 255.0;
+  // Grain, aberration and dither come after the cap and can push a pixel past it (#313): under the
+  // form the final color is clipped to the cap color, channel by channel, so its luminance cannot
+  // exceed it. Outside the form (tm and tb near 0) the grain stays untouched.
+  col = mix(col, min(col, ramp(cap)), max(smoothstep(0.0, 0.15, tm), tb));
   gl_FragColor = vec4(col, 1.0);
 }`
 
@@ -155,24 +207,36 @@ export interface HeroGlassProps {
 const LANDING_DIM = [0.72, 0.44, 1.3] as const
 
 export function HeroGlass({ textSelector, dim = LANDING_DIM }: HeroGlassProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
   const [dimX, dimY, dimZ] = dim
 
   useEffect(() => {
-    const canvas = canvasRef.current
+    // Канвас новый на каждый запуск эффекта: очистка закрывает WebGL-контекст насовсем, а StrictMode
+    // в dev запускает эффект дважды, и общий канвас оставался бы с потерянным контекстом (белый фон).
+    const wrap = wrapRef.current
+    if (!wrap) return
     const motion = window.matchMedia('(prefers-reduced-motion: reduce)')
     let reduced = motion.matches
-    const gl = canvas?.getContext('webgl', {
+    const canvas = document.createElement('canvas')
+    canvas.className = styles.canvas ?? ''
+    wrap.appendChild(canvas)
+    const gl = canvas.getContext('webgl', {
       antialias: false,
       alpha: false,
       powerPreference: 'low-power',
     })
-    if (!canvas || !gl) return
+    if (!gl) {
+      canvas.remove()
+      return
+    }
 
     const vert = compile(gl, gl.VERTEX_SHADER, VERT)
     const frag = compile(gl, gl.FRAGMENT_SHADER, FRAG)
     const program = gl.createProgram()
-    if (!vert || !frag) return
+    if (!vert || !frag) {
+      canvas.remove()
+      return
+    }
     gl.attachShader(program, vert)
     gl.attachShader(program, frag)
     gl.linkProgram(program)
@@ -246,8 +310,8 @@ export function HeroGlass({ textSelector, dim = LANDING_DIM }: HeroGlassProps) {
           uText ?? null,
           (left + right) / 2 - box.left,
           (top + bottom) / 2 - box.top,
-          (right - left) * 0.62,
-          (bottom - top) * 0.8,
+          (right - left) * TEXT_RADIUS.x,
+          (bottom - top) * TEXT_RADIUS.y,
         )
       }
 
@@ -323,15 +387,10 @@ export function HeroGlass({ textSelector, dim = LANDING_DIM }: HeroGlassProps) {
       window.removeEventListener('resize', onResize)
       motion.removeEventListener('change', onMotionChange)
       window.removeEventListener('pointermove', onMove)
-      // В отличие от лендинга контекст здесь не закрывается: в режиме разработки React запускает
-      // эффект дважды, и второй запуск получил бы уже потерянный контекст (белый холст). Канвас
-      // удаляется вместе со страницей, контекст освобождает браузер.
+      gl.getExtension('WEBGL_lose_context')?.loseContext()
+      canvas.remove()
     }
   }, [textSelector, dimX, dimY, dimZ])
 
-  return (
-    <div className={styles.wrap} aria-hidden="true">
-      <canvas ref={canvasRef} className={styles.canvas} />
-    </div>
-  )
+  return <div ref={wrapRef} className={styles.wrap} aria-hidden="true" />
 }
