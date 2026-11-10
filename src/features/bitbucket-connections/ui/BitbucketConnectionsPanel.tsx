@@ -463,27 +463,27 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
           {connections.isError ? (
             <Alert description={bitbucketErrorMessage(connections.error)} showIcon type="error" />
           ) : null}
-          {visibleConnections.map((connection) => (
-            <Flex align="center" gap="small" key={connection.repositoryId} wrap>
-              <Text>{`${connection.workspaceSlug}/${connection.repositorySlug}`}</Text>
+          {visibleConnections.map((bitbucketConnection) => (
+            <Flex align="center" gap="small" key={bitbucketConnection.repositoryId} wrap>
+              <Text>{`${bitbucketConnection.workspaceSlug}/${bitbucketConnection.repositorySlug}`}</Text>
               <Text type="secondary">
-                {connection.status === 'active'
+                {bitbucketConnection.status === 'active'
                   ? t('bitbucket.panel.webhookActive')
                   : t('bitbucket.panel.webhookPending')}
               </Text>
               <Button
                 aria-label={t('bitbucket.panel.newWebhookSecretFor', {
-                  repository: `${connection.workspaceSlug}/${connection.repositorySlug}`,
+                  repository: `${bitbucketConnection.workspaceSlug}/${bitbucketConnection.repositorySlug}`,
                 })}
                 disabled={busy}
                 ref={(node) => {
-                  trackBindingAction('hook', connection.repositoryId, node)
+                  trackBindingAction('hook', bitbucketConnection.repositoryId, node)
                 }}
                 onClick={(event) =>
                   void rotateSecret(
-                    connection.id,
-                    connection.repositoryId,
-                    `${connection.workspaceSlug}/${connection.repositorySlug}`,
+                    bitbucketConnection.id,
+                    bitbucketConnection.repositoryId,
+                    `${bitbucketConnection.workspaceSlug}/${bitbucketConnection.repositorySlug}`,
                     event.currentTarget,
                   )
                 }
@@ -492,15 +492,15 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
               </Button>
               <Button
                 aria-label={t('bitbucket.panel.updateTokenFor', {
-                  repository: `${connection.workspaceSlug}/${connection.repositorySlug}`,
+                  repository: `${bitbucketConnection.workspaceSlug}/${bitbucketConnection.repositorySlug}`,
                 })}
                 disabled={busy}
                 ref={(node) => {
-                  trackBindingAction('credential', connection.repositoryId, node)
+                  trackBindingAction('credential', bitbucketConnection.repositoryId, node)
                 }}
                 onClick={() => {
-                  credentialOrigin.current = connection.repositoryId
-                  setRotationInstallation(connection.id)
+                  credentialOrigin.current = bitbucketConnection.repositoryId
+                  setRotationInstallation(bitbucketConnection.id)
                   setReplacementToken('')
                 }}
               >
@@ -510,19 +510,19 @@ export const BitbucketConnectionsPanel: FC<BitbucketConnectionsPanelProps> = ({ 
                 danger
                 disabled={busy}
                 ref={(node) => {
-                  trackBindingAction('disconnect', connection.repositoryId, node)
+                  trackBindingAction('disconnect', bitbucketConnection.repositoryId, node)
                 }}
                 onClick={(event) => {
                   confirmDisconnect(
-                    connection.id,
-                    connection.repositoryId,
-                    `${connection.workspaceSlug}/${connection.repositorySlug}`,
+                    bitbucketConnection.id,
+                    bitbucketConnection.repositoryId,
+                    `${bitbucketConnection.workspaceSlug}/${bitbucketConnection.repositorySlug}`,
                     event.currentTarget,
                   )
                 }}
               >
                 {t('bitbucket.panel.disconnectRepository', {
-                  repository: `${connection.workspaceSlug}/${connection.repositorySlug}`,
+                  repository: `${bitbucketConnection.workspaceSlug}/${bitbucketConnection.repositorySlug}`,
                 })}
               </Button>
             </Flex>
