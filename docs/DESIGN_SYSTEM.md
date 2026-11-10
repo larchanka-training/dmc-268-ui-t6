@@ -30,6 +30,12 @@ CodeMirror 6. В Ant Design редактора кода нет, а CodeMirror 6 
 [ui#187](https://github.com/larchanka-training/dmc-268-ui-t6/issues/187). На экран выходит только
 `CodeEditor`, вид задают токены `--rv-*`.
 
+Экран 500 корневой границы ошибок `RootErrorFallback` (`src/app/layouts`) не берёт базовых
+компонентов вовсе: он стоит над `UiProvider`, который мог упасть сам, поэтому это простая разметка
+на токенах `--rv-*` статического `tokens.css`
+([ui#238](https://github.com/larchanka-training/dmc-268-ui-t6/issues/238)). Прецедентом для других
+экранов он не служит.
+
 Вид компонента Ant Design (цвет, шрифт, размер, радиус, рамка, внутренние отступы) меняется только
 в `src/shared/ui`: токеном в `theme/buildTheme.ts`, правилом в `styles/antd.css` или в CSS-модуле
 своего компонента-обёртки. В CSS-модуле экрана `:global(.ant-…)` допустим только чтобы разместить
