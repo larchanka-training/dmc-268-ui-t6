@@ -1,3 +1,4 @@
+import type { TagProps } from '../../../shared/ui'
 import type { Severity } from '../model/schemas'
 
 export const SEVERITY_BADGE_GROUPS = ['critical', 'warning', 'info'] as const
@@ -27,3 +28,12 @@ export const SEVERITY_LABEL: Record<Severity, string> = {
   low: 'Low',
   info: 'Info',
 }
+
+/** The tag of one finding's severity; only critical is filled (UI #127). */
+export const SEVERITY_TAG = {
+  critical: { tone: 'critical', variant: 'solid' },
+  high: { tone: 'critical', variant: 'dot' },
+  medium: { tone: 'high', variant: 'dot' },
+  low: { tone: 'warning', variant: 'dot' },
+  info: { tone: 'info', variant: 'dot' },
+} as const satisfies Record<Severity, Pick<TagProps, 'tone' | 'variant'>>
