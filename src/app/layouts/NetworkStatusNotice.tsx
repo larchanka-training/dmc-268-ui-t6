@@ -15,10 +15,11 @@ function isOnline(): boolean {
 
 /**
  * The app-wide sign of a lost network, on every page. It follows TanStack Query's
- * `onlineManager`, the state that pauses queries, rather than `navigator.onLine`, which stays true
- * on a network without internet access: the notice comes and goes with the paused queries of
- * ui#216. It stands over the page at the bottom of the window, so what is loaded stays in place,
- * and it leaves by itself when the network returns.
+ * `onlineManager`, the state that pauses queries, so the notice and the paused queries of ui#216
+ * agree. Like `navigator.onLine`, the manager learns of the network from the window's `online` and
+ * `offline` events: a network without internet access fires neither and is not caught. The notice
+ * stands over the page at the bottom of the window, so what is loaded stays in place, and it
+ * leaves by itself when the network returns.
  */
 export const NetworkStatusNotice: FC = () => {
   const { t } = useTranslation()
