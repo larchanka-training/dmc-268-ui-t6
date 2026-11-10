@@ -38,13 +38,14 @@ repository. Access ends when the repository leaves the installation.
   to 10 files of the branch your pull request targets.
 - Built-in review guidelines.
 - If RAG is on, parts of unchanged files that use the code the pull request changed, see
-  [Code index (RAG)](/features#code-index-rag).
+  [Code index (RAG)](/features#code-index-rag). Their comments are not sent: each one becomes a
+  `[comment removed]` marker, because nobody reviewed that text in your pull request.
 - The second check of the findings is a separate request. It does not get the title, description
   or commit messages, only:
   - The findings and the diff. A long diff is cut to fit, and the lines the findings point at are
     kept first.
   - The code around the changes, but only the parts a finding cites. With RAG on, also the parts
-    of unchanged files that a finding cites, with the code they use.
+    of unchanged files that a finding cites, with the code they use and without their comments.
   - The text of `.review/rules.md` and the root `AGENTS.md`, the built-in review guidelines and the
     summary of your project's conventions.
 
