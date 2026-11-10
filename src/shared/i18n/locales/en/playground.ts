@@ -30,6 +30,7 @@ export const playground = {
   cost: 'Simulation cost: {{cost}}. Charged to the daily budget of the workspace of {{repository}}.',
   costEarlier:
     'Simulation cost: {{cost}}. Charged to the daily budget of the workspace of the repository it was started on.',
+  earlier: 'This simulation was started earlier: its code and rules may have been different.',
   line: 'Line {{line}}',
   lines: 'Lines {{start}}–{{end}}',
   defaultCheck: 'Default check {{id}}',
@@ -39,7 +40,7 @@ export const playground = {
     budgetPaused:
       'The daily budget of the workspace of this repository is used up: the simulation did not start.',
     simulationRunning: 'An earlier simulation is still running. Wait for it to finish.',
-    rulesInvalid: 'The rules were not parsed: the errors are marked in the rules text.',
+    rulesInvalid: 'The rules were not parsed',
     contentTooLarge: 'The code is over 64 KiB. Shorten it and start again.',
     inputRejected: 'The server did not accept the input. Check the code and the file name.',
     rateLimited: 'Too many simulations. Try again later.',

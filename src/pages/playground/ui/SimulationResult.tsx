@@ -1,10 +1,19 @@
-import { Empty, Typography } from 'antd'
+import { Alert, Empty, Typography } from 'antd'
 import type { JSX } from 'react'
 
 import { SEVERITY_LABEL, SEVERITY_TAG } from '../../../entities/review'
-import type { RulesSimulation, SimulationFinding } from '../../../entities/rules-simulation'
+import {
+  isFinalSimulationError,
+  rejectedRulesDiagnostics,
+  simulationFailureMessage,
+  simulationReadErrorMessage,
+  simulationStartErrorMessage,
+  type RulesSimulation,
+  type SimulationFinding,
+} from '../../../entities/rules-simulation'
 import { formatPercent, formatUsd, useTranslation } from '../../../shared/i18n'
 import { Spinner, Tag } from '../../../shared/ui'
+import { RulesDiagnosticList } from '../../../widgets/repository-rules'
 import styles from './SimulationResult.module.css'
 
 const RULES_FILE = '.review/rules.md'
@@ -20,8 +29,12 @@ export interface SimulationLaunch {
 export interface SimulationResultProps {
   /** The POST is on its way. */
   starting: boolean
+  /** Why the POST was refused; null when it was not, or when the page follows the one a 409 named. */
+  startError: Error | null
   launch: SimulationLaunch | null
   simulation: RulesSimulation | undefined
+  /** The last failed GET; the asking goes on through a server failure and stops on a final one. */
+  readError: Error | null
 }
 
 /** A simulation costs a cent or so: below a dollar it keeps four decimals, `formatUsd` two. */
@@ -72,35 +85,65 @@ function FindingItem({ finding }: { finding: SimulationFinding }): JSX.Element {
 
 /** The right column of the playground: the progress, the cost and the findings of a simulation. */
 export function SimulationResult(props: SimulationResultProps): JSX.Element {
-  const { starting, launch, simulation } = props
+  const { starting, startError, launch, simulation, readError } = props
   const { t } = useTranslation()
 
   if (starting) {
     return <Progress text={t('playground.starting')} />
   }
+  if (startError !== null) {
+    const diagnostics = rejectedRulesDiagnostics(startError)
+    return (
+      <Alert
+        description={
+          diagnostics === null ? undefined : <RulesDiagnosticList diagnostics={diagnostics} />
+        }
+        showIcon
+        title={simulationStartErrorMessage(startError)}
+        type="error"
+      />
+    )
+  }
   if (launch === null) {
     return <Empty description={t('playground.resultEmpty')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
   }
-  // The POST answered `queued`: so it is until the first GET says otherwise.
-  if (simulation === undefined || simulation.status === 'queued') {
-    return <Progress text={t('playground.queued')} />
-  }
-  if (simulation.status === 'running') {
-    return <Progress text={t('playground.running')} />
-  }
-  if (simulation.status === 'failed') {
-    return <Empty description={t('playground.resultEmpty')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
+  if (
+    simulation === undefined ||
+    simulation.status === 'queued' ||
+    simulation.status === 'running'
+  ) {
+    // The POST answered `queued`: so it is until a GET says otherwise.
+    return (
+      <>
+        {readError === null ? null : (
+          <Alert showIcon title={simulationReadErrorMessage(readError)} type="error" />
+        )}
+        {readError !== null && isFinalSimulationError(readError) ? null : (
+          <Progress
+            text={
+              simulation?.status === 'running' ? t('playground.running') : t('playground.queued')
+            }
+          />
+        )}
+      </>
+    )
   }
 
   const cost = simulationCost(simulation.costUsd)
   return (
     <>
+      {launch.repositoryName === null ? (
+        <Typography.Text type="secondary">{t('playground.earlier')}</Typography.Text>
+      ) : null}
+      {simulation.status === 'failed' ? (
+        <Alert showIcon title={simulationFailureMessage(simulation.errorCode)} type="error" />
+      ) : null}
       <Typography.Text type="secondary">
         {launch.repositoryName === null
           ? t('playground.costEarlier', { cost })
           : t('playground.cost', { cost, repository: launch.repositoryName })}
       </Typography.Text>
-      {simulation.findings.length === 0 ? (
+      {simulation.status === 'failed' ? null : simulation.findings.length === 0 ? (
         <Empty description={t('playground.noFindings')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
       ) : (
         <ul aria-label={t('playground.findings')} className={styles.findings}>
