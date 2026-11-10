@@ -2,7 +2,7 @@ import { z, ZodError } from 'zod'
 
 import { ApiError } from '../../../shared/api/client'
 import { i18n } from '../../../shared/i18n'
-import { RulesDiagnosticSchema, type RulesDiagnostic } from '../../repository'
+import { RulesDiagnosticSchema, type RulesDiagnostic } from '../../../entities/repository'
 
 // How the UI reads a refused POST and a failed simulation. PROVISIONAL, as the schemas: api#311
 // names `409` with the id of the active simulation, `budget_paused`, `422` with RULES_FORMAT_SPEC §9

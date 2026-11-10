@@ -4,7 +4,7 @@ import { act, cleanup, renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { RULES_SIMULATION_POLL_MS, useRulesSimulation } from './index'
+import { RULES_SIMULATION_POLL_MS, useRulesSimulation } from './rulesSimulation'
 
 const ID = '5a5a5a5a-5a5a-4a5a-8a5a-000000000001'
 

@@ -10,7 +10,7 @@ import {
   type RulesSimulation,
   type RulesSimulationAccepted,
   type RulesSimulationInput,
-} from '../model/schemas'
+} from '../model/rulesSimulation'
 
 export async function startRulesSimulation(
   repoId: string,
@@ -36,7 +36,7 @@ export function rulesSimulationQueryKey(id: string) {
   return ['rulesSimulation', id] as const
 }
 
-/** Starts a simulation; a refusal is read with `lib/simulationErrors.ts`. */
+/** Starts a simulation; the playground reads a refusal (`pages/playground/lib/simulationErrors.ts`). */
 export function useStartRulesSimulation() {
   return useMutation({
     mutationFn: ({ repoId, input }: { repoId: string; input: RulesSimulationInput }) =>

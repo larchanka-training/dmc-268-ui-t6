@@ -1,12 +1,13 @@
 import { z } from 'zod'
 
-import { CategorySchema, SeveritySchema } from '../../review'
+import { CategorySchema, SeveritySchema } from './schemas'
 
 // A review simulation of the rules playground (ui#187): `POST /api/repos/{repo_id}/rules-simulations`
 // and `GET /api/rules-simulations/{simulation_id}`. PROVISIONAL: api#311 is not implemented yet and
 // its body names the fields of a finding but leaves the bodies open ("paths and field names are a
-// default"). Every shape the UI assumes is here and in `lib/simulationErrors.ts`; the pull request
-// that adds the endpoints in api fixes them.
+// default"). Every shape the UI assumes is here and in `pages/playground/lib/simulationErrors.ts`;
+// the pull request that adds the endpoints in api fixes them. Apart from `schemas.ts`, whose
+// schemas the api snapshots (`tests/generate_ui_zod_contracts.mjs`).
 
 export const SimulationModeSchema = z.enum(['code', 'diff'])
 export type SimulationMode = z.infer<typeof SimulationModeSchema>

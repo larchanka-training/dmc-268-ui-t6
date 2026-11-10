@@ -1,5 +1,7 @@
 export * from './model/schemas'
+export * from './model/rulesSimulation'
 export * from './api'
+export * from './api/rulesSimulation'
 export { findingLineRangeLabel } from './lib/findingAnchor'
 export { reviewCommentToFinding } from './lib/reviewCommentToFinding'
 export {
