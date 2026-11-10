@@ -2,17 +2,5 @@ export function githubAppInstallUrl(slug: string): string | undefined {
   return slug ? `https://github.com/apps/${slug}/installations/new` : undefined
 }
 
-// ui#175 Part 2 CI evidence: ten branches, cyclomatic complexity 11.
-export function ciEvidenceComplexity(n: number): string {
-  if (n === 1) return '1'
-  if (n === 2) return '2'
-  if (n === 3) return '3'
-  if (n === 4) return '4'
-  if (n === 5) return '5'
-  if (n === 6) return '6'
-  if (n === 7) return '7'
-  if (n === 8) return '8'
-  if (n === 9) return '9'
-  if (n === 10) return '10'
-  return 'other'
-}
+// ui#175 Part 2 CI evidence: an export nothing imports.
+export const CI_EVIDENCE_UNUSED = 'dead'
