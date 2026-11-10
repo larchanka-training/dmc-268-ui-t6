@@ -322,6 +322,7 @@ src/features/bitbucket-connections/lib/useFocusHandoff.test.tsx
 src/features/bitbucket-connections/lib/useFocusHandoff.ts
 src/features/bitbucket-connections/model/schemas.ts
 src/features/bitbucket-connections/ui/BitbucketConnectionsPanel.module.css
+src/features/bitbucket-connections/ui/BitbucketConnectionsPanel.pagination.test.tsx
 src/features/bitbucket-connections/ui/BitbucketConnectionsPanel.test.tsx
 src/features/bitbucket-connections/ui/BitbucketConnectionsPanel.tsx
 src/features/finding-filters/index.ts
@@ -503,6 +504,9 @@ src/shared/ui/FilePath/FilePath.module.css
 src/shared/ui/FilePath/FilePath.stories.tsx
 src/shared/ui/FilePath/FilePath.test.tsx
 src/shared/ui/FilePath/FilePath.tsx
+src/shared/ui/InfoHint/InfoHint.module.css
+src/shared/ui/InfoHint/InfoHint.test.tsx
+src/shared/ui/InfoHint/InfoHint.tsx
 src/shared/ui/Logo/Logo.stories.tsx
 src/shared/ui/Logo/Logo.test.tsx
 src/shared/ui/Logo/Logo.tsx
@@ -560,6 +564,7 @@ src/shared/ui/stories/Form.stories.tsx
 src/shared/ui/stories/Input.stories.tsx
 src/shared/ui/stories/Layout.stories.tsx
 src/shared/ui/stories/Modal.stories.tsx
+src/shared/ui/stories/Popover.stories.tsx
 src/shared/ui/stories/Segmented.stories.tsx
 src/shared/ui/stories/Select.stories.tsx
 src/shared/ui/stories/Switch.stories.tsx
@@ -1070,10 +1075,11 @@ Upgrade canary в `routerLocationAdapter.test.tsx` проверяет досту
   возвращается к серверному значению; `Alert` уходит, когда начинается следующая попытка. Пока `PATCH` идёт,
   переключатель в `loading` и недоступен, а фокус после ответа возвращается на него тем же приёмом, что у
   авто-ревью (`flushSync`).
-  Подсказка под подписью видна всегда (не `Tooltip`), одной короткой строкой без технических терминов:
+  Под подписью всегда видна короткая строка «Учитывает связи между файлами; ревью может стоить дороже.»;
+  `aria-describedby` связывает её с переключателем. Рядом кнопка ⓘ (`InfoHint`) открывает подробности:
   «Учитывает связи между файлами репозитория, делая ревью точнее. Может увеличить стоимость. Хранится только
-  структура кода, не его текст.» (`RAG_HINT`; оба утверждения AC5 на месте: что RAG даёт ревью и во что
-  обходится, и что хранится только структура кода, не текст, — [ADR 0001][adr-0001] §4). Без доступа провайдера
+  структура кода, не его текст.» (оба утверждения AC5: польза и цена RAG, а также хранение структуры без
+  текста кода — [ADR 0001][adr-0001] §4). Без доступа провайдера
   (`installationAvailable === false`) переключатель выключен и недоступен, под подсказкой стоит текст с
   `VCS_ACCESS_NAME[provider]` (для GitHub — «Нет доступа GitHub App — RAG недоступен»), статус — «Выключен».
   Сервер сам отдаёт там `ragEnabled: false` и `disabled`,
@@ -1383,6 +1389,10 @@ sequenceDiagram
 `DesignSystemProvider`. `Segmented` экраны берут из `src/shared/ui`, а не из antd: обёртка даёт
 один Tab-стоп и требует `aria-label`.
 Числа, правила и чеклист для нового компонента antd: [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md).
+Пояснения у переключателей репозитория используют общую кнопку `InfoHint` с `Popover`:
+короткая строка остаётся в DOM и связана с `Switch` через `aria-describedby`, подробности
+открываются наведением, нажатием или клавиатурой. Это решение ui#167 описано в §8–§10
+дизайн-системы; Tooltip полного SHA в блоке правил остаётся отдельным случаем.
 Витрина: `pnpm storybook`. Правило: базовые компоненты берутся только из antd в нашей теме и из
 `src/shared/ui`; на экране их не перекрашивают. Вид компонента antd меняется только внутри
 `src/shared/ui`; `:global(.ant-…)` в CSS-модуле экрана (Ф-13) остаётся только для раскладки:
@@ -1797,9 +1807,10 @@ PATCH с переключателя, ничем другим не дополня
 **3. Что строит индекс.** Сборку и жизненный цикл индекса делает api#143 (на 22.10.2026 открыт): пока он не
 влит, включение RAG не запускает сборку, и на реальном api статус остаётся `empty`, а `building` и `stale` не
 бывают. UI устроен под все шесть значений, опрос ограничен окном 120 с (§2), а когда окно кончилось, секция
-говорит «Автообновление остановлено — обновите страницу». Формулировка подсказки у переключателя — по
-[ADR 0001][adr-0001]: индекс хранит только граф символов и указатели (путь, строки, commit), текст кода не
-хранится; подсказка говорит об этом без терминов — «Хранится только структура кода, не его текст».
+говорит «Автообновление остановлено — обновите страницу». Короткая строка под переключателем сообщает о
+влиянии RAG на ревью и возможной стоимости. Подробности в ⓘ следуют [ADR 0001][adr-0001]: индекс хранит
+граф символов и указатели (путь, строки, commit), текст кода не хранится; формулировка без терминов —
+«Хранится только структура кода, не его текст».
 
 ---
 
@@ -1826,13 +1837,13 @@ PATCH с переключателя, ничем другим не дополня
 
 Компоненты (`src/widgets/diff-viewer/`):
 
-| Компонент         | Файл                     | Props                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| ----------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DiffViewer`      | `ui/DiffViewer.tsx`      | `file: FileDiff`, `findings?: FindingView[]`, `comments?: ReviewComment[]`, `totalLines?: number`, `diffTotalLines?: number`, `searchActive?: boolean`, `onLoadMore?: (gap: ContextGap) => void`                                                                                                                                                                                                                                             |
-| `InlineComment`   | `ui/InlineComment.tsx`   | `finding: FindingView`, `file?: FileDiff`, `defaultExpanded?: boolean`, `showFile?: boolean` — находка или комментарий, привязанный к строке диффа (виджет `react-diff-view`); свёрнут, пока не раскрыт или не задан `defaultExpanded`; `showFile` называет файл в шапке карточки                                                                                                                                                            |
-| `DiffSuggestion`  | `ui/DiffSuggestion.tsx`  | `filename: string`, `removedLines: string[]`, `addedText: string` — правка из `suggestion` находки, через `<Diff>`                                                                                                                                                                                                                                                                                                                           |
-| `LoadMoreContext` | `ui/LoadMoreContext.tsx` | кнопка дочитывания контекста в зазоре между хунками                                                                                                                                                                                                                                                                                                                                                                                          |
-| `RunDiff`         | `ui/RunDiff.tsx`         | `summaryOnly: boolean`, `files: FileDiff[]`, `findings: FindingView[]`, `comments?: ReviewComment[]`, `budgetFiles?: FileDiff[]`, `fileTotalLines?`, `onLoadMore?`, `filters?: FindingFilters`, `onFiltersChange?`, `onFiltersQueryChange?`, `onFiltersReset?`, `commentsPending?: boolean`, `findingsPending?: boolean`, `filtersNavigationKey?: number`, `subscribeToFiltersNavigation?: SubscribeFilterNavigation` — дифф прогона целиком |
+| Компонент         | Файл                     | Props                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ----------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DiffViewer`      | `ui/DiffViewer.tsx`      | `file: FileDiff`, `findings?: FindingView[]`, `comments?: ReviewComment[]`, `totalLines?: number`, `diffTotalLines?: number`, `searchActive?: boolean`, `onLoadMore?: (gap: ContextGap) => void`                                                                                                                                                                                                                                                                           |
+| `InlineComment`   | `ui/InlineComment.tsx`   | `finding: FindingView`, `file?: FileDiff`, `defaultExpanded?: boolean`, `showFile?: boolean` — находка или комментарий, привязанный к строке диффа (виджет `react-diff-view`); свёрнут, пока не раскрыт или не задан `defaultExpanded`; `showFile` называет файл в шапке карточки                                                                                                                                                                                          |
+| `DiffSuggestion`  | `ui/DiffSuggestion.tsx`  | `filename: string`, `removedLines: string[]`, `addedText: string` — правка из `suggestion` находки, через `<Diff>`                                                                                                                                                                                                                                                                                                                                                         |
+| `LoadMoreContext` | `ui/LoadMoreContext.tsx` | кнопка дочитывания контекста в зазоре между хунками                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `RunDiff`         | `ui/RunDiff.tsx`         | `summaryOnly: boolean`, `files: FileDiff[]`, `findings: FindingView[]`, `comments?: ReviewComment[]`, `budgetFiles?: FileDiff[]`, `fileTotalLines?`, `onLoadMore?`, `filters?: FindingFilters`, `onFiltersChange?`, `onFiltersQueryChange?`, `onFiltersReset?`, `commentsPending?: boolean`, `findingsPending?: boolean`, `findingsExpected?: boolean`, `filtersNavigationKey?: number`, `subscribeToFiltersNavigation?: SubscribeFilterNavigation` — дифф прогона целиком |
 
 Поток данных:
 
@@ -1947,8 +1958,10 @@ next.newStart - startLine }`; хвостовой зазор после посл�
 в `FindingFiltersBar` как `subscribeToNavigation`; `filtersNavigationKey` служит fallback после
 коммита, если подписки нет. Без `onFiltersReset` сброс — `onFiltersChange(EMPTY_FINDING_FILTERS)`; без
 `onFiltersQueryChange` текст поиска уходит в `onFiltersChange({ ...filters, query }, { replace: true })`.
-Кроме того, страница передаёт два независимых признака: `commentsPending` — `/comments` ещё не ответил; `findingsPending` —
-прогон ещё активен (`isActive(run.status)`). Если ссылка содержит `file` для файла,
+Кроме того, страница передаёт два независимых признака: `commentsPending` — `/comments` ещё не
+ответил у `succeeded` или `cancelled`, где комментарии могут дополнить находки (у `failed` и
+`skipped` признак `false` даже во время запроса); `findingsPending` — прогон ещё активен
+(`isActive(run.status)`). Если ссылка содержит `file` для файла,
 известного только из комментария, до ответа этот файл неизвестен и его фильтр не действует;
 после ответа файл входит в варианты и фильтр начинает сужать результат. Значение в URL
 сохраняется, пока загружаются комментарии.
@@ -2045,8 +2058,13 @@ Enter в поле поиска страницу не перезагружает.
 
 Страница определяет `findingsPending` через `isActive(run.status)` (`queued`, `running`,
 `publishing`) и передаёт его в `RunDiff` и панель. Это состояние отдельно от ожидания `/comments`;
-для остальных вызывающих компонентов оно по умолчанию `false`. После перехода прогона в
-терминальный статус исходные фильтры URL применяются автоматически, без навигации.
+для остальных вызывающих компонентов оно по умолчанию `false`. Отдельный `findingsExpected` управляет
+только текстом панели: у зависшего `running` (`isStaleRunning`) и после запроса отмены в `queued` /
+`running` панель говорит «Замечания пока недоступны», не обещая их появления. После запроса отмены
+в `publishing` прежний текст остаётся: api может опубликовать находки и завершить прогон как
+`cancelled`. До публикации api отдаёт пустой `/comments`; моки повторяют это для активных и
+неопубликованных прогонов. После перехода прогона в терминальный статус исходные фильтры URL
+применяются автоматически, без навигации.
 
 Что рисуется под фильтром:
 
@@ -2054,8 +2072,15 @@ Enter в поле поиска страницу не перезагружает.
 - пока `findingsPending`, содержательный фильтр (критичность или непустой поиск) сохраняется
   в панели и URL, но не скрывает файлы без находок; эффективный выбор файлов продолжает
   ограничивать дифф и список summary-only. Уже доступные карточки фильтруются как обычно;
+- пока `commentsPending` у `succeeded` или `cancelled`, содержательный фильтр показывает только
+  файлы с уже известными подходящими находками. Если известных находок нет, дифф временно скрыт
+  до ответа `/comments`; у `failed` и `skipped` этот признак `false`, поэтому дифф виден сразу;
+- если отображаемых находок нет совсем и `commentsPending` равен `false` (в том числе у `failed`, `skipped`, отменённого до
+  публикации `cancelled`), содержательный фильтр из URL не скрывает дифф и не вызывает сообщение
+  о пустом результате фильтра. Эффективный выбор файлов продолжает действовать;
 - после завершения прогона содержательный фильтр скрывает файлы без подходящей находки: дифф, блок «Замечания вне диффа» и строка в списке summary-only. Если скрыты все
-  строки, списка нет вовсе — второго пустого состояния antd `List` не появляется;
+  строки, списка нет вовсе — второго пустого состояния antd `List` не появляется. Для `cancelled`
+  с опубликованными находками действует то же правило, что для `succeeded`;
 - блок «Замечания вне диффа» (у файла и общий по прогону) рисуется, только когда в нём есть
   подходящая находка;
 - поиск задан — все показанные карточки развёрнуты: `InlineComment` получает `defaultExpanded`, ключ
@@ -2065,9 +2090,9 @@ Enter в поле поиска страницу не перезагружает.
 - ничего не подходит, а фильтр действует (эффективный фильтр файлов не пуст или задан содержательный
   фильтр) — сообщение «Нет замечаний, подходящих под фильтры» с кнопкой сброса; рисует его сама
   панель (`empty`), чтобы кнопка в сообщении очищала и поле поиска. Одинокий `file=` неизвестного
-  файла и прогон без замечаний при пустых фильтрах сообщения не вызывают. В summary-only ветке
+  файла и прогон без замечаний даже при содержательном фильтре сообщения не вызывают. В summary-only ветке
   сообщение стоит под панелью, выше «Дифф слишком большой». Пока `findingsPending`, итогового
-  пустого состояния нет. Пока `/comments` не ответил, сообщения тоже нет: набор ещё неполон, и запрос, который подходит только комментарию, не
+  пустого состояния нет. Пока `commentsPending`, сообщения тоже нет: набор ещё неполон, и запрос, который подходит только комментарию, не
   должен мигать «ничего нет» (счётчик при этом может поменяться, когда комментарии придут);
 - бюджет подсветки Ф-18 считается по всем файлам, как пришли (`budgetFiles ?? files`), а не по
   видимым: фильтр не включает и не выключает подсветку.
@@ -2512,7 +2537,8 @@ checkpoint или ошибка до входа в `traced_step` могут ос�
 - `mockSummaryOnlyRun` + `mockSummaryOnlyDiff` — summary-only прогон (`summaryOnly: true`) и его
   провод `/diff`: 3 файла с `patch: null` и `src/a.ts` с патчем; `buildMockRunDetail` добавляет
   к нему одну critical-находку. В `mockRunSessions` прогон не входит (там по одному на статус);
-- `mockReviewComments` — 3 комментария (два — с `ruleName`, один — без);
+- `mockReviewComments` — 3 комментария для опубликованного `succeeded` (два — с `ruleName`,
+  один — без); до публикации и у прогонов без опубликованных находок `/comments` возвращает `[]`;
 - `mockRunActions` — 34 действия в Duo-подобной последовательности (`makeDuoActions`,
   `src/entities/run/lib/duoActions.fixture.ts`: `get_pull_request`, `get_diff`, 19× `get_tree`,
   11× `get_blob`, `get_pull_request`, `post_review`), 2 действия с `responseRef` вместо `response`;

@@ -6,7 +6,7 @@
  */
 import { Flex, Form, Input, InputNumber, Radio, Select, Switch, Typography } from 'antd'
 import { BranchesOutlined } from '@ant-design/icons'
-import { CodeBlock, Tag } from '../../../src/shared/ui'
+import { CodeBlock, InfoHint, Tag } from '../../../src/shared/ui'
 import autoStyles from '../../../src/features/repository-settings/ui/AutoReviewSwitch.module.css'
 import ragStyles from '../../../src/features/repository-settings/ui/RagSection.module.css'
 import formStyles from '../../../src/features/repository-settings/ui/RepositorySettingsForm.module.css'
@@ -45,9 +45,12 @@ export function AutoReviewBlock() {
         <Switch checked />
         <Text strong>Automatic review</Text>
       </Flex>
-      <Text type="secondary">
-        When on, reviews run automatically for pull requests in this repository.
-      </Text>
+      <Flex align="center" gap={4}>
+        <Text type="secondary">Reviews start for new pull requests.</Text>
+        <InfoHint label="More about automatic review">
+          When on, reviews run automatically for pull requests in this repository.
+        </InfoHint>
+      </Flex>
     </section>
   )
 }
@@ -59,10 +62,13 @@ export function RagBlock() {
         <Switch checked />
         <Text strong>RAG</Text>
       </Flex>
-      <Text type="secondary">
-        Takes the links between the repository files into account, which makes the review more
-        precise. May increase the cost. Only the code structure is stored, not its text.
-      </Text>
+      <Flex align="center" gap={4}>
+        <Text type="secondary">Uses links between files; reviews may cost more.</Text>
+        <InfoHint label="More about RAG">
+          Takes the links between the repository files into account, which makes the review more
+          precise. May increase the cost. Only the code structure is stored, not its text.
+        </InfoHint>
+      </Flex>
       <Flex align="center" className={ragStyles.status} gap={8} wrap>
         <Text type="secondary">Index status:</Text>
         <Tag tone="success">Ready</Tag>

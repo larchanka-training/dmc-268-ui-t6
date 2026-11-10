@@ -91,6 +91,13 @@ unchanged files that use the changed code, so it may cost more.
 
 ## Support
 
+### Where can I read more about a repository setting?
+
+On the repository settings page, the line below **RAG** or **Automatic review** gives the short
+explanation. Use the ⓘ button beside it for details: hover or click it, or focus it and press
+Enter or Space. Press Escape to close the explanation. RAG's details explain that its index stores
+code structure, not code text.
+
 ### Does it work with GitLab?
 
 GitHub today; GitLab support is coming.
@@ -103,6 +110,26 @@ in the sidebar. If you have more than one, click it and pick another. The choice
 browser. It does not filter runs or repositories: those pages still show everything you can access.
 
 ## Troubleshooting
+
+### Reviewer seems to be down
+
+Open the status page at [status.dmc268-t6.axyi.ru](https://status.dmc268-t6.axyi.ru/). It needs no
+sign-in, is in Russian and refreshes itself every 30 seconds. The `prod` section is the production
+service, and `staging` is the test environment.
+[staging-status.dmc268-t6.axyi.ru](https://staging-status.dmc268-t6.axyi.ru/) shows only `staging`.
+
+Each section lists four components: `API`, `UI` (the dashboard), `Ревью PR` (pull request reviews)
+and `Приём вебхуков` (receiving webhooks). Each shows one of three states, with times in UTC:
+
+- `работает` (up), with `с <time>` (since the end of its last failure in the past 7 days) or
+  `сбоев за 7 дн. не было` (no failures in 7 days).
+- `не работает` (down), with `с <time>` (since it failed) and, below it, each alert behind it as
+  `<alert name>: <what does not work>`.
+- `нет данных` (no data): the page cannot tell whether it works. Either it has no data on this
+  component, or it has no fresh data at all: then every component shows this.
+
+The page shows outages only: a failed or skipped run does not change it, see
+[A run failed](/faq#a-run-failed).
 
 ### No review appeared
 
@@ -181,3 +208,10 @@ nothing until the run knows it, for example from a finding or a comment. The dif
 by it. Adding a file or removing one of several keeps it. Clearing **Files** or removing its last
 file takes it out of the page address, so it does not come back. If **Files** is empty, pick a file
 and remove it.
+
+### A severity or search link still shows the whole diff
+
+A failed or skipped run, or one cancelled before its review was published, has no findings to
+filter. The dashboard keeps the diff visible and shows a count of zero findings instead of saying
+that none matched the filter. A cancelled run can still have findings when cancellation was
+requested during publication; in that case, severity and search filter them normally.

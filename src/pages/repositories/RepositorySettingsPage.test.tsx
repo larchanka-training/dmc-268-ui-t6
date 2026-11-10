@@ -11,6 +11,7 @@ import {
   type RagIndex,
   type Repository,
 } from '../../entities/repository'
+import { useAuthStore } from '../../features/auth'
 import { ragPollTimedOutText } from '../../features/repository-settings'
 import { advance } from '../../test/advanceTimers'
 import { RepositorySettingsPage } from './RepositorySettingsPage'
@@ -402,6 +403,7 @@ async function chooseOption(label: string, optionText: string): Promise<void> {
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+  useAuthStore.setState({ isAuthenticated: false })
 })
 
 describe('RepositorySettingsPage', () => {

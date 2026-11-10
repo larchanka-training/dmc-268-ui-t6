@@ -45,6 +45,7 @@ function renderRunDetail(runId: string) {
 
 describe('RunDetailPage', () => {
   beforeEach(() => {
+    localStorage.clear()
     vi.spyOn(crypto, 'randomUUID').mockReturnValue(RERUN_RUN_ID)
     initMockTransport()
     setAccessToken('mock_jwt_token_skvertl_dmc')

@@ -122,6 +122,7 @@ export const runs: Translation<typeof en> = {
     searchPlaceholder: 'Текст, правило',
     clearSearch: 'Очистить поиск',
     pending: 'Замечания появятся после завершения прогона',
+    pendingUncertain: 'Замечания пока недоступны',
     shown_one: 'Показано {{shown}} из {{count}} замечаний',
     shown_few: 'Показано {{shown}} из {{count}} замечаний',
     shown_many: 'Показано {{shown}} из {{count}} замечаний',

@@ -79,6 +79,23 @@ afterEach(() => {
   cleanup()
 })
 
+describe('AutoReviewSwitch: the hint', () => {
+  it('describes the switch with a short line and exposes the detail on click', async () => {
+    renderSwitch({ installationAvailable: true })
+
+    const hint = screen.getByText('Ревью запускается для новых pull request.')
+    expect(theSwitch().getAttribute('aria-describedby')).toBe(hint.id)
+    expect(hint.id).not.toBe('')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Подробнее об автоматическом ревью' }))
+    expect(
+      await screen.findByText(
+        'Когда включено, ревью запускается автоматически для pull request этого репозитория.',
+      ),
+    ).toBeTruthy()
+  })
+})
+
 describe('AutoReviewSwitch: GitHub App has no access', () => {
   it.each([
     ['github', 'GitHub App'],

@@ -281,7 +281,19 @@ export const RunsPage: FC = () => {
                   <Button onClick={resetFilterAndFocus}>{t('runs.showAll')}</Button>
                 </Empty>
               ) : (
-                t('runs.empty')
+                <Empty
+                  description={
+                    <>
+                      <div>{t('runs.empty')}</div>
+                      <div>{t('onboarding.emptyRuns')}</div>
+                    </>
+                  }
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                >
+                  <Button onClick={() => void navigate('/repositories')} type="primary">
+                    {t('onboarding.repositoriesAction')}
+                  </Button>
+                </Empty>
               ),
           }}
           onRow={(run) => ({
