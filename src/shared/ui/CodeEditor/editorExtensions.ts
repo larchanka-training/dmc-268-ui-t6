@@ -1,3 +1,9 @@
+import {
+  autocompletion,
+  pickedCompletion,
+  type Completion,
+  type CompletionSource,
+} from '@codemirror/autocomplete'
 import { javascript } from '@codemirror/lang-javascript'
 import { markdown } from '@codemirror/lang-markdown'
 import { python } from '@codemirror/lang-python'
@@ -141,8 +147,87 @@ export const editorTheme = EditorView.theme({
     color: 'var(--rv-text)',
     whiteSpace: 'pre-wrap',
   },
+  // The list of completions: a pop-up layer, so the one shadow of DESIGN_SYSTEM §6.
+  '.cm-tooltip': {
+    border: 'none',
+    borderRadius: 'var(--rv-radius-md)',
+    backgroundColor: 'var(--rv-pop-bg)',
+    boxShadow: 'var(--rv-pop-shadow)',
+    color: 'var(--rv-text)',
+  },
+  '.cm-tooltip.cm-tooltip-autocomplete > ul': {
+    fontFamily: 'var(--rv-font-mono)',
+    fontSize: 'var(--rv-fs-xs)',
+  },
+  '.cm-tooltip.cm-tooltip-autocomplete > ul > li': { padding: '4px 8px', lineHeight: '16px' },
+  '.cm-tooltip-autocomplete ul li[aria-selected]': {
+    backgroundColor: 'var(--rv-selected)',
+    color: 'var(--rv-text)',
+  },
+  '.cm-completionDetail': { color: 'var(--rv-text-3)' },
   ...Object.fromEntries(SYNTAX.map(({ name, style }) => [`.tok-${name}`, style])),
 })
+
+/** A completion offered at the start of a line. */
+export interface CodeEditorCompletion {
+  /** What the list shows; what the user typed is matched against it. */
+  label: string
+  /** The text that replaces what the user typed on the line. */
+  insert: string
+  /** Where the cursor lands, as an offset in `insert`; the end of it by default. */
+  cursor?: number
+  /** A short note next to the label. */
+  detail?: string
+}
+
+// What the line holds, up to the cursor, while the user may be typing a completion: one word, or a
+// `#` heading with a word after it. Anything else (a sentence, an indented line) gets none.
+const LINE_START = /^[#`\w-]*(?: [\w-]*)?$/
+
+/**
+ * Offers `completions` at the start of a line. The list opens by itself only while the line, up to
+ * the cursor, begins one of the labels (any case): typing `# S` or `` ```rev `` opens it, a line
+ * that starts with a plain word such as `Style` does not, so Enter still breaks that line. On such
+ * a line and on an empty one the list opens only when asked (Ctrl-Space).
+ */
+export function lineStartCompletions(
+  completions: readonly CodeEditorCompletion[],
+): CompletionSource {
+  const starts = completions.map(({ label }) => label.toLowerCase())
+  const options = completions.map(
+    ({ label, insert, cursor = insert.length, detail }): Completion => ({
+      label,
+      detail,
+      apply: (view, completion, from, to) => {
+        view.dispatch({
+          changes: { from, to, insert },
+          selection: { anchor: from + cursor },
+          scrollIntoView: true,
+          userEvent: 'input.complete',
+          annotations: pickedCompletion.of(completion),
+        })
+      },
+    }),
+  )
+  return (context) => {
+    const typed = context.matchBefore(LINE_START)
+    if (typed === null) {
+      return null
+    }
+    const start = typed.text.toLowerCase()
+    if (!context.explicit && (start === '' || !starts.some((label) => label.startsWith(start)))) {
+      return null
+    }
+    return { from: typed.from, options, validFor: LINE_START }
+  }
+}
+
+/** The completion list with only the given completions, or nothing when there are none. */
+export function completionsExtension(completions: readonly CodeEditorCompletion[]): Extension {
+  return completions.length === 0
+    ? []
+    : autocompletion({ override: [lineStartCompletions(completions)], icons: false })
+}
 
 /** A problem in the text. Line and column count from 1; null when the problem has no position. */
 export interface CodeEditorDiagnostic {

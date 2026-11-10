@@ -94,6 +94,30 @@ export const ErrorWithoutText: Story = {
 
 export const HighlightedLines: Story = { args: { highlightedLines: [4, 6] } }
 
+const REVIEW_IGNORE = '```review-ignore\n\n```'
+
+/**
+ * Type `# ` or ```` ``` ```` at the start of a line, or press Ctrl-Space on an empty one. Enter
+ * takes a completion, Escape closes the list, Tab still leaves the editor.
+ */
+export const Completions: Story = {
+  args: {
+    fileName: '.review/rules.md',
+    value: RULES,
+    completions: [
+      { label: '# Security', insert: '# Security' },
+      { label: '# Performance', insert: '# Performance' },
+      { label: '# Style', insert: '# Style' },
+      {
+        label: '```review-ignore',
+        insert: REVIEW_IGNORE,
+        cursor: REVIEW_IGNORE.indexOf('\n') + 1,
+        detail: 'paths',
+      },
+    ],
+  },
+}
+
 export const Languages: Story = {
   render: () => (
     <div style={{ display: 'grid', gap: 16 }}>

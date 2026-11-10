@@ -6,6 +6,7 @@ export const layout = {
     runs: 'Runs',
     audit: 'Audit',
     analytics: 'Analytics',
+    playground: 'Playground',
     review: 'Review',
   },
   expandMenu: 'Expand menu',

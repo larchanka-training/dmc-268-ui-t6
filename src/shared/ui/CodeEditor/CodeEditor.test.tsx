@@ -1,4 +1,11 @@
 // @vitest-environment jsdom
+import {
+  acceptCompletion,
+  CompletionContext,
+  currentCompletions,
+  startCompletion,
+} from '@codemirror/autocomplete'
+import { EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { StrictMode, useState, type JSX } from 'react'
@@ -6,6 +13,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { CodeEditor, type CodeEditorProps } from './CodeEditor'
 import styles from './CodeEditor.module.css'
+import { lineStartCompletions, type CodeEditorCompletion } from './editorExtensions'
 
 // No @types/node here and Vitest zeroes `.css?raw`: load `fs` untyped to read the real stylesheets.
 const FS_MODULE = 'node:fs'
@@ -530,6 +538,115 @@ describe('CodeEditor: read only', () => {
     expect(view()).toBe(editor)
     expect(onChange).toHaveBeenLastCalledWith('\nab')
     expect(textbox().hasAttribute('aria-readonly')).toBe(false)
+  })
+})
+
+describe('CodeEditor: completions', () => {
+  const block = '```review-ignore\n\n```'
+  const completions: CodeEditorCompletion[] = [
+    { label: '# Security', insert: '# Security' },
+    { label: '# Style', insert: '# Style' },
+    { label: '# Performance', insert: '# Performance' },
+    { label: '```review-ignore', insert: block, cursor: block.indexOf('\n') + 1 },
+  ]
+
+  function contextAt(doc: string, explicit = false): CompletionContext {
+    return new CompletionContext(EditorState.create({ doc }), doc.length, explicit)
+  }
+
+  function labels(doc: string, explicit = false): string[] | null {
+    const result = lineStartCompletions(completions)(contextAt(doc, explicit))
+    if (result === null || result instanceof Promise) {
+      return null
+    }
+    return result.options.map((option) => option.label)
+  }
+
+  function typeDoc(text: string): void {
+    view().dispatch({
+      changes: { from: 0, to: view().state.doc.length, insert: text },
+      selection: { anchor: text.length },
+      userEvent: 'input.type',
+    })
+  }
+
+  it('offers the completions while the line up to the cursor starts one of them', () => {
+    expect(labels('# S')).toEqual(completions.map((item) => item.label))
+    expect(labels('Intro\n```rev')).toEqual(completions.map((item) => item.label))
+  })
+
+  it('replaces the line start the user typed', () => {
+    const result = lineStartCompletions(completions)(contextAt('Intro\n# Se'))
+
+    expect(result).toMatchObject({ from: 6 })
+  })
+
+  it('stays quiet in the middle of a sentence and on an empty line until asked', () => {
+    expect(labels('Use parameterised SQL # S')).toBeNull()
+    expect(labels('Intro\n')).toBeNull()
+    expect(labels('Intro\n', true)).toEqual(completions.map((item) => item.label))
+  })
+
+  it('opens by itself only on a line start that begins a completion, any case', () => {
+    expect(labels('#')).toEqual(completions.map((item) => item.label))
+    expect(labels('# s')).toEqual(completions.map((item) => item.label))
+  })
+
+  it('stays quiet on a word that starts no completion until asked', () => {
+    // Enter on an open list would take the word, not break the line.
+    expect(labels('Style')).toBeNull()
+    expect(labels('Intro\nSecurity')).toBeNull()
+    expect(labels('Style', true)).toEqual(completions.map((item) => item.label))
+  })
+
+  it('shows the matching completions in the editor that has them', async () => {
+    render(<Controlled completions={completions} value="" />)
+    typeDoc('# S')
+
+    startCompletion(view())
+
+    await waitFor(() => {
+      expect(currentCompletions(view().state).map((item) => item.label)).toEqual([
+        '# Security',
+        '# Style',
+      ])
+    })
+  })
+
+  it('puts the cursor inside the review-ignore block and leaves Tab to the browser', async () => {
+    render(<Controlled completions={completions} value="" />)
+    typeDoc('```rev')
+    startCompletion(view())
+    await waitFor(() => {
+      expect(currentCompletions(view().state)).toHaveLength(1)
+    })
+
+    // The list takes no key in its first 75ms (`interactionDelay`), as in a browser.
+    await waitFor(() => {
+      expect(acceptCompletion(view())).toBe(true)
+    })
+
+    expect(renderedLines()).toEqual(['```review-ignore', '', '```'])
+    expect(view().state.selection.main.head).toBe('```review-ignore\n'.length)
+    expect(fireEvent.keyDown(textbox(), { key: 'Tab', code: 'Tab', keyCode: 9 })).toBe(true)
+    expect(renderedLines()).toEqual(['```review-ignore', '', '```'])
+  })
+
+  it('offers nothing without completions', () => {
+    render(<Controlled value="# S" />)
+
+    expect(startCompletion(view())).toBe(false)
+  })
+
+  it('offers nothing while read only, where a completion would change the text', () => {
+    const { rerender } = render(
+      <CodeEditor aria-label={LABEL} completions={completions} readOnly value="" />,
+    )
+
+    expect(startCompletion(view())).toBe(false)
+
+    rerender(<CodeEditor aria-label={LABEL} completions={completions} value="" />)
+    expect(startCompletion(view())).toBe(true)
   })
 })
 

@@ -15,6 +15,7 @@ export type { InfoHintProps } from './InfoHint/InfoHint'
 export {
   IconAnalytics,
   IconAudit,
+  IconPlayground,
   IconRepositories,
   IconReview,
   IconRuns,

@@ -59,6 +59,15 @@ export function IconAnalytics(props: IconProps): JSX.Element {
   )
 }
 
+export function IconPlayground(props: IconProps): JSX.Element {
+  return (
+    <Icon {...props}>
+      <path d="M9 3.5h6M10 3.5v5.2l-5.2 9.3a1.8 1.8 0 0 0 1.6 2.5h11.2a1.8 1.8 0 0 0 1.6-2.5L14 8.7V3.5" />
+      <path d="M7.5 14h9" />
+    </Icon>
+  )
+}
+
 export function IconReview(props: IconProps): JSX.Element {
   return (
     <Icon {...props}>

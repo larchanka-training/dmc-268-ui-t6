@@ -367,4 +367,23 @@ describe('AppSidebar tooltips', () => {
     expect(within(nav).getByText('Прогоны').hasAttribute('aria-current')).toBe(false)
     expect(screen.getByRole('link', { name: 'Аналитика' }).getAttribute('href')).toBe('/analytics')
   })
+
+  it('leads to the playground after Analytics and highlights it only there', () => {
+    vi.mocked(isMockMode).mockReturnValue(false)
+    const { unmount } = renderWithQuery(
+      <AppSidebar currentPath="/playground" onNavigate={vi.fn()} />,
+    )
+    const nav = screen.getByRole('navigation', { name: 'Разделы' })
+    expect(within(nav).getByText('Песочница').getAttribute('aria-current')).toBe('page')
+    expect(within(nav).getByText('Аналитика').hasAttribute('aria-current')).toBe(false)
+    const links = within(nav).getAllByRole('link')
+    const names = links.map((link) => link.textContent)
+    expect(names.indexOf('Песочница')).toBe(names.indexOf('Аналитика') + 1)
+    expect(screen.getByRole('link', { name: 'Песочница' }).getAttribute('href')).toBe('/playground')
+    unmount()
+
+    renderWithQuery(<AppSidebar currentPath="/analytics" onNavigate={vi.fn()} />)
+    const analyticsNav = screen.getByRole('navigation', { name: 'Разделы' })
+    expect(within(analyticsNav).getByText('Песочница').hasAttribute('aria-current')).toBe(false)
+  })
 })
