@@ -42,6 +42,7 @@ const runningRun: RunDetail = {
   verdict: null,
   severityCounts: { critical: 0, high: 0, medium: 0, low: 0, info: 0 },
   budget: null,
+  dataPurged: false,
 }
 
 export function action(tool: string): RunAction {

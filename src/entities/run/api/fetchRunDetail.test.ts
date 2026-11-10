@@ -155,4 +155,47 @@ describe('fetchRunDetail', () => {
       dropped: 2,
     })
   })
+
+  // api#457 Part 2: `dataPurged` is required in the api contract; an older api omits it.
+  it.each([
+    { answer: 'a purged run', field: { dataPurged: true }, dataPurged: true },
+    { answer: 'a run that is not purged', field: { dataPurged: false }, dataPurged: false },
+    { answer: 'an api without the field', field: {}, dataPurged: false },
+  ])('reads dataPurged from $answer', async ({ field, dataPurged }) => {
+    vi.mocked(apiClient).mockResolvedValueOnce({
+      provider: 'github',
+      id: '11111111-1111-4111-8111-000000000002',
+      engine: 'fast',
+      model: null,
+      status: 'succeeded',
+      startedAt: '2026-06-01T11:20:00.000Z',
+      finishedAt: '2026-06-01T11:55:00.000Z',
+      attempt: 1,
+      cancelRequested: false,
+      trigger: 'webhook',
+      createdAt: '2026-06-01T11:00:00.000Z',
+      summaryOnly: false,
+      pullRequest: {
+        provider: 'github',
+        repo: 'org/repo',
+        number: 32,
+        title: 'Title',
+        url: 'https://github.com/org/repo/pull/32',
+        headSha: 'abc1234567890abc1234567890abc1234567890',
+      },
+      actionCount: 1,
+      errorCode: null,
+      triggeredBy: null,
+      usage: { tokensIn: 0, tokensOut: 0, costUsd: 0 },
+      findings: [],
+      summary: null,
+      verdict: 'clean',
+      severityCounts: { critical: 0, high: 0, medium: 0, low: 0, info: 0 },
+      budget: null,
+      ...field,
+    })
+
+    const run = await fetchRunDetail('11111111-1111-4111-8111-000000000002')
+    expect(run.dataPurged).toBe(dataPurged)
+  })
 })
