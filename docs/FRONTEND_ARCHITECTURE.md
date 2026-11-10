@@ -2749,12 +2749,15 @@ issue прямо выносит подключение логирования з
 его блока: на месте графика `Alert` «Не удалось загрузить этот блок, обновите страницу».
 
 **Страница 404 (Refs ui#238).** Неизвестный адрес ловит `path: '*'` последним дочерним маршрутом
-`AppLayoutRoute`: вошедший видит ленивую `NotFoundPage` (`src/pages/not-found/`) внутри оболочки с
+`AppLayoutRoute`: вошедший видит `NotFoundPage` (`src/pages/not-found/`) внутри оболочки с
 боковым меню — `Result` 404 и главная кнопка-ссылка «К репозиториям» (`href` и
 `useLinkClickHandler`), адрес в строке браузера не меняется. Молчаливого редиректа на
 `/repositories` больше нет; `/` по-прежнему ведёт туда. Невошедший, как и с любым адресом, уходит на
 `/login`, `ProtectedLayout` сохраняет адрес в `returnTo`, и после входа открывается 404 этого адреса
-(`src/App.returnTo.test.tsx`).
+(`src/App.returnTo.test.tsx`). Страница подключена напрямую, не через `lazyRoute`: её ленивый чанк
+заставлял rolldown вынести свой рантайм в отдельный `rolldown-runtime-*.js`, который vendor-чанки
+импортируют статически, а `pnpm smoke:prod-app` это запрещает. Страница маленькая (`Result` уже в
+основном чанке из-за `RouteErrorFallback`) и в офлайне открывается без сети.
 
 **Признак потери сети (Refs ui#238).** `App` рендерит `NetworkStatusNotice`
 (`src/app/layouts/NetworkStatusNotice.tsx`) рядом с `RouterProvider`, поэтому он есть на любой

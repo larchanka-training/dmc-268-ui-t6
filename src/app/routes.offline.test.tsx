@@ -31,7 +31,6 @@ vi.mock('../pages/review/ReviewRedirect', () => pageModule('ReviewRedirect'))
 vi.mock('../pages/audit/AuditPage', () => pageModule('AuditPage'))
 vi.mock('../pages/analytics/AnalyticsPage', () => pageModule('AnalyticsPage'))
 vi.mock('../pages/playground/PlaygroundPage', () => pageModule('PlaygroundPage'))
-vi.mock('../pages/not-found/NotFoundPage', () => pageModule('NotFoundPage'))
 
 const originalAuth = useAuthStore.getState()
 const routers: ReturnType<typeof createMemoryRouter>[] = []
@@ -74,7 +73,6 @@ it.each([
   { path: '/audit', page: 'AuditPage', signedIn: true, inLayout: true },
   { path: '/analytics', page: 'AnalyticsPage', signedIn: true, inLayout: true },
   { path: '/playground', page: 'PlaygroundPage', signedIn: true, inLayout: true },
-  { path: '/no-such-page', page: 'NotFoundPage', signedIn: true, inLayout: true },
 ])(
   '$path: shows the notice offline and opens the page when the network returns',
   async ({ path, page, signedIn, inLayout }) => {

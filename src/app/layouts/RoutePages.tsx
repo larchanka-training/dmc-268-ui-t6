@@ -7,6 +7,7 @@ import {
   consumeAuthReturnTo,
   peekAuthReturnTo,
 } from '../../features/auth'
+import { NotFoundPage } from '../../pages/not-found/NotFoundPage'
 import { lazyRoute } from './lazyRoute'
 import { PageFallback } from './RouteLayouts'
 
@@ -44,9 +45,6 @@ const AnalyticsPage = lazyRoute(() =>
 const PlaygroundPage = lazyRoute(() =>
   import('../../pages/playground/PlaygroundPage').then((m) => ({ default: m.PlaygroundPage })),
 )
-const NotFoundPage = lazyRoute(() =>
-  import('../../pages/not-found/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
-)
 
 export const RoutedRepositoriesPage: FC = () => {
   return <RepositoriesPage />
@@ -80,6 +78,10 @@ export const RoutedPlaygroundPage: FC = () => {
   return <PlaygroundPage />
 }
 
+/**
+ * Not lazy: a chunk of its own made rolldown split its runtime into a chunk the vendor chunks
+ * import, which `pnpm smoke:prod-app` forbids (FA §9). It is small and opens offline too.
+ */
 export const RoutedNotFoundPage: FC = () => {
   return <NotFoundPage />
 }
