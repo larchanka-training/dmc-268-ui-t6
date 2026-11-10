@@ -773,3 +773,162 @@ describe('PlaygroundPage: simulation', () => {
     })
   })
 })
+
+const EARLIER_ID = '5a5a5a5a-5a5a-4a5a-8a5a-0000000000e1'
+
+/** The POST of a simulation is refused with `error`. */
+function refuseStart(error: ApiError): void {
+  withMockTransportOverlay((endpoint) =>
+    endpoint.method === 'POST' && endpoint.path.endsWith('/rules-simulations')
+      ? Promise.reject(error)
+      : undefined,
+  )
+}
+
+describe('PlaygroundPage: simulation errors', () => {
+  it('follows the simulation the server says still runs, with its progress and result, not an error', async () => {
+    const reads: string[] = []
+    withMockTransportOverlay((endpoint) => {
+      if (endpoint.method === 'POST' && endpoint.path.endsWith('/rules-simulations')) {
+        return Promise.reject(
+          new ApiError(409, 'Conflict', { detail: 'active_simulation_exists', id: EARLIER_ID }),
+        )
+      }
+      if (endpoint.path.startsWith('/rules-simulations/')) {
+        reads.push(endpoint.path)
+        return Promise.resolve(
+          reads.length === 1
+            ? { id: EARLIER_ID, status: 'running' }
+            : { ...succeeded([findingByRules]), id: EARLIER_ID },
+        )
+      }
+      return undefined
+    })
+    await readyPage()
+
+    fireEvent.click(simulateButton())
+
+    expect(await within(resultPanel()).findByText('Идёт ревью…')).toBeTruthy()
+    expect(await within(resultPanel()).findByText('Query built from user input')).toBeTruthy()
+    expect(new Set(reads)).toEqual(new Set([`/rules-simulations/${EARLIER_ID}`]))
+    expect(within(resultPanel()).queryByRole('alert')).toBeNull()
+    expect(
+      within(resultPanel()).getByText(
+        'Это симуляция, запущенная раньше: её код и правила могли быть другими.',
+      ),
+    ).toBeTruthy()
+    expect(
+      within(resultPanel()).getByText(
+        'Стоимость симуляции: $0.0123. Списана с дневного бюджета workspace репозитория, на котором её запустили.',
+      ),
+    ).toBeTruthy()
+  })
+
+  it('says the budget is used up, and keeps the code and the rules', async () => {
+    refuseStart(new ApiError(409, 'Conflict', { detail: 'budget_paused' }))
+    await readyPage()
+    typeInto(RULES_TEXT, '\n# Mine')
+
+    fireEvent.click(simulateButton())
+
+    expect(
+      await within(resultPanel()).findByText(
+        'Дневной бюджет workspace этого репозитория исчерпан: симуляция не запущена.',
+      ),
+    ).toBeTruthy()
+    expect(editorText(CODE)).toBe('x = 1')
+    expect(editorText(RULES_TEXT)).toBe(`${fixtureText(UI_REPO.id)}\n# Mine`)
+    expect(simulateButton()).toHaveProperty('disabled', false)
+  })
+
+  it('marks the errors of rules the server could not parse on their lines, until the user edits them', async () => {
+    refuseStart(
+      new ApiError(422, 'Unprocessable Entity', {
+        detail: 'rules_invalid',
+        diagnostics: [
+          {
+            code: 'policy_ignore_pattern_invalid',
+            message: 'Invalid mask',
+            line: 9,
+            column: 1,
+            retryable: false,
+          },
+        ],
+      }),
+    )
+    await readyPage()
+
+    fireEvent.click(simulateButton())
+
+    expect(await within(resultPanel()).findByText('Правила не разобраны')).toBeTruthy()
+    expect(
+      within(resultPanel()).getByText(/В блоке review-ignore недопустимая маска\./),
+    ).toBeTruthy()
+    await waitFor(() => {
+      expect(document.querySelector('.cm-rv-diagnostic')).not.toBeNull()
+    })
+    expect(screen.getByRole('textbox', { name: RULES_TEXT }).getAttribute('aria-invalid')).toBe(
+      'true',
+    )
+
+    // The lines were those of the text that was sent.
+    typeInto(RULES_TEXT, '\n# Mine')
+
+    await waitFor(() => {
+      expect(document.querySelector('.cm-rv-diagnostic')).toBeNull()
+    })
+    expect(
+      screen.getByRole('textbox', { name: RULES_TEXT }).getAttribute('aria-invalid'),
+    ).toBeNull()
+    expect(within(resultPanel()).getByText('Правила не разобраны')).toBeTruthy()
+    expect(editorText(CODE)).toBe('x = 1')
+  })
+
+  it('says the code is over the limit', async () => {
+    refuseStart(new ApiError(422, 'Unprocessable Entity', { detail: 'content_too_large' }))
+    await readyPage()
+
+    fireEvent.click(simulateButton())
+
+    expect(
+      await within(resultPanel()).findByText('Код больше 64 КиБ. Сократите его и запустите снова.'),
+    ).toBeTruthy()
+    expect(document.querySelector('.cm-rv-diagnostic')).toBeNull()
+    expect(editorText(CODE)).toBe('x = 1')
+  })
+
+  it.each([
+    ['deadline_exceeded', 'Симуляция не уложилась в отведённое время.'],
+    ['provider_error', 'Модель не завершила ревью. Повторите позже.'],
+  ])(
+    'says why a simulation failed with %s, what it cost, and keeps the input',
+    async (errorCode, text) => {
+      simulationBackend({ id: SIMULATION_ID, status: 'failed', errorCode, costUsd: 0.004 })
+      await readyPage()
+
+      fireEvent.click(simulateButton())
+
+      expect(await within(resultPanel()).findByText(text)).toBeTruthy()
+      expect(
+        within(resultPanel()).getByText(
+          `Стоимость симуляции: $0.0040. Списана с дневного бюджета workspace репозитория ${UI_REPO.fullName}.`,
+        ),
+      ).toBeTruthy()
+      expect(editorText(CODE)).toBe('x = 1')
+      expect(simulateButton()).toHaveProperty('disabled', false)
+    },
+  )
+
+  it('shows a schema error, not an empty result, for an answer of another shape', async () => {
+    simulationBackend({ id: SIMULATION_ID, status: 'succeeded', costUsd: 0 })
+    await readyPage()
+
+    fireEvent.click(simulateButton())
+
+    expect(
+      await within(resultPanel()).findByText('Ответ сервера не прошёл проверку схемы'),
+    ).toBeTruthy()
+    expect(within(resultPanel()).queryByText('Замечаний нет')).toBeNull()
+    expect(simulateButton()).toHaveProperty('disabled', false)
+  })
+})

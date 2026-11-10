@@ -6,11 +6,13 @@ import {
   useRepositories,
   useRepositoryRulesStatusRetry,
   type Repository,
+  type RulesDiagnostic,
   type RulesStatus,
 } from '../../entities/repository'
 import {
   activeSimulationId,
   isFinalSimulationError,
+  rejectedRulesDiagnostics,
   useRulesSimulation,
   useStartRulesSimulation,
 } from '../../entities/rules-simulation'
@@ -86,16 +88,17 @@ function serverRulesKnown(status: RulesStatus | undefined): boolean {
   }
 }
 
-/** The errors of a refused file, on their lines; a present file's warnings stay in the status. */
-function rulesDiagnostics(status: RulesStatus | undefined): readonly CodeEditorDiagnostic[] {
-  if (status?.status !== 'invalid') {
-    return NO_DIAGNOSTICS
-  }
-  return status.diagnostics.map((diagnostic) => ({
+function editorDiagnostics(diagnostics: readonly RulesDiagnostic[]): CodeEditorDiagnostic[] {
+  return diagnostics.map((diagnostic) => ({
     line: diagnostic.line,
     column: diagnostic.column,
     message: diagnosticText(diagnostic),
   }))
+}
+
+/** The errors of a refused file, on their lines; a present file's warnings stay in the status. */
+function rulesDiagnostics(status: RulesStatus | undefined): readonly CodeEditorDiagnostic[] {
+  return status?.status === 'invalid' ? editorDiagnostics(status.diagnostics) : NO_DIAGNOSTICS
 }
 
 interface PlaygroundProps {
@@ -128,9 +131,23 @@ function Playground({ repositories, fallback }: PlaygroundProps): JSX.Element {
   const fromRepository = source === 'repository'
   const draft = rulesDraft?.repoId === repository.id ? rulesDraft.text : null
   const rulesText = !fromRepository ? '' : (draft ?? serverRulesText(status))
-  // The errors of an invalid file point at lines of the file the server read: once the user edits
-  // the text they would mark the wrong lines, so they stay only in the status above the editor.
-  const diagnostics = fromRepository && draft === null ? rulesDiagnostics(status) : NO_DIAGNOSTICS
+  // The errors of rules a simulation was refused for point at lines of the text that was sent, and
+  // those of an invalid file at lines of the file the server read: once the user edits the text they
+  // would mark the wrong lines, so they stay only in the error or the status.
+  const sent = start.variables
+  const refused = rejectedRulesDiagnostics(start.error)
+  const diagnostics =
+    refused !== null &&
+    fromRepository &&
+    sent?.repoId === repository.id &&
+    sent.input.rulesMd === rulesText
+      ? editorDiagnostics(refused)
+      : fromRepository && draft === null
+        ? rulesDiagnostics(status)
+        : NO_DIAGNOSTICS
+  // The 409 that names a running simulation is not an error: the page follows that simulation.
+  const startError =
+    start.error !== null && activeSimulationId(start.error) === null ? start.error : null
 
   const finished = simulation.data?.status === 'succeeded' || simulation.data?.status === 'failed'
   const stopped = simulation.isError && isFinalSimulationError(simulation.error)
@@ -262,7 +279,9 @@ function Playground({ repositories, fallback }: PlaygroundProps): JSX.Element {
           </Button>
           <SimulationResult
             launch={launch}
+            readError={simulation.error}
             simulation={simulation.data}
+            startError={startError}
             starting={start.isPending}
           />
         </section>

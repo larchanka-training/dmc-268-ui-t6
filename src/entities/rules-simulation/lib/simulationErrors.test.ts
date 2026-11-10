@@ -73,11 +73,7 @@ describe('simulationStartErrorMessage', () => {
       new ApiError(409, 'Conflict', { detail: 'active_simulation_exists' }),
       'Предыдущая симуляция ещё идёт. Дождитесь её окончания.',
     ],
-    [
-      'the rules are not parsed',
-      rulesRejected,
-      'Правила не разобраны: ошибки отмечены в тексте правил.',
-    ],
+    ['the rules are not parsed', rulesRejected, 'Правила не разобраны'],
     [
       'the code is too large',
       contentTooLarge,

@@ -66,7 +66,7 @@ function renderDiagnosticText(text: string): ReactNode[] {
     })
 }
 
-const DiagnosticList: FC<{ diagnostics: RulesDiagnostic[] }> = ({ diagnostics }) => {
+export const DiagnosticList: FC<{ diagnostics: RulesDiagnostic[] }> = ({ diagnostics }) => {
   // Subscribes to the language: the text and the limit below come from the dictionary.
   const { t } = useTranslation()
   return (

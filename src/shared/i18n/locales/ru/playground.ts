@@ -32,6 +32,7 @@ export const playground: Translation<typeof en> = {
   cost: 'Стоимость симуляции: {{cost}}. Списана с дневного бюджета workspace репозитория {{repository}}.',
   costEarlier:
     'Стоимость симуляции: {{cost}}. Списана с дневного бюджета workspace репозитория, на котором её запустили.',
+  earlier: 'Это симуляция, запущенная раньше: её код и правила могли быть другими.',
   line: 'Строка {{line}}',
   lines: 'Строки {{start}}–{{end}}',
   defaultCheck: 'Проверка по умолчанию {{id}}',
@@ -40,7 +41,7 @@ export const playground: Translation<typeof en> = {
   errors: {
     budgetPaused: 'Дневной бюджет workspace этого репозитория исчерпан: симуляция не запущена.',
     simulationRunning: 'Предыдущая симуляция ещё идёт. Дождитесь её окончания.',
-    rulesInvalid: 'Правила не разобраны: ошибки отмечены в тексте правил.',
+    rulesInvalid: 'Правила не разобраны',
     contentTooLarge: 'Код больше 64 КиБ. Сократите его и запустите снова.',
     inputRejected: 'Сервер не принял ввод. Проверьте код и имя файла.',
     rateLimited: 'Слишком много симуляций. Повторите позже.',
