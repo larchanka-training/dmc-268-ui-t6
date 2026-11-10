@@ -7,7 +7,9 @@ import {
   formatDateTime,
   reasonText,
   formatDuration,
+  isActive,
   runDuration,
+  statusTone,
   RunStatusSchema,
   useRunList,
   type RunListPage,
@@ -20,6 +22,12 @@ import { DataTable, PageHeader, Tag } from '../../shared/ui'
 import styles from './AuditPage.module.css'
 
 const { Text } = Typography
+
+/**
+ * Below this width the journal scrolls inside its frame (390px); from it the cells wrap, so the
+ * table fits the 967px frame of a 1280px window whole (DS §8 «Таблицы», #239 D3).
+ */
+const TABLE_MIN_WIDTH = 900
 
 function uniqueRuns(pages: readonly RunListPage[]): RunSession[] {
   const seen = new Set<string>()
@@ -203,9 +211,12 @@ export const AuditPage: FC = () => {
       title: t('audit.columns.status'),
       key: 'status',
       render: (_, run) => (
-        <span data-testid="audit-reason">
-          {run.status} {reasonTextOf(run)}
-        </span>
+        <Flex align="flex-start" gap={4} vertical>
+          <Tag pulse={isActive(run.status)} tone={statusTone(run.status)}>
+            {run.status}
+          </Tag>
+          <span data-testid="audit-reason">{reasonTextOf(run)}</span>
+        </Flex>
       ),
     },
     {
@@ -303,6 +314,7 @@ export const AuditPage: FC = () => {
         <DataTable<RunSession>
           columns={columns}
           dataSource={runSessions}
+          nowrap={false}
           onRow={(run) => ({
             onClick: (event) => {
               if (event.target instanceof Element && event.target.closest('a') !== null) {
@@ -313,6 +325,7 @@ export const AuditPage: FC = () => {
             style: { cursor: 'pointer' },
           })}
           rowKey="id"
+          scroll={{ x: TABLE_MIN_WIDTH }}
         />
       ) : null}
 

@@ -63,6 +63,13 @@
   line-height: 21px;
 }
 
+/* react-diff-view breaks code anywhere (`word-break: break-all`); a word breaks only when it is
+   longer than the line (DS §5). */
+.diff-theme .diff-code {
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+
 .diff-theme .diff-widget-content {
   padding: 6px 10px;
   border-block: 1px solid var(--rv-border);

@@ -164,6 +164,13 @@ describe('buildTheme', () => {
     expect(buildTheme(mode).components?.Segmented?.itemHoverBg).toBe(background)
   })
 
+  it('rounds a selected item of a small Segmented by 4px, the smallest radius of DS §5 (#239 D10)', () => {
+    for (const mode of MODES) {
+      // Ant Design takes it from `borderRadiusXS`, 2px by default.
+      expect(buildTheme(mode).components?.Segmented?.borderRadiusXS).toBe(4)
+    }
+  })
+
   it.each([
     ['dark', '0 8px 24px -12px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(148, 163, 184, 0.2)'],
     ['light', '0 8px 24px -12px rgba(15, 23, 42, 0.2), 0 0 0 1px rgba(15, 23, 42, 0.16)'],
@@ -188,6 +195,13 @@ describe('buildTheme', () => {
       'rgba(15, 23, 42, 0.16)',
       'rgba(15, 23, 42, 0.16)',
     ])
+  })
+
+  it('sets the title of an Alert with a description at 13px, a size of the DS §4 scale (#239 D6)', () => {
+    for (const mode of MODES) {
+      // Ant Design takes that title from `fontSizeLG`, 14px by default; the global value stays.
+      expect(buildTheme(mode).components?.Alert?.fontSizeLG).toBe(13)
+    }
   })
 
   it('rounds a modal by 10px and keeps a large button at the control radius', () => {

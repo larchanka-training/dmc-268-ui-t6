@@ -74,6 +74,19 @@ describe('UserMenu', () => {
     expect(screen.getAllByText('skvertl').length).toBeGreaterThan(0)
   })
 
+  it('sets the name in the menu as a span at weight 600, not in <b> at 700 (DS §4, #239 D12)', async () => {
+    queryClient.setQueryData(userApi.AUTH_ME_QUERY_KEY, { ...MOCK_USER, workspaces: [] })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <UserMenu />
+      </QueryClientProvider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Меню пользователя' }))
+    const name = await screen.findByText('Denis Skvertl')
+    expect(name.tagName).toBe('SPAN')
+    expect(name.classList.contains(styles.userName ?? '')).toBe(true)
+  })
+
   it.each([false, true])('attaches avatar and trigger classes in compact=%s mode', (compact) => {
     queryClient.setQueryData(userApi.AUTH_ME_QUERY_KEY, { ...MOCK_USER, workspaces: [] })
     render(
@@ -125,6 +138,10 @@ describe('UserMenu.module.css', () => {
     expect(start, selector).toBeGreaterThanOrEqual(0)
     return css.slice(css.indexOf('{', start) + 1, css.indexOf('}', start))
   }
+
+  it('sets the name at weight 600 (#239 D12)', () => {
+    expect(declarations('.userName')).toContain('font-weight: 600;')
+  })
 
   it('prevents avatar shrink and centers the compact large trigger', () => {
     expect(declarations('.avatar')).toContain('flex: none;')

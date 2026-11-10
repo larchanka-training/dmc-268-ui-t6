@@ -100,6 +100,12 @@
   font-weight: 500;
 }
 
+/* Typography: code in text takes the smallest radius of §5; Ant Design rounds it by 3px with no
+   token for it. */
+.ant-typography code {
+  border-radius: var(--rv-radius-xs);
+}
+
 /* Breadcrumb: small and quiet. */
 .ant-breadcrumb {
   font-size: var(--rv-fs-sm);
@@ -115,7 +121,7 @@
 .ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-item-group .ant-dropdown-menu-item-group-title {
   padding: 4px 12px 2px;
   color: var(--rv-text-3);
-  font-size: 11.5px;
+  font-size: var(--rv-fs-xs);
 }
 
 /* Dropdown: a danger item under the pointer or the keyboard is tinted, not filled. Ant Design
@@ -159,6 +165,14 @@
 
 .ant-select:has(.ant-select-clear:focus-visible) .ant-select-suffix {
   opacity: 0;
+}
+
+/* Select, open: the chosen value keeps full contrast (§3). Ant Design dims it to 25% while the list
+   is open (no token for it), which leaves 1.75:1 in the light theme; an open list is not disabled.
+   Typed search text still hides it through Ant Design's own `-has-search-value` rule. The selector
+   repeats the one of Ant Design with one more class, otherwise the library wins. */
+.ant-select.ant-select-open .ant-select-content.ant-select-content-has-value {
+  opacity: 1;
 }
 
 /* Input: the clear button's focus ring is 2px like every ring of §7; Ant Design draws it 1px, and

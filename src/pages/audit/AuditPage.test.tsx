@@ -5,6 +5,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { RunListPage, RunSession } from '../../entities/run'
+import dataTableStyles from '../../shared/ui/DataTable/DataTable.module.css'
 import { AuditPage } from './AuditPage'
 
 type Handler = (url: URL, call: number) => RunListPage | Response
@@ -164,6 +165,37 @@ describe('AuditPage', () => {
     expect(cells[0]?.textContent).not.toContain('budget_exceeded')
     expect(cells[1]?.textContent).toContain('not_a_limit')
     expect(cells[2]?.textContent).toContain('—')
+  })
+
+  it('shows the status as a tag with a dot and the reason on a line of its own (DS §8, #239 D4)', async () => {
+    stubFetch(() => ({ items: [session()], nextCursor: null }))
+    renderPage()
+    await screen.findByText('feat: audit row')
+
+    const tag = screen.getByText('failed').closest('[data-tone]')
+    expect(tag?.getAttribute('data-tone')).toBe('danger')
+    expect(tag?.querySelector('[aria-hidden="true"]')).not.toBeNull()
+    const reason = screen.getByTestId('audit-reason')
+    expect(reason.textContent).toBe('Превышен лимит стоимости прогона.')
+    expect(tag?.contains(reason)).toBe(false)
+  })
+
+  it('lets the cells wrap so the table fits a laptop frame of 967px (DS §8, #239 D3)', async () => {
+    stubFetch(() => ({ items: [session()], nextCursor: null }))
+    const { container } = renderPage()
+    await screen.findByText('feat: audit row')
+
+    // `max-content` would keep every cell on one line: 1654px at 1280px in the audit of #239.
+    const width = container.querySelector<HTMLTableElement>('.ant-table table')?.style.width ?? ''
+    expect(width).toMatch(/^\d+px$/)
+    expect(Number.parseInt(width, 10)).toBeLessThanOrEqual(967)
+
+    // An explicit `scroll.x` sets that width in both modes, so the wrapping mode itself is checked.
+    expect(dataTableStyles.wrap).toBeTruthy()
+    expect(dataTableStyles.nowrap).toBeTruthy()
+    const wrapper = container.querySelector('.ant-table-wrapper')
+    expect(wrapper?.classList.contains(dataTableStyles.wrap ?? '')).toBe(true)
+    expect(wrapper?.classList.contains(dataTableStyles.nowrap ?? '')).toBe(false)
   })
 
   it('shows a dash without an initiator and zeros without usage', async () => {
