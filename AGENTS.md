@@ -113,9 +113,10 @@ only flow downward, `shared` never imports `entities`); details in
 - Do not import sideways or upward across FSD layers.
 - Do not restyle a base component on a screen or bring one from another library: take it from
   the design system (`src/shared/ui`, `docs/DESIGN_SYSTEM.md`), fix it there if it is missing.
-  The one exception is `CodeEditor` on CodeMirror 6 (`docs/DESIGN_SYSTEM.md` §1). The root 500
-  screen `RootErrorFallback` takes no base component: it stands above `UiProvider`, which may be
-  what failed, so it is plain markup on the `--rv-*` tokens. It is no precedent for another screen.
+  Two exceptions (`docs/DESIGN_SYSTEM.md` §1): `CodeEditor` on CodeMirror 6, the one other
+  library; and the root 500 screen `RootErrorFallback`, which takes no base component: it stands
+  above `UiProvider`, which may be what failed, so it is plain markup on the `--rv-*` tokens. It is
+  no precedent for another screen.
 - Do not skip the gates (`pnpm lint`, `pnpm check-types`, `pnpm format:check`,
   `pnpm test`, `pnpm build`, `pnpm verify:prod-bundle`, and the `landing` and
   `docs-site` package gates) before claiming a task done.
