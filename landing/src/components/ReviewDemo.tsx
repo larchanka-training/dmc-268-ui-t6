@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 
 import { useInView } from '../lib/useInView'
 import { useReducedMotion } from '../lib/useReducedMotion'
@@ -9,15 +9,15 @@ import styles from './ReviewDemo.module.css'
 type Stage = 0 | 1 | 2 | 3 | 4 | 5
 const FINAL_STAGE: Stage = 5
 const TIMELINE: readonly (readonly [Stage, number])[] = [
-  [1, 70],
-  [2, 480],
-  [3, 590],
-  [4, 790],
-  [5, 1000],
+  [1, 60],
+  [2, 450],
+  [3, 600],
+  [4, 850],
+  [5, 1100],
 ]
 
 type Token = readonly [kind: 'kw' | 'fn' | 'str' | 'ty' | 'pl', text: string]
-type LineKind = 'ctx' | 'add' | 'del'
+type LineKind = 'add' | 'del' | 'ctx'
 interface DiffLine {
   kind: LineKind
   oldNo: number | null
@@ -144,7 +144,19 @@ const FIX: readonly { kind: LineKind; tokens: readonly Token[] }[] = [
   },
 ]
 
-const SIGN: Record<LineKind, string> = { ctx: ' ', add: '+', del: '-' }
+const SIGN: Record<LineKind, string> = { add: '+', del: '-', ctx: ' ' }
+
+/**
+ * До `open` высота нулевая, потом плавно растёт до содержимого (строки grid 0fr → 1fr): окно не держит
+ * пустое место под ещё не появившиеся части.
+ */
+function Grow({ open, children }: { open: boolean; children: ReactNode }) {
+  return (
+    <div className={styles.grow} data-open={open}>
+      <div className={styles.growInner}>{children}</div>
+    </div>
+  )
+}
 
 function Code({ tokens }: { tokens: readonly Token[] }) {
   return (
@@ -158,18 +170,34 @@ function Code({ tokens }: { tokens: readonly Token[] }) {
   )
 }
 
+/**
+ * Окно ревью в Hero: дифф файла, комментарий ревьюера с предложенной правкой и строка вердикта.
+ * Сначала окно компактное (заголовок файла и дифф) и растёт по мере появления комментария, правки и вердикта.
+ */
 export function ReviewDemo() {
   const reducedMotion = useReducedMotion()
-  // Демо стартует не при открытии страницы, а когда сам код доскроллен до середины экрана:
-  // наблюдаем за диффом, и он должен подняться выше нижних 45% вьюпорта.
-  const [diffRef, inView] = useInView<HTMLDivElement>('0px 0px -45% 0px')
+  // Окно видно уже на первом экране, поэтому одного «дифф в кадре» мало: ревью ждёт первого
+  // движения вниз, чтобы пользователь увидел его своими глазами, а не пропустил при загрузке.
+  const [diffRef, inView] = useInView<HTMLDivElement>('0px 0px -10% 0px')
+  // Страница могла открыться уже прокрученной (якорь, возврат назад): тогда ждать нечего.
+  const [scrolled, setScrolled] = useState(() => window.scrollY > 0)
   const [animatedStage, setStage] = useState<Stage>(0)
-  const [run, setRun] = useState(0)
   // Без анимации (reduced motion) окно сразу показывает итоговое состояние.
   const stage = reducedMotion ? FINAL_STAGE : animatedStage
 
   useEffect(() => {
-    if (!inView || reducedMotion) return
+    if (scrolled) return
+    const onScroll = () => {
+      setScrolled(true)
+    }
+    window.addEventListener('scroll', onScroll, { once: true, passive: true })
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+    }
+  }, [scrolled])
+
+  useEffect(() => {
+    if (!inView || !scrolled || reducedMotion) return
     const timers = TIMELINE.map(([next, at]) =>
       window.setTimeout(() => {
         setStage(next)
@@ -180,84 +208,12 @@ export function ReviewDemo() {
         window.clearTimeout(timer)
       })
     }
-  }, [inView, reducedMotion, run])
-
-  const replay = useCallback(() => {
-    setStage(0)
-    setRun((value) => value + 1)
-  }, [])
-
-  const done = stage === FINAL_STAGE
-  // Спиннер крутится с самого открытия страницы: до старта демо окно уже «в работе».
-  const statusText = done ? 'Review complete' : 'Reviewing changes'
+  }, [inView, scrolled, reducedMotion])
 
   return (
     <figure className={styles.figure}>
       <div className={styles.window} data-stage={stage} aria-hidden="true">
-        <div className={styles.chrome}>
-          <span className={styles.dots}>
-            <i />
-            <i />
-            <i />
-          </span>
-          <span className={styles.url}>github.com/acme/api/pull/142/files</span>
-        </div>
-
-        <div className={styles.repoBar}>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1 0-1.5h1.75v-2h-8a1 1 0 0 0-.714 1.7.75.75 0 1 1-1.072 1.05A2.495 2.495 0 0 1 2 11.5Zm10.5-1h-8a1 1 0 0 0-1 1v6.708A2.486 2.486 0 0 1 4.5 9h8ZM5 12.25a.25.25 0 0 1 .25-.25h3.5a.25.25 0 0 1 .25.25v3.25a.25.25 0 0 1-.4.2l-1.45-1.087a.249.249 0 0 0-.3 0L5.4 15.7a.25.25 0 0 1-.4-.2Z" />
-          </svg>
-          <span>
-            acme / <b>api</b>
-          </span>
-        </div>
-
-        <div className={styles.prHeader}>
-          <p className={styles.prTitle}>
-            Add user lookup endpoint <span className={styles.prNumber}>#142</span>
-          </p>
-          <p className={styles.prMeta}>
-            <span className={styles.openPill}>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z" />
-              </svg>
-              Open
-            </span>
-            <span className={styles.prMetaText}>
-              <b>maria</b> wants to merge 3 commits into <code>main</code> from{' '}
-              <code>feat/user-lookup</code>
-            </span>
-          </p>
-          <div className={styles.tabs}>
-            <span>
-              Conversation <i className={styles.counter}>0</i>
-            </span>
-            <span className={styles.tabOptional}>
-              Commits <i className={styles.counter}>3</i>
-            </span>
-            <span className={styles.tabOptional}>
-              Checks <i className={styles.counter}>1</i>
-            </span>
-            <span className={styles.tabActive}>
-              Files changed <i className={styles.counter}>1</i>
-            </span>
-          </div>
-        </div>
-
         <div className={styles.body}>
-          <div className={styles.status} data-done={done}>
-            <span className={styles.avatar}>
-              <Logo size={12} />
-            </span>
-            <b>reviewer</b>
-            <span className={styles.botTag}>bot</span>
-            <span className={styles.statusText}>
-              {!done && <span className={styles.spinner} />}
-              {statusText}
-              {done && <span className={styles.statusMeta}> · 1 file · 38s</span>}
-            </span>
-          </div>
-
           <div className={styles.file}>
             <div className={styles.fileHeader}>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -301,116 +257,101 @@ export function ReviewDemo() {
                   </div>
 
                   {line.flagged === true && (
-                    <div className={styles.thread}>
-                      <div className={styles.comment}>
-                        <div className={styles.commentHead}>
-                          <span className={styles.avatar}>
-                            <Logo size={12} />
-                          </span>
-                          <b>reviewer</b>
-                          <span className={styles.botTag}>bot</span>
-                          <span className={styles.commentTime}>commented now</span>
-                          <span className={styles.badges}>
-                            <span className={styles.badgeHigh}>High</span>
-                            <span className={styles.badgeCategory}>Security</span>
-                          </span>
-                        </div>
-                        <div className={styles.commentBody}>
-                          <p className={styles.commentTitle}>
-                            SQL injection through string interpolation
-                          </p>
-                          <p className={styles.commentText}>
-                            <code>id</code> comes from the request and goes straight into the query.
-                            Pass it as a parameter instead.
-                          </p>
-                          <div className={styles.fix}>
-                            <div className={styles.fixHead}>Suggested change</div>
-                            {FIX.map((fixLine, fixIndex) => (
-                              <div
-                                key={fixIndex}
-                                className={styles.fixLine}
-                                data-kind={fixLine.kind}
-                              >
-                                <code className={styles.code}>
-                                  <span className={styles.sign}>{SIGN[fixLine.kind]}</span>
-                                  <Code tokens={fixLine.tokens} />
-                                </code>
+                    <Grow open={stage >= 3}>
+                      <div className={styles.thread}>
+                        <div className={styles.comment}>
+                          <div className={styles.commentHead}>
+                            <span className={styles.avatar}>
+                              <Logo size={12} />
+                            </span>
+                            <b>reviewer</b>
+                            <span className={styles.botTag}>bot</span>
+                            <span className={styles.commentTime}>commented now</span>
+                            <span className={styles.badges}>
+                              <span className={styles.badgeHigh}>High</span>
+                              <span className={styles.badgeCategory}>Security</span>
+                            </span>
+                          </div>
+                          <div className={styles.commentBody}>
+                            <p className={styles.commentTitle}>
+                              SQL injection through string interpolation
+                            </p>
+                            <p className={styles.commentText}>
+                              <code>id</code> comes from the request and goes straight into the
+                              query. Pass it as a parameter instead.
+                            </p>
+                            <Grow open={stage >= 4}>
+                              <div className={styles.fix}>
+                                <div className={styles.fixHead}>Suggested change</div>
+                                {FIX.map((fixLine, fixIndex) => (
+                                  <div
+                                    key={fixIndex}
+                                    className={styles.fixLine}
+                                    data-kind={fixLine.kind}
+                                  >
+                                    <code className={styles.code}>
+                                      <span className={styles.sign}>{SIGN[fixLine.kind]}</span>
+                                      <Code tokens={fixLine.tokens} />
+                                    </code>
+                                  </div>
+                                ))}
+                                <div className={styles.fixFoot}>
+                                  <span className={styles.fixButton}>Commit suggestion</span>
+                                </div>
                               </div>
-                            ))}
-                            <div className={styles.fixFoot}>
-                              <span className={styles.fixButton}>Commit suggestion</span>
-                            </div>
+                            </Grow>
                           </div>
                         </div>
                       </div>
-                    </div>
+                    </Grow>
                   )}
                 </div>
               ))}
             </div>
           </div>
 
-          <div className={styles.verdict}>
-            <div className={styles.verdictHead}>
-              <span className={styles.verdictIcon}>
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                  <path d="M1 1.75C1 .784 1.784 0 2.75 0h7.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V4.664a.25.25 0 0 0-.073-.177l-2.914-2.914a.25.25 0 0 0-.177-.073ZM8 3.25a.75.75 0 0 1 .75.75v1.5h1.5a.75.75 0 0 1 0 1.5h-1.5v1.5a.75.75 0 0 1-1.5 0V7h-1.5a.75.75 0 0 1 0-1.5h1.5V4A.75.75 0 0 1 8 3.25Zm-3 8a.75.75 0 0 1 .75-.75h4.5a.75.75 0 0 1 0 1.5h-4.5a.75.75 0 0 1-.75-.75Z" />
-                </svg>
-              </span>
-              <span>
-                <b>reviewer</b> requested changes
-              </span>
-              <span className={styles.verdictScale}>
-                <span className={styles.verdictBlocking}>Blocking</span>
-                <span>Needs attention</span>
-                <span>Clean</span>
-              </span>
-            </div>
-            <div className={styles.verdictBody}>
-              <p className={styles.verdictText}>
-                Solid endpoint, but the query is open to SQL injection. Merge is blocked until it’s
-                fixed.
-              </p>
-              <div className={styles.verdictMeta}>
-                <span>
-                  <i className={styles.dotHigh} />1 high
+          <Grow open={stage >= 5}>
+            <div className={styles.verdict}>
+              <div className={styles.verdictHead}>
+                <span className={styles.verdictIcon}>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M1 1.75C1 .784 1.784 0 2.75 0h7.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V4.664a.25.25 0 0 0-.073-.177l-2.914-2.914a.25.25 0 0 0-.177-.073ZM8 3.25a.75.75 0 0 1 .75.75v1.5h1.5a.75.75 0 0 1 0 1.5h-1.5v1.5a.75.75 0 0 1-1.5 0V7h-1.5a.75.75 0 0 1 0-1.5h1.5V4A.75.75 0 0 1 8 3.25Zm-3 8a.75.75 0 0 1 .75-.75h4.5a.75.75 0 0 1 0 1.5h-4.5a.75.75 0 0 1-.75-.75Z" />
+                  </svg>
                 </span>
                 <span>
-                  <i className={styles.dotLow} />1 low
+                  <b>reviewer</b> requested changes
                 </span>
-                <span>Effort: small</span>
+                <span className={styles.verdictScale}>
+                  <span className={styles.verdictBlocking}>Blocking</span>
+                  <span>Needs attention</span>
+                  <span>Clean</span>
+                </span>
+              </div>
+              <div className={styles.verdictBody}>
+                <p className={styles.verdictText}>
+                  Solid endpoint, but the query is open to SQL injection. Merge is blocked until
+                  it’s fixed.
+                </p>
+                <div className={styles.verdictMeta}>
+                  <span>
+                    <i className={styles.dotHigh} />1 high
+                  </span>
+                  <span>
+                    <i className={styles.dotLow} />1 low
+                  </span>
+                  <span>Effort: small</span>
+                </div>
               </div>
             </div>
-          </div>
+          </Grow>
         </div>
       </div>
 
-      <figcaption className={styles.caption}>
-        <span className="visually-hidden">
-          Example review: on pull request #142, Reviewer flags a high-severity SQL injection on line
-          11 of src/api/users.ts, suggests a parameterized query as the fix, and gives a Blocking
-          verdict.
-        </span>
-        {!reducedMotion && (
-          <button
-            type="button"
-            className={styles.replay}
-            onClick={replay}
-            disabled={!done}
-            aria-label="Replay the review demo"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path
-                d="M2.5 8a5.5 5.5 0 1 0 1.6-3.9M2.5 2.5v2.6h2.6"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            Replay
-          </button>
-        )}
+      {/* Подпись только для скринридеров: само окно декоративное (aria-hidden). */}
+      <figcaption className="visually-hidden">
+        Example review: on pull request #142, Reviewer flags a high-severity SQL injection on line
+        11 of src/api/users.ts, suggests a parameterized query as the fix, and gives a Blocking
+        verdict.
       </figcaption>
     </figure>
   )
