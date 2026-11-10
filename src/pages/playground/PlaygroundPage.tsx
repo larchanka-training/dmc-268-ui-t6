@@ -1,5 +1,5 @@
 import { Alert, Button, Empty, Form, Input, Select, Skeleton } from 'antd'
-import { useId, useState, type JSX, type ReactNode } from 'react'
+import { useId, useRef, useState, type JSX, type ReactNode } from 'react'
 import { useHref, useLinkClickHandler } from 'react-router'
 
 import {
@@ -122,6 +122,7 @@ function Playground({ repositories, fallback }: PlaygroundProps): JSX.Element {
   // or after a `pending` poll, is shown only until the user edits it: it never replaces an edit.
   const [rulesDraft, setRulesDraft] = useState<{ repoId: string; text: string } | null>(null)
   const [launch, setLaunch] = useState<SimulationLaunch | null>(null)
+  const resultHeadingRef = useRef<HTMLHeadingElement>(null)
   const start = useStartRulesSimulation()
   const simulation = useRulesSimulation(launch?.id ?? null)
 
@@ -158,6 +159,9 @@ function Playground({ repositories, fallback }: PlaygroundProps): JSX.Element {
   function simulate(): void {
     // The repository that pays is the one selected now, whatever is selected by the answer.
     const paying = repository
+    // The button blocks while the simulation runs: its focus goes to the result it waits for, not
+    // to the top of the page (UI checklist §3b).
+    resultHeadingRef.current?.focus()
     setLaunch(null)
     start.mutate(
       { repoId: paying.id, input: { mode, path, content: code, rulesMd: rulesText } },
@@ -274,7 +278,7 @@ function Playground({ repositories, fallback }: PlaygroundProps): JSX.Element {
         </ErrorBoundary>
         <ErrorBoundary>
           <section aria-labelledby={resultId} className={styles.result}>
-            <h2 className={styles.label} id={resultId}>
+            <h2 className={styles.label} id={resultId} ref={resultHeadingRef} tabIndex={-1}>
               {t('playground.result')}
             </h2>
             <Button
