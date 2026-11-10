@@ -14,9 +14,9 @@
   max-width: var(--container);
   height: var(--header-h);
   margin-inline: auto;
-  padding-inline: 20px 12px;
+  padding-inline: 24px 12px;
   border: 1px solid transparent;
-  border-radius: 16px;
+  border-radius: 999px;
   pointer-events: auto;
   transition:
     background-color 0.4s var(--ease-out),
@@ -75,6 +75,11 @@
 .primary {
   color: var(--text);
   font-weight: 500;
+}
+
+/* Белый текст уже самый яркий, поэтому на наведении он уходит в фирменный голубой. */
+.primary:hover {
+  color: var(--glow);
 }
 
 @media (width <= 640px) {
