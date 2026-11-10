@@ -10,11 +10,11 @@ import {
 } from '../../entities/repository'
 import { useTranslation } from '../../shared/i18n'
 import { PageHeader, Segmented } from '../../shared/ui'
-import {
-  CodeEditor,
-  type CodeEditorCompletion,
-  type CodeEditorDiagnostic,
-} from '../../shared/ui/CodeEditor/CodeEditor'
+import { CodeEditor } from '../../shared/ui/CodeEditor/CodeEditor'
+import type {
+  CodeEditorCompletion,
+  CodeEditorDiagnostic,
+} from '../../shared/ui/CodeEditor/editorExtensions'
 import { diagnosticText, RulesStatusView } from '../../widgets/repository-rules'
 import styles from './PlaygroundPage.module.css'
 

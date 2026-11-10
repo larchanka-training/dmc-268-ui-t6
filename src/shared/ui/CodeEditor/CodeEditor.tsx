@@ -16,8 +16,6 @@ import {
   type CodeEditorDiagnostic,
 } from './editorExtensions'
 
-export type { CodeEditorCompletion, CodeEditorDiagnostic } from './editorExtensions'
-
 export interface CodeEditorProps {
   /**
    * The text. A new value replaces the text in the editor, without `onChange`. An edit is shown at
