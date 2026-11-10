@@ -6,6 +6,7 @@ export {
   SEVERITY_BADGE_GROUPS,
   SEVERITY_BADGE_LABEL,
   SEVERITY_LABEL,
+  SEVERITY_TAG,
   severityBadgeGroup,
 } from './lib/severityBadge'
 export type { SeverityBadgeGroup } from './lib/severityBadge'
