@@ -45,4 +45,6 @@ export const layout = {
     toRepositories: 'Go to repositories',
   },
   routeOffline: 'No network connection. The page will open once you are back online',
+  networkOffline:
+    'No network connection. What is loaded stays on the page; the rest loads once you are back online',
 }

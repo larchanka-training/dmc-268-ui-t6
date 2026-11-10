@@ -1,0 +1,18 @@
+/* Fixed at the bottom centre of the window, over the page: the notice neither moves nor replaces
+   what the page shows. Above Ant Design's modals (1000), below its popups (1050) and messages
+   (2010). Only the alert takes the pointer; the strip around it lets clicks through. */
+.notice {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 16px;
+  z-index: 1010;
+  display: flex;
+  justify-content: center;
+  padding: 0 16px;
+  pointer-events: none;
+}
+
+.notice > * {
+  max-width: 560px;
+  pointer-events: auto;
+}
