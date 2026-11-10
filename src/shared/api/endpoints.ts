@@ -18,6 +18,13 @@ export const endpoints = {
     update: (id: string): Endpoint => ({ method: 'PATCH', path: `/repos/${id}` }),
     rulesStatus: (id: string): Endpoint => ({ method: 'GET', path: `/repos/${id}/rules-status` }),
   },
+  rulesSimulations: {
+    create: (repoId: string): Endpoint => ({
+      method: 'POST',
+      path: `/repos/${repoId}/rules-simulations`,
+    }),
+    detail: (id: string): Endpoint => ({ method: 'GET', path: `/rules-simulations/${id}` }),
+  },
   bitbucket: {
     discover: (workspaceId: string): Endpoint => ({
       method: 'POST',
