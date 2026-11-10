@@ -50,29 +50,56 @@ float patches(vec2 p, float t) {
 // Профиль линзы поперёк одной полосы, f в -1..1: к краю преломление сильнее
 float lens(float f) { return f * (0.55 + 0.9 * f * f); }
 
-float field(vec2 p, float t) {
+float light(vec2 sp, float t) {
+  return (0.35 + 0.65 * plasma((sp - uMouse * 0.12) * 1.2, t * 0.07)) * patches(sp, t);
+}
+
+// Один проход по стеклу. Форма полосы (номер, профиль, затенение, появление) считается один раз на все
+// три канала, сдвигается только свет за стеклом. Раньше всё поле считалось трижды со сдвигом, и каждый
+// край полосы и блик повторялся тремя параллельными линиями («слоёные» полосы).
+vec3 field(vec2 p, vec2 disp, float t) {
   vec2 q = rot(ANGLE) * p;
   float w = 0.36, s = q.x / w;
+  float id = floor(s);
   float f = fract(s) * 2.0 - 1.0;
-  vec2 sp = rot(-ANGLE) * vec2((floor(s) + 0.5 + lens(f) * 1.5) * w, q.y);
-  float v = (0.35 + 0.65 * plasma((sp - uMouse * 0.12) * 1.2, t * 0.07)) * patches(sp, t);
+  float bend = lens(f) * 1.5;
+  vec2 sp = rot(-ANGLE) * vec2((id + 0.5 + bend) * w, q.y);
+  // разведение растёт вместе с преломлением: кайма живёт внутри света и плавно гаснет,
+  // а не повторяет контур полосы
+  vec2 d = disp * (0.35 + 0.65 * abs(bend) / 2.175);
+  vec3 v = vec3(light(sp - d * 1.6, t), light(sp, t), light(sp + d, t));
   // затенение стекла: темнее к обоим краям, тонкий блик с одной стороны, лёгкий разброс по полосам
   v = v * (1.0 - 0.8 * pow(abs(f), 5.0)) + smoothstep(0.93, 1.0, -f) * 0.06;
-  v *= 0.8 + 0.4 * hash(vec2(floor(s), 1.0));
+  v *= 0.8 + 0.4 * hash(vec2(id, 1.0));
   // появление: полосы загораются по очереди от середины к краям и вытягиваются вдоль диагонали
-  float k = smoothstep(0.0, 1.0, (uIntro - abs(floor(s) + 0.5) * 0.07) / 0.55);
+  float k = smoothstep(0.0, 1.0, (uIntro - abs(id + 0.5) * 0.07) / 0.55);
   return v * k * smoothstep(k * 3.4, k * 3.4 - 0.9, abs(q.y));
 }
 
-// Палитра лендинга: --bg -> #1e3a8a -> --blue -> --glow -> #dbeafe
+// Палитра лендинга: --bg -> #1e3a8a -> --blue -> --glow -> #dbeafe. Сплайн Катмулла-Рома через те же
+// пять цветов: у ломаной были изломы на каждой точке, и в переходе света в тень они читались как
+// контурные линии (полосы Маха).
+vec3 cr(vec3 a, vec3 b, vec3 c, vec3 d, float x) {
+  float x2 = x * x, x3 = x2 * x;
+  return 0.5 * (2.0 * b + (c - a) * x + (2.0 * a - 5.0 * b + 4.0 * c - d) * x2 + (3.0 * b - a - 3.0 * c + d) * x3);
+}
+
 vec3 ramp(float v) {
-  v = clamp(v, 0.0, 1.0);
+  v = clamp(v, 0.0, 1.0) * 4.0;
   vec3 c0 = vec3(0.035, 0.051, 0.094), c1 = vec3(0.118, 0.227, 0.541), c2 = vec3(0.145, 0.388, 0.922),
        c3 = vec3(0.376, 0.647, 0.980), c4 = vec3(0.859, 0.918, 0.996);
-  if (v < 0.25) return mix(c0, c1, v * 4.0);
-  if (v < 0.5) return mix(c1, c2, (v - 0.25) * 4.0);
-  if (v < 0.75) return mix(c2, c3, (v - 0.5) * 4.0);
-  return mix(c3, c4, (v - 0.75) * 4.0);
+  vec3 col;
+  if (v < 1.0) col = cr(2.0 * c0 - c1, c0, c1, c2, v);
+  else if (v < 2.0) col = cr(c0, c1, c2, c3, v - 1.0);
+  else if (v < 3.0) col = cr(c1, c2, c3, c4, v - 2.0);
+  else col = cr(c2, c3, c4, 2.0 * c4 - c3, v - 3.0);
+  return clamp(col, 0.0, 1.0);
+}
+
+// Мягкий минимум: стремится к min(a, b), но вместо острого угла изгибается на ширине k
+vec3 smin(vec3 a, vec3 b, float k) {
+  vec3 h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
+  return mix(b, a, h) - k * h * (1.0 - h);
 }
 
 void main() {
@@ -88,23 +115,26 @@ void main() {
 
   vec2 uv = vec2(px.x - c.x, c.y - px.y) / mix(450.0, 300.0, uMobile);
 
-  // Аберрация в синей гамме: две сдвинутые копии формы дают тёмно-синюю кайму с одной стороны
-  // и голубую с другой. Сначала кайма собрана и расходится по мере появления фона.
+  // Аберрация в синей гамме: тёмно-синяя кайма с одной стороны и голубая с другой.
+  // Сначала кайма собрана и расходится по мере появления фона.
   vec2 dir = vec2(1.0, -0.45) * CA * (0.6 + 0.6 * length(uv)) * mix(0.15, 1.0, smoothstep(0.3, 1.0, uIntro));
-  vec3 v = clamp(vec3(field(uv - dir * 1.6, uTime), field(uv, uTime), field(uv + dir, uTime)), 0.0, 1.0);
+  vec3 v = clamp(field(uv, dir, uTime), 0.0, 1.0);
   v *= vig * smoothstep(0.0, 0.5, uIntro) * mix(0.9, 0.7, uMobile);
 
-  // Под заголовком свет приглушён и ограничен средним синим: текст не оказывается на почти белом
+  // Под заголовком свет приглушён и ограничен средним синим: текст не оказывается на почти белом.
+  // Ограничение мягкое: жёсткий min() давал плоское плато с видимым контуром там, где свет упирался в потолок.
   float tm = smoothstep(1.3, 0.45, length((px - uText.xy) / uText.zw));
-  v = min(v * mix(1.0, 0.72, tm), vec3(mix(0.9, 0.44, tm)));
+  v = smin(v * mix(1.0, 0.72, tm), vec3(mix(0.9, 0.44, tm)), 0.12);
 
   // Зерно сильнее в полутонах: плотные середины остаются сплошными, мягкие края рассыпаются на точки
   float n = hash(floor(gl_FragCoord.xy / max(uScale, 1.0)) + 3.7) - 0.5;
   v += n * GRAIN * (0.06 * vig + 4.0 * v * (1.0 - v));
 
   vec3 col = ramp(v.g);
-  col += vec3(0.07, 0.16, 0.62) * clamp(v.r - v.g, 0.0, 1.0) * 1.6;
-  col += vec3(0.10, 0.42, 0.62) * clamp(v.b - v.g, 0.0, 1.0) * 1.1;
+  col += vec3(0.07, 0.16, 0.62) * max(v.r - v.g, 0.0) * 1.6;
+  col += vec3(0.10, 0.42, 0.62) * max(v.b - v.g, 0.0) * 1.1;
+  // дизеринг меньше одного шага: в самых тёмных синих 8-битный вывод не даёт ступенек
+  col += (hash(gl_FragCoord.xy * 1.37 + 9.1) - 0.5) / 255.0;
   gl_FragColor = vec4(col, 1.0);
 }`
 
@@ -126,22 +156,34 @@ function compile(gl: WebGLRenderingContext, type: number, source: string) {
  * `textSelector` — блок заголовка, под которым свет должен оставаться приглушённым.
  */
 export function HeroGlass({ textSelector }: { textSelector: string }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
   const reduced = useReducedMotion()
 
   useEffect(() => {
-    const canvas = canvasRef.current
-    const gl = canvas?.getContext('webgl', {
+    // Канвас новый на каждый запуск эффекта: очистка теряет WebGL-контекст насовсем, а StrictMode в dev
+    // запускает эффект дважды, и общий канвас оставался с потерянным контекстом (белый hero).
+    const wrap = wrapRef.current
+    if (!wrap) return
+    const canvas = document.createElement('canvas')
+    canvas.className = styles.canvas ?? ''
+    wrap.appendChild(canvas)
+    const gl = canvas.getContext('webgl', {
       antialias: false,
       alpha: false,
       powerPreference: 'low-power',
     })
-    if (!canvas || !gl) return
+    if (!gl) {
+      canvas.remove()
+      return
+    }
 
     const vert = compile(gl, gl.VERTEX_SHADER, VERT)
     const frag = compile(gl, gl.FRAGMENT_SHADER, FRAG)
     const program = gl.createProgram()
-    if (!vert || !frag) return
+    if (!vert || !frag) {
+      canvas.remove()
+      return
+    }
     gl.attachShader(program, vert)
     gl.attachShader(program, frag)
     gl.linkProgram(program)
@@ -266,12 +308,9 @@ export function HeroGlass({ textSelector }: { textSelector: string }) {
       window.removeEventListener('resize', onResize)
       window.removeEventListener('pointermove', onMove)
       gl.getExtension('WEBGL_lose_context')?.loseContext()
+      canvas.remove()
     }
   }, [reduced, textSelector])
 
-  return (
-    <div className={styles.wrap} aria-hidden="true">
-      <canvas ref={canvasRef} className={styles.canvas} />
-    </div>
-  )
+  return <div ref={wrapRef} className={styles.wrap} aria-hidden="true" />
 }
