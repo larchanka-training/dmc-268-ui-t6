@@ -665,6 +665,18 @@ describe('PlaygroundPage: simulation', () => {
     expect(simulateButton()).toHaveProperty('disabled', false)
   })
 
+  it('moves the focus to the result heading, not to the top of the page, as the button blocks', async () => {
+    simulationBackend({ id: SIMULATION_ID, status: 'running' })
+    await readyPage()
+    simulateButton().focus()
+
+    fireEvent.click(simulateButton())
+
+    expect(document.activeElement).toBe(screen.getByRole('heading', { level: 2, name: RESULT }))
+    expect(await within(resultPanel()).findByText('Идёт ревью…')).toBeTruthy()
+    expect(simulateButton()).toHaveProperty('disabled', true)
+  })
+
   it('says the simulation is queued until it starts', async () => {
     simulationBackend({ id: SIMULATION_ID, status: 'queued' })
     await readyPage()
