@@ -45,7 +45,7 @@ export function useStartRulesSimulation() {
 }
 
 /** A refusal the next request would get again: a 4xx or an answer that breaks the schema. */
-function isFinalError(error: unknown): boolean {
+export function isFinalSimulationError(error: unknown): boolean {
   return error instanceof ZodError || (error instanceof ApiError && error.status < 500)
 }
 
@@ -62,7 +62,11 @@ export function useRulesSimulation(id: string | null) {
     staleTime: Infinity,
     refetchInterval: (query) => {
       const status = query.state.data?.status
-      if (status === 'succeeded' || status === 'failed' || isFinalError(query.state.error)) {
+      if (
+        status === 'succeeded' ||
+        status === 'failed' ||
+        isFinalSimulationError(query.state.error)
+      ) {
         return false
       }
       return RULES_SIMULATION_POLL_MS

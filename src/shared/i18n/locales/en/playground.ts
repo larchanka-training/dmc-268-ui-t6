@@ -21,6 +21,20 @@ export const playground = {
   retry: 'Retry',
   empty: 'No connected repositories. Connect a repository to try rules on it.',
   goToRepositories: 'Go to repositories',
+  simulate: 'Simulate review',
+  starting: 'Starting the simulation…',
+  queued: 'The simulation is queued…',
+  running: 'Reviewing…',
+  findings: 'Simulation findings',
+  noFindings: 'No findings',
+  cost: 'Simulation cost: {{cost}}. Charged to the daily budget of the workspace of {{repository}}.',
+  costEarlier:
+    'Simulation cost: {{cost}}. Charged to the daily budget of the workspace of the repository it was started on.',
+  line: 'Line {{line}}',
+  lines: 'Lines {{start}}–{{end}}',
+  defaultCheck: 'Default check {{id}}',
+  noRule: 'No rule',
+  confidence: 'Confidence {{percent}}',
   errors: {
     budgetPaused:
       'The daily budget of the workspace of this repository is used up: the simulation did not start.',

@@ -1,0 +1,51 @@
+.progress {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--rv-text-2);
+}
+
+.findings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.finding {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+  background: var(--rv-surface);
+  border: 1px solid var(--rv-border);
+  border-radius: var(--rv-radius-md);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.body {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  align-items: center;
+  color: var(--rv-text-2);
+  font-size: var(--rv-fs-xs);
+}
+
+.meta code {
+  font-family: var(--rv-font-mono);
+  font-size: var(--rv-fs-xs);
+}

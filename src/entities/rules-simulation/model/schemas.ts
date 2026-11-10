@@ -47,10 +47,9 @@ export type SimulationFinding = z.infer<typeof SimulationFindingSchema>
 
 const CostUsdSchema = z.number().min(0)
 
-const WaitingSimulationSchema = z.object({
-  id: z.uuid(),
-  status: z.enum(['queued', 'running']),
-})
+const QueuedSimulationSchema = z.object({ id: z.uuid(), status: z.literal('queued') })
+
+const RunningSimulationSchema = z.object({ id: z.uuid(), status: z.literal('running') })
 
 const SucceededSimulationSchema = z.object({
   id: z.uuid(),
@@ -70,7 +69,8 @@ const FailedSimulationSchema = z.object({
 })
 
 export const RulesSimulationSchema = z.discriminatedUnion('status', [
-  WaitingSimulationSchema,
+  QueuedSimulationSchema,
+  RunningSimulationSchema,
   SucceededSimulationSchema,
   FailedSimulationSchema,
 ])
