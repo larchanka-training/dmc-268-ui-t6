@@ -35,7 +35,8 @@ describe('tokens.css: radius scale', () => {
     const files = screenStylesheets()
     expect(files.length).toBeGreaterThan(10)
     for (const path of files) {
-      expect(readFileSync(path, 'utf8'), path).not.toMatch(/border-radius:\s*\d/)
+      // The longhands too: `border-top-left-radius: 3px` is off the scale as well.
+      expect(readFileSync(path, 'utf8'), path).not.toMatch(/border-[a-z-]*radius:\s*\d/)
     }
   })
 })
