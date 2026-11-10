@@ -2205,10 +2205,13 @@ flowchart LR
 
 Тема переключается без перезагрузки: выбор в меню пользователя → `setPreference()` →
 `useThemeStore.mode` → `UiProvider` отдаёт `DesignSystemProvider` другой `mode` → `theme.useToken()` в `DiffViewer` /
-`DiffSuggestion` возвращает новый токен → `diffThemeVars` → новый inline `style` в том же коммите,
-без `useEffect` и вспышки старых цветов. Слоты синтаксиса — ссылки `var(--rv-code-*)`: их значения
-переключает `data-rv-theme` на корне документа, как у остальных токенов `--rv-*`
-(`DesignSystemProvider`). `@media (prefers-color-scheme)` не нужен.
+`DiffSuggestion` возвращает новый токен → `diffThemeVars` → новый inline `style` в том же коммите.
+Слоты синтаксиса — ссылки `var(--rv-code-*)`: их значения переключает `data-rv-theme` на корне
+документа, как у остальных токенов `--rv-*`, а атрибут ставит `useEffect` в `DesignSystemProvider`.
+Вспышки старых цветов нет и так: `mode` приходит из стора Zustand через `useSyncExternalStore`, такой
+рендер синхронный, и его эффекты React выполняет до отрисовки. В Chrome inline `style` диффа и
+`data-rv-theme` меняются в одном кадре и при выборе в меню, и при смене темы ОС (#239).
+`@media (prefers-color-scheme)` не нужен.
 С пустым `localStorage` и тёмной ОС тема тёмная уже в первом рендере: `getInitialTheme()`
 (`features/theme/model/store.ts`) выполняется при создании стора — до рендера — и читает
 `dmc_theme_mode`, затем `matchMedia('(prefers-color-scheme: dark)')`; `UiProvider` с первого кадра
