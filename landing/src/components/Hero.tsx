@@ -24,22 +24,15 @@ export function Hero() {
         </p>
         <a href={getAppUrl()} className={styles.cta}>
           Try it now
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path
-              d="M3 8h10m0 0L9 4m4 4-4 4"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
         </a>
       </div>
 
       <div className={cx('container', styles.demoWrap)}>
         <div className={styles.demoGlow} aria-hidden="true" />
         <div className={styles.demo}>
-          <ReviewDemo />
+          <div className={styles.frame}>
+            <ReviewDemo />
+          </div>
         </div>
       </div>
     </section>
