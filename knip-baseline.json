@@ -77,6 +77,26 @@
       "symbol": "RunHeader"
     },
     {
+      "type": "nsExports",
+      "file": "src/app/providers/index.ts",
+      "symbol": "providers.queryClient"
+    },
+    {
+      "type": "nsExports",
+      "file": "src/shared/i18n/index.ts",
+      "symbol": "i18nModule.DEFAULT_LANGUAGE"
+    },
+    {
+      "type": "nsExports",
+      "file": "src/shared/i18n/index.ts",
+      "symbol": "i18nModule.getInitialLanguage"
+    },
+    {
+      "type": "nsExports",
+      "file": "src/shared/i18n/index.ts",
+      "symbol": "i18nModule.isLanguage"
+    },
+    {
       "type": "types",
       "file": "src/entities/diff/model/schemas.ts",
       "symbol": "DiffLineType"
