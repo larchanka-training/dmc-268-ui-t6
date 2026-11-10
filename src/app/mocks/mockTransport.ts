@@ -19,6 +19,7 @@ import {
   type RulesStatus,
   type UpdateRepositoryInput,
 } from '../../entities/repository'
+import type { RulesSimulation } from '../../entities/rules-simulation'
 import { setMockAuthAdapter, useAuthStore } from '../../features/auth'
 import type { BitbucketConnectionItem } from '../../features/bitbucket-connections'
 import {
@@ -38,6 +39,11 @@ import {
   MOCK_NOW,
 } from './app-state'
 import { mockRulesStatuses } from './mockRulesStatus'
+import {
+  readMockRulesSimulation,
+  resetMockRulesSimulations,
+  startMockRulesSimulation,
+} from './mockRulesSimulation'
 import { mockRunsListPage } from './mockRunsList.fixture'
 import { buildMockRunDetail, mockRawDiffForRun, REVIEW_DEMO_RUN_ID } from './mockRunReview'
 import {
@@ -354,6 +360,19 @@ async function answerRulesStatus(
   return structuredClone(status)
 }
 
+/**
+ * `GET /rules-simulations/{id}`. As with the rules status, a request cancelled before its turn is
+ * refused with the abort and does not move the simulation on.
+ */
+async function answerRulesSimulation(
+  id: string,
+  signal: AbortSignal | null | undefined,
+): Promise<RulesSimulation> {
+  await Promise.resolve()
+  signal?.throwIfAborted()
+  return readMockRulesSimulation(id)
+}
+
 function handleMockTransport(
   endpoint: Parameters<MockTransportHandler>[0],
   options: Parameters<MockTransportHandler>[1],
@@ -525,6 +544,19 @@ function handleMockTransport(
   const rulesStatusMatch = /^\/repos\/([^/]+)\/rules-status$/.exec(endpoint.path)
   if (rulesStatusMatch && endpoint.method === 'GET') {
     return answerRulesStatus(rulesStatusMatch[1], options.signal)
+  }
+
+  const simulationsMatch = /^\/repos\/([^/]+)\/rules-simulations$/.exec(endpoint.path)
+  if (simulationsMatch && endpoint.method === 'POST') {
+    if (!repositories.some((item) => item.id === simulationsMatch[1])) {
+      throw new ApiError(404, 'Not Found', { message: 'Repository not found' })
+    }
+    return startMockRulesSimulation(options.body)
+  }
+
+  const simulationMatch = /^\/rules-simulations\/([^/]+)$/.exec(endpoint.path)
+  if (simulationMatch && endpoint.method === 'GET') {
+    return answerRulesSimulation(simulationMatch[1] ?? '', options.signal)
   }
 
   const repoDetailMatch = /^\/repos\/([^/]+)$/.exec(endpoint.path)
@@ -874,6 +906,7 @@ export function initMockTransport(): void {
   bitbucketHookSequence = 0
   createdRunIds.clear()
   rulesStatusAsked.clear()
+  resetMockRulesSimulations()
   ragBuildTicks.clear()
   resetWalkingRun()
 
