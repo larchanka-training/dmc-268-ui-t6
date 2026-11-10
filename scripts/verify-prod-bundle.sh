@@ -12,13 +12,14 @@ assets=dist/assets
 
 # Demo-login text (Russian and English) and token, then the fixture id prefixes: demo run
 # (11111111, demoRun.ts), repositories (22222222, app-state.ts), findings (33333333,
-# mockRunReview.ts, duoActions.fixture.ts).
+# mockRunReview.ts, duoActions.fixture.ts), rules simulations (5a5a5a5a, mockRulesSimulation.ts).
 patterns='Демо-вход
 Demo sign-in
 mock_jwt
 11111111-1111-4111-8111
 22222222-2222-4222-8222
-33333333-3333-4333-8333'
+33333333-3333-4333-8333
+5a5a5a5a-5a5a-4a5a-8a5a'
 
 # An unmatched glob stays literal, so test the first expansion: without a build there is nothing to check.
 set -- "$assets"/*.js
