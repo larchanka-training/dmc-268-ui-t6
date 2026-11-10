@@ -143,6 +143,63 @@ function MergeVisual() {
   )
 }
 
+const DEPENDENTS = [
+  ['src/routes/admin.ts', 'getUser(id)'],
+  ['src/jobs/sync.ts', 'getUser(row.id)'],
+] as const
+
+function IndexVisual() {
+  return (
+    <div className={styles.visual} aria-hidden="true">
+      <div className={styles.changed}>
+        <span className={styles.changedTag}>changed</span>
+        <span className={styles.changedFile}>src/api/users.ts</span>
+        <span className={styles.changedFn}>getUser</span>
+      </div>
+      <ol className={styles.deps}>
+        {DEPENDENTS.map(([file, call]) => (
+          <li key={file}>
+            <span className={styles.depArrow} />
+            <span className={styles.depFile}>{file}</span>
+            <span className={styles.depCall}>{call}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
+}
+
+const BRANCH_PATTERNS = ['main', 'release/*'] as const
+const BRANCH_PRS = [
+  { number: '#142', base: 'main', on: true },
+  { number: '#143', base: 'release/1.4', on: true },
+  { number: '#144', base: 'feat/ui', on: false },
+] as const
+
+function BranchVisual() {
+  return (
+    <div className={styles.visual} aria-hidden="true">
+      <div className={styles.patterns}>
+        <span className={styles.patternLabel}>Branches</span>
+        {BRANCH_PATTERNS.map((pattern) => (
+          <span key={pattern} className={styles.pattern}>
+            {pattern}
+          </span>
+        ))}
+      </div>
+      <ul className={styles.filtered}>
+        {BRANCH_PRS.map((pr) => (
+          <li key={pr.number} data-hidden={!pr.on}>
+            <span className={styles.prNum}>{pr.number}</span>
+            <span className={styles.prBase}>into {pr.base}</span>
+            <span className={styles.prState}>{pr.on ? 'Reviewed' : 'Skipped'}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 export function Features() {
   return (
     <section id="features" className={styles.section} aria-labelledby="features-title">
@@ -176,6 +233,21 @@ export function Features() {
             <MergeVisual />
             <h3 className={styles.title}>Merge protection</h3>
             <p className={styles.text}>Request changes when important issues are detected.</p>
+          </Card>
+          <Card delay={0}>
+            <IndexVisual />
+            <h3 className={styles.title}>Code index</h3>
+            <p className={styles.text}>
+              Finds unchanged code that depends on the pull request, so the review sees what the
+              change may break.
+            </p>
+          </Card>
+          <Card delay={80}>
+            <BranchVisual />
+            <h3 className={styles.title}>Branch filter</h3>
+            <p className={styles.text}>
+              Review only pull requests into matching branches, for example main or release/*.
+            </p>
           </Card>
         </ul>
       </div>

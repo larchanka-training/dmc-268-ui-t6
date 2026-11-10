@@ -313,6 +313,116 @@
   text-align: center;
 }
 
+/* Code index: изменённая функция и нетронутые файлы, которые её вызывают. */
+.changed {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--diff-add);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.changedTag {
+  color: var(--green);
+}
+
+.changedFile {
+  overflow: hidden;
+  color: #e2e8f0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.changedFn {
+  color: #93c5fd;
+}
+
+.deps {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0 0 0 10px;
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.deps li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.depArrow {
+  width: 10px;
+  height: 10px;
+  margin-top: -6px;
+  border: solid var(--text-3);
+  border-width: 0 0 1px 1px;
+  border-bottom-left-radius: 3px;
+}
+
+.depFile {
+  overflow: hidden;
+  color: var(--text-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.depCall {
+  color: var(--text-3);
+}
+
+/* Branch filter: шаблоны целевых веток и какие пулл-реквесты они пропускают. */
+.patterns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.patternLabel {
+  margin-right: 4px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.pattern {
+  padding: 2px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: #93c5fd;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.prNum {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.prBase {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prState {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
 @media (width <= 900px) {
   .grid {
     grid-template-columns: minmax(0, 1fr);
