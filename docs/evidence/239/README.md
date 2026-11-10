@@ -32,9 +32,9 @@ where it matters, view, motion setting and load).
   D6, D10, D12 and D13 at 390 are in `measurements.json` too. At 390 the diff table is wider than the
   window and scrolls sideways: the diff crops show the part around the `attempts` line of the new
   side, the same in both builds.
-- **1440.** Pictures at 1440 are taken where the Part 1 list names 1440 apart: D2, D3 and D4, D8
-  Split. For the defects listed at every width (D1, D6, D9, D10, D12, D13) the 1280 picture stands
-  for 1440: both windows have the laptop layout of DESIGN_SYSTEM §5. The 1440 numbers of D1, D9, D10
+- **1440.** Pictures at 1440 are taken where the Part 1 list names 1440 apart: D2, D3 and D8 Split;
+  the `/audit` pictures of D3 show the D4 tags too. For the other defects listed at every width (D1,
+  D6, D9, D10, D12, D13) the 1280 picture stands for 1440: both windows have the laptop layout of DESIGN_SYSTEM §5. The 1440 numbers of D1, D9, D10
   (the Unified/Split switch) and D6 (the summary-only run) are in `measurements.json`; the user menu
   (D12), the open `Select` (D13) and the settings page (D6, D10 `code`) were measured at 390 and 1280.
 - **Theme switch of the diff.** Since D1 the syntax colours follow `data-rv-theme`, which
