@@ -26,6 +26,13 @@ export function formatNumber(value: number): string {
   return new Intl.NumberFormat(locale()).format(value)
 }
 
+/** A share from 0 to 1 as whole percent in the notation of the current language: "86%", "86 %". */
+export function formatPercent(share: number): string {
+  return new Intl.NumberFormat(locale(), { style: 'percent', maximumFractionDigits: 0 }).format(
+    share,
+  )
+}
+
 /** A USD amount. Exact zero is "$0"; every other value keeps two decimal places. */
 export function formatUsd(value: number): string {
   if (value === 0) {

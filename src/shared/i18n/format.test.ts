@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 
-import { formatDateTime, formatDuration, formatNumber, formatUsd } from './format'
+import { formatDateTime, formatDuration, formatNumber, formatPercent, formatUsd } from './format'
 import { i18n } from './i18n'
 
 // A runner in UTC (CI) would pass the "in UTC" tests with no `timeZone` at all: the file runs in a
@@ -60,6 +60,16 @@ describe('formatting by language', () => {
     expect(formatUsd(0)).toBe('$0')
     expect(formatUsd(1.5)).toBe('$1.50')
     expect(formatUsd(0.2)).toBe('$0.20')
+  })
+
+  it('writes a share as whole percent in the notation of the language', () => {
+    void i18n.changeLanguage('en')
+    expect(formatPercent(0.86)).toBe('86%')
+    expect(formatPercent(0.714)).toBe('71%')
+    void i18n.changeLanguage('ru')
+    // Russian puts a no-break space before the sign.
+    expect(formatPercent(0.55)).toBe('55\u00a0%')
+    expect(formatPercent(1)).toBe('100\u00a0%')
   })
 
   it('groups digits and writes the decimal mark of the language', () => {
