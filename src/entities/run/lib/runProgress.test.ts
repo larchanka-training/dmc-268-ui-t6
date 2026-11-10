@@ -748,6 +748,74 @@ describe('runProgress with policy-marked retries', () => {
     expect(states('running', withCall, null, 2)).toEqual(['finish', 'process', 'wait'])
   })
 
+  it.each(['running', 'failed', 'cancelled'] as const)(
+    '%s shows progress when all model calls of a retry attempt are llm.result_cache hits without llm.call',
+    (status) => {
+      const actions = build(
+        'policy.load',
+        'vcs.fetch_diff',
+        'llm.repo_conventions',
+        'context.build',
+        'llm.result_cache',
+      ).map((action) => ({
+        ...action,
+        request:
+          action.tool === 'llm.result_cache'
+            ? {
+                operation: 'review',
+                cache: 'hit',
+                source_run_id: RUN_ID,
+                source_call_id: null,
+                source_manifest_id: null,
+              }
+            : {},
+      }))
+      expect(states(status, actions, null, 2)).toEqual([
+        'finish',
+        status === 'running' ? 'process' : status === 'failed' ? 'error' : 'stopped',
+        'wait',
+      ])
+    },
+  )
+
+  it('does not let llm.result_cache expose a segment containing a stale llm.call', () => {
+    const actions = build(
+      'policy.load',
+      'llm.repo_conventions',
+      'context.build',
+      'llm.call',
+      'llm.result_cache',
+    ).map((action) => ({
+      ...action,
+      request: action.tool === 'llm.call' ? { attempt: 1 } : { cache: 'hit' },
+    }))
+    expect(states('running', actions, null, 2)).toEqual(['process', 'wait', 'wait'])
+  })
+
+  it('treats a hit-only segment without llm.call or attempt as active progress (known API payload boundary)', () => {
+    // API records `llm.result_cache` without an `attempt` field, so a hit-only attempt 1 segment
+    // remains visible on attempt 2 until the new attempt writes its `policy.load` row.
+    const actions = build(
+      'policy.load',
+      'llm.repo_conventions',
+      'context.build',
+      'llm.result_cache',
+    ).map((action) => ({
+      ...action,
+      request:
+        action.tool === 'llm.result_cache'
+          ? {
+              operation: 'review',
+              cache: 'hit',
+              source_run_id: RUN_ID,
+              source_call_id: null,
+              source_manifest_id: null,
+            }
+          : {},
+    }))
+    expect(states('running', actions, null, 2)).toEqual(['finish', 'process', 'wait'])
+  })
+
   it.each(ORDERS)('isolates every retry prefix after every $name prefix', (first) => {
     const firstTools = orderSteps(first)
     for (let cut = 1; cut <= firstTools.length; cut += 1) {
@@ -1118,6 +1186,7 @@ describe('runProgress tool-to-stage map', () => {
     ['context.build', ['process', 'wait', 'wait'], ['process', 'wait', 'wait']],
     ['llm.repo_conventions', ['process', 'wait', 'wait'], ['process', 'wait', 'wait']],
     ['llm.call', ['process', 'wait', 'wait'], ['finish', 'process', 'wait']],
+    ['llm.result_cache', ['process', 'wait', 'wait'], ['finish', 'process', 'wait']],
     ['llm.review_output', ['process', 'wait', 'wait'], ['finish', 'process', 'wait']],
     ['review.postprocess', ['process', 'wait', 'wait'], ['finish', 'process', 'wait']],
     ['engine.fallback', ['process', 'wait', 'wait'], ['finish', 'process', 'wait']],
