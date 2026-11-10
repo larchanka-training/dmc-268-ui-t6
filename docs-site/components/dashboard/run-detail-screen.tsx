@@ -114,7 +114,9 @@ function Meta({ items }: { items: { label: string; value: ReactNode; wide?: bool
     <dl className={headerStyles.metadata}>
       {items.map((item) => (
         <div
-          className={`${headerStyles.item} ${item.wide ? headerStyles.wide : ''}`}
+          className={[headerStyles.item, item.wide ? headerStyles.wide : undefined]
+            .filter(Boolean)
+            .join(' ')}
           key={item.label}
         >
           <dt className={headerStyles.label}>{item.label}</dt>
