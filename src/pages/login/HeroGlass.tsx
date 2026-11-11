@@ -37,7 +37,7 @@ const float CA = 0.035;    // how far apart the blue copies of the rim are
 const float GRAIN = 0.3;   // how strongly soft edges break up into dots
 const float ANGLE = 0.73;  // slope of the stripes, ~42°, as the former CSS rays
 // Brightest ramp value allowed inside the form block. The final color there is clipped to ramp(SAFE),
-// so by construction it is no lighter than ramp(0.48) (about #2395e6), 5.2:1 with --rv-text (#f8fafc);
+// so by construction it is no lighter than ramp(0.48) (about #235fe6), 5.2:1 with --rv-text (#f8fafc);
 // the darkest real frames measured in the browser give a minimum of 6.69:1.
 const float SAFE = 0.48;
 // uText radii back to the half size of the form block: 0.5 / TEXT_RADIUS
