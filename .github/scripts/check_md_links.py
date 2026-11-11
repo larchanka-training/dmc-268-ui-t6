@@ -41,7 +41,8 @@ SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
 
 # Inline Markdown of a heading, reduced to the text GitHub renders before it makes the id.
 IMAGE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
-LINK_TEXT = re.compile(r"\[([^\]]*)\](?:\([^)]*\)|\[[^\]]*\])")
+# Only inline links: an undefined reference such as `[ui][api]` stays literal text on GitHub.
+LINK_TEXT = re.compile(r"\[([^\]]*)\]\([^)]*\)")
 AUTOLINK = re.compile(r"<([A-Za-z][A-Za-z0-9+.-]*:[^<>\s]*)>")
 TAG = re.compile(r"</?[A-Za-z][^<>]*>")
 ESCAPE = re.compile(r"\\([!-/:-@\[-`{-~])")
