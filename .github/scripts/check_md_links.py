@@ -46,8 +46,8 @@ LINK_TEXT = re.compile(r"\[([^\]]*)\]\([^)]*\)")
 AUTOLINK = re.compile(r"<([A-Za-z][A-Za-z0-9+.-]*:[^<>\s]*)>")
 TAG = re.compile(r"</?[A-Za-z][^<>]*>")
 ESCAPE = re.compile(r"\\([!-/:-@\[-`{-~])")
-# An escaped bracket or parenthesis is text, never part of a link.
-ESCAPED_BRACKET = re.compile(r"\\[\[\]()]")
+# Escapes pair left to right, so `\\[` is a backslash and a live bracket.
+ESCAPED_PAIR = re.compile(r"\\(.)")
 UNDERSCORE_EMPHASIS = re.compile(r"(?<![^\W_])(_+)(?=\S)(.+?)(?<=\S)\1(?![^\W_])")
 
 
@@ -140,7 +140,10 @@ def _anchors(text: str) -> set[str]:
 
 def _targets(line: str) -> list[str]:
     prose = CODE_SPAN.sub(lambda match: " " * len(match.group(0)), line)
-    prose = ESCAPED_BRACKET.sub("  ", prose)
+    # An escaped bracket or parenthesis is text, never part of a link.
+    prose = ESCAPED_PAIR.sub(
+        lambda match: "  " if match.group(1) in "[]()" else match.group(0), prose
+    )
     found = [match.group(1) for match in INLINE_LINK.finditer(prose)]
     reference = REFERENCE.match(prose)
     if reference:
