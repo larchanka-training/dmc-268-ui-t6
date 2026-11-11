@@ -140,4 +140,45 @@ describe('Dither', () => {
     expect(frames).toHaveLength(1)
     expect(lit(frames[0])).toBe(0)
   })
+
+  it('grows the field as a wave once the section comes into view', () => {
+    setReducedMotion(false)
+    // Секция сразу видна: наблюдатель сообщает пересечение при подписке.
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        constructor(private readonly callback: IntersectionObserverCallback) {}
+        observe = () => {
+          this.callback(
+            [{ isIntersecting: true } as IntersectionObserverEntry],
+            this as unknown as IntersectionObserver,
+          )
+        }
+        unobserve = vi.fn()
+        disconnect = vi.fn()
+        takeRecords = () => []
+      },
+    )
+    const ticks: FrameRequestCallback[] = []
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn((callback: FrameRequestCallback) => ticks.push(callback)),
+    )
+    const step = (now: number) => {
+      ticks.shift()?.(now)
+    }
+
+    renderInHost()
+    step(0)
+    step(250)
+    step(10_000)
+
+    // Пустой стартовый кадр, затем частичный, затем итог; волна не повторяется.
+    const [start, first, middle, end] = frames.map(lit)
+    expect(start).toBe(0)
+    expect(first).toBe(0)
+    expect(middle).toBeGreaterThan(0)
+    expect(end).toBeGreaterThan(middle ?? 0)
+    expect(ticks).toHaveLength(0)
+  })
 })
