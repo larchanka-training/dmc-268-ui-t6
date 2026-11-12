@@ -87,4 +87,14 @@ describe('ReviewDemo', () => {
 
     expect(stage()).toBe('5')
   })
+
+  it('plays without waiting for a scroll when the page opens already scrolled', () => {
+    setReducedMotion(false)
+    vi.stubGlobal('scrollY', 300)
+
+    render(<ReviewDemo />)
+    elapse(TIMELINE_END_MS)
+
+    expect(stage()).toBe('5')
+  })
 })

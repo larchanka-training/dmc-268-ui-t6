@@ -30,6 +30,17 @@ class HiddenObserver {
   }
 }
 
+function setHostSize(width: number, height: number): void {
+  Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+    configurable: true,
+    get: () => width,
+  })
+  Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+    configurable: true,
+    get: () => height,
+  })
+}
+
 /** Pixel data of every painted frame, RGBA. */
 let frames: Uint8ClampedArray[] = []
 
@@ -42,14 +53,7 @@ beforeEach(() => {
     vi.fn(() => 1),
   )
   vi.stubGlobal('cancelAnimationFrame', vi.fn())
-  Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
-    configurable: true,
-    get: () => HOST_W,
-  })
-  Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
-    configurable: true,
-    get: () => HOST_H,
-  })
+  setHostSize(HOST_W, HOST_H)
   // jsdom has no 2D canvas: a minimal context records every painted frame.
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(
     () =>
@@ -86,6 +90,43 @@ function renderInHost(style?: Record<string, string>) {
       <Dither />
     </div>,
   )
+}
+
+/** The final field, as reduced motion draws it at once; the frame log is left empty. */
+function fullField(): Uint8ClampedArray | undefined {
+  setReducedMotion(true)
+  const view = renderInHost()
+  const frame = frames.at(-1)
+  view.unmount()
+  frames = []
+  return frame
+}
+
+/** A section that is in view from the start: the observer reports it on subscribe. */
+class VisibleObserver {
+  constructor(private readonly callback: IntersectionObserverCallback) {}
+  observe = () => {
+    this.callback(
+      [{ isIntersecting: true } as IntersectionObserverEntry],
+      this as unknown as IntersectionObserver,
+    )
+  }
+  unobserve = vi.fn()
+  disconnect = vi.fn()
+  takeRecords = () => []
+}
+
+/** Animation frames run by hand: `step` runs the oldest pending one. */
+function manualFrames() {
+  const ticks: FrameRequestCallback[] = []
+  vi.stubGlobal(
+    'requestAnimationFrame',
+    vi.fn((callback: FrameRequestCallback) => ticks.push(callback)),
+  )
+  const step = (now: number) => {
+    ticks.shift()?.(now)
+  }
+  return { ticks, step }
 }
 
 /** Distinct `r,g,b` colors of the lit pixels in a frame. */
@@ -141,32 +182,11 @@ describe('Dither', () => {
     expect(lit(frames[0])).toBe(0)
   })
 
-  it('grows the field as a wave once the section comes into view', () => {
+  it('grows the field as a wave once the section comes into view, up to the full field', () => {
+    const full = fullField()
     setReducedMotion(false)
-    // Секция сразу видна: наблюдатель сообщает пересечение при подписке.
-    vi.stubGlobal(
-      'IntersectionObserver',
-      class {
-        constructor(private readonly callback: IntersectionObserverCallback) {}
-        observe = () => {
-          this.callback(
-            [{ isIntersecting: true } as IntersectionObserverEntry],
-            this as unknown as IntersectionObserver,
-          )
-        }
-        unobserve = vi.fn()
-        disconnect = vi.fn()
-        takeRecords = () => []
-      },
-    )
-    const ticks: FrameRequestCallback[] = []
-    vi.stubGlobal(
-      'requestAnimationFrame',
-      vi.fn((callback: FrameRequestCallback) => ticks.push(callback)),
-    )
-    const step = (now: number) => {
-      ticks.shift()?.(now)
-    }
+    vi.stubGlobal('IntersectionObserver', VisibleObserver)
+    const { ticks, step } = manualFrames()
 
     renderInHost()
     step(0)
@@ -179,6 +199,58 @@ describe('Dither', () => {
     expect(first).toBe(0)
     expect(middle).toBeGreaterThan(0)
     expect(end).toBeGreaterThan(middle ?? 0)
+    expect(end).toBe(lit(full))
+    expect(frames.at(-1)).toEqual(full)
     expect(ticks).toHaveLength(0)
+  })
+
+  it('draws the final field at once without IntersectionObserver', () => {
+    const full = fullField()
+    setReducedMotion(false)
+    vi.stubGlobal('IntersectionObserver', undefined)
+
+    renderInHost()
+
+    expect(requestAnimationFrame).not.toHaveBeenCalled()
+    expect(frames).toHaveLength(1)
+    expect(frames[0]).toEqual(full)
+  })
+
+  it('rebuilds the field on resize and shows the final field without replaying the wave', () => {
+    setHostSize(HOST_W / 2, HOST_H)
+    const resized = fullField()
+    setHostSize(HOST_W, HOST_H)
+    setReducedMotion(false)
+    vi.stubGlobal('IntersectionObserver', VisibleObserver)
+    const resizes: ResizeObserverCallback[] = []
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(callback: ResizeObserverCallback) {
+          resizes.push(callback)
+        }
+        observe = vi.fn()
+        unobserve = vi.fn()
+        disconnect = vi.fn()
+      },
+    )
+    const { ticks, step } = manualFrames()
+    const resize = () => {
+      for (const callback of resizes) callback([], {} as ResizeObserver)
+    }
+
+    renderInHost()
+    // The first report comes on subscribe and changes nothing.
+    resize()
+    step(0)
+    step(10_000)
+    const played = frames.length
+    setHostSize(HOST_W / 2, HOST_H)
+    resize()
+    while (ticks.length > 0) step(20_000)
+
+    const after = frames.slice(played)
+    expect(after.length).toBeGreaterThan(0)
+    for (const frame of after) expect(frame).toEqual(resized)
   })
 })
