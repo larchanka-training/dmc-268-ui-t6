@@ -109,7 +109,7 @@
 .subtitle {
   max-width: 30rem;
   margin-top: 20px;
-  color: #cbd5e1;
+  color: var(--text-lead);
   text-shadow: 0 1px 16px rgb(9 13 24 / 80%);
   font-size: clamp(0.9375rem, 0.9rem + 0.2vw, 1.0625rem);
   line-height: 1.55;
