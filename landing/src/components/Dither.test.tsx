@@ -247,6 +247,9 @@ describe('Dither', () => {
     const played = frames.length
     setHostSize(HOST_W / 2, HOST_H)
     resize()
+    resize()
+    // Two reports in one frame make one rebuild.
+    expect(ticks).toHaveLength(1)
     while (ticks.length > 0) step(20_000)
 
     const after = frames.slice(played)

@@ -91,7 +91,7 @@ export function Dither() {
       pixels = []
       const fx = Math.min(220, W * 0.16)
       const fy = H * 0.16
-      const cs = corners(W, H)
+      const [[ax, ay, arx, ary], [bx, by, brx, bry]] = corners(W, H)
       let maxKey = 0
       for (let y = 0; y < h; y++) {
         for (let x = 0; x < w; x++) {
@@ -100,9 +100,11 @@ export function Dither() {
           const edge =
             smooth(0, fx, px) * smooth(0, fx, W - px) * smooth(0, fy, py) * smooth(0, fy, H - py)
           const wave = 0.7 + 0.3 * Math.sin((px + py * 0.7) / CELL / 3.4)
-          // Расстояние до ближайшего центра угла, 1 — край его пятна.
+          // Расстояние до ближайшего центра угла, 1 — край его пятна. Без промежуточного массива:
+          // цикл идёт по каждой клетке секции.
           const d = Math.min(
-            ...cs.map(([cx, cy, rx, ry]) => Math.hypot((px - cx) / rx, (py - cy) / ry)),
+            Math.hypot((px - ax) / arx, (py - ay) / ary),
+            Math.hypot((px - bx) / brx, (py - by) / bry),
           )
           const f = Math.max(0, 1 - d) ** 2.1 * 1.2 * edge * wave * 0.4
           const t = ((BAYER[(y % 4) * 4 + (x % 4)] ?? 0) + 0.5) / 16
@@ -162,8 +164,18 @@ export function Dither() {
       io.observe(host)
     }
 
-    // При ресайзе поле пересобирается и показывает итог: волна не повторяется.
+    // При ресайзе поле пересобирается и показывает итог: волна не повторяется. Все отчёты
+    // ResizeObserver за один кадр сводятся в одну пересборку.
     let first = true
+    let resizeRaf = 0
+    const rebuild = () => {
+      resizeRaf = 0
+      if (!build()) return
+      if (!animate || seen.current) {
+        cancelAnimationFrame(raf)
+        paint(1)
+      } else paint(0)
+    }
     const ro =
       typeof ResizeObserver === 'undefined'
         ? null
@@ -172,15 +184,12 @@ export function Dither() {
               first = false
               return
             }
-            if (!build()) return
-            if (!animate || seen.current) {
-              cancelAnimationFrame(raf)
-              paint(1)
-            } else paint(0)
+            if (!resizeRaf) resizeRaf = requestAnimationFrame(rebuild)
           })
     ro?.observe(host)
     return () => {
       cancelAnimationFrame(raf)
+      cancelAnimationFrame(resizeRaf)
       io?.disconnect()
       ro?.disconnect()
     }
