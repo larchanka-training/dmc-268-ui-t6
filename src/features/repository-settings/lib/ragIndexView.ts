@@ -2,7 +2,8 @@ import type { RagIndex } from '../../../entities/repository'
 import type { ParseKeys } from 'i18next'
 import { VCS_ACCESS_NAME, type VcsProvider } from '../../../shared/model/provider'
 
-import { formatDateTime, i18n } from '../../../shared/i18n'
+import { i18n } from '../../../shared/i18n'
+import { formatLocalDateTime } from '../../../shared/lib/formatLocalDateTime'
 
 /** The name of the feature: the same in every language. */
 export const RAG_LABEL = 'RAG'
@@ -47,15 +48,6 @@ export interface RagIndexView {
 /** The seven characters git itself shows; the full sha stays in a tooltip. */
 export function shortSha(sha: string): string {
   return sha.slice(0, 7)
-}
-
-/**
- * The same text as the rules status, in the notation of the current language. The time is UTC and
- * carries no label, like every other time in the app; showing local time app-wide is a separate
- * issue (ui#129).
- */
-export function formatIndexedAt(iso: string): string {
-  return formatDateTime(iso)
 }
 
 // The api catalog of `lastErrorCode` (`app/modules/code_index/domain/codes.py`, api#228/#242): the
@@ -139,7 +131,7 @@ function publicationOf(index: RagIndex): RagIndexView['publication'] {
   return {
     sha: index.indexedCommitSha,
     shortSha: shortSha(index.indexedCommitSha),
-    indexedAt: formatIndexedAt(index.indexedAt),
+    indexedAt: formatLocalDateTime(index.indexedAt),
   }
 }
 
