@@ -1,6 +1,12 @@
 .hero {
+  /* Отступ над текстом, отступ окна и высота экрана, на которой начинается окно: из них же
+     считается min-height блока текста (.content), поэтому правка отступа не сдвигает окно. */
+  --hero-pt: 136px;
+  --demo-gap: 88px;
+  --demo-top: 72svh;
+
   position: relative;
-  padding-top: calc(var(--header-h) + 136px);
+  padding-top: calc(var(--header-h) + var(--hero-pt));
   padding-bottom: 96px;
 
   /* Режем только по горизонтали: свечение окна должно уходить под How it works и гаснуть там.
@@ -47,9 +53,10 @@
   justify-content: center;
   text-align: center;
 
-  /* Окно всегда начинается примерно на 72% высоты экрана и уходит за нижний край, чтобы тянуло
-     пролистать: блок текста растягивается до этой высоты (минус шапка, отступ hero и отступ окна). */
-  min-height: calc(72svh - var(--header-h) - 136px - 88px);
+  /* Окно начинается примерно на --demo-top высоты экрана и уходит за нижний край, чтобы тянуло
+     пролистать: блок текста растягивается до этой высоты (минус шапка, отступ hero и отступ окна).
+     Это нижняя граница: если текст выше, окно начинается ниже. */
+  min-height: calc(var(--demo-top) - var(--header-h) - var(--hero-pt) - var(--demo-gap));
 }
 
 .content > * {
@@ -141,7 +148,7 @@
 
 .demoWrap {
   position: relative;
-  margin-top: 88px;
+  margin-top: var(--demo-gap);
   perspective: 1600px;
 }
 
@@ -213,8 +220,13 @@
 }
 
 @media (width <= 640px) {
+  /* На телефоне окно чуть выше, на 70svh: внизу экрана панели браузера и полоса жестов, и
+     запас держит край окна заметным над ними. */
   .hero {
-    padding-top: calc(var(--header-h) + 84px);
+    --hero-pt: 84px;
+    --demo-gap: 56px;
+    --demo-top: 70svh;
+
     padding-bottom: 64px;
   }
 
@@ -229,14 +241,6 @@
         rgb(9 13 24 / 85%) 50%,
         var(--bg) 70%
       );
-  }
-
-  .content {
-    min-height: calc(70svh - var(--header-h) - 84px - 56px);
-  }
-
-  .demoWrap {
-    margin-top: 56px;
   }
 
   /* На телефоне без стеклянной подложки: у окна и так хватает своих рамок. */
