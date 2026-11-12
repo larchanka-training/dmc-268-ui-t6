@@ -63,35 +63,9 @@
   text-shadow: 0 1px 20px var(--bg);
 }
 
-/* Та же кнопка, что «Try it now» в Hero. */
+/* Та же кнопка, что «Try it now» в Hero: стили берутся оттуда, своих отличий нет. */
 .cta {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  margin-top: 36px;
-  padding: 0 18px;
-  border: 1px solid rgb(255 255 255 / 16%);
-  border-radius: 999px;
-  background: rgb(9 13 24 / 45%);
-  color: var(--text);
-  font-size: 14px;
-  font-weight: 500;
-  text-decoration: none;
-  backdrop-filter: blur(12px);
-  box-shadow: 0 1px 0 rgb(255 255 255 / 8%) inset;
-  transition:
-    background-color 0.2s ease,
-    border-color 0.2s ease,
-    transform 0.2s ease;
-}
-
-.cta:hover {
-  border-color: rgb(96 165 250 / 45%);
-  background: rgb(15 21 38 / 70%);
-}
-
-.cta:active {
-  transform: scale(0.98);
+  composes: cta from './Hero.module.css';
 }
 
 .note {
