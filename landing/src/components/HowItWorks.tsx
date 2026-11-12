@@ -20,7 +20,7 @@ function ConnectVisual() {
           <span title="Bitbucket">
             <ProviderMark name="Bitbucket" size={14} />
           </span>
-          <em className={styles.badge}>Coming soon</em>
+          <span className={styles.badge}>Coming soon</span>
         </span>
       </div>
       <div className={styles.repoRow} aria-hidden="true">
