@@ -14,10 +14,10 @@ function ConnectVisual() {
           GitHub
         </span>
         <span className={styles.providerSoon}>
-          <span title="GitLab">
+          <span className={styles.providerIcon} title="GitLab">
             <ProviderMark name="GitLab" size={14} />
           </span>
-          <span title="Bitbucket">
+          <span className={styles.providerIcon} title="Bitbucket">
             <ProviderMark name="Bitbucket" size={14} />
           </span>
           <span className={styles.badge}>Coming soon</span>

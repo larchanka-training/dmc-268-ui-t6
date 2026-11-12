@@ -225,7 +225,7 @@
 }
 
 /* Only the icons are dimmed: the Coming soon text keeps full --text-2 contrast. */
-.providerSoon > [title] {
+.providerSoon > .providerIcon {
   display: inline-flex;
   color: var(--text-3);
   opacity: 0.55;
