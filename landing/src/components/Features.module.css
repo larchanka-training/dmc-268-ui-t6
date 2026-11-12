@@ -375,7 +375,7 @@
 }
 
 .depCall {
-  color: var(--text-3);
+  color: var(--text-2);
 }
 
 /* Branch filter: шаблоны целевых веток и какие пулл-реквесты они пропускают. */
@@ -388,7 +388,7 @@
 
 .patternLabel {
   margin-right: 4px;
-  color: var(--text-3);
+  color: var(--text-2);
   font-size: 12px;
 }
 
@@ -419,7 +419,7 @@
 }
 
 .prState {
-  color: var(--text-3);
+  color: var(--text-2);
   font-size: 12px;
 }
 
