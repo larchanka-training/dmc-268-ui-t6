@@ -139,7 +139,37 @@ function colorsOf(frame: Uint8ClampedArray | undefined): string[] {
   return [...colors].sort()
 }
 
+/** Lit pixels in a block of canvas cells (CELL = 4 px, so 800×400 is 200×100 cells). */
+function litIn(frame: Uint8ClampedArray | undefined, x0: number, y0: number, size: number): number {
+  const width = HOST_W / 4
+  let count = 0
+  for (let y = y0; y < y0 + size; y++) {
+    for (let x = x0; x < x0 + size; x++) if ((frame?.[(y * width + x) * 4 + 3] ?? 0) > 0) count++
+  }
+  return count
+}
+
 describe('Dither', () => {
+  it('grows the fields from the bottom-left and top-right corners and keeps the centre and edges empty', () => {
+    setReducedMotion(true)
+
+    renderInHost()
+
+    const frame = frames[0]
+    // Литералы по спецификации: поля у нижнего левого и верхнего правого углов, центр пуст.
+    expect(litIn(frame, 34, 76, 8)).toBeGreaterThan(0)
+    expect(litIn(frame, 158, 16, 8)).toBeGreaterThan(0)
+    expect(litIn(frame, 96, 46, 8)).toBe(0)
+    // У каждого края плотность падает до нуля: середины четырёх сторон пусты.
+    expect(litIn(frame, 96, 0, 4)).toBe(0)
+    expect(litIn(frame, 96, 96, 4)).toBe(0)
+    expect(litIn(frame, 0, 48, 4)).toBe(0)
+    expect(litIn(frame, 196, 48, 4)).toBe(0)
+    // Два других угла тоже пусты: полей там нет.
+    expect(litIn(frame, 0, 0, 8)).toBe(0)
+    expect(litIn(frame, 192, 92, 8)).toBe(0)
+  })
+
   it('draws the final field at once with reduced motion, without waiting for the section', () => {
     setReducedMotion(true)
 
