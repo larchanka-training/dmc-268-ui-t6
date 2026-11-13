@@ -69,8 +69,8 @@ function isCurrentLlmCall(action: RunAction, runAttempt: number): boolean {
  * Checks whether a policy segment can be trusted when earlier claims left no `policy.load` row.
  * When `llm.call` exists in the segment, requires a call whose `attempt` matches `runAttempt`.
  * Known trade-off for hit-only attempts: the API's `llm.result_cache` request omits `attempt`, so a
- * segment with `llm.result_cache` and no `llm.call` is treated as active progress (keeping AC3
- * cache-hit progress visible at the cost of briefly showing a hit-only prior attempt before the new
+ * segment with `llm.result_cache` and no `llm.call` is treated as active progress (ensuring a hit-only
+ * attempt still shows stage progress at the cost of briefly showing a hit-only prior attempt before the new
  * claim writes `policy.load`).
  */
 function isCorroboratedAttempt(latest: readonly RunAction[], runAttempt: number): boolean {
