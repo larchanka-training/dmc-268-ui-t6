@@ -1,6 +1,6 @@
 import { Alert, Button, Empty, Flex, Select, Spin, Typography, type TableColumnsType } from 'antd'
-import { useCallback, useEffect, useMemo, useRef, type FC, type ReactNode } from 'react'
-import { Link, useHref, useLinkClickHandler, useNavigate } from 'react-router'
+import { useCallback, useEffect, useMemo, useRef, type FC } from 'react'
+import { Link, useNavigate } from 'react-router'
 
 import {
   errorReason,
@@ -18,7 +18,7 @@ import {
 } from '../../entities/run'
 import { useAuditFilterParams } from '../../features/audit-filter'
 import { formatNumber, formatUsd, useTranslation } from '../../shared/i18n'
-import { DataTable, PageHeader, Tag } from '../../shared/ui'
+import { DataTable, LinkButton, PageHeader, Tag } from '../../shared/ui'
 import styles from './AuditPage.module.css'
 
 const { Text } = Typography
@@ -48,16 +48,6 @@ function reasonTextOf(run: RunSession): string {
     return '—'
   }
   return errorReason(run.errorCode) ?? reasonText(run.errorCode)
-}
-
-const LinkButton: FC<{ to: string; children: ReactNode }> = ({ to, children }) => {
-  const href = useHref(to)
-  const handleClick = useLinkClickHandler<HTMLAnchorElement | HTMLButtonElement>(to)
-  return (
-    <Button href={href} onClick={handleClick}>
-      {children}
-    </Button>
-  )
 }
 
 export const AuditPage: FC = () => {
