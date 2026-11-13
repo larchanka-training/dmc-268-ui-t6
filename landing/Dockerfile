@@ -41,5 +41,6 @@ COPY --from=build /app/landing/dist /usr/share/nginx/html
 USER nginx
 EXPOSE 8080
 
+# --start-interval: without it the first probe waits 5 s, whatever the time nginx takes to start.
 HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --start-interval=1s --retries=3 \
   CMD wget -qO- http://127.0.0.1:8080/health || exit 1
