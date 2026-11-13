@@ -20,5 +20,5 @@ export async function listAgentTokens(): Promise<AgentToken[]> {
 }
 
 export async function revokeAgentToken(id: string): Promise<void> {
-  await apiClient<unknown>(endpoints.agentTokens.revoke(z.uuid().parse(id)))
+  await apiClient<unknown>(endpoints.agentTokens.revoke(id))
 }

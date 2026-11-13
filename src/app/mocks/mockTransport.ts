@@ -20,6 +20,7 @@ import {
   type UpdateRepositoryInput,
 } from '../../entities/repository'
 import { setMockAuthAdapter, useAuthStore } from '../../features/auth'
+import type { AgentToken } from '../../features/auth/api/agentTokens'
 import type { BitbucketConnectionItem } from '../../features/bitbucket-connections'
 import {
   ApiError,
@@ -58,6 +59,15 @@ export const MOCK_OAUTH_CODE = 'mock_code_123'
 // `serveRepository` of it.
 let repositories: Repository[] = structuredClone(mockRepositories)
 let runSessions: RunSession[] = structuredClone(mockRunsListPage.items)
+const MOCK_AGENT_TOKENS: AgentToken[] = [
+  {
+    id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    repository: 'demo/repository',
+    createdAt: '2026-11-01T10:00:00Z',
+    expiresAt: '2026-11-15T10:00:00Z',
+  },
+]
+let agentTokens: AgentToken[] = structuredClone(MOCK_AGENT_TOKENS)
 const MOCK_BITBUCKET_WORKSPACE_ID = '123e4567-e89b-12d3-a456-426614174000'
 const MOCK_BITBUCKET_INSTALLATION_ID = '55555555-5555-4555-8555-555555555555'
 const BITBUCKET_WEBHOOK_EVENTS = [
@@ -365,6 +375,16 @@ function handleMockTransport(
 
   const queryStart = endpoint.path.indexOf('?')
   const pathname = queryStart === -1 ? endpoint.path : endpoint.path.slice(0, queryStart)
+  if (pathname === '/agent/tokens' && endpoint.method === 'GET') {
+    return structuredClone(agentTokens)
+  }
+  const agentTokenMatch = /^\/agent\/tokens\/([^/]+)$/.exec(pathname)
+  if (agentTokenMatch && endpoint.method === 'DELETE') {
+    const index = agentTokens.findIndex((token) => token.id === agentTokenMatch[1])
+    if (index === -1) throw new ApiError(404, 'Not Found', { detail: 'token_not_found' })
+    agentTokens.splice(index, 1)
+    return null
+  }
   const bitbucketMatch = /^\/workspaces\/([^/]+)\/bitbucket\/(.*)$/.exec(pathname)
   if (bitbucketMatch) {
     const [, workspaceId, suffix] = bitbucketMatch
@@ -868,6 +888,7 @@ export function initMockTransport(): void {
 
   repositories = structuredClone(mockRepositories)
   runSessions = structuredClone(mockRunsListPage.items)
+  agentTokens = structuredClone(MOCK_AGENT_TOKENS)
   bitbucketConnections = []
   bitbucketToken = null
   bitbucketCredentialGeneration = 1

@@ -50,9 +50,6 @@ export const UserMenu: FC<UserMenuProps> = ({ extraItems, compact = false }) => 
       icon: <KeyOutlined />,
       key: 'agent-tokens',
       label: t('layout.userMenu.agentTokens.title'),
-      onClick: () => {
-        setTokensOpen(true)
-      },
     },
     { type: 'divider' as const },
     {
@@ -78,10 +75,14 @@ export const UserMenu: FC<UserMenuProps> = ({ extraItems, compact = false }) => 
           // The menu closes on a choice and the focus goes back to the button that opened it,
           // but only after the key press is over: focused right away, the button would receive
           // the rest of the same Enter and open the menu again.
-          onClick: () => {
+          onClick: ({ key }) => {
             setOpen(false)
             window.setTimeout(() => {
-              triggerRef.current?.focus()
+              if (key === 'agent-tokens') {
+                setTokensOpen(true)
+              } else {
+                triggerRef.current?.focus()
+              }
             }, 0)
           },
         }}
@@ -113,6 +114,7 @@ export const UserMenu: FC<UserMenuProps> = ({ extraItems, compact = false }) => 
         <AgentTokensDialog
           onClose={() => {
             setTokensOpen(false)
+            window.setTimeout(() => triggerRef.current?.focus(), 0)
           }}
         />
       ) : null}
