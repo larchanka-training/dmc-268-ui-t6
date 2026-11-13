@@ -40,17 +40,11 @@ on the run in the dashboard.
 | --- | --- |
 | `blocking` | At least one `critical` or `high` finding. |
 | `attention` | Only `medium` or `low` findings. |
-| `clean` | The review covered all reviewable changes and found nothing above `info`. |
+| `clean` | Every change was reviewed or verified as excluded (see [What is not reviewed](#what-is-not-reviewed)), and the review found nothing above `info`. |
 
-A partial review that found nothing above `info` has no verdict. Confirmed findings still
+A partial review that found nothing above `info` has no verdict. Findings above `info` still
 produce `blocking` for `critical` or `high`, and `attention` for `medium` or `low`. The review
 summary and `AI Review` check explain what could not be reviewed.
-
-An independently verified empty new ordinary file can count as fully covered alongside
-reviewed code. A rename without content changes, a mode-only change, a deleted image without
-independent binary evidence, or a blob above the 1 MiB read limit can still leave the review
-partial. A filename extension alone does not prove a file is binary. For GitLab, an empty new
-file without independent evidence that it is an ordinary file leaves the review partial.
 
 Findings go inline on changed lines; the rest are in the review body. The `AI Review` check ends
 as neutral, skipped or cancelled and never fails, so do not make it a required check.
@@ -101,10 +95,24 @@ are posted as Request changes.
 </Accordion>
 <Accordion title="What is not reviewed">
 
+These verified exclusions do not prevent `clean` when other changes were reviewed:
+
 - Lock files and build output, for example `pnpm-lock.yaml`, `go.sum`, `*.min.js` and a top
   level `dist/` folder.
-- Binary files and files with more than 20,000 changed lines or over 1 MiB.
+- Files confirmed as binary from their content; a filename extension alone is not proof.
 - Files that match `review-ignore` in your [rules file](/rules-file).
+- On GitHub, a confirmed empty new regular file, such as `__init__.py`.
+
+These changes cannot be fully checked and leave the review partial:
+
+- A text file renamed without changing its content, or a change to its permissions only: neither
+  has a content diff to review.
+- A deleted binary file, such as an image, when its type cannot be confirmed from content.
+- A file with more than 20,000 changed lines or over 1 MiB that was not already confirmed as
+  binary: it exceeds the read limit.
+- An empty new file on Bitbucket Cloud or operator-connected GitLab: neither provides the
+  independent evidence needed to confirm it is a regular file. GitLab support in the dashboard
+  is [coming](/faq#does-it-work-with-gitlab).
 
 With more than 3,000 changed lines, Reviewer reviews only the file list: no line comments, and
 the dashboard shows no verdict. Such a run has the `summary-only` tag in **Runs**, and its
@@ -114,7 +122,7 @@ no file diff went to the model.
 Up to that size, if nothing is left to review except changes Reviewer cannot read, for example
 a file over 1 MiB that has no diff, or a file whose path it does not support, the model is not
 called. The review is posted with no findings and no verdict, and its `AI Review` check is
-neutral and says so in the title. If every changed file is ignored, build output or binary, the
+neutral and says so in the title. If every changed file is a verified exclusion, the
 run is skipped instead, see the [FAQ](/faq#a-run-was-skipped).
 
 </Accordion>
