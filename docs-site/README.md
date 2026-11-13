@@ -85,10 +85,10 @@ The full rule is in [api `docs/CONTRIBUTING.md` §8](https://github.com/larchank
   skipped by stylelint: it holds Tailwind at-rules and Fumadocs overrides.
 - Root `pnpm format:check` covers the code; `content/` is skipped, since prettier can reflow MDX.
 - The `UI quality` CI job runs `pnpm --dir docs-site check-types`, `pnpm --dir docs-site test`,
-  and `pnpm --dir docs-site build`. They fail on manifest/image drift (`screens.json`,
-  `public/screens/*.webp`, nginx 308 guard) or when a file of `src/` that the mockups import is
-  renamed or moved; a renamed CSS Module class still requires re-shooting, see
-  [Dashboard pictures](#dashboard-pictures).
+  and `pnpm --dir docs-site build`. They fail on catalog/manifest drift (missing entries or missing
+  image files in `public/screens/*.webp`, dimension spec mismatch in `screens.json`, nginx 308 guard)
+  or when a file of `src/` that the mockups import is renamed or moved; a renamed CSS Module class
+  still requires re-shooting, see [Dashboard pictures](#dashboard-pictures).
 - The mockups in `components/dashboard/` import internals of `src/` slices (CSS Modules,
   `widgets/diff-viewer/lib/*`); this exception to the FSD rule is written in
   `.agents/rules/frontend.md` §3.

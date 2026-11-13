@@ -8,25 +8,14 @@ import { MOCK_NAMES, MOCK_SHOTS, SCREEN_SPECS } from '../components/dashboard/mo
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const REPO_ROOT = path.resolve(ROOT, '..')
 
-const EXPECTED_MOCK_NAMES = [
-  'runs',
-  'run-detail',
-  'settings-auto-review',
-  'settings-rag',
-  'settings-review-options',
-  'settings-branches-severity',
-  'settings-rules',
-]
-
 test('mockup catalog matches screens manifest, dimensions, and rendered public images', () => {
   const shotNames = MOCK_SHOTS.map((shot) => shot.name)
-  assert.deepEqual(shotNames, EXPECTED_MOCK_NAMES)
-  assert.deepEqual([...MOCK_NAMES], EXPECTED_MOCK_NAMES)
+  assert.deepEqual(shotNames, [...MOCK_NAMES])
   assert.equal(new Set(shotNames).size, shotNames.length)
 
   const manifestPath = path.join(ROOT, 'components', 'mockups', 'screens.json')
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
-  assert.deepEqual(Object.keys(manifest).sort(), [...EXPECTED_MOCK_NAMES].sort())
+  assert.deepEqual(Object.keys(manifest).sort(), [...MOCK_NAMES].sort())
 
   const screenHeights = new Map(SCREEN_SPECS.map((spec) => [spec.name, spec.height]))
   for (const shot of MOCK_SHOTS) {

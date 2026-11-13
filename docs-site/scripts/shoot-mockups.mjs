@@ -113,8 +113,13 @@ function serveStatic(outDir, basePath, port) {
       pathname === basePath || pathname.startsWith(`${basePath}/`)
         ? decodeURIComponent(pathname.slice(basePath.length))
         : null
+    const candidateFile =
+      inside === null ? null : path.resolve(outDir, path.normalize(`.${path.sep}${inside}`))
+    const rel = candidateFile === null ? null : path.relative(outDir, candidateFile)
     const file =
-      inside === null ? null : path.join(outDir, path.posix.normalize(`/${inside}`).slice(1))
+      candidateFile !== null && rel !== null && !rel.startsWith('..') && !path.isAbsolute(rel)
+        ? candidateFile
+        : null
     for (const candidate of file === null
       ? []
       : [file, `${file}.html`, path.join(file, 'index.html')]) {

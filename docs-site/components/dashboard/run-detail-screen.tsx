@@ -21,6 +21,7 @@ import '../../../src/widgets/diff-viewer/ui/diff-theme.css'
 import '../../../src/widgets/diff-viewer/ui/diff-layout.css'
 import {
   CodeBlock,
+  cx,
   PageHeader,
   ProgressSteps,
   RowButton,
@@ -113,12 +114,7 @@ function Meta({ items }: { items: { label: string; value: ReactNode; wide?: bool
   return (
     <dl className={headerStyles.metadata}>
       {items.map((item) => (
-        <div
-          className={[headerStyles.item, item.wide ? headerStyles.wide : undefined]
-            .filter(Boolean)
-            .join(' ')}
-          key={item.label}
-        >
+        <div className={cx(headerStyles.item, item.wide && headerStyles.wide)} key={item.label}>
           <dt className={headerStyles.label}>{item.label}</dt>
           <dd className={headerStyles.value}>{item.value}</dd>
         </div>
