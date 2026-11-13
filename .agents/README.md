@@ -62,7 +62,8 @@ These files are byte-identical between the two repos, marked with a
   `skills/create-issue/**`, `skills/implement-issue/**`, `skills/issue-graph/**`, `skills/pull-request/**`,
   `skills/planning-and-task-breakdown/**`, `skills/pr-review/**`, `skills/qa/**`
 - `agents/*.md`
-- outside `.agents/`: `.github/pull_request_template.md` (SYNC marker on its first line)
+- outside `.agents/`: `.github/pull_request_template.md` (SYNC marker on its first line),
+  `.github/scripts/check_md_links.py`
 
 The marker takes the form the file type allows: `.md` — the `<!-- SYNC: … -->` line
 (after the H1 in a skill file); `.py` / `.sh` — a `# SYNC: …` comment after the shebang or
@@ -83,6 +84,16 @@ skills, `templates/`) is per-repo.
 Shared files: change and commit them in `dmc-268-ui-t6` and open its pull request first. When that
 change is final, `cp` to `dmc-268-api-t6`, `diff -r` the two paths to confirm byte-identity, and
 only then commit the copy. The order in full: `skills/implement-issue/references/loop.md` §4.
+
+## Link check
+
+The `Markdown links` check (`.github/workflows/md-links.yml`, `.github/scripts/check_md_links.py`)
+reads the tracked `*.md` files under `docs/` and `.agents/` and `AGENTS.md` (api also
+`test-prs-dataset/README.md`). Each relative link outside code must name a tracked file or
+directory, and its `#anchor` on a `.md` file must be a heading id as GitHub renders it, or an
+`<a id>` / `<a name>`; otherwise the check fails with `path:line: target: reason`. External
+URLs are not checked. It runs on every pull request, with no paths filter (moving or deleting
+any file can break a link to it), and on every push to `main`; it is not a required check.
 
 ## How to add a skill
 
