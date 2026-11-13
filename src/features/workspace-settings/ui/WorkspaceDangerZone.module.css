@@ -1,0 +1,64 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dangerCard {
+  border-color: var(--rv-danger);
+}
+
+.dangerCard :global(.ant-card-head-title) {
+  color: var(--rv-danger);
+}
+
+.cardBody {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.cardContent {
+  flex: 1;
+}
+
+.description {
+  margin: 0;
+  color: var(--rv-text-2);
+  font-size: var(--rv-fs);
+}
+
+.action {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.disabledReason {
+  margin: 0;
+  color: var(--rv-text-2);
+  font-size: var(--rv-fs-sm);
+}
+
+.warningList {
+  margin: 8px 0 0 16px;
+  padding: 0;
+}
+
+.warningList li {
+  margin-bottom: 4px;
+}
+
+.confirmSection {
+  margin-top: 16px;
+}
+
+.modalFooter {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}

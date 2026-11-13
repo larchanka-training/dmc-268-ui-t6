@@ -66,6 +66,12 @@ export const endpoints = {
   metrics: {
     summary: (): Endpoint => ({ method: 'GET', path: '/metrics/summary' }),
   },
+  workspaces: {
+    delete: (workspaceId: string): Endpoint => ({
+      method: 'DELETE',
+      path: `/workspaces/${workspaceId}`,
+    }),
+  },
 } as const
 
 export function resolveUrl(base: string, endpoint: Endpoint): string {

@@ -3,6 +3,7 @@ import type { FC } from 'react'
 
 import { useMe, type WorkspaceRole } from '../../entities/user'
 import { useCurrentWorkspace } from '../../features/workspace'
+import { WorkspaceDangerZone } from '../../features/workspace-settings'
 import { useTranslation } from '../../shared/i18n'
 import { PageHeader, Tag, type TagProps } from '../../shared/ui'
 import styles from './WorkspaceSettingsPage.module.css'
@@ -39,7 +40,7 @@ interface PermissionSectionConfig {
   noAccessKey: 'settings.workspace.team.noAccess' | 'settings.workspace.billing.noAccess'
 }
 
-// ADR 0002 §11 permissions; Danger Zone (ui#300) is deferred to follow-up PR #303.
+// ADR 0002 §11 permissions; Danger Zone (ui#300) is rendered below.
 const PERMISSION_SECTIONS: readonly PermissionSectionConfig[] = [
   {
     key: 'team',
@@ -148,6 +149,8 @@ export const WorkspaceSettingsPage: FC = () => {
           </Card>
         )
       })}
+
+      <WorkspaceDangerZone workspace={current} />
     </Flex>
   )
 }

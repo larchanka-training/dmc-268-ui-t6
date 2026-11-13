@@ -1428,4 +1428,50 @@ describe('initMockTransport', () => {
       expect(summary.workspaces).toHaveLength(3)
     })
   })
+
+  describe('workspaces deletion', () => {
+    it('answers 404 for an unknown workspace', async () => {
+      await expect(
+        apiClient(endpoints.workspaces.delete('00000000-0000-0000-0000-000000000000'), {
+          body: { confirmation_name: 'does-not-matter' },
+        }),
+      ).rejects.toMatchObject({ status: 404 })
+    })
+
+    it('answers 403 when called for a workspace where user is not owner', async () => {
+      await expect(
+        apiClient(endpoints.workspaces.delete('323e4567-e89b-12d3-a456-426614174002'), {
+          body: { confirmation_name: 'dmc-team-admin' },
+        }),
+      ).rejects.toMatchObject({ status: 403, data: { detail: 'workspace_owner_required' } })
+    })
+
+    it('answers 422 when confirmation_name does not match', async () => {
+      await expect(
+        apiClient(endpoints.workspaces.delete('123e4567-e89b-12d3-a456-426614174000'), {
+          body: { confirmation_name: 'wrong-name' },
+        }),
+      ).rejects.toMatchObject({ status: 422, data: { detail: 'workspace_name_mismatch' } })
+    })
+
+    it('deletes the workspace when confirmation_name matches and removes it from /auth/me', async () => {
+      const beforeMe = await apiClient<{ workspaces: { id: string }[] }>(endpoints.auth.me())
+      expect(beforeMe.workspaces.some((w) => w.id === '123e4567-e89b-12d3-a456-426614174000')).toBe(
+        true,
+      )
+
+      const result = await apiClient(
+        endpoints.workspaces.delete('123e4567-e89b-12d3-a456-426614174000'),
+        {
+          body: { confirmation_name: 'larchanka-training' },
+        },
+      )
+      expect(result).toBeNull()
+
+      const afterMe = await apiClient<{ workspaces: { id: string }[] }>(endpoints.auth.me())
+      expect(afterMe.workspaces.some((w) => w.id === '123e4567-e89b-12d3-a456-426614174000')).toBe(
+        false,
+      )
+    })
+  })
 })
