@@ -32,6 +32,7 @@ const TOOL_STAGE = new Map<string, number>([
   ['context.build', CONTEXT],
   ['llm.repo_conventions', CONTEXT],
   ['llm.call', ANALYSIS],
+  ['llm.result_cache', ANALYSIS],
   ['llm.review_output', ANALYSIS],
   ['review.postprocess', ANALYSIS],
   ['engine.fallback', ANALYSIS],
@@ -56,6 +57,29 @@ function isFailedStep(action: RunAction): boolean {
 
 const LlmCallAttemptSchema = z.object({ attempt: z.int().positive() })
 
+function isCurrentLlmCall(action: RunAction, runAttempt: number): boolean {
+  if (action.tool !== 'llm.call') {
+    return false
+  }
+  const request = LlmCallAttemptSchema.safeParse(action.request)
+  return request.success && request.data.attempt === runAttempt
+}
+
+/**
+ * Checks whether a policy segment can be trusted when earlier claims left no `policy.load` row.
+ * When `llm.call` exists in the segment, requires a call whose `attempt` matches `runAttempt`.
+ * Known trade-off for hit-only attempts: the API's `llm.result_cache` request omits `attempt`, so a
+ * segment with `llm.result_cache` and no `llm.call` is treated as active progress (ensuring a hit-only
+ * attempt still shows stage progress at the cost of briefly showing a hit-only prior attempt before the new
+ * claim writes `policy.load`).
+ */
+function isCorroboratedAttempt(latest: readonly RunAction[], runAttempt: number): boolean {
+  if (latest.some((action) => action.tool === 'llm.call')) {
+    return latest.some((action) => isCurrentLlmCall(action, runAttempt))
+  }
+  return latest.some((action) => action.tool === 'llm.result_cache')
+}
+
 // Read only the latest attempt and known tools. Policy rows delimit modern logs;
 // legacy logs use stage regressions or repeated conventions rows.
 function currentAttempt(actions: readonly RunAction[], runAttempt: number): RunAction[] {
@@ -66,19 +90,8 @@ function currentAttempt(actions: readonly RunAction[], runAttempt: number): RunA
   const latestPolicy = policyIndexes[policyIndexes.length - 1]
   if (latestPolicy !== undefined) {
     const latest = ordered.slice(latestPolicy)
-    if (policyIndexes.length < runAttempt) {
-      // Earlier claims can leave no policy row. A current call corroborates this
-      // segment, but until then prefer context over leaking an older attempt.
-      const corroborated = latest.some((action) => {
-        if (action.tool !== 'llm.call') {
-          return false
-        }
-        const request = LlmCallAttemptSchema.safeParse(action.request)
-        return request.success && request.data.attempt === runAttempt
-      })
-      if (!corroborated) {
-        return []
-      }
+    if (policyIndexes.length < runAttempt && !isCorroboratedAttempt(latest, runAttempt)) {
+      return []
     }
     return latest.filter((action) => TOOL_STAGE.has(action.tool))
   }
