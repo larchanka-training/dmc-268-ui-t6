@@ -25,7 +25,7 @@ Workspace packages: `landing/` (Vite, the public landing) and `docs-site/`
   (the last one checks the `pnpm build` output); for a change in `landing/` or
   `docs-site/` (or in `src/`, which `docs-site` imports) also
   `pnpm --dir <package> check-types` and `pnpm --dir <package> build`
-  (`landing` also has `test`).
+  (`landing` and `docs-site` also have `test`).
 - No new dependency without a line in the PR body.
 - Never edit files owned by another open PR without a comment there.
 - Unknown external input goes through Zod at the boundary — never trust an
@@ -45,20 +45,20 @@ Workspace packages: `landing/` (Vite, the public landing) and `docs-site/`
 
 <!-- SYNC: mirrors .agents/rules/frontend.md §2; the rules file is authoritative — change both together -->
 
-| Task         | Command                                                     | Source         |
-| ------------ | ----------------------------------------------------------- | -------------- |
-| Install      | `pnpm install` (bootstrap pnpm once: `npm install -g pnpm`) | `package.json` |
-| Dev server   | `pnpm dev`                                                  | `package.json` |
-| Lint         | `pnpm lint`                                                 | `package.json` |
-| Format       | `pnpm format`                                               | `package.json` |
-| Format check | `pnpm format:check`                                         | `package.json` |
-| Typecheck    | `pnpm check-types`                                          | `package.json` |
-| Test         | `pnpm test`                                                 | `package.json` |
-| Build        | `pnpm build`                                                | `package.json` |
-| Bundle check | `pnpm verify:prod-bundle` (after `pnpm build`)              | `package.json` |
-| Storybook    | `pnpm storybook` (static build: `pnpm build-storybook`)     | `package.json` |
-| Landing      | `pnpm --dir landing check-types`, `test`, `build`           | `landing/`     |
-| Docs site    | `pnpm --dir docs-site check-types`, `build` (`dev` to edit) | `docs-site/`   |
+| Task         | Command                                                             | Source         |
+| ------------ | ------------------------------------------------------------------- | -------------- |
+| Install      | `pnpm install` (bootstrap pnpm once: `npm install -g pnpm`)         | `package.json` |
+| Dev server   | `pnpm dev`                                                          | `package.json` |
+| Lint         | `pnpm lint`                                                         | `package.json` |
+| Format       | `pnpm format`                                                       | `package.json` |
+| Format check | `pnpm format:check`                                                 | `package.json` |
+| Typecheck    | `pnpm check-types`                                                  | `package.json` |
+| Test         | `pnpm test`                                                         | `package.json` |
+| Build        | `pnpm build`                                                        | `package.json` |
+| Bundle check | `pnpm verify:prod-bundle` (after `pnpm build`)                      | `package.json` |
+| Storybook    | `pnpm storybook` (static build: `pnpm build-storybook`)             | `package.json` |
+| Landing      | `pnpm --dir landing check-types`, `test`, `build`                   | `landing/`     |
+| Docs site    | `pnpm --dir docs-site check-types`, `test`, `build` (`dev` to edit) | `docs-site/`   |
 
 ## Layout
 

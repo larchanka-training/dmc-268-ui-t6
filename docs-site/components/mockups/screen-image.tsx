@@ -1,8 +1,23 @@
 import { ImageZoom } from 'fumadocs-ui/components/image-zoom'
 import { basePath } from '@/lib/shared'
+import type { MockName } from '../dashboard/mock-names'
 import screens from './screens.json'
 
-export type ShotName = keyof typeof screens
+interface ShotEntry {
+  src: string
+  width: number
+  height: number
+}
+
+function assertShotManifest<T extends Record<MockName, ShotEntry>>(
+  manifest: T & Record<Exclude<keyof T, MockName>, never>,
+): Record<MockName, ShotEntry> {
+  return manifest
+}
+
+const SCREEN_MANIFEST = assertShotManifest(screens)
+
+export type ShotName = MockName
 
 interface ScreenImageProps {
   /** A picture in public/screens, taken from /mockups/<name> by `pnpm --dir docs-site shots`. */
@@ -23,9 +38,9 @@ interface ScreenImageProps {
  * not a white box. Click or tap opens it zoomed in on the same page.
  */
 export function ScreenImage({ name, alt, caption, note, centerCaption = false }: ScreenImageProps) {
-  const { width, height } = screens[name]
+  const { width, height, src: entrySrc } = SCREEN_MANIFEST[name]
   // A plain <img> does not get the base path from Next.js; screens.json keeps it out.
-  const src = `${basePath}${screens[name].src}`
+  const src = `${basePath}${entrySrc}`
   return (
     <figure className="not-prose my-6" style={{ maxWidth: width }}>
       <ImageZoom src={src} alt={alt} zoomInProps={{ src, alt }}>

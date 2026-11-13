@@ -32,27 +32,13 @@ import http from 'node:http'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { MOCK_SHOTS } from '../components/dashboard/mock-names.ts'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const OUT_DIR = path.join(ROOT, 'public', 'screens')
 const MANIFEST = path.join(ROOT, 'components', 'mockups', 'screens.json')
 const SCALE = 2
 const WEBP_QUALITY = 90
-
-/**
- * What to shoot. A screen is a whole dashboard page at a laptop width and a fixed height; a
- * snippet is one settings block at the width of its docs card, its height measured on the page.
- * The names must match components/dashboard/mock-names.ts.
- */
-const SHOTS = [
-  { name: 'runs', width: 1280, height: 712 },
-  { name: 'run-detail', width: 1280, height: 1120 },
-  { name: 'settings-auto-review', width: 560 },
-  { name: 'settings-rag', width: 560 },
-  { name: 'settings-review-options', width: 560 },
-  { name: 'settings-branches-severity', width: 560 },
-  { name: 'settings-rules', width: 640 },
-]
 
 const require = createRequire(import.meta.url)
 
@@ -127,7 +113,13 @@ function serveStatic(outDir, basePath, port) {
       pathname === basePath || pathname.startsWith(`${basePath}/`)
         ? decodeURIComponent(pathname.slice(basePath.length))
         : null
-    const file = inside === null ? null : path.join(outDir, path.normalize(`/${inside}`))
+    const candidateFile =
+      inside === null ? null : path.resolve(outDir, path.normalize(`.${path.sep}${inside}`))
+    const rel = candidateFile === null ? null : path.relative(outDir, candidateFile)
+    const file =
+      candidateFile !== null && rel !== null && !rel.startsWith('..') && !path.isAbsolute(rel)
+        ? candidateFile
+        : null
     for (const candidate of file === null
       ? []
       : [file, `${file}.html`, path.join(file, 'index.html')]) {
@@ -202,7 +194,7 @@ async function main() {
   try {
     browser = await playwright.chromium.launch({ executablePath })
     await mkdir(OUT_DIR, { recursive: true })
-    for (const shot of SHOTS) {
+    for (const shot of MOCK_SHOTS) {
       const page = await browser.newPage({
         viewport: { width: shot.width, height: shot.height ?? 800 },
         deviceScaleFactor: SCALE,
