@@ -179,12 +179,17 @@ export const RunBudgetSchema = z.object({
 })
 export type RunBudget = z.infer<typeof RunBudgetSchema>
 
-/** RunSession plus review fields; all five are required, as in the contract. */
+/**
+ * RunSession plus review fields; all five are required, as in the contract. `dataPurged`
+ * (api#457: the retention job cleared the run's diff text) is required in the contract too, but
+ * defaults to `false` so an answer from an older api without it still parses.
+ */
 export const RunDetailSchema = RunSessionSchema.extend({
   findings: z.array(FindingViewSchema),
   summary: ReviewSummarySchema.nullable(),
   verdict: VerdictSchema.nullable(),
   severityCounts: SeverityCountsSchema,
   budget: RunBudgetSchema.nullable(),
+  dataPurged: z.boolean().default(false),
 })
 export type RunDetail = z.infer<typeof RunDetailSchema>
