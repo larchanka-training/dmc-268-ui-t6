@@ -8,12 +8,10 @@
 .previewContainer {
   display: flex;
   align-items: center;
-  min-height: 24px;
 }
 
 .previewImage {
   display: block;
-  max-height: 24px;
   object-fit: contain;
 }
 
@@ -28,11 +26,15 @@
 .snippetBox {
   flex: 1;
   min-width: 0;
-  padding: 4px 10px;
+  padding: 8px 12px;
   overflow-x: auto;
   background: var(--rv-surface-2);
   border: 1px solid var(--rv-border);
   border-radius: var(--rv-radius-md);
+}
+
+.snippetBox pre {
+  overflow-x: visible;
 }
 
 .snippetBox:focus-visible {
