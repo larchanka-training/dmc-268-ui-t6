@@ -152,4 +152,37 @@ export const settings = {
     end: 'cannot end with "/", "." or ".lock"',
     at: '"@" cannot be a mask',
   },
+  workspace: {
+    title: 'Workspace settings',
+    general: {
+      title: 'General',
+      name: 'Workspace name',
+      id: 'Workspace ID',
+      installationId: 'GitHub App Installation ID',
+      role: 'Your role',
+      roleOwner: 'Owner',
+      roleAdmin: 'Admin',
+      roleBilling: 'Billing',
+      roleMember: 'Member',
+      roleReadOnly: 'Read only',
+    },
+    team: {
+      title: 'Team and access',
+      description: 'Manage members, invite teammates, and assign roles.',
+      noAccess:
+        'Team and member management is available only to the Owner and Admins of the workspace.',
+      placeholder:
+        'Team management features (invitations, role assignments) will be configured here.',
+    },
+    billing: {
+      title: 'Billing and plan',
+      description: 'View usage, manage subscription plan, and top up balance.',
+      noAccess:
+        'Subscription management and balance top-up are available to Owner, Admin, and Billing roles.',
+      placeholder: 'Plan details, auto-recharge, and payment methods will be configured here.',
+    },
+    readOnlyNotice: 'Read-only access: your workspace role is not assigned.',
+    loadFailed: 'Could not load workspace data.',
+    noWorkspace: 'No workspace selected.',
+  },
 }

@@ -10,10 +10,14 @@ export const UserSchema = z.object({
 })
 export type User = z.infer<typeof UserSchema>
 
+export const WorkspaceRoleSchema = z.enum(['owner', 'admin', 'billing', 'member'])
+export type WorkspaceRole = z.infer<typeof WorkspaceRoleSchema>
+
 export const WorkspaceSchema = z.object({
   id: z.uuid(),
   name: z.string().min(1),
   installationId: z.number().int(),
+  role: WorkspaceRoleSchema.nullable().optional().catch(undefined),
 })
 export type Workspace = z.infer<typeof WorkspaceSchema>
 

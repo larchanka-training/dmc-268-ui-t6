@@ -1,0 +1,13 @@
+.generalGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.field {
+  min-width: 0;
+}
+
+.codeValue {
+  overflow-wrap: anywhere;
+}

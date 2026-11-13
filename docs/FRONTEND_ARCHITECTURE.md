@@ -53,6 +53,7 @@ antd, TanStack Query и jsdom — патчи от 2026-09-24.
 | Ф-25 | SSE: одна инвалидация префикса прогона и объединение целей в пределах разобранного чанка (§2)                                                                        | Перекрывающиеся ключи отменяли и повторяли HTTP-запросы; следующий чанк сохраняет отмену старого refetch ради свежих данных (Refs ui#161).                                                                                    |
 | Ф-26 | Язык интерфейса: i18next, словари `en`/`ru` в `src/shared/i18n`, английский по умолчанию; переключатель: `features/language` (меню профиля, рядом с темой)           | #182: продукт открывается по-английски, выбор языка сохраняется (`dmc_language`). Полноту `ru` проверяет `check-types`, кириллицу вне словарей отклоняет `pnpm lint`; тесты идут на RU (`src/test/setup.ts`).                 |
 | Ф-27 | Текущий workspace: один источник `useCurrentWorkspace` (`features/workspace`); в Zustand и localStorage (`dmc_current_workspace`) — только выбранный id              | ui#207: список — запрос `['auth', 'me']` (Ф-7), текущий вычисляется при рендере; выбор общий на всё приложение, как тема и язык, поэтому стор не в виджете (§2).                                                              |
+| Ф-28 | Настройки workspace: маршрут `/settings` (ленивый), пункт меню в `AppSidebar` и матрица ролей ADR 0002 §11                                                           | ui#304: единый экран для команды и биллинга (Danger Zone убран до ui#300/PR #303); чтение роли из `workspaces[].role` `/auth/me` (придёт в api#373, до него fail-safe режим «только чтение», §9).                             |
 
 Ф-11 уточнено 2026-09-24 (#49): TypeScript поднят 5.9.3 → 6.0.3. Потолок — именно 6.0.x, а не
 «6.x»: у TypeScript 7.0 нет JS API компилятора, поэтому peer typescript-eslint остаётся
@@ -161,6 +162,7 @@ flowchart TD
 | Журнал прогонов (`/audit`)                       | `entities/run`, `features/audit-filter`, `pages/audit`                                                  |
 | Дашборд качества (`/analytics`)                  | `entities/metrics`, `features/analytics-filter`, `pages/analytics`                                      |
 | Песочница правил (`/playground`)                 | `entities/repository`, `widgets/repository-rules`, `pages/playground`                                   |
+| Настройки workspace (`/settings`)                | `entities/user`, `features/workspace`, `pages/settings`                                                 |
 
 Границы срезов ui#93:
 
@@ -439,6 +441,9 @@ src/pages/runs/RunsPage.test.tsx
 src/pages/runs/RunsPage.tsx
 src/pages/runs/lib/runLoadErrors.test.ts
 src/pages/runs/lib/runLoadErrors.ts
+src/pages/settings/WorkspaceSettingsPage.module.css
+src/pages/settings/WorkspaceSettingsPage.test.tsx
+src/pages/settings/WorkspaceSettingsPage.tsx
 src/shared/api/apiErrorMessage.test.ts
 src/shared/api/apiErrorMessage.ts
 src/shared/api/client.test.ts
@@ -2777,6 +2782,8 @@ issue прямо выносит подключение логирования з
 и показывает его через `RulesStatusView` виджета `repository-rules` без текста файла: текст стоит в
 редакторе правил. Ошибки `invalid` стоят на строках редактора, пока пользователь не правил текст: они
 относятся к файлу, который прочитал сервер, и после правки остаются только в статусе.
+
+**Настройки workspace (ui#304).** `/settings` — ленивая страница за `ProtectedLayout` и `AppLayoutRoute` (`RoutedWorkspaceSettingsPage` в `src/app/layouts/RoutePages.tsx`). В боковом меню `AppSidebar` добавлен пункт «Настройки» с иконкой `IconSettings`, подсвечивающийся при переходе на `/settings`. Роль текущего пользователя считывается из `workspaces[].role` ответа `/api/auth/me` через `WorkspaceRoleSchema` (`owner` | `admin` | `billing` | `member`). Серверный источник `workspaces[].role` появится с задачей api#373 (по решению техлида от 11.11 страница вливается каркасом заранее): пока api#373 не смёржен, реальный API поле `role` не присылает, поэтому на живом бэкенде страница не падает и безопасно открывается в режиме «только чтение» (полная ролевая матрица проверяется в моках и тестах). Каркас страницы содержит секции: общие сведения (ID, имя, installation ID и `Tag` роли из `shared/ui`), команду и доступ (плейсхолдер под ui#210, доступен Owner и Admin) и баланс и тариф (плейсхолдер под ui#208, доступен Owner, Admin, Billing); опасная зона (ui#300) вынесена в отдельный PR #303. Для недоступных секций выводится понятное объяснение с требованиями к роли по ADR 0002 §11.
 
 **Сборка и чанки.** `vite.config.ts`: `build.rolldownOptions.output.codeSplitting`
 (`vendor-react`, `vendor-query`, `vendor-zod`, `includeDependenciesRecursively: false`);
