@@ -3,6 +3,8 @@ import type { JSX } from 'react'
 import { useTranslation } from '../../../shared/i18n'
 import { cx } from '../../../shared/ui'
 import styles from './FindingsByDay.module.css'
+import { ChartHeading, MetricTooltip } from './MetricTooltip'
+import { useChartRovingFocus } from '../lib/useChartRovingFocus'
 
 const CATEGORIES = [
   { key: 'security', labelKey: 'analytics.categorySecurity', className: styles.security },
@@ -39,13 +41,49 @@ export function FindingsByDay(props: {
   )
   const slot = width / Math.max(series.length, 1)
 
+  const bars: {
+    key: string
+    className: string | undefined
+    tooltipTitle: string
+    height: number
+    width: number
+    x: number
+    y: number
+  }[] = []
+
+  series.forEach((point, index) => {
+    let stacked = 0
+    const x = index * slot + slot * 0.2
+    const barWidth = slot * 0.6
+    for (const category of CATEGORIES) {
+      const value = point.findingsByCategory[category.key]
+      if (value <= 0) {
+        continue
+      }
+      const barHeight = (value / max) * innerHeight
+      const y = innerHeight - stacked - barHeight
+      stacked += barHeight
+      bars.push({
+        key: `${point.day}-${category.key}`,
+        className: category.className,
+        tooltipTitle: `${point.day}: ${t(category.labelKey)} — ${String(value)}`,
+        height: barHeight,
+        width: barWidth,
+        x,
+        y,
+      })
+    }
+  })
+
+  const { getItemProps } = useChartRovingFocus<SVGRectElement>(bars.length)
+
   return (
     <figure>
-      <figcaption>{label}</figcaption>
+      <ChartHeading help={t('analytics.findingsByDayHelp')} label={label} />
       <svg
         aria-label={label}
         className={styles.chart}
-        role="img"
+        role="group"
         viewBox={`0 0 ${String(width)} ${String(height)}`}
       >
         <line
@@ -55,33 +93,20 @@ export function FindingsByDay(props: {
           y1={String(innerHeight)}
           y2={String(innerHeight)}
         />
-        {series.map((point, index) => {
-          let stacked = 0
-          const x = index * slot + slot * 0.2
-          const barWidth = slot * 0.6
-          return (
-            <g key={point.day}>
-              {CATEGORIES.map((category) => {
-                const value = point.findingsByCategory[category.key]
-                const barHeight = (value / max) * innerHeight
-                const y = innerHeight - stacked - barHeight
-                stacked += barHeight
-                return (
-                  <rect
-                    className={category.className}
-                    height={String(barHeight)}
-                    key={category.key}
-                    width={String(barWidth)}
-                    x={String(x)}
-                    y={String(y)}
-                  >
-                    <title>{`${t(category.labelKey)} ${String(value)}`}</title>
-                  </rect>
-                )
-              })}
-            </g>
-          )
-        })}
+        {bars.map((bar, index) => (
+          <MetricTooltip key={bar.key} title={bar.tooltipTitle}>
+            <rect
+              aria-label={bar.tooltipTitle}
+              className={cx(bar.className, styles.bar)}
+              height={String(bar.height)}
+              role="graphics-symbol"
+              width={String(bar.width)}
+              x={String(bar.x)}
+              y={String(bar.y)}
+              {...getItemProps(index)}
+            />
+          </MetricTooltip>
+        ))}
       </svg>
       <ul className={styles.legend}>
         {CATEGORIES.map((category) => (

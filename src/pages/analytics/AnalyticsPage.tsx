@@ -10,6 +10,7 @@ import { DataTable, ErrorBoundary, PageHeader, Segmented } from '../../shared/ui
 import styles from './AnalyticsPage.module.css'
 import { DurationByDay } from './ui/DurationByDay'
 import { FindingsByDay } from './ui/FindingsByDay'
+import { MetricTooltip } from './ui/MetricTooltip'
 import { TodayBudget } from './ui/TodayBudget'
 
 function finishedRuns(summary: MetricsSummary): number {
@@ -17,12 +18,19 @@ function finishedRuns(summary: MetricsSummary): number {
   return counts.succeeded + counts.failed + counts.cancelled + counts.skipped
 }
 
-function Tile(props: { label: string; value: string }): JSX.Element {
+function Tile(props: { label: string; value: string; tooltip: string }): JSX.Element {
   return (
-    <div className={styles.tile}>
-      <dt>{props.label}</dt>
-      <dd>{props.value}</dd>
-    </div>
+    <MetricTooltip title={props.tooltip}>
+      <div
+        aria-label={`${props.label}: ${props.value}`}
+        className={styles.tile}
+        role="group"
+        tabIndex={0}
+      >
+        <dt>{props.label}</dt>
+        <dd>{props.value}</dd>
+      </div>
+    </MetricTooltip>
   )
 }
 
@@ -120,67 +128,93 @@ export function AnalyticsPage(): JSX.Element {
           <dl className={styles.tiles}>
             <Tile
               label={`${t('analytics.runs')}: ${t('analytics.statusSucceeded')}`}
+              tooltip={t('analytics.runsSucceededTooltip')}
               value={String(summary.totals.runsByStatus.succeeded)}
             />
             <Tile
               label={`${t('analytics.runs')}: ${t('analytics.statusFailed')}`}
+              tooltip={t('analytics.runsFailedTooltip')}
               value={String(summary.totals.runsByStatus.failed)}
             />
             <Tile
               label={`${t('analytics.runs')}: ${t('analytics.statusCancelled')}`}
+              tooltip={t('analytics.runsCancelledTooltip')}
               value={String(summary.totals.runsByStatus.cancelled)}
             />
             <Tile
               label={`${t('analytics.runs')}: ${t('analytics.statusSkipped')}`}
+              tooltip={t('analytics.runsSkippedTooltip')}
               value={String(summary.totals.runsByStatus.skipped)}
             />
             <Tile
               label={`${t('analytics.pulls')}: ${t('analytics.verdictBlocking')}`}
+              tooltip={t('analytics.pullsBlockingTooltip')}
               value={String(summary.totals.pullsByVerdict.blocking)}
             />
             <Tile
               label={`${t('analytics.pulls')}: ${t('analytics.verdictAttention')}`}
+              tooltip={t('analytics.pullsAttentionTooltip')}
               value={String(summary.totals.pullsByVerdict.attention)}
             />
             <Tile
               label={`${t('analytics.pulls')}: ${t('analytics.verdictClean')}`}
+              tooltip={t('analytics.pullsCleanTooltip')}
               value={String(summary.totals.pullsByVerdict.clean)}
             />
             <Tile
               label={`${t('analytics.pulls')}: ${t('analytics.noVerdict')}`}
+              tooltip={t('analytics.pullsNoVerdictTooltip')}
               value={String(summary.totals.pullsByVerdict.noVerdict)}
             />
             <Tile
               label={t('analytics.severityCritical')}
+              tooltip={t('analytics.severityCriticalTooltip')}
               value={String(summary.totals.findingsBySeverity.critical)}
             />
             <Tile
               label={t('analytics.severityHigh')}
+              tooltip={t('analytics.severityHighTooltip')}
               value={String(summary.totals.findingsBySeverity.high)}
             />
             <Tile
               label={t('analytics.severityMedium')}
+              tooltip={t('analytics.severityMediumTooltip')}
               value={String(summary.totals.findingsBySeverity.medium)}
             />
             <Tile
               label={t('analytics.severityLow')}
+              tooltip={t('analytics.severityLowTooltip')}
               value={String(summary.totals.findingsBySeverity.low)}
             />
             <Tile
               label={t('analytics.severityInfo')}
+              tooltip={t('analytics.severityInfoTooltip')}
               value={String(summary.totals.findingsBySeverity.info)}
             />
             <Tile
               label={t('analytics.averageDuration')}
+              tooltip={t('analytics.averageDurationTooltip')}
               value={
                 summary.totals.succeededAverageDurationSeconds === 0
                   ? '—'
                   : formatDuration(summary.totals.succeededAverageDurationSeconds * 1000)
               }
             />
-            <Tile label={t('analytics.tokensIn')} value={formatNumber(summary.totals.tokensIn)} />
-            <Tile label={t('analytics.tokensOut')} value={formatNumber(summary.totals.tokensOut)} />
-            <Tile label={t('analytics.cost')} value={formatUsd(summary.totals.costUsd)} />
+            <Tile
+              label={t('analytics.tokensIn')}
+              tooltip={t('analytics.tokensInTooltip')}
+              value={formatNumber(summary.totals.tokensIn)}
+            />
+            <Tile
+              label={t('analytics.tokensOut')}
+              tooltip={t('analytics.tokensOutTooltip')}
+              value={formatNumber(summary.totals.tokensOut)}
+            />
+            <Tile
+              label={t('analytics.cost')}
+              tooltip={t('analytics.costTooltip')}
+              value={formatUsd(summary.totals.costUsd)}
+            />
           </dl>
           <div className={styles.charts}>
             <ErrorBoundary>
