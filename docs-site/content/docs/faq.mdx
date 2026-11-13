@@ -184,13 +184,13 @@ they appear in **Findings outside the diff** and obey the file, severity and sea
 Reviewer also reviews only the file list when it cannot get the full list of changed files. Such
 runs have the `summary-only` tag in **Runs**.
 
-Or the changed files have no diff that Reviewer can read: GitHub or Bitbucket did not send it or
-sent it broken, and nothing else in the pull request is left to review. Then the model is not
-called. The review is posted with no findings and no verdict, and the `AI Review` check is neutral
-with the title `AI-ревью: проверка неполная` (on Bitbucket, the commit status says
-`AI review incomplete`). Such a run has no `summary-only` tag; older runs like this have it. If
-only some files have no diff, Reviewer still reviews the rest of the code; such a review is
-incomplete.
+Or the pull request has up to 3,000 changed lines, but the changed files have no diff that
+Reviewer can read: GitHub or Bitbucket did not send it or sent it broken, and nothing else in the
+pull request is left to review. Then the model is not called. The review is posted with no
+findings and no verdict, and the `AI Review` check is neutral with the title
+`AI-ревью: проверка неполная` (on Bitbucket, the commit status says `AI review incomplete`). Such a
+run has no `summary-only` tag; older runs like this have it. If only some files have no diff,
+Reviewer still reviews the rest of the code; such a review is incomplete.
 
 Or the findings could not be tied to changed lines; then they are in the review body.
 
