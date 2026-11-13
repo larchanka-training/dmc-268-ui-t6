@@ -128,6 +128,20 @@ describe('return to the original route after login (StrictMode)', () => {
     ).toBe('page')
   })
 
+  // An unknown address is kept like any other: sign-in first, then the 404 page of that address.
+  it('sends a signed-out user from an unknown address to sign-in and then to its 404 page', async () => {
+    const router = renderRouted('/no-such-page')
+
+    const demoLogin = await screen.findByRole('button', { name: /войти как демо-пользователь/i })
+    expect(router.state.location.pathname).toBe('/login')
+    expect(sessionStorage.getItem(AUTH_RETURN_TO_KEY)).toBe('/no-such-page')
+
+    fireEvent.click(demoLogin)
+
+    expect(await screen.findByRole('heading', { name: 'Страница не найдена' })).toBeTruthy()
+    expect(router.state.location.pathname).toBe('/no-such-page')
+  })
+
   it('opens the saved route after the OAuth callback', async () => {
     saveAuthReturnTo(RUN_PATH)
     // `CallbackPage` reads the code and state from `window.location`, not from the memory router.

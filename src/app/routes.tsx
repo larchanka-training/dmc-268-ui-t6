@@ -12,6 +12,7 @@ import {
   RoutedRepositorySettingsPage,
   RoutedAnalyticsPage,
   RoutedAuditPage,
+  RoutedNotFoundPage,
   RoutedPlaygroundPage,
   RoutedReviewRedirectPage,
   RoutedRunDetailPage,
@@ -85,11 +86,11 @@ export function createRoutes() {
                     </Suspense>
                   ),
                 },
+                {
+                  path: '*',
+                  element: <RoutedNotFoundPage />,
+                },
               ],
-            },
-            {
-              path: '*',
-              element: <Navigate replace to="/repositories" />,
             },
           ],
         },

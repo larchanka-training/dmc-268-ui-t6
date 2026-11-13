@@ -181,6 +181,8 @@ flowchart TD
 src/App.returnTo.test.tsx
 src/App.test.tsx
 src/App.tsx
+src/app/layouts/NetworkStatusNotice.module.css
+src/app/layouts/NetworkStatusNotice.tsx
 src/app/layouts/ProtectedLayout.returnTo.test.tsx
 src/app/layouts/RootErrorFallback.module.css
 src/app/layouts/RootErrorFallback.tsx
@@ -205,6 +207,7 @@ src/app/mocks/mockRunsList.fixture.ts
 src/app/mocks/mockTransport.test.ts
 src/app/mocks/mockTransport.ts
 src/app/mocks/mockTransport.walkingRun.test.ts
+src/app/networkStatus.test.tsx
 src/app/providers/QueryProvider.tsx
 src/app/providers/RunStreamBridge.tsx
 src/app/providers/UiProvider.diffTheme.test.tsx
@@ -220,6 +223,7 @@ src/app/providers/runStreamConnect.ts
 src/app/providers/useRunStream.test.tsx
 src/app/providers/useRunStream.ts
 src/app/rootErrorBoundary.test.tsx
+src/app/routes.notFound.test.tsx
 src/app/routes.offline.test.tsx
 src/app/routes.tsx
 src/app/runDetailLoading.page.test.tsx
@@ -406,6 +410,8 @@ src/pages/login/LoginPage.module.css
 src/pages/login/LoginPage.motion.test.tsx
 src/pages/login/LoginPage.test.tsx
 src/pages/login/LoginPage.tsx
+src/pages/not-found/NotFoundPage.module.css
+src/pages/not-found/NotFoundPage.tsx
 src/pages/playground/PlaygroundPage.module.css
 src/pages/playground/PlaygroundPage.test.tsx
 src/pages/playground/PlaygroundPage.tsx
@@ -2749,6 +2755,27 @@ issue прямо выносит подключение логирования з
 эффекте, который при его падении не выполнился. `error.message` экран не показывает, ошибку пишет в
 консоль сам React. Тот же `ErrorBoundary` без `fallback` держит упавший график `/analytics` внутри
 его блока: на месте графика `Alert` «Не удалось загрузить этот блок, обновите страницу».
+
+**Страница 404 (Refs ui#238).** Неизвестный адрес ловит `path: '*'` последним дочерним маршрутом
+`AppLayoutRoute`: вошедший видит `NotFoundPage` (`src/pages/not-found/`) внутри оболочки с
+боковым меню — `Result` 404 и главная кнопка-ссылка «К репозиториям» (`href` и
+`useLinkClickHandler`), адрес в строке браузера не меняется. Молчаливого редиректа на
+`/repositories` больше нет; `/` по-прежнему ведёт туда. Невошедший, как и с любым адресом, уходит на
+`/login`, `ProtectedLayout` сохраняет адрес в `returnTo`, и после входа открывается 404 этого адреса
+(`src/App.returnTo.test.tsx`). Страница подключена напрямую, не через `lazyRoute`: её ленивый чанк
+заставлял rolldown вынести свой рантайм в отдельный `rolldown-runtime-*.js`, который vendor-чанки
+импортируют статически, а `pnpm smoke:prod-app` это запрещает. Страница маленькая (`Result` уже в
+основном чанке из-за `RouteErrorFallback`) и в офлайне открывается без сети.
+
+**Признак потери сети (Refs ui#238).** `App` рендерит `NetworkStatusNotice`
+(`src/app/layouts/NetworkStatusNotice.tsx`) рядом с `RouterProvider`, поэтому он есть на любой
+странице, включая `/login`. Признак следует `onlineManager` TanStack Query — тому состоянию, которое
+ставит запросы на паузу (ui#216), поэтому признак и пауза запросов совпадают. О сети `onlineManager`,
+как и `navigator.onLine`, узнаёт по событиям `online` и `offline` окна: сеть без выхода в интернет их
+не даёт, и признак её не ловит. Пока `onlineManager` офлайн, внизу окна по центру стоит `Alert` warning поверх страницы:
+загруженное остаётся на месте, страницу он не сдвигает. Событие `online` снимает его без перезагрузки.
+Страничные признаки `RouteOfflineNotice` (незагруженный чанк, ui#245) и офлайн прогона (ui#216)
+остаются как были.
 
 **Маршрут настроек репозитория (Refs ui#93).** `/repositories/:repoId/settings` — дочерний маршрут
 `AppLayoutRoute` за `ProtectedLayout`; ленивая страница `RepositorySettingsPage` подключена обёрткой

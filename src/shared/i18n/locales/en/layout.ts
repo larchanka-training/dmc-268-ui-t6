@@ -38,5 +38,13 @@ export const layout = {
     description: 'The app stopped because of an error. Reload the page to continue.',
     reload: 'Reload',
   },
+  notFound: {
+    title: 'Page not found',
+    description:
+      'There is no such address in the dashboard. Check the link or open the list of repositories.',
+    toRepositories: 'Go to repositories',
+  },
   routeOffline: 'No network connection. The page will open once you are back online',
+  networkOffline:
+    'No network connection. What is loaded stays on the page; the rest loads once you are back online',
 }

@@ -1,0 +1,7 @@
+/* The heading inside the title of `Result` takes the title's look from the design system: no
+   browser margin or size of its own. */
+.title {
+  margin: 0;
+  color: inherit;
+  font: inherit;
+}
