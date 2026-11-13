@@ -53,6 +53,7 @@ antd, TanStack Query и jsdom — патчи от 2026-09-24.
 | Ф-25 | SSE: одна инвалидация префикса прогона и объединение целей в пределах разобранного чанка (§2)                                                                        | Перекрывающиеся ключи отменяли и повторяли HTTP-запросы; следующий чанк сохраняет отмену старого refetch ради свежих данных (Refs ui#161).                                                                                    |
 | Ф-26 | Язык интерфейса: i18next, словари `en`/`ru` в `src/shared/i18n`, английский по умолчанию; переключатель: `features/language` (меню профиля, рядом с темой)           | #182: продукт открывается по-английски, выбор языка сохраняется (`dmc_language`). Полноту `ru` проверяет `check-types`, кириллицу вне словарей отклоняет `pnpm lint`; тесты идут на RU (`src/test/setup.ts`).                 |
 | Ф-27 | Текущий workspace: один источник `useCurrentWorkspace` (`features/workspace`); в Zustand и localStorage (`dmc_current_workspace`) — только выбранный id              | ui#207: список — запрос `['auth', 'me']` (Ф-7), текущий вычисляется при рендере; выбор общий на всё приложение, как тема и язык, поэтому стор не в виджете (§2).                                                              |
+| Ф-28 | Песочница: предварительный контракт api#311 — в `entities/review/model/rulesSimulation.ts` и `pages/playground/lib/simulationErrors.ts`; отказ — по форме тела       | Эндпоинта в api нет (api#311 в Todo), тело задачи оставляет формы ответов открытыми; ui пишется на моках, и PR api правит только эти два файла (Refs ui#187).                                                                 |
 
 Ф-11 уточнено 2026-09-24 (#49): TypeScript поднят 5.9.3 → 6.0.3. Потолок — именно 6.0.x, а не
 «6.x»: у TypeScript 7.0 нет JS API компилятора, поэтому peer typescript-eslint остаётся
@@ -160,7 +161,7 @@ flowchart TD
 | Правила: статус `.review/rules.md`               | `entities/repository`, `widgets/repository-rules`, `pages/repositories/RepositorySettingsPage`          |
 | Журнал прогонов (`/audit`)                       | `entities/run`, `features/audit-filter`, `pages/audit`                                                  |
 | Дашборд качества (`/analytics`)                  | `entities/metrics`, `features/analytics-filter`, `pages/analytics`                                      |
-| Песочница правил (`/playground`)                 | `entities/repository`, `widgets/repository-rules`, `pages/playground`                                   |
+| Песочница правил (`/playground`)                 | `entities/repository`, `entities/review`, `widgets/repository-rules`, `pages/playground`                |
 
 Границы срезов ui#93:
 
@@ -705,7 +706,7 @@ src/widgets/run-inspector/ui/RunProgressBar.tsx
 | Текущий workspace                     | id в Zustand и localStorage (`dmc_current_workspace`), `features/workspace`; читать — `useCurrentWorkspace` (ниже)         | — (список — `['auth', 'me']`; выбранного id нет в ответе — текущий первый доступный)                                                                                                                                                                                                                                              |
 | Статус `.review/rules.md`             | TanStack Query, ключ `['repoRulesStatus', id]` — вне `['repos']` (ниже)                                                    | открытие (`'always'`), `gcTime: 0`, опрос `pending` и повтора `retryable unavailable` раз в 3 с до 60 с                                                                                                                                                                                                                           |
 | Черновик настроек репозитория         | `useState` в `RepositorySettingsForm`: снимок на открытии (baseline) и правки пользователя, не копия кэша                  | — (живёт с формой; `key={repoId}`, `resetTo`)                                                                                                                                                                                                                                                                                     |
-| Песочница правил (`/playground`)      | `useState` в `PlaygroundPage`: репозиторий, источник правил, режим, файл, код, черновик правил `{ repoId, text }`          | — (живёт со страницей; текст файла правил — из `['repoRulesStatus', id]`, не копируется; ответ сервера, в том числе после опроса `pending`, черновик не затирает)                                                                                                                                                                 |
+| Песочница правил (`/playground`)      | `useState` в `PlaygroundPage`: репозиторий, источник правил, режим, файл, код, черновик правил `{ repoId, text }`          | — (живёт со страницей; текст файла правил — из `['repoRulesStatus', id]`, не копируется; ответ сервера, в том числе после опроса `pending`, черновик не затирает; последняя симуляция `{ id, repositoryName }` — тоже `useState`, её ответ — `['rulesSimulation', id]`, Ф-28)                                                     |
 | Черновики комментариев                | —                                                                                                                          | future (не реализовано в этом спринте)                                                                                                                                                                                                                                                                                            |
 
 **Текущий workspace (ui#207, Ф-27).** Где хранится: выбранный id — в `useWorkspaceStore`
@@ -2710,6 +2711,17 @@ checkpoint или ошибка до входа в `traced_step` могут ос�
   (№2, `building`) → через 10 с (№3, `ready`) → опрос стоит. Срок «около 10 с»: любой другой GET, например при
   возврате в окно, продвигает сборку так же.
 
+### Симуляция песочницы (Refs ui#187)
+
+`src/app/mocks/mockRulesSimulation.ts` отвечает за `POST /repos/{id}/rules-simulations` и
+`GET /rules-simulations/{id}` по предварительному контракту (Ф-28). Симуляция идёт по числу GET, как
+индекс RAG: первый GET — `queued`, второй — `running`, третий и дальше — `succeeded` с тремя
+замечаниями: по тексту правил (если он не пуст), по дефолтной проверке `service-defaults:E2` и без
+правила; строки прижаты к числу строк кода. Пока предыдущая не закончена, `POST` отвечает `409` с её
+`id`; код больше 64 КиБ — `422 content_too_large`. Остальные отказы и `failed` — в тестах через
+`withMockTransportOverlay`. Id фикстуры начинаются с `5a5a5a5a-5a5a-4a5a-8a5a`, этот префикс ищет
+`scripts/verify-prod-bundle.sh`; `initMockTransport()` забывает симуляции.
+
 Валидация — тестом: `src/app/mocks/app-state.test.ts` прогоняет весь мок через Zod-схемы
 (`RunSessionSchema`, `FileDiffSchema`, `ReviewCommentSchema`, `RunActionSchema`, `RepositorySchema`)
 и проверяет, что `parse` не бросает исключение; статусы правил — `RulesStatusSchema` в
@@ -2777,6 +2789,17 @@ issue прямо выносит подключение логирования з
 и показывает его через `RulesStatusView` виджета `repository-rules` без текста файла: текст стоит в
 редакторе правил. Ошибки `invalid` стоят на строках редактора, пока пользователь не правил текст: они
 относятся к файлу, который прочитал сервер, и после правки остаются только в статусе.
+
+«Симулировать ревью» (Ч.3) шлёт `POST /repos/{repoId}/rules-simulations` с режимом, именем файла,
+кодом и текстом правил и опрашивает `GET /rules-simulations/{id}` раз в 2 с (`useRulesSimulation`),
+пока статус не `succeeded` или `failed`; `4xx` и ответ не по схеме опрос тоже останавливают, сбой
+сервера — нет. Контракт предварительный (Ф-28). `409` с `id` — симуляция пользователя ещё идёт
+(например, после перезагрузки): страница следит за ней, а не показывает ошибку. Остальные отказы и
+`failed` — текст по случаю, `detail` api на экран не попадает. Ошибки правил из `422` стоят на
+строках редактора, пока в нём отправленный текст. Кнопка заблокирована без кода и пока текст правил
+неизвестен (`pending`, `unavailable`, `invalid` без текста, загрузка) и пользователь его не набрал:
+пустой `rulesMd` подменил бы правила репозитория дефолтами. Стоимость подписана репозиторием на
+момент отправки. Колонки страницы стоят каждая в своём `ErrorBoundary` (#238).
 
 **Сборка и чанки.** `vite.config.ts`: `build.rolldownOptions.output.codeSplitting`
 (`vendor-react`, `vendor-query`, `vendor-zod`, `includeDependenciesRecursively: false`);

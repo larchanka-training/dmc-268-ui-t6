@@ -14,6 +14,17 @@ describe('endpoints', () => {
     expect(endpoints.runs.cancel('x').method).toBe('POST')
   })
 
+  it('builds the rules simulation endpoints: a POST on the repository, a GET by id', () => {
+    expect(endpoints.rulesSimulations.create('repo-1')).toEqual({
+      method: 'POST',
+      path: '/repos/repo-1/rules-simulations',
+    })
+    expect(endpoints.rulesSimulations.detail('sim-1')).toEqual({
+      method: 'GET',
+      path: '/rules-simulations/sim-1',
+    })
+  })
+
   it('builds the rerun endpoint with POST', () => {
     expect(endpoints.runs.rerun('x')).toEqual({
       method: 'POST',

@@ -2,20 +2,11 @@ import { useState, type JSX } from 'react'
 import { Typography } from 'antd'
 
 import { extractNewSideLines, type FileDiff } from '../../../entities/diff'
-import type { FindingView, Severity } from '../../../entities/review'
-import { findingLineRangeLabel, SEVERITY_LABEL } from '../../../entities/review'
+import type { FindingView } from '../../../entities/review'
+import { findingLineRangeLabel, SEVERITY_LABEL, SEVERITY_TAG } from '../../../entities/review'
 import { useTranslation } from '../../../shared/i18n'
-import { FilePath, RowButton, Tag, type TagProps } from '../../../shared/ui'
+import { FilePath, RowButton, Tag } from '../../../shared/ui'
 import { DiffSuggestion } from './DiffSuggestion'
-
-/** Each finding keeps its exact severity; only critical is filled (UI #127). */
-const SEVERITY_TAG = {
-  critical: { tone: 'critical', variant: 'solid' },
-  high: { tone: 'critical', variant: 'dot' },
-  medium: { tone: 'high', variant: 'dot' },
-  low: { tone: 'warning', variant: 'dot' },
-  info: { tone: 'info', variant: 'dot' },
-} as const satisfies Record<Severity, Pick<TagProps, 'tone' | 'variant'>>
 
 interface InlineCommentProps {
   finding: FindingView

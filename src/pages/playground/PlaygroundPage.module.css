@@ -55,6 +55,14 @@
   font-weight: 500;
 }
 
+/* The page moves focus here from the Simulate button, as `RulesStatusPanel` does with its heading.
+   The reset of Ant Design takes the outline off `[tabindex='-1']:focus`; the attribute makes this
+   rule the more specific one. */
+.label[tabindex]:focus-visible {
+  outline: 2px solid var(--rv-link);
+  outline-offset: 2px;
+}
+
 .note {
   color: var(--rv-text-2);
 }
@@ -70,4 +78,8 @@
   display: block;
   max-width: 520px;
   margin-inline: auto;
+}
+
+.simulate {
+  align-self: flex-start;
 }

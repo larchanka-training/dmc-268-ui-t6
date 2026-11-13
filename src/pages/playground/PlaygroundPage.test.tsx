@@ -2,10 +2,24 @@
 import { currentCompletions, startCompletion } from '@codemirror/autocomplete'
 import { EditorView } from '@codemirror/view'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { App } from 'antd'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+
+// Flipped by the test of a column that throws while rendering.
+const crash = vi.hoisted(() => ({ result: false }))
+
+vi.mock('./ui/SimulationResult', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./ui/SimulationResult')>()
+  return {
+    ...actual,
+    SimulationResult: (props: Parameters<typeof actual.SimulationResult>[0]) => {
+      if (crash.result) throw new Error('result failed')
+      return <actual.SimulationResult {...props} />
+    },
+  }
+})
 
 // Mock mode on: the page asks the mock transport, as it does in `pnpm dev` with mocks.
 vi.mock('../../shared/config/env', async (importOriginal) => {
@@ -55,6 +69,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   setMockTransport(null)
+  crash.result = false
 })
 
 function renderPage() {
@@ -90,14 +105,19 @@ function editorText(name: string): string {
   return editor(name).state.doc.toString()
 }
 
-/** A keystroke as CodeMirror sees it: an edit by the user, reported through `onChange`. */
+/**
+ * A keystroke as CodeMirror sees it: an edit by the user, reported through `onChange`. The render it
+ * causes happens at once, as a browser does before the next click.
+ */
 function typeInto(name: string, text: string): void {
   const view = editor(name)
   const end = view.state.doc.length
-  view.dispatch({
-    changes: { from: end, insert: text },
-    selection: { anchor: end + text.length },
-    userEvent: 'input.type',
+  act(() => {
+    view.dispatch({
+      changes: { from: end, insert: text },
+      selection: { anchor: end + text.length },
+      userEvent: 'input.type',
+    })
   })
 }
 
@@ -494,5 +514,471 @@ describe('PlaygroundPage: code', () => {
 
     const result = await screen.findByRole('region', { name: 'Результат симуляции' })
     expect(within(result).getByText('Здесь появятся замечания симуляции.')).toBeTruthy()
+  })
+})
+
+const SIMULATE = 'Симулировать ревью'
+const RESULT = 'Результат симуляции'
+const SIMULATION_ID = '5a5a5a5a-5a5a-4a5a-8a5a-000000000001'
+
+const findingByRules = {
+  path: 'app.py',
+  line: 3,
+  startLine: 2,
+  severity: 'high',
+  category: 'security',
+  title: 'Query built from user input',
+  body: 'The rules ask for parameterized queries.',
+  suggestion: null,
+  confidence: 0.86,
+  ruleName: '.review/rules.md',
+}
+const findingByDefaults = {
+  ...findingByRules,
+  line: 1,
+  startLine: null,
+  severity: 'medium',
+  title: 'Error is swallowed',
+  body: 'The caller never learns of the failure.',
+  confidence: 0.714,
+  ruleName: 'service-defaults:E2',
+}
+const findingByNoRule = {
+  ...findingByRules,
+  line: 4,
+  startLine: 4,
+  severity: 'low',
+  title: 'Name says little',
+  body: 'A name that tells what it holds reads better.',
+  confidence: 0.55,
+  ruleName: null,
+}
+
+function succeeded(findings: object[], costUsd = 0.0123) {
+  return {
+    id: SIMULATION_ID,
+    status: 'succeeded',
+    findings,
+    tokensIn: 1200,
+    tokensOut: 300,
+    costUsd,
+  }
+}
+
+interface SimulationStart {
+  repoId: string | undefined
+  body: unknown
+}
+
+/**
+ * Records each POST, which the mock transport still answers, and gives the GETs of a simulation
+ * these answers, one per GET, the last one repeating; none leaves the mock's own walk.
+ */
+function simulationBackend(...answers: object[]): SimulationStart[] {
+  const starts: SimulationStart[] = []
+  let gets = 0
+  withMockTransportOverlay((endpoint, options) => {
+    const started = /^\/repos\/([^/]+)\/rules-simulations$/.exec(endpoint.path)
+    if (started && endpoint.method === 'POST') {
+      starts.push({ repoId: started[1], body: options.body })
+      return undefined
+    }
+    if (answers.length > 0 && endpoint.path.startsWith('/rules-simulations/')) {
+      gets += 1
+      return Promise.resolve(answers[Math.min(gets, answers.length) - 1])
+    }
+    return undefined
+  })
+  return starts
+}
+
+function simulateButton(): HTMLElement {
+  return screen.getByRole('button', { name: SIMULATE })
+}
+
+function resultPanel(): HTMLElement {
+  return screen.getByRole('region', { name: RESULT })
+}
+
+/** The page with the rules of the first repository read and `code` in the code editor. */
+const readyPage = async (code = 'x = 1'): Promise<void> => {
+  renderPage()
+  await waitFor(() => {
+    expect(editorText(RULES_TEXT)).toBe(fixtureText(UI_REPO.id))
+  })
+  typeInto(CODE, code)
+  await waitFor(() => {
+    expect(simulateButton()).toHaveProperty('disabled', false)
+  })
+}
+
+describe('PlaygroundPage: simulation', () => {
+  it('sends the mode, the file, the code and the rules text with the selected repository', async () => {
+    const starts = simulationBackend()
+    await readyPage()
+    fireEvent.change(screen.getByLabelText('Имя файла'), { target: { value: 'app.py' } })
+    typeInto(RULES_TEXT, '\n# Mine')
+
+    fireEvent.click(simulateButton())
+
+    await waitFor(() => {
+      expect(starts).toEqual([
+        {
+          repoId: UI_REPO.id,
+          body: {
+            mode: 'code',
+            path: 'app.py',
+            content: 'x = 1',
+            rulesMd: `${fixtureText(UI_REPO.id)}\n# Mine`,
+          },
+        },
+      ])
+    })
+  })
+
+  it('sends a diff, and empty rules when only the service defaults apply', async () => {
+    const starts = simulationBackend()
+    await readyPage('+added')
+    fireEvent.click(screen.getByRole('radio', { name: 'Дифф' }))
+    await choose(RULES_SOURCE, 'Только дефолтные правила сервиса')
+
+    fireEvent.click(simulateButton())
+
+    await waitFor(() => {
+      expect(starts).toEqual([
+        { repoId: UI_REPO.id, body: { mode: 'diff', path: '', content: '+added', rulesMd: '' } },
+      ])
+    })
+  })
+
+  it('blocks the button and shows the progress while the simulation runs, then the findings', async () => {
+    simulationBackend({ id: SIMULATION_ID, status: 'running' }, succeeded([findingByRules]))
+    await readyPage()
+
+    fireEvent.click(simulateButton())
+
+    expect(await within(resultPanel()).findByText('Идёт ревью…')).toBeTruthy()
+    expect(simulateButton()).toHaveProperty('disabled', true)
+    // The next poll, without a reload of the page.
+    expect(await within(resultPanel()).findByText('Query built from user input')).toBeTruthy()
+    expect(within(resultPanel()).queryByText('Идёт ревью…')).toBeNull()
+    expect(simulateButton()).toHaveProperty('disabled', false)
+  })
+
+  it('moves the focus to the result heading, not to the top of the page, as the button blocks', async () => {
+    simulationBackend({ id: SIMULATION_ID, status: 'running' })
+    await readyPage()
+    simulateButton().focus()
+
+    fireEvent.click(simulateButton())
+
+    expect(document.activeElement).toBe(screen.getByRole('heading', { level: 2, name: RESULT }))
+    expect(await within(resultPanel()).findByText('Идёт ревью…')).toBeTruthy()
+    expect(simulateButton()).toHaveProperty('disabled', true)
+  })
+
+  it('says the simulation is queued until it starts', async () => {
+    simulationBackend({ id: SIMULATION_ID, status: 'queued' })
+    await readyPage()
+
+    fireEvent.click(simulateButton())
+
+    expect(await within(resultPanel()).findByText('Симуляция в очереди…')).toBeTruthy()
+    expect(simulateButton()).toHaveProperty('disabled', true)
+  })
+
+  it('shows the severity, title, text, line, rule source and confidence of each finding', async () => {
+    simulationBackend(succeeded([findingByRules, findingByDefaults, findingByNoRule]))
+    await readyPage()
+
+    fireEvent.click(simulateButton())
+
+    const list = await within(resultPanel()).findByRole('list', { name: 'Замечания симуляции' })
+    const items = within(list).getAllByRole('listitem')
+    expect(items.map((item) => item.textContent)).toEqual([
+      'HighQuery built from user inputThe rules ask for parameterized queries.Строки 2–3.review/rules.mdУверенность 86 %',
+      'MediumError is swallowedThe caller never learns of the failure.Строка 1Проверка по умолчанию E2Уверенность 71 %',
+      'LowName says littleA name that tells what it holds reads better.Строка 4Без правилаУверенность 55 %',
+    ])
+  })
+
+  it('says there are no findings when the simulation found none', async () => {
+    simulationBackend(succeeded([]))
+    await readyPage()
+
+    fireEvent.click(simulateButton())
+
+    expect(await within(resultPanel()).findByText('Замечаний нет')).toBeTruthy()
+  })
+
+  it('shows the cost and the repository whose workspace paid, as it was when sent', async () => {
+    simulationBackend(succeeded([]))
+    await readyPage()
+
+    fireEvent.click(simulateButton())
+
+    const cost = `Стоимость симуляции: $0.0123. Списана с дневного бюджета workspace репозитория ${UI_REPO.fullName}.`
+    expect(await within(resultPanel()).findByText(cost)).toBeTruthy()
+
+    await choose(REPOSITORY, API_REPO.fullName)
+    expect(within(resultPanel()).getByText(cost)).toBeTruthy()
+  })
+
+  it('blocks the button until there is code to review', async () => {
+    renderPage()
+    await waitFor(() => {
+      expect(editorText(RULES_TEXT)).toBe(fixtureText(UI_REPO.id))
+    })
+    expect(simulateButton()).toHaveProperty('disabled', true)
+
+    typeInto(CODE, '  \n')
+    await waitFor(() => {
+      expect(editorText(CODE)).toBe('  \n')
+    })
+    expect(simulateButton()).toHaveProperty('disabled', true)
+    typeInto(CODE, 'x = 1')
+    await waitFor(() => {
+      expect(simulateButton()).toHaveProperty('disabled', false)
+    })
+  })
+
+  it('blocks the button while the rules of the repository are unknown, unless the user typed some', async () => {
+    const starts = simulationBackend()
+    await readyPage()
+
+    // The status of the repository could not be read: there is no text to send.
+    await choose(REPOSITORY, INFRA_REPO.fullName)
+    await within(rulesStatus()).findByText('Не удалось прочитать файл правил')
+    expect(simulateButton()).toHaveProperty('disabled', true)
+
+    typeInto(RULES_TEXT, '# Mine')
+    await waitFor(() => {
+      expect(simulateButton()).toHaveProperty('disabled', false)
+    })
+    fireEvent.click(simulateButton())
+
+    await waitFor(() => {
+      expect(starts.map((start) => start.body)).toEqual([
+        { mode: 'code', path: '', content: 'x = 1', rulesMd: '# Mine' },
+      ])
+    })
+  })
+
+  it('blocks the button while the rules of the repository are being read', async () => {
+    withMockTransportOverlay((endpoint) =>
+      endpoint.path === `/repos/${UI_REPO.id}/rules-status`
+        ? Promise.resolve({
+            status: 'pending',
+            branch: 'main',
+            path: '.review/rules.md',
+            sha: null,
+            checkedAt: null,
+          })
+        : undefined,
+    )
+    renderPage()
+    await within(await screen.findByRole('region', { name: 'Правила ревью' })).findByText(
+      'Проверяем .review/rules.md в ветке main…',
+    )
+    typeInto(CODE, 'x = 1')
+
+    expect(simulateButton()).toHaveProperty('disabled', true)
+  })
+
+  it('sends empty rules for a repository without a rules file: the service defaults apply', async () => {
+    const starts = simulationBackend()
+    await readyPage()
+    await choose(REPOSITORY, DOCS_REPO.fullName)
+    await within(rulesStatus()).findByText(MISSING_WARNING)
+
+    fireEvent.click(simulateButton())
+
+    await waitFor(() => {
+      expect(starts.map((start) => start.body)).toEqual([
+        { mode: 'code', path: '', content: 'x = 1', rulesMd: '' },
+      ])
+    })
+  })
+})
+
+const EARLIER_ID = '5a5a5a5a-5a5a-4a5a-8a5a-0000000000e1'
+
+/** The POST of a simulation is refused with `error`. */
+function refuseStart(error: ApiError): void {
+  withMockTransportOverlay((endpoint) =>
+    endpoint.method === 'POST' && endpoint.path.endsWith('/rules-simulations')
+      ? Promise.reject(error)
+      : undefined,
+  )
+}
+
+describe('PlaygroundPage: simulation errors', () => {
+  it('follows the simulation the server says still runs, with its progress and result, not an error', async () => {
+    const reads: string[] = []
+    withMockTransportOverlay((endpoint) => {
+      if (endpoint.method === 'POST' && endpoint.path.endsWith('/rules-simulations')) {
+        return Promise.reject(
+          new ApiError(409, 'Conflict', { detail: 'active_simulation_exists', id: EARLIER_ID }),
+        )
+      }
+      if (endpoint.path.startsWith('/rules-simulations/')) {
+        reads.push(endpoint.path)
+        return Promise.resolve(
+          reads.length === 1
+            ? { id: EARLIER_ID, status: 'running' }
+            : { ...succeeded([findingByRules]), id: EARLIER_ID },
+        )
+      }
+      return undefined
+    })
+    await readyPage()
+
+    fireEvent.click(simulateButton())
+
+    expect(await within(resultPanel()).findByText('Идёт ревью…')).toBeTruthy()
+    expect(await within(resultPanel()).findByText('Query built from user input')).toBeTruthy()
+    expect(new Set(reads)).toEqual(new Set([`/rules-simulations/${EARLIER_ID}`]))
+    expect(within(resultPanel()).queryByRole('alert')).toBeNull()
+    expect(
+      within(resultPanel()).getByText(
+        'Это симуляция, запущенная раньше: её код и правила могли быть другими.',
+      ),
+    ).toBeTruthy()
+    expect(
+      within(resultPanel()).getByText(
+        'Стоимость симуляции: $0.0123. Списана с дневного бюджета workspace репозитория, на котором её запустили.',
+      ),
+    ).toBeTruthy()
+  })
+
+  it('says the budget is used up, and keeps the code and the rules', async () => {
+    refuseStart(new ApiError(409, 'Conflict', { detail: 'budget_paused' }))
+    await readyPage()
+    typeInto(RULES_TEXT, '\n# Mine')
+
+    fireEvent.click(simulateButton())
+
+    expect(
+      await within(resultPanel()).findByText(
+        'Дневной бюджет workspace этого репозитория исчерпан: симуляция не запущена.',
+      ),
+    ).toBeTruthy()
+    expect(editorText(CODE)).toBe('x = 1')
+    expect(editorText(RULES_TEXT)).toBe(`${fixtureText(UI_REPO.id)}\n# Mine`)
+    expect(simulateButton()).toHaveProperty('disabled', false)
+  })
+
+  it('marks the errors of rules the server could not parse on their lines, until the user edits them', async () => {
+    refuseStart(
+      new ApiError(422, 'Unprocessable Entity', {
+        detail: 'rules_invalid',
+        diagnostics: [
+          {
+            code: 'policy_ignore_pattern_invalid',
+            message: 'Invalid mask',
+            line: 9,
+            column: 1,
+            retryable: false,
+          },
+        ],
+      }),
+    )
+    await readyPage()
+
+    fireEvent.click(simulateButton())
+
+    expect(await within(resultPanel()).findByText('Правила не разобраны')).toBeTruthy()
+    expect(
+      within(resultPanel()).getByText(/В блоке review-ignore недопустимая маска\./),
+    ).toBeTruthy()
+    await waitFor(() => {
+      expect(document.querySelector('.cm-rv-diagnostic')).not.toBeNull()
+    })
+    expect(screen.getByRole('textbox', { name: RULES_TEXT }).getAttribute('aria-invalid')).toBe(
+      'true',
+    )
+
+    // The lines were those of the text that was sent.
+    typeInto(RULES_TEXT, '\n# Mine')
+
+    await waitFor(() => {
+      expect(document.querySelector('.cm-rv-diagnostic')).toBeNull()
+    })
+    expect(
+      screen.getByRole('textbox', { name: RULES_TEXT }).getAttribute('aria-invalid'),
+    ).toBeNull()
+    expect(within(resultPanel()).getByText('Правила не разобраны')).toBeTruthy()
+    expect(editorText(CODE)).toBe('x = 1')
+  })
+
+  it('says the code is over the limit', async () => {
+    refuseStart(new ApiError(422, 'Unprocessable Entity', { detail: 'content_too_large' }))
+    await readyPage()
+
+    fireEvent.click(simulateButton())
+
+    expect(
+      await within(resultPanel()).findByText('Код больше 64 КиБ. Сократите его и запустите снова.'),
+    ).toBeTruthy()
+    expect(document.querySelector('.cm-rv-diagnostic')).toBeNull()
+    expect(editorText(CODE)).toBe('x = 1')
+  })
+
+  it.each([
+    ['deadline_exceeded', 'Симуляция не уложилась в отведённое время.'],
+    ['provider_error', 'Модель не завершила ревью. Повторите позже.'],
+  ])(
+    'says why a simulation failed with %s, what it cost, and keeps the input',
+    async (errorCode, text) => {
+      simulationBackend({ id: SIMULATION_ID, status: 'failed', errorCode, costUsd: 0.004 })
+      await readyPage()
+
+      fireEvent.click(simulateButton())
+
+      expect(await within(resultPanel()).findByText(text)).toBeTruthy()
+      expect(
+        within(resultPanel()).getByText(
+          `Стоимость симуляции: $0.0040. Списана с дневного бюджета workspace репозитория ${UI_REPO.fullName}.`,
+        ),
+      ).toBeTruthy()
+      expect(editorText(CODE)).toBe('x = 1')
+      expect(simulateButton()).toHaveProperty('disabled', false)
+    },
+  )
+
+  it('shows a schema error, not an empty result, for an answer of another shape', async () => {
+    simulationBackend({ id: SIMULATION_ID, status: 'succeeded', costUsd: 0 })
+    await readyPage()
+
+    fireEvent.click(simulateButton())
+
+    expect(
+      await within(resultPanel()).findByText('Ответ сервера не прошёл проверку схемы'),
+    ).toBeTruthy()
+    expect(within(resultPanel()).queryByText('Замечаний нет')).toBeNull()
+    expect(simulateButton()).toHaveProperty('disabled', false)
+  })
+})
+
+describe('PlaygroundPage: a column that fails', () => {
+  it('shows the block stub in place of the result column and keeps the inputs working', async () => {
+    crash.result = true
+    // React reports the error it caught; the boundary is what is under test.
+    const report = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    try {
+      renderPage()
+
+      expect(
+        await screen.findByText('Не удалось загрузить этот блок, обновите страницу'),
+      ).toBeTruthy()
+      expect(screen.queryByRole('region', { name: RESULT })).toBeNull()
+      await waitFor(() => {
+        expect(editorText(RULES_TEXT)).toBe(fixtureText(UI_REPO.id))
+      })
+      typeInto(CODE, 'x = 1')
+      expect(editorText(CODE)).toBe('x = 1')
+    } finally {
+      report.mockRestore()
+    }
   })
 })
