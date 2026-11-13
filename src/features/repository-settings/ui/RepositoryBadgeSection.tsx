@@ -17,7 +17,7 @@ export interface RepositoryBadgeSectionProps {
 export const RepositoryBadgeSection: FC<RepositoryBadgeSectionProps> = ({ provider, fullName }) => {
   const { t } = useTranslation()
   const { message } = App.useApp()
-  const [previewError, setPreviewError] = useState(false)
+  const [failedPreviewPath, setFailedPreviewPath] = useState<string | null>(null)
 
   if (provider !== 'github') {
     return null
@@ -25,6 +25,7 @@ export const RepositoryBadgeSection: FC<RepositoryBadgeSectionProps> = ({ provid
 
   const origin = window.location.origin
   const previewPath = getBadgePath(fullName)
+  const previewError = failedPreviewPath === previewPath
   const snippet = buildBadgeSnippet(fullName, origin)
 
   const handleCopy = async () => {
@@ -46,8 +47,9 @@ export const RepositoryBadgeSection: FC<RepositoryBadgeSectionProps> = ({ provid
           <img
             alt={t('settings.badge.title')}
             className={styles.previewImage}
+            key={previewPath}
             onError={() => {
-              setPreviewError(true)
+              setFailedPreviewPath(previewPath)
             }}
             src={previewPath}
           />
