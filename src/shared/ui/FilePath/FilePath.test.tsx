@@ -53,7 +53,6 @@ describe('FilePath', () => {
     render(<FilePath className="placed-by-screen" path="package.json" />)
     const element = screen.getByText('package.json')
     expect(element.classList.contains('placed-by-screen')).toBe(true)
-    expect(styles.path).toBeTruthy()
     expect(element.classList.contains(styles.path ?? '')).toBe(true)
   })
 })

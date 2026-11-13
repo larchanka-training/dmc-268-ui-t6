@@ -146,7 +146,6 @@ describe('DataTable', () => {
     const { container, rerender } = render(
       <DataTable<Row> columns={columns} dataSource={rows} rowKey="id" />,
     )
-    expect(styles.nowrap).toBeTruthy()
     const wrapper = (): Element | null => container.querySelector('.ant-table-wrapper')
     expect(wrapper()?.classList.contains(styles.nowrap ?? '')).toBe(true)
     rerender(<DataTable<Row> columns={columns} dataSource={rows} nowrap={false} rowKey="id" />)
@@ -157,7 +156,6 @@ describe('DataTable', () => {
     const { container } = render(
       <DataTable<Row> columns={columns} dataSource={rows} nowrap={false} rowKey="id" />,
     )
-    expect(styles.wrap).toBeTruthy()
     const wrapper = container.querySelector('.ant-table-wrapper')
     expect(wrapper?.classList.contains(styles.wrap ?? '')).toBe(true)
     // jsdom computes no layout: the rule itself is what keeps a column from shrinking below a word.
@@ -165,7 +163,6 @@ describe('DataTable', () => {
   })
 
   it('matches its wrap rule to a Typography text in a cell of a wrapping table only', () => {
-    expect(styles.wrap).toBeTruthy()
     // The selector as the browser sees it: `:global()` unwrapped, `.wrap` replaced by the module class.
     const selector = WRAP_RULE.replace(/:global\(([^)]*)\)/, '$1').replace(
       '.wrap',
