@@ -22,12 +22,14 @@ function renderPage(options?: {
   omitRole?: boolean
   workspaceName?: string
   emptyWorkspaces?: boolean
+  status?: 'pending' | 'error' | 'success'
 }) {
   const {
     role,
     omitRole = false,
     workspaceName = 'Demo Workspace',
     emptyWorkspaces = false,
+    status = 'success',
   } = options ?? {}
 
   useAuthStore.setState({ isAuthenticated: true, isLoading: false, isInitialized: true })
@@ -54,7 +56,18 @@ function renderPage(options?: {
   })
 
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  client.setQueryData(AUTH_ME_QUERY_KEY, me)
+
+  if (status === 'pending') {
+    client.setQueryDefaults(AUTH_ME_QUERY_KEY, {
+      queryFn: () => new Promise<never>(() => undefined),
+    })
+  } else if (status === 'error') {
+    client.setQueryDefaults(AUTH_ME_QUERY_KEY, {
+      queryFn: () => Promise.reject(new Error('Network error')),
+    })
+  } else {
+    client.setQueryData(AUTH_ME_QUERY_KEY, me)
+  }
 
   function Wrapper({ children }: { children: ReactNode }) {
     return <QueryClientProvider client={client}>{children}</QueryClientProvider>
@@ -70,6 +83,24 @@ describe('WorkspaceSettingsPage', () => {
 
   afterEach(() => {
     cleanup()
+  })
+
+  it('renders skeleton during initial pending loading state', () => {
+    const { container } = renderPage({ status: 'pending' })
+    expect(screen.getByRole('heading', { name: /настройки workspace/i })).toBeDefined()
+    expect(container.querySelector('.ant-skeleton')).not.toBeNull()
+    expect(screen.queryByText(/воркспейс не выбран/i)).toBeNull()
+    expect(screen.queryByText(/общие сведения/i)).toBeNull()
+  })
+
+  it('renders error alert when /auth/me fails', async () => {
+    renderPage({ status: 'error' })
+    expect(screen.getByRole('heading', { name: /настройки workspace/i })).toBeDefined()
+    expect(await screen.findByText(/ошибка загрузки данных/i)).toBeDefined()
+    expect(screen.getByText(/не удалось загрузить данные воркспейса/i)).toBeDefined()
+    expect(screen.getByRole('button', { name: /повторить попытку/i })).toBeDefined()
+    expect(screen.queryByText(/воркспейс не выбран/i)).toBeNull()
+    expect(screen.queryByText(/общие сведения/i)).toBeNull()
   })
 
   it('renders empty state when no workspace is available', () => {

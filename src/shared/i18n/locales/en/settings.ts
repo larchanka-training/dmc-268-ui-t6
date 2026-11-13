@@ -182,6 +182,7 @@ export const settings = {
       placeholder: 'Plan details, auto-recharge, and payment methods will be configured here.',
     },
     readOnlyNotice: 'Read-only access: your workspace role is not assigned.',
+    loadFailed: 'Could not load workspace data.',
     noWorkspace: 'No workspace selected.',
   },
 }

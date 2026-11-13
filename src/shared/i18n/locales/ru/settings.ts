@@ -178,6 +178,7 @@ export const settings: Translation<typeof en> = {
       placeholder: 'Здесь будут отображаться баланс, тариф и способы оплаты.',
     },
     readOnlyNotice: 'Доступ только для чтения: роль в воркспейсе не назначена.',
+    loadFailed: 'Не удалось загрузить данные воркспейса.',
     noWorkspace: 'Воркспейс не выбран.',
   },
 }

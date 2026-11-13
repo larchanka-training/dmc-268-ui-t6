@@ -1,7 +1,7 @@
-import { Alert, Card, Flex, Typography } from 'antd'
+import { Alert, Button, Card, Flex, Skeleton, Typography } from 'antd'
 import type { FC } from 'react'
 
-import type { WorkspaceRole } from '../../entities/user'
+import { useMe, type WorkspaceRole } from '../../entities/user'
 import { useCurrentWorkspace } from '../../features/workspace'
 import { useTranslation } from '../../shared/i18n'
 import { PageHeader, Tag, type TagProps } from '../../shared/ui'
@@ -62,12 +62,41 @@ const PERMISSION_SECTIONS: readonly PermissionSectionConfig[] = [
 export const WorkspaceSettingsPage: FC = () => {
   const { t } = useTranslation()
   const { current } = useCurrentWorkspace()
+  const { isPending, isError, isFetching, refetch } = useMe()
+
+  if (isPending) {
+    return (
+      <Flex gap="middle" vertical>
+        <PageHeader title={t('settings.workspace.title')} />
+        <Skeleton active />
+      </Flex>
+    )
+  }
+
+  if (isError) {
+    return (
+      <Flex gap="middle" vertical>
+        <PageHeader title={t('settings.workspace.title')} />
+        <Alert
+          action={
+            <Button loading={isFetching} onClick={() => void refetch()} size="small" type="primary">
+              {t('common.errors.tryAgain')}
+            </Button>
+          }
+          description={t('settings.workspace.loadFailed')}
+          showIcon
+          title={t('common.errors.loadTitle')}
+          type="error"
+        />
+      </Flex>
+    )
+  }
 
   if (!current) {
     return (
-      <Flex vertical gap="middle">
+      <Flex gap="middle" vertical>
         <PageHeader title={t('settings.workspace.title')} />
-        <Alert type="info" showIcon title={t('settings.workspace.noWorkspace')} />
+        <Alert showIcon title={t('settings.workspace.noWorkspace')} type="info" />
       </Flex>
     )
   }
