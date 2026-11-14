@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import * as userApi from '../../../entities/user'
+import * as agentTokensApi from '../api/agentTokens'
 import { useAuthStore } from '../model/store'
 import { UserMenu } from './UserMenu'
 import styles from './UserMenu.module.css'
@@ -125,7 +126,49 @@ describe('UserMenu', () => {
     fireEvent.click(trigger)
     expect(await screen.findByText('Выйти')).toBeDefined()
     expect(trigger.getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getByText('Токены агента')).toBeDefined()
   })
+
+  it.each(['click', 'keyboard'])(
+    'opens agent tokens by %s and keeps focus in the dialog',
+    async (activation) => {
+      queryClient.setQueryData(userApi.AUTH_ME_QUERY_KEY, { ...MOCK_USER, workspaces: [] })
+      vi.spyOn(agentTokensApi, 'listAgentTokens').mockResolvedValue([])
+      render(
+        <QueryClientProvider client={queryClient}>
+          <UserMenu />
+        </QueryClientProvider>,
+      )
+
+      const trigger = screen.getByRole('button', { name: 'Меню пользователя' })
+      fireEvent.click(trigger)
+      const item = (await screen.findByText('Токены агента')).closest('[role="menuitem"]')
+      if (!item) throw new Error('Agent tokens menu item is missing')
+      if (activation === 'keyboard') {
+        const menuItem = item as HTMLElement
+        menuItem.focus()
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+        try {
+          fireEvent.keyDown(item, { key: 'Enter', code: 'Enter', keyCode: 13 })
+          expect(screen.queryByRole('dialog', { name: 'Токены агента' })).toBeNull()
+          await vi.advanceTimersByTimeAsync(0)
+        } finally {
+          vi.useRealTimers()
+        }
+      } else {
+        fireEvent.click(item)
+      }
+
+      const dialog = await screen.findByRole('dialog', { name: 'Токены агента' })
+      await waitFor(() => {
+        expect(dialog.contains(document.activeElement)).toBe(true)
+      })
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }))
+      await waitFor(() => {
+        expect(document.activeElement).toBe(trigger)
+      })
+    },
+  )
 })
 
 describe('UserMenu.module.css', () => {

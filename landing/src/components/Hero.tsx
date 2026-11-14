@@ -1,10 +1,30 @@
+import { useRef, useState } from 'react'
+
 import { getAppUrl } from '../lib/appUrl'
+import { buildAgentInstruction } from '../lib/agentInstruction'
 import { HeroGlass } from './HeroGlass'
 import { ReviewDemo } from './ReviewDemo'
 import { cx } from '../lib/cx'
 import styles from './Hero.module.css'
 
 export function Hero() {
+  const instructionRef = useRef<HTMLInputElement>(null)
+  const [copyStatus, setCopyStatus] = useState('')
+  const instruction = buildAgentInstruction(import.meta.env.VITE_GITHUB_APP_SLUG, getAppUrl())
+
+  async function copyInstruction() {
+    if (instruction === null) return
+    setCopyStatus('')
+    try {
+      await navigator.clipboard.writeText(instruction)
+      setCopyStatus('Copied')
+    } catch {
+      instructionRef.current?.focus()
+      instructionRef.current?.select()
+      setCopyStatus('Select the text to copy')
+    }
+  }
+
   return (
     <section className={styles.hero} aria-labelledby="hero-title">
       <div className={styles.backdrop} aria-hidden="true">
@@ -25,6 +45,38 @@ export function Hero() {
         <a href={getAppUrl()} className={styles.cta}>
           Try it now
         </a>
+        {instruction !== null && (
+          <div className={styles.agentSetup}>
+            <label htmlFor="agent-setup-instruction" className={styles.agentLabel}>
+              Prefer your coding agent? Give it this instruction.
+            </label>
+            <div className={styles.agentRow}>
+              <input
+                id="agent-setup-instruction"
+                ref={instructionRef}
+                className={styles.agentInput}
+                readOnly
+                value={instruction}
+                onFocus={(event) => {
+                  event.currentTarget.select()
+                }}
+              />
+              <button
+                type="button"
+                aria-label="Copy agent setup instruction"
+                className={styles.agentCopy}
+                onClick={() => {
+                  void copyInstruction()
+                }}
+              >
+                Copy
+              </button>
+            </div>
+            <span className={styles.agentStatus} role="status">
+              {copyStatus}
+            </span>
+          </div>
+        )}
       </div>
 
       <div className={cx('container', styles.demoWrap)}>

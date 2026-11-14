@@ -154,13 +154,16 @@ flowchart TD
 | Карточка прогона с диффом и инлайн-комментариями | `entities/{diff,review}`, `features/finding-filters`, `widgets/diff-viewer`, `pages/runs/RunDetailPage` |
 | Инспектор трейса (`RunSession → RunAction`)      | `entities/run`, `widgets/run-inspector`, `pages/runs`                                                   |
 | История прогонов (`/runs?repo=`)                 | `entities/run`, `features/run-list-filter`, `pages/runs/RunsPage`                                       |
-| Аутентификация и App Shell                       | `entities/user`, `features/auth`, `features/theme`, `widgets/app-layout`, `pages/{login,auth}`          |
+| Аутентификация, токены агента и App Shell        | `entities/user`, `features/auth`, `features/theme`, `widgets/app-layout`, `pages/{login,auth}`          |
 | Текущий workspace                                | `features/workspace`, `entities/user`                                                                   |
 | Репозитории и их настройки                       | `entities/repository`, `features/repository-settings`, `widgets/repository-list`, `pages/repositories`  |
 | Правила: статус `.review/rules.md`               | `entities/repository`, `widgets/repository-rules`, `pages/repositories/RepositorySettingsPage`          |
 | Журнал прогонов (`/audit`)                       | `entities/run`, `features/audit-filter`, `pages/audit`                                                  |
 | Дашборд качества (`/analytics`)                  | `entities/metrics`, `features/analytics-filter`, `pages/analytics`                                      |
 | Песочница правил (`/playground`)                 | `entities/repository`, `widgets/repository-rules`, `pages/playground`                                   |
+
+Контракт списка токенов агента и его Zod-схема находятся в `features/auth/api/agentTokens.ts`;
+окно управления — в `features/auth/ui/AgentTokensDialog.tsx`.
 
 Границы срезов ui#93:
 
@@ -305,6 +308,8 @@ src/features/audit-filter/model/auditFilter.test.ts
 src/features/audit-filter/model/auditFilter.ts
 src/features/audit-filter/model/useAuditFilterParams.ts
 src/features/auth/index.ts
+src/features/auth/api/agentTokens.test.ts
+src/features/auth/api/agentTokens.ts
 src/features/auth/lib/authCallbackErrors.test.ts
 src/features/auth/lib/authCallbackErrors.ts
 src/features/auth/lib/returnTo.test.ts
@@ -312,6 +317,8 @@ src/features/auth/lib/returnTo.ts
 src/features/auth/mocks/demoLoginTexts.ts
 src/features/auth/model/store.test.ts
 src/features/auth/model/store.ts
+src/features/auth/ui/AgentTokensDialog.test.tsx
+src/features/auth/ui/AgentTokensDialog.tsx
 src/features/auth/ui/LoginButton.test.tsx
 src/features/auth/ui/LoginButton.tsx
 src/features/auth/ui/UserMenu.module.css
