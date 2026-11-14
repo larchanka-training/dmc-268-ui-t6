@@ -131,6 +131,7 @@ describe('AgentTokensDialog', () => {
     await waitFor(() => {
       expect(button.getAttribute('aria-disabled')).toBe('true')
     })
+    expect(button.classList.contains('ant-btn-loading')).toBe(true)
     expect(button.hasAttribute('disabled')).toBe(false)
     button.focus()
     expect(document.activeElement).toBe(button)
@@ -140,6 +141,7 @@ describe('AgentTokensDialog', () => {
     await waitFor(() => {
       expect(button.getAttribute('aria-disabled')).toBe('false')
     })
+    expect(button.classList.contains('ant-btn-loading')).toBe(false)
     queryClient.clear()
   })
 
