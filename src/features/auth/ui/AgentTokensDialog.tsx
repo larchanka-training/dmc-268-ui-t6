@@ -72,6 +72,9 @@ export const AgentTokensDialog: FC<AgentTokensDialogProps> = ({ onClose }) => {
                         if (revoke.isPending) return
                         modal.confirm({
                           title: t('layout.userMenu.agentTokens.confirm'),
+                          afterClose: () => {
+                            window.setTimeout(() => focusContentRef.current?.focus(), 0)
+                          },
                           okText: t('layout.userMenu.agentTokens.revoke'),
                           cancelText: t('layout.userMenu.agentTokens.cancel'),
                           okType: 'danger',
