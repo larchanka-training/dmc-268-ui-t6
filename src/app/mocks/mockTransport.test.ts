@@ -29,7 +29,7 @@ import {
   type RunSession,
 } from '../../entities/run'
 import { ApiError, apiClient } from '../../shared/api/client'
-import { listAgentTokens, revokeAgentToken } from '../../features/auth/api/agentTokens'
+import { listAgentTokens, revokeAgentToken } from '../../features/auth'
 import { endpoints } from '../../shared/api/endpoints'
 import { validationErrorLocations } from '../../shared/api/validationError'
 import { mockRepositories, mockSummaryOnlyRun } from './app-state'
