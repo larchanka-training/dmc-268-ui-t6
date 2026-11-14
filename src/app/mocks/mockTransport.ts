@@ -19,8 +19,7 @@ import {
   type RulesStatus,
   type UpdateRepositoryInput,
 } from '../../entities/repository'
-import { setMockAuthAdapter, useAuthStore } from '../../features/auth'
-import type { AgentToken } from '../../features/auth/api/agentTokens'
+import { setMockAuthAdapter, useAuthStore, type AgentToken } from '../../features/auth'
 import type { BitbucketConnectionItem } from '../../features/bitbucket-connections'
 import {
   ApiError,
