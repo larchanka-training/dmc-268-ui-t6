@@ -147,7 +147,14 @@ describe('UserMenu', () => {
       if (activation === 'keyboard') {
         const menuItem = item as HTMLElement
         menuItem.focus()
-        fireEvent.keyDown(item, { key: 'Enter', code: 'Enter', keyCode: 13 })
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+        try {
+          fireEvent.keyDown(item, { key: 'Enter', code: 'Enter', keyCode: 13 })
+          expect(screen.queryByRole('dialog', { name: 'Токены агента' })).toBeNull()
+          await vi.advanceTimersByTimeAsync(0)
+        } finally {
+          vi.useRealTimers()
+        }
       } else {
         fireEvent.click(item)
       }

@@ -317,10 +317,10 @@ src/features/auth/lib/returnTo.ts
 src/features/auth/mocks/demoLoginTexts.ts
 src/features/auth/model/store.test.ts
 src/features/auth/model/store.ts
-src/features/auth/ui/LoginButton.test.tsx
-src/features/auth/ui/LoginButton.tsx
 src/features/auth/ui/AgentTokensDialog.test.tsx
 src/features/auth/ui/AgentTokensDialog.tsx
+src/features/auth/ui/LoginButton.test.tsx
+src/features/auth/ui/LoginButton.tsx
 src/features/auth/ui/UserMenu.module.css
 src/features/auth/ui/UserMenu.test.tsx
 src/features/auth/ui/UserMenu.tsx

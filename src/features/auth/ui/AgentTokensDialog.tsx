@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Button, List, Modal, Typography } from 'antd'
-import { useCallback, type FC } from 'react'
+import { useCallback, useRef, type FC } from 'react'
 
+import { ApiError } from '../../../shared/api/client'
 import { formatDateTime, useTranslation } from '../../../shared/i18n'
+import { useDisabledButtonClass } from '../../../shared/ui'
 import {
   AGENT_TOKENS_QUERY_KEY,
   listAgentTokens,
@@ -16,9 +18,12 @@ interface AgentTokensDialogProps {
 
 export const AgentTokensDialog: FC<AgentTokensDialogProps> = ({ onClose }) => {
   const { t } = useTranslation()
+  const focusContentRef = useRef<HTMLDivElement | null>(null)
   const focusContent = useCallback((element: HTMLDivElement | null) => {
+    focusContentRef.current = element
     element?.focus()
   }, [])
+  const disabledButtonClass = useDisabledButtonClass()
   const queryClient = useQueryClient()
   const [modal, contextHolder] = Modal.useModal()
   const tokens = useQuery({ queryKey: AGENT_TOKENS_QUERY_KEY, queryFn: listAgentTokens })
@@ -26,6 +31,7 @@ export const AgentTokensDialog: FC<AgentTokensDialogProps> = ({ onClose }) => {
     mutationFn: revokeAgentToken,
     onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: AGENT_TOKENS_QUERY_KEY })
+      window.setTimeout(() => focusContentRef.current?.focus(), 0)
     },
   })
 
@@ -45,7 +51,7 @@ export const AgentTokensDialog: FC<AgentTokensDialogProps> = ({ onClose }) => {
               }
             />
           ) : null}
-          {revoke.isError ? (
+          {revoke.isError && !(revoke.error instanceof ApiError && revoke.error.status === 404) ? (
             <Alert type="error" title={t('layout.userMenu.agentTokens.revokeError')} />
           ) : null}
           {tokens.isError ? null : (
@@ -59,9 +65,11 @@ export const AgentTokensDialog: FC<AgentTokensDialogProps> = ({ onClose }) => {
                     <Button
                       key="revoke"
                       danger
-                      disabled={revoke.isPending}
+                      aria-disabled={revoke.isPending}
+                      className={revoke.isPending ? disabledButtonClass : undefined}
                       loading={revoke.variables === token.id && revoke.isPending}
                       onClick={() => {
+                        if (revoke.isPending) return
                         modal.confirm({
                           title: t('layout.userMenu.agentTokens.confirm'),
                           okText: t('layout.userMenu.agentTokens.revoke'),

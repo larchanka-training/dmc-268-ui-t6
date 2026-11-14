@@ -58,6 +58,10 @@ describe('AgentTokensDialog', () => {
       expect(revoke.mock.calls[0]?.[0]).toBe(TOKEN_ID)
     })
     expect(await screen.findByText('Активных токенов агента нет')).toBeDefined()
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    expect(document.activeElement).toBe(
+      screen.getByText('Активных токенов агента нет').closest('[tabindex="-1"]'),
+    )
     expect(list).toHaveBeenCalledTimes(2)
     queryClient.clear()
   })
@@ -84,6 +88,7 @@ describe('AgentTokensDialog', () => {
     expect(await screen.findByText(TOKEN.repository)).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: 'Отозвать' }))
     fireEvent.click(confirmation().getByRole('button', { name: 'Отмена' }))
+    await new Promise((resolve) => setTimeout(resolve, 300))
     expect(revoke).not.toHaveBeenCalled()
     expect(screen.getByText(TOKEN.repository)).toBeDefined()
     queryClient.clear()
@@ -103,7 +108,50 @@ describe('AgentTokensDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Отозвать' }))
     fireEvent.click(confirmation().getByRole('button', { name: 'Отозвать' }))
     expect(await screen.findByText('Активных токенов агента нет')).toBeDefined()
+    expect(screen.queryByText('Не удалось отозвать токен агента')).toBeNull()
     expect(list).toHaveBeenCalledTimes(2)
+    queryClient.clear()
+  })
+
+  it('keeps the revoke action focusable and prevents another request while pending', async () => {
+    vi.spyOn(agentTokensApi, 'listAgentTokens').mockResolvedValue([TOKEN])
+    let finishRevoke: (() => void) | undefined
+    const revoke = vi.spyOn(agentTokensApi, 'revokeAgentToken').mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finishRevoke = resolve
+        }),
+    )
+    const queryClient = renderDialog()
+
+    expect(await screen.findByText(TOKEN.repository)).toBeDefined()
+    const button = screen.getByRole('button', { name: 'Отозвать' })
+    fireEvent.click(button)
+    fireEvent.click(confirmation().getByRole('button', { name: 'Отозвать' }))
+    await waitFor(() => {
+      expect(button.getAttribute('aria-disabled')).toBe('true')
+    })
+    expect(button.hasAttribute('disabled')).toBe(false)
+    button.focus()
+    expect(document.activeElement).toBe(button)
+    fireEvent.click(button)
+    expect(revoke).toHaveBeenCalledTimes(1)
+    finishRevoke?.()
+    await waitFor(() => {
+      expect(button.getAttribute('aria-disabled')).toBe('false')
+    })
+    queryClient.clear()
+  })
+
+  it('shows a revoke error for a failed request other than 404', async () => {
+    vi.spyOn(agentTokensApi, 'listAgentTokens').mockResolvedValue([TOKEN])
+    vi.spyOn(agentTokensApi, 'revokeAgentToken').mockRejectedValue(new Error('offline'))
+    const queryClient = renderDialog()
+
+    expect(await screen.findByText(TOKEN.repository)).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: 'Отозвать' }))
+    fireEvent.click(confirmation().getByRole('button', { name: 'Отозвать' }))
+    expect(await screen.findByText('Не удалось отозвать токен агента')).toBeDefined()
     queryClient.clear()
   })
 })
