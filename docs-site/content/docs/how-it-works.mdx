@@ -42,16 +42,17 @@ on the run in the dashboard.
 | `attention` | Only `medium` or `low` findings. |
 | `clean` | Every change was reviewed or verified as excluded (see [What is not reviewed](#what-is-not-reviewed)), and the review found nothing above `info`. |
 
-A partial review that found nothing above `info` has no verdict. Findings above `info` still
-produce `blocking` for `critical` or `high`, and `attention` for `medium` or `low`. The review
-summary and `AI Review` check explain what could not be reviewed.
+A review is partial when some changes could not be checked. With no findings above `info`, it
+has no verdict. Findings above `info` still produce `blocking` for `critical` or `high`, and
+`attention` for `medium` or `low`. The review summary and `AI Review` check explain what could
+not be reviewed.
 
 Findings go inline on changed lines; the rest are in the review body. The `AI Review` check ends
 as neutral, skipped or cancelled and never fails, so do not make it a required check.
 
 ## Details
 
-<Accordions>
+<Accordions defaultValue={['What is not reviewed']}>
 <Accordion title="CI waiting">
 
 | Setting | Behaviour |
@@ -93,7 +94,7 @@ are dropped unless serious. With the **Verdict** setting on "Request changes", b
 are posted as Request changes.
 
 </Accordion>
-<Accordion title="What is not reviewed">
+<Accordion title="What is not reviewed" id="what-is-not-reviewed">
 
 These verified exclusions do not prevent `clean` when other changes were reviewed:
 
@@ -110,18 +111,17 @@ These changes cannot be fully checked and leave the review partial:
 - A deleted binary file, such as an image, when its type cannot be confirmed from content.
 - A file with more than 20,000 changed lines or over 1 MiB that was not already confirmed as
   binary: it exceeds the read limit.
-- An empty new file on Bitbucket Cloud or operator-connected GitLab: neither provides the
-  independent evidence needed to confirm it is a regular file. GitLab support in the dashboard
-  is [coming](/faq#does-it-work-with-gitlab).
+- An empty new file on Bitbucket Cloud or GitLab ([not yet available in the dashboard](/faq#does-it-work-with-gitlab)):
+  neither provider supplies independent evidence that it is a regular file.
 
 With more than 3,000 changed lines, Reviewer reviews only the file list: no line comments, and
 the dashboard shows no verdict. Such a run has the `summary-only` tag in **Runs**, and its
 `AI Review` check says so in the title. In the review body, **Checked files** shows `(none)`:
 no file diff went to the model.
 
-Up to that size, if nothing is left to review except changes Reviewer cannot read, for example
-a file over 1 MiB that has no diff, or a file whose path it does not support, the model is not
-called. The review is posted with no findings and no verdict, and its `AI Review` check is
+Up to that size, if nothing is left to review except the changes listed above as leaving the
+review partial, or a file whose path Reviewer does not support, the model is not called. The
+review is posted with no findings and no verdict, and its `AI Review` check is
 neutral and says so in the title. If every changed file is a verified exclusion, the
 run is skipped instead, see the [FAQ](/faq#a-run-was-skipped).
 
