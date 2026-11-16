@@ -14,6 +14,11 @@ const TOKEN = {
   createdAt: '2026-11-05T12:00:00Z',
   expiresAt: '2026-12-05T12:00:00Z',
 }
+const OTHER_TOKEN = {
+  ...TOKEN,
+  id: '00000000-0000-4000-8000-000000000002',
+  repository: 'octo/other',
+}
 
 function renderDialog() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -58,10 +63,6 @@ describe('AgentTokensDialog', () => {
       expect(revoke.mock.calls[0]?.[0]).toBe(TOKEN_ID)
     })
     expect(await screen.findByText('Активных токенов агента нет')).toBeDefined()
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    expect(document.activeElement).toBe(
-      screen.getByText('Активных токенов агента нет').closest('[tabindex="-1"]'),
-    )
     expect(list).toHaveBeenCalledTimes(2)
     queryClient.clear()
   })
@@ -88,7 +89,11 @@ describe('AgentTokensDialog', () => {
     expect(await screen.findByText(TOKEN.repository)).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: 'Отозвать' }))
     fireEvent.click(confirmation().getByRole('button', { name: 'Отмена' }))
-    await new Promise((resolve) => setTimeout(resolve, 300))
+    await waitFor(() => {
+      expect(document.activeElement).toBe(
+        screen.getByText(TOKEN.repository).closest('[tabindex="-1"]'),
+      )
+    })
     expect(revoke).not.toHaveBeenCalled()
     expect(screen.getByText(TOKEN.repository)).toBeDefined()
     queryClient.clear()
@@ -114,7 +119,7 @@ describe('AgentTokensDialog', () => {
   })
 
   it('keeps the revoke action focusable and prevents another request while pending', async () => {
-    vi.spyOn(agentTokensApi, 'listAgentTokens').mockResolvedValue([TOKEN])
+    vi.spyOn(agentTokensApi, 'listAgentTokens').mockResolvedValue([TOKEN, OTHER_TOKEN])
     let finishRevoke: (() => void) | undefined
     const revoke = vi.spyOn(agentTokensApi, 'revokeAgentToken').mockImplementation(
       () =>
@@ -125,7 +130,8 @@ describe('AgentTokensDialog', () => {
     const queryClient = renderDialog()
 
     expect(await screen.findByText(TOKEN.repository)).toBeDefined()
-    const button = screen.getByRole('button', { name: 'Отозвать' })
+    const [button, otherButton] = screen.getAllByRole('button', { name: 'Отозвать' })
+    if (!button || !otherButton) throw new Error('Revoke buttons are missing')
     fireEvent.click(button)
     fireEvent.click(confirmation().getByRole('button', { name: 'Отозвать' }))
     await waitFor(() => {
@@ -133,13 +139,19 @@ describe('AgentTokensDialog', () => {
     })
     expect(button.classList.contains('ant-btn-loading')).toBe(true)
     expect(button.hasAttribute('disabled')).toBe(false)
+    expect(otherButton.getAttribute('aria-disabled')).toBe('true')
+    expect(otherButton.classList.contains('ant-btn-disabled')).toBe(true)
+    expect(otherButton.classList.contains('ant-btn-loading')).toBe(false)
+    expect(otherButton.hasAttribute('disabled')).toBe(false)
     button.focus()
     expect(document.activeElement).toBe(button)
-    fireEvent.click(button)
+    const confirmCount = screen.queryAllByText('Отозвать этот токен агента?').length
+    fireEvent.click(otherButton)
+    expect(screen.queryAllByText('Отозвать этот токен агента?')).toHaveLength(confirmCount)
     expect(revoke).toHaveBeenCalledTimes(1)
     finishRevoke?.()
     await waitFor(() => {
-      expect(button.getAttribute('aria-disabled')).toBe('false')
+      expect(button.getAttribute('aria-disabled')).toBeNull()
     })
     expect(button.classList.contains('ant-btn-loading')).toBe(false)
     queryClient.clear()

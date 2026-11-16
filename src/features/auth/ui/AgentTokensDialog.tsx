@@ -31,7 +31,6 @@ export const AgentTokensDialog: FC<AgentTokensDialogProps> = ({ onClose }) => {
     mutationFn: revokeAgentToken,
     onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: AGENT_TOKENS_QUERY_KEY })
-      window.setTimeout(() => focusContentRef.current?.focus(), 0)
     },
   })
 
@@ -65,24 +64,27 @@ export const AgentTokensDialog: FC<AgentTokensDialogProps> = ({ onClose }) => {
                     <Button
                       key="revoke"
                       danger
-                      aria-disabled={revoke.isPending}
+                      aria-disabled={revoke.isPending ? true : undefined}
                       className={revoke.isPending ? disabledButtonClass : undefined}
                       loading={revoke.variables === token.id && revoke.isPending}
-                      onClick={() => {
-                        if (revoke.isPending) return
-                        modal.confirm({
-                          title: t('layout.userMenu.agentTokens.confirm'),
-                          afterClose: () => {
-                            window.setTimeout(() => focusContentRef.current?.focus(), 0)
-                          },
-                          okText: t('layout.userMenu.agentTokens.revoke'),
-                          cancelText: t('layout.userMenu.agentTokens.cancel'),
-                          okType: 'danger',
-                          onOk: () => {
-                            revoke.mutate(token.id)
-                          },
-                        })
-                      }}
+                      onClick={
+                        revoke.isPending
+                          ? undefined
+                          : () => {
+                              modal.confirm({
+                                title: t('layout.userMenu.agentTokens.confirm'),
+                                afterClose: () => {
+                                  window.setTimeout(() => focusContentRef.current?.focus(), 0)
+                                },
+                                okText: t('layout.userMenu.agentTokens.revoke'),
+                                cancelText: t('layout.userMenu.agentTokens.cancel'),
+                                okType: 'danger',
+                                onOk: () => {
+                                  revoke.mutate(token.id)
+                                },
+                              })
+                            }
+                      }
                     >
                       {t('layout.userMenu.agentTokens.revoke')}
                     </Button>,

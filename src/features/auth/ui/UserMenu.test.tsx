@@ -144,6 +144,7 @@ describe('UserMenu', () => {
       fireEvent.click(trigger)
       const item = (await screen.findByText('Токены агента')).closest('[role="menuitem"]')
       if (!item) throw new Error('Agent tokens menu item is missing')
+      const focusTrigger = vi.spyOn(trigger, 'focus')
       if (activation === 'keyboard') {
         const menuItem = item as HTMLElement
         menuItem.focus()
@@ -152,6 +153,7 @@ describe('UserMenu', () => {
           fireEvent.keyDown(item, { key: 'Enter', code: 'Enter', keyCode: 13 })
           expect(screen.queryByRole('dialog', { name: 'Токены агента' })).toBeNull()
           await vi.advanceTimersByTimeAsync(0)
+          expect(focusTrigger).not.toHaveBeenCalled()
         } finally {
           vi.useRealTimers()
         }
@@ -167,6 +169,7 @@ describe('UserMenu', () => {
       await waitFor(() => {
         expect(document.activeElement).toBe(trigger)
       })
+      expect(focusTrigger).toHaveBeenCalled()
     },
   )
 })
