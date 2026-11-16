@@ -25,6 +25,7 @@ import {
   autoReviewChoiceSaved,
   ragErrorTitle,
   RagSection,
+  RepositoryBadgeSection,
   RepositorySettingsForm,
   type RepositorySettingsFormHandle,
 } from '../../features/repository-settings'
@@ -333,6 +334,7 @@ const RepositorySettingsContent: FC<{ repoId: string }> = ({ repoId }) => {
           repository={repository}
         />
         <RulesStatusPanel provider={repository.provider} repoId={repository.id} />
+        <RepositoryBadgeSection fullName={repository.fullName} provider={repository.provider} />
       </Flex>
     )
   }

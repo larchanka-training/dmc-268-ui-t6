@@ -20,6 +20,13 @@ type Story = StoryObj<typeof CodeBlock>
 
 export const Default: Story = {}
 
+export const Box: Story = {
+  args: {
+    variant: 'box',
+    children: '![Reviewer](https://example.com/api/badges/github/my-org/my-repo.svg)',
+  },
+}
+
 /** Chromium adds scroll containers to the Tab order only when they actually overflow. */
 export const LongLine: Story = {
   args: { children: JSON.stringify({ log: 'Строка для горизонтальной прокрутки. '.repeat(20) }) },
