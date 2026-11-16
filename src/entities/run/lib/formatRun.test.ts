@@ -1,18 +1,6 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import { formatDateTime, formatDuration, runDuration } from './formatRun'
-
-const runnerZone = process.env.TZ
-beforeAll(() => {
-  process.env.TZ = 'Asia/Tokyo'
-})
-afterAll(() => {
-  if (runnerZone === undefined) {
-    delete process.env.TZ
-  } else {
-    process.env.TZ = runnerZone
-  }
-})
+import { formatDuration, runDuration } from './formatRun'
 
 const run = {
   startedAt: '2026-09-18T11:50:00.000Z',
@@ -43,9 +31,5 @@ describe('formatRun', () => {
     expect(formatDuration(400)).toBe('<1 с')
     expect(formatDuration(19_000)).toBe('19 с')
     expect(formatDuration(125_000)).toBe('2 мин 5 с')
-  })
-
-  it('writes the time in UTC using the Russian notation', () => {
-    expect(formatDateTime('2026-09-18T11:50:00.000Z')).toBe('18.09.2026, 11:50:00')
   })
 })

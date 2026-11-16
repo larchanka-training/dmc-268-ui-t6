@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, expectTypeOf, it, vi } from 'vitest'
 
 import type { VcsProvider } from '../../../shared/model/provider'
 
@@ -9,6 +9,15 @@ import { ragPollTimedOutText } from '../lib/ragIndexView'
 import { RagSection, type RagSectionProps } from './RagSection'
 
 const SHA = '0123456789abcdef0123456789abcdef01234567'
+
+beforeAll(() => {
+  vi.stubEnv('TZ', 'Asia/Tokyo')
+})
+
+afterAll(() => {
+  vi.unstubAllEnvs()
+})
+
 const READY_INDEX: RagIndex = {
   status: 'ready',
   indexedCommitSha: SHA,
@@ -354,7 +363,7 @@ describe('RagSection: the index status', () => {
     const short = within(statusLine()).getByText('0123456')
     expect(short.tagName).toBe('CODE')
     expect(short.tabIndex).toBe(0)
-    expect(within(statusLine()).getByText('обновлён 14.10.2026, 09:30:15')).toBeTruthy()
+    expect(within(statusLine()).getByText('обновлён 14.10.2026, 18:30:15')).toBeTruthy()
     expect(statusLine().textContent).not.toContain('UTC')
     expect(screen.queryByText(SHA)).toBeNull()
 
@@ -380,7 +389,7 @@ describe('RagSection: the index status', () => {
     expect(line.getByText('Устарел').getAttribute('data-tone')).toBe('warning')
     expect(line.getByText('индекс отстаёт от default branch, используется')).toBeTruthy()
     expect(line.getByText('0123456')).toBeTruthy()
-    expect(line.getByText('обновлён 14.10.2026, 09:30:15')).toBeTruthy()
+    expect(line.getByText('обновлён 14.10.2026, 18:30:15')).toBeTruthy()
     expect(statusLine().textContent).not.toContain('UTC')
   })
 

@@ -7,7 +7,6 @@ import {
   describeDiagnosticLimit,
   describeDiagnosticLocation,
   diagnosticText,
-  formatCheckedAt,
   isKnownDiagnosticCode,
   isKnownUnavailableCode,
   shortSha,
@@ -25,12 +24,6 @@ const base: RulesDiagnostic = {
 describe('shortSha', () => {
   it('keeps the first seven characters', () => {
     expect(shortSha('0123456789abcdef0123456789abcdef01234567')).toBe('0123456')
-  })
-})
-
-describe('formatCheckedAt', () => {
-  it('prints the UTC date and time to the second, with no zone label', () => {
-    expect(formatCheckedAt('2026-10-14T09:30:15.123Z')).toBe('14.10.2026, 09:30:15')
   })
 })
 

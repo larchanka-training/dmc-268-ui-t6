@@ -14,7 +14,8 @@ import { formatUsd, useTranslation } from '../../../shared/i18n'
 import { safeHttpUrl } from '../../../shared/lib/safeHttpUrl'
 import { VCS_PROVIDER_LABEL } from '../../../shared/model/provider'
 import { cx, Tag } from '../../../shared/ui'
-import { formatDateTime, formatDuration, runDuration } from '../lib/format'
+import { formatLocalDateTime } from '../../../shared/lib/formatLocalDateTime'
+import { formatDuration, runDuration } from '../lib/format'
 import styles from './RunHeader.module.css'
 
 interface MetadataItem {
@@ -188,11 +189,15 @@ export function RunHeader(props: RunHeaderProps): JSX.Element {
           },
         ]
       : []),
-    { key: 'createdAt', label: t('runs.header.created'), children: formatDateTime(run.createdAt) },
+    {
+      key: 'createdAt',
+      label: t('runs.header.created'),
+      children: formatLocalDateTime(run.createdAt),
+    },
     {
       key: 'startedAt',
       label: t('runs.header.started'),
-      children: run.startedAt ? formatDateTime(run.startedAt) : '—',
+      children: run.startedAt ? formatLocalDateTime(run.startedAt) : '—',
     },
     {
       key: 'duration',

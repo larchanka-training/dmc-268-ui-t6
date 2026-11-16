@@ -2,21 +2,12 @@ import type { ParseKeys } from 'i18next'
 
 import type { RulesDiagnostic } from '../../../entities/repository'
 import { isKnownReasonCode } from '../../../entities/run'
-import { formatDateTime, formatNumber, i18n } from '../../../shared/i18n'
+import { formatNumber, i18n } from '../../../shared/i18n'
 import { VCS_ACCESS_NAME, type VcsProvider } from '../../../shared/model/provider'
 
 /** The seven characters git itself shows; the full sha stays in a tooltip. */
 export function shortSha(sha: string): string {
   return sha.slice(0, 7)
-}
-
-/**
- * The same text as the run header, in the notation of the current language. The time is UTC and
- * carries no label, like every other time in the app; showing local time app-wide is a separate
- * issue.
- */
-export function formatCheckedAt(iso: string): string {
-  return formatDateTime(iso)
 }
 
 /** `line:column`, `line`, or null when the server gave no line. */

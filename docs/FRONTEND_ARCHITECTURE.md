@@ -492,6 +492,8 @@ src/shared/i18n/locales/ru/rules.ts
 src/shared/i18n/locales/ru/runs.ts
 src/shared/i18n/locales/ru/settings.ts
 src/shared/i18n/locales/types.ts
+src/shared/lib/formatLocalDateTime.test.ts
+src/shared/lib/formatLocalDateTime.ts
 src/shared/lib/safeHttpUrl.test.ts
 src/shared/lib/safeHttpUrl.ts
 src/shared/model/provider.test.ts
@@ -1120,10 +1122,9 @@ Upgrade canary в `routerLocationAdapter.test.tsx` проверяет досту
   `disabled` при включённом RAG — окно оптимистичного обновления: `ragEnabled` уже перевёрнут, а `ragIndex`
   отстаёт на один ответ, поэтому такой статус читается «Не построен»; при выключенном RAG старый статус не
   виден вовсе («Выключен»). Короткий sha — первые 7 символов в `<code tabIndex={0}>` с `Tooltip` на hover и
-  focus (в нём полный sha, как в блоке правил), время — UTC `YYYY-MM-DD HH:mm:ss` (`shortSha`,
-  `formatIndexedAt`; в срезе фичи написаны заново: из `widgets/repository-rules` их импортировать нельзя, §1)
-  без подписи зоны, как «Проверено: …» блока правил: подпись «UTC» убрана из всего приложения в #106, локальное
-  время — ui#129.
+  focus (в нём полный sha, как в блоке правил), время — в местном часовом поясе браузера и формате
+  выбранного языка через `formatLocalDateTime` из `shared/lib`. `shortSha` остаётся в срезе фичи: из
+  `widgets/repository-rules` его импортировать нельзя (§1).
   Если у `ready` или `stale` нет `indexedCommitSha` или `indexedAt` (контракт этого не допускает), sha и время
   не показываются, ошибки нет.
   `lastErrorCode` при включённом RAG показан у любого статуса (`reason` из `ragIndexView`; api ставит его, когда

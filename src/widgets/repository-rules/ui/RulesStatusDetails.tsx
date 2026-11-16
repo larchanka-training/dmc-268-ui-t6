@@ -4,13 +4,13 @@ import type { FC, ReactNode, Ref } from 'react'
 
 import type { RulesDiagnostic, RulesStatus } from '../../../entities/repository'
 import { useTranslation } from '../../../shared/i18n'
+import { formatLocalDateTime } from '../../../shared/lib/formatLocalDateTime'
 import type { VcsProvider } from '../../../shared/model/provider'
 import { CodeBlock, Spinner, Tag } from '../../../shared/ui'
 import {
   describeDiagnosticLimit,
   describeDiagnosticLocation,
   diagnosticText,
-  formatCheckedAt,
   isKnownDiagnosticCode,
   isKnownUnavailableCode,
   shortSha,
@@ -120,7 +120,7 @@ const Meta: FC<{ status: Exclude<RulesStatus, { status: 'pending' }>; tag?: Reac
         </Tooltip>
       ) : null}
       <Text type="secondary">
-        {t('rules.checked', { date: formatCheckedAt(status.checkedAt) })}
+        {t('rules.checked', { date: formatLocalDateTime(status.checkedAt) })}
       </Text>
     </Flex>
   )

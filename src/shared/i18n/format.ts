@@ -1,24 +1,7 @@
 import { i18n } from './i18n'
 
-/** Times are shown in UTC, as the server stores them; only the notation follows the language. */
-const DATE_TIME: Intl.DateTimeFormatOptions = {
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  hourCycle: 'h23',
-  timeZone: 'UTC',
-}
-
 function locale(): string {
   return i18n.language
-}
-
-/** Date and time of an ISO string in the notation of the current language. */
-export function formatDateTime(iso: string): string {
-  return new Intl.DateTimeFormat(locale(), DATE_TIME).format(new Date(iso))
 }
 
 /** A number in the notation of the current language (digit grouping, decimal mark). */
