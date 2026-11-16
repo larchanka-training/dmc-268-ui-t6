@@ -16,6 +16,7 @@ import {
   RoutedReviewRedirectPage,
   RoutedRunDetailPage,
   RoutedRunsPage,
+  RoutedWorkspaceSettingsPage,
 } from './layouts'
 
 export function createRoutes() {
@@ -76,6 +77,10 @@ export function createRoutes() {
                 {
                   path: '/playground',
                   element: <RoutedPlaygroundPage />,
+                },
+                {
+                  path: '/settings',
+                  element: <RoutedWorkspaceSettingsPage />,
                 },
                 {
                   path: '/review',

@@ -1,6 +1,26 @@
 import { describe, expect, it } from 'vitest'
 
-import { AuthSessionSchema, MeSchema, UserSchema, WorkspaceSchema } from './schemas'
+import {
+  AuthSessionSchema,
+  MeSchema,
+  UserSchema,
+  WorkspaceRoleSchema,
+  WorkspaceSchema,
+} from './schemas'
+
+describe('WorkspaceRoleSchema', () => {
+  it('parses valid ADR 0002 roles', () => {
+    expect(WorkspaceRoleSchema.parse('owner')).toBe('owner')
+    expect(WorkspaceRoleSchema.parse('admin')).toBe('admin')
+    expect(WorkspaceRoleSchema.parse('billing')).toBe('billing')
+    expect(WorkspaceRoleSchema.parse('member')).toBe('member')
+  })
+
+  it('rejects invalid role strings', () => {
+    expect(() => WorkspaceRoleSchema.parse('superadmin')).toThrow()
+    expect(() => WorkspaceRoleSchema.parse('')).toThrow()
+  })
+})
 
 describe('UserSchema', () => {
   it('parses valid user profile with numeric id and nullables', () => {
@@ -33,13 +53,15 @@ describe('UserSchema', () => {
 })
 
 describe('WorkspaceSchema & MeSchema', () => {
-  it('parses Workspace and Me with workspaces list', () => {
+  it('parses Workspace and Me with workspaces list and optional role', () => {
     const workspace = WorkspaceSchema.parse({
       id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
       name: 'larchanka-training',
       installationId: 1234567,
+      role: 'owner',
     })
     expect(workspace.installationId).toBe(1234567)
+    expect(workspace.role).toBe('owner')
 
     const me = MeSchema.parse({
       id: 114473628,
@@ -49,6 +71,34 @@ describe('WorkspaceSchema & MeSchema', () => {
       workspaces: [workspace],
     })
     expect(me.workspaces).toHaveLength(1)
+    expect(me.workspaces[0]?.role).toBe('owner')
+  })
+
+  it('allows workspace without role or with null role', () => {
+    const withoutRole = WorkspaceSchema.parse({
+      id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+      name: 'larchanka-training',
+      installationId: 1234567,
+    })
+    expect(withoutRole.role).toBeUndefined()
+
+    const withNull = WorkspaceSchema.parse({
+      id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+      name: 'larchanka-training',
+      installationId: 1234567,
+      role: null,
+    })
+    expect(withNull.role).toBeNull()
+  })
+
+  it('falls back to undefined when role has an unknown value without crashing', () => {
+    const withUnknownRole = WorkspaceSchema.parse({
+      id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+      name: 'larchanka-training',
+      installationId: 1234567,
+      role: 'nonexistent_future_role',
+    })
+    expect(withUnknownRole.role).toBeUndefined()
   })
 })
 
