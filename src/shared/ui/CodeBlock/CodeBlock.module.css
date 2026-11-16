@@ -10,3 +10,10 @@
   outline: 2px solid var(--rv-link);
   outline-offset: 2px;
 }
+
+.box {
+  padding: 8px 12px;
+  background: var(--rv-surface-2);
+  border: 1px solid var(--rv-border);
+  border-radius: var(--rv-radius-md);
+}

@@ -47,4 +47,21 @@ describe('CodeBlock', () => {
     expect(pre?.classList.contains(styles.code ?? '')).toBe(true)
     expect(pre?.hasAttribute('tabindex')).toBe(false)
   })
+
+  it('applies the box variant with surface-2 background and border', () => {
+    const box = codeRules().find((rule) => rule.selectorText === '.box')
+    expect(box?.style.padding).toBe('8px 12px')
+    expect(box?.style.background).toBe('var(--rv-surface-2)')
+    expect(box?.style.border).toBe('1px solid var(--rv-border)')
+    expect(box?.style.borderRadius).toBe('var(--rv-radius-md)')
+
+    const { container } = render(
+      <CodeBlock className="mine" variant="box">
+        snippet
+      </CodeBlock>,
+    )
+    const pre = container.querySelector('pre')
+    expect(pre?.classList.contains(styles.box ?? '')).toBe(true)
+    expect(pre?.classList.contains('mine')).toBe(true)
+  })
 })
