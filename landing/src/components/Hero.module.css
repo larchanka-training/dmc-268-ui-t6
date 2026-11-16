@@ -76,6 +76,10 @@
   animation-delay: 0.4s;
 }
 
+.content > :nth-child(4) {
+  animation-delay: 0.56s;
+}
+
 @keyframes rise {
   from {
     opacity: 0;
@@ -144,6 +148,58 @@
 
 .cta:active {
   transform: scale(0.98);
+}
+
+.agentSetup {
+  width: min(100%, 720px);
+  margin-top: 24px;
+  text-align: left;
+}
+
+.agentLabel {
+  display: block;
+  margin-bottom: 8px;
+  color: #cbd5e1;
+  font-size: 14px;
+}
+
+.agentRow {
+  display: flex;
+  gap: 8px;
+}
+
+.agentInput {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 8px;
+  background: rgb(9 13 24 / 70%);
+  color: var(--text);
+  font: 12px/1.4 var(--font-mono);
+}
+
+.agentCopy {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid rgb(96 165 250 / 45%);
+  border-radius: 8px;
+  background: rgb(15 21 38 / 85%);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.agentCopy:hover {
+  background: rgb(30 44 72 / 90%);
+}
+
+.agentStatus {
+  display: block;
+  min-height: 20px;
+  margin-top: 4px;
+  color: #cbd5e1;
+  font-size: 12px;
 }
 
 .demoWrap {
@@ -222,6 +278,10 @@
 @media (width <= 640px) {
   /* На телефоне окно чуть выше, на 70svh: внизу экрана панели браузера и полоса жестов, и
      запас держит край окна заметным над ними. */
+  .agentRow {
+    flex-direction: column;
+  }
+
   .hero {
     --hero-pt: 84px;
     --demo-gap: 56px;
