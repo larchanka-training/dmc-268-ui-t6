@@ -110,7 +110,9 @@ These changes cannot be fully checked and leave the review partial:
   has a content diff to review.
 - A deleted binary file, such as an image, when its type cannot be confirmed from content.
 - A file with more than 20,000 changed lines or over 1 MiB that was not already excluded as
-  ignored, build output or binary: it exceeds the read limit.
+  ignored, a lock file, build output or binary: it exceeds the read limit. On GitHub this includes
+  a binary file over 1 MiB, such as a large image: its content is not read, so it is not confirmed
+  as binary.
 - An empty new file on Bitbucket Cloud, or on GitLab ([not yet available in the dashboard](/faq#does-it-work-with-gitlab)):
   neither provider supplies independent evidence that it is a regular file.
 
