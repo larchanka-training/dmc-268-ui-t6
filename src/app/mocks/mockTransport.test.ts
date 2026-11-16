@@ -9,6 +9,7 @@ vi.mock('../../shared/config/env', () => ({
   GITHUB_APP_SLUG: '',
 }))
 
+import { MeSchema } from '../../entities/user'
 import { MetricsSummarySchema, metricsSummaryEndpoint } from '../../entities/metrics'
 import { diffApi, fromPatch } from '../../entities/diff'
 import { RulesStatusSchema, type Repository } from '../../entities/repository'
@@ -1426,6 +1427,25 @@ describe('initMockTransport', () => {
       expect(counts.succeeded + counts.failed + counts.cancelled + counts.skipped).toBe(0)
       expect(summary.series).toEqual([])
       expect(summary.workspaces).toHaveLength(3)
+    })
+  })
+
+  describe('GET /auth/me', () => {
+    beforeEach(() => {
+      initMockTransport()
+    })
+
+    it('returns current user with six workspaces covering all role variants parsed through MeSchema', async () => {
+      const me = MeSchema.parse(await apiClient<unknown>(endpoints.auth.me()))
+      expect(me.workspaces).toHaveLength(6)
+      expect(me.workspaces.map((w) => w.role)).toEqual([
+        'owner',
+        'admin',
+        'billing',
+        'member',
+        undefined,
+        undefined,
+      ])
     })
   })
 })

@@ -44,6 +44,11 @@ const AnalyticsPage = lazyRoute(() =>
 const PlaygroundPage = lazyRoute(() =>
   import('../../pages/playground/PlaygroundPage').then((m) => ({ default: m.PlaygroundPage })),
 )
+const WorkspaceSettingsPage = lazyRoute(() =>
+  import('../../pages/settings/WorkspaceSettingsPage').then((m) => ({
+    default: m.WorkspaceSettingsPage,
+  })),
+)
 
 export const RoutedRepositoriesPage: FC = () => {
   return <RepositoriesPage />
@@ -75,6 +80,10 @@ export const RoutedAnalyticsPage: FC = () => {
 
 export const RoutedPlaygroundPage: FC = () => {
   return <PlaygroundPage />
+}
+
+export const RoutedWorkspaceSettingsPage: FC = () => {
+  return <WorkspaceSettingsPage />
 }
 
 export const RoutedLoginPage: FC = () => {
