@@ -84,6 +84,9 @@ jobs:
       - name: Docs site check types
         run: pnpm --dir docs-site check-types
 
+      - name: Docs site test
+        run: pnpm --dir docs-site test
+
       - name: Docs site build
         run: pnpm --dir docs-site build
 

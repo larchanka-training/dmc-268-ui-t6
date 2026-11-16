@@ -8,6 +8,7 @@ Team docs for developers stay in `docs/`.
 pnpm install          # from the repository root
 pnpm --dir docs-site dev           # http://localhost:3000/docs
 pnpm --dir docs-site check-types
+pnpm --dir docs-site test
 pnpm --dir docs-site build         # static export to docs-site/out
 ```
 
@@ -55,7 +56,8 @@ WebP (with `sharp`, which Next.js installs; PNG without it). Playwright is not a
 `NODE_PATH` points to an install of it. `CHROME_PATH` sets the browser (default
 `/usr/bin/google-chrome`), `SKIP_BUILD=1` serves the last `out/`, and `BASE_URL` uses a running
 server instead (`http://localhost:3000` or `http://localhost:3000/docs`; the base path is added
-when missing). The list of pictures and their widths is at the top of `scripts/shoot-mockups.mjs`.
+when missing). The single list of pictures and their widths lives in
+`components/dashboard/mock-names.ts`.
 
 ## Status badges
 
@@ -82,9 +84,11 @@ The full rule is in [api `docs/CONTRIBUTING.md` §8](https://github.com/larchank
   `metadata` and `generateStaticParams`), stylelint for the CSS Modules. `app/global.css` is
   skipped by stylelint: it holds Tailwind at-rules and Fumadocs overrides.
 - Root `pnpm format:check` covers the code; `content/` is skipped, since prettier can reflow MDX.
-- The `UI quality` CI job runs `pnpm --dir docs-site check-types` and
-  `pnpm --dir docs-site build`. They also fail when a file of `src/` that the mockups import is
-  renamed or moved; a renamed CSS Module class fails nothing, see [Dashboard pictures](#dashboard-pictures).
+- The `UI quality` CI job runs `pnpm --dir docs-site check-types`, `pnpm --dir docs-site test`,
+  and `pnpm --dir docs-site build`. They fail on catalog/manifest drift (missing entries or missing
+  image files in `public/screens/*.webp`, dimension spec mismatch in `screens.json`, nginx 308 guard)
+  or when a file of `src/` that the mockups import is renamed or moved; a renamed CSS Module class
+  still requires re-shooting, see [Dashboard pictures](#dashboard-pictures).
 - The mockups in `components/dashboard/` import internals of `src/` slices (CSS Modules,
   `widgets/diff-viewer/lib/*`); this exception to the FSD rule is written in
   `.agents/rules/frontend.md` §3.
