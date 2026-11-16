@@ -89,6 +89,7 @@ describe('AgentTokensDialog', () => {
     expect(await screen.findByText(TOKEN.repository)).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: 'Отозвать' }))
     fireEvent.click(confirmation().getByRole('button', { name: 'Отмена' }))
+    // jsdom does not run this confirm's afterClose motion; browser smoke covers focus restoration.
     await waitFor(() => {
       expect(document.activeElement).toBe(
         screen.getByText(TOKEN.repository).closest('[tabindex="-1"]'),
@@ -119,7 +120,9 @@ describe('AgentTokensDialog', () => {
   })
 
   it('keeps the revoke action focusable and prevents another request while pending', async () => {
-    vi.spyOn(agentTokensApi, 'listAgentTokens').mockResolvedValue([TOKEN, OTHER_TOKEN])
+    vi.spyOn(agentTokensApi, 'listAgentTokens')
+      .mockResolvedValueOnce([TOKEN, OTHER_TOKEN])
+      .mockResolvedValue([OTHER_TOKEN])
     let finishRevoke: (() => void) | undefined
     const revoke = vi.spyOn(agentTokensApi, 'revokeAgentToken').mockImplementation(
       () =>
@@ -149,11 +152,20 @@ describe('AgentTokensDialog', () => {
     fireEvent.click(otherButton)
     expect(screen.queryAllByText('Отозвать этот токен агента?')).toHaveLength(confirmCount)
     expect(revoke).toHaveBeenCalledTimes(1)
+    otherButton.focus()
+    expect(document.activeElement).toBe(otherButton)
     finishRevoke?.()
     await waitFor(() => {
-      expect(button.getAttribute('aria-disabled')).toBeNull()
+      expect(screen.queryByText(TOKEN.repository)).toBeNull()
+      expect(
+        screen.getByRole('button', { name: 'Отозвать' }).getAttribute('aria-disabled'),
+      ).toBeNull()
     })
-    expect(button.classList.contains('ant-btn-loading')).toBe(false)
+    await waitFor(() => {
+      expect(document.activeElement).toBe(
+        screen.getByText(OTHER_TOKEN.repository).closest('[tabindex="-1"]'),
+      )
+    })
     queryClient.clear()
   })
 

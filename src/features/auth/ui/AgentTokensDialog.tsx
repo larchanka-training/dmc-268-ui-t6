@@ -3,7 +3,8 @@ import { Alert, Button, List, Modal, Typography } from 'antd'
 import { useCallback, useRef, type FC } from 'react'
 
 import { ApiError } from '../../../shared/api/client'
-import { formatDateTime, useTranslation } from '../../../shared/i18n'
+import { useTranslation } from '../../../shared/i18n'
+import { formatLocalDateTime } from '../../../shared/lib/formatLocalDateTime'
 import { useDisabledButtonClass } from '../../../shared/ui'
 import {
   AGENT_TOKENS_QUERY_KEY,
@@ -31,6 +32,9 @@ export const AgentTokensDialog: FC<AgentTokensDialogProps> = ({ onClose }) => {
     mutationFn: revokeAgentToken,
     onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: AGENT_TOKENS_QUERY_KEY })
+      window.setTimeout(() => {
+        if (document.activeElement === document.body) focusContentRef.current?.focus()
+      }, 0)
     },
   })
 
@@ -70,11 +74,18 @@ export const AgentTokensDialog: FC<AgentTokensDialogProps> = ({ onClose }) => {
                       onClick={
                         revoke.isPending
                           ? undefined
-                          : () => {
+                          : (event) => {
+                              const trigger = event.currentTarget
                               modal.confirm({
                                 title: t('layout.userMenu.agentTokens.confirm'),
                                 afterClose: () => {
-                                  window.setTimeout(() => focusContentRef.current?.focus(), 0)
+                                  window.setTimeout(() => {
+                                    if (
+                                      document.activeElement === document.body ||
+                                      document.activeElement === trigger
+                                    )
+                                      focusContentRef.current?.focus()
+                                  }, 0)
                                 },
                                 okText: t('layout.userMenu.agentTokens.revoke'),
                                 cancelText: t('layout.userMenu.agentTokens.cancel'),
@@ -98,7 +109,7 @@ export const AgentTokensDialog: FC<AgentTokensDialogProps> = ({ onClose }) => {
                         <br />
                         <Typography.Text type="secondary">
                           {t('layout.userMenu.agentTokens.expires', {
-                            date: formatDateTime(token.expiresAt),
+                            date: formatLocalDateTime(token.expiresAt),
                           })}
                         </Typography.Text>
                       </div>
