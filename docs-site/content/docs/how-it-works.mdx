@@ -52,7 +52,7 @@ as neutral, skipped or cancelled and never fails, so do not make it a required c
 
 ## Details
 
-<Accordions defaultValue={['What is not reviewed']}>
+<Accordions defaultValue={['what-is-not-reviewed']}>
 <Accordion title="CI waiting">
 
 | Setting | Behaviour |
@@ -94,7 +94,7 @@ are dropped unless serious. With the **Verdict** setting on "Request changes", b
 are posted as Request changes.
 
 </Accordion>
-<Accordion title="What is not reviewed" id="what-is-not-reviewed">
+<Accordion title="What is not reviewed" id="what-is-not-reviewed" value="what-is-not-reviewed">
 
 These verified exclusions do not prevent `clean` when other changes were reviewed:
 
@@ -109,9 +109,9 @@ These changes cannot be fully checked and leave the review partial:
 - A text file renamed without changing its content, or a change to its permissions only: neither
   has a content diff to review.
 - A deleted binary file, such as an image, when its type cannot be confirmed from content.
-- A file with more than 20,000 changed lines or over 1 MiB that was not already confirmed as
-  binary: it exceeds the read limit.
-- An empty new file on Bitbucket Cloud or GitLab ([not yet available in the dashboard](/faq#does-it-work-with-gitlab)):
+- A file with more than 20,000 changed lines or over 1 MiB that was not already excluded as
+  ignored, build output or binary: it exceeds the read limit.
+- An empty new file on Bitbucket Cloud, or on GitLab ([not yet available in the dashboard](/faq#does-it-work-with-gitlab)):
   neither provider supplies independent evidence that it is a regular file.
 
 With more than 3,000 changed lines, Reviewer reviews only the file list: no line comments, and
