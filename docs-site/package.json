@@ -2,10 +2,12 @@
   "name": "reviewer-docs",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "build": "next build",
     "dev": "next dev",
     "check-types": "next typegen && tsc --noEmit",
+    "test": "node --test scripts/mock-catalog.test.mjs",
     "shots": "node scripts/shoot-mockups.mjs"
   },
   "dependencies": {
