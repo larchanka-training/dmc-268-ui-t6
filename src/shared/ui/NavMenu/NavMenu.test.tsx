@@ -51,7 +51,6 @@ describe('NavMenu', () => {
   it('keeps its own class next to a class of the caller', () => {
     render(<NavMenu className="mine" items={items} label="Разделы" />)
     const nav = screen.getByRole('navigation')
-    expect(styles.nav).toBeTruthy()
     expect(nav.classList.contains(styles.nav ?? '')).toBe(true)
     expect(nav.classList.contains('mine')).toBe(true)
   })

@@ -43,7 +43,6 @@ describe('CodeBlock', () => {
     const pre = container.querySelector('pre')
     expect(pre?.textContent).toBe('{\n  "a": 1\n}')
     expect(pre?.classList.contains('mine')).toBe(true)
-    expect(styles.code).toBeTruthy()
     expect(pre?.classList.contains(styles.code ?? '')).toBe(true)
     expect(pre?.hasAttribute('tabindex')).toBe(false)
   })
