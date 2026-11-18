@@ -16,3 +16,5 @@ export {
   ragPollTimedOutText,
   ragIndexView,
 } from './lib/ragIndexView'
+export { RepositoryBadgeSection } from './ui/RepositoryBadgeSection'
+export type { RepositoryBadgeSectionProps } from './ui/RepositoryBadgeSection'

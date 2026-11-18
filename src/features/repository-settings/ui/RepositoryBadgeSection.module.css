@@ -1,0 +1,29 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 560px;
+}
+
+.previewContainer {
+  display: flex;
+  align-items: center;
+}
+
+.previewImage {
+  display: block;
+  object-fit: contain;
+}
+
+.notice {
+  font-size: var(--rv-fs-xs);
+}
+
+.snippetRow {
+  width: 100%;
+}
+
+.snippetBox {
+  flex: 1;
+  min-width: 0;
+}
