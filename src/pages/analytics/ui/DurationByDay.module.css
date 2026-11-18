@@ -10,6 +10,12 @@
 
 .point {
   fill: var(--rv-accent);
+  cursor: help;
+}
+
+.point:focus-visible {
+  outline: 2px solid var(--rv-link);
+  outline-offset: 2px;
 }
 
 .axis {
