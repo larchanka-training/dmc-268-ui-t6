@@ -1,8 +1,9 @@
 import { Alert, Button, Card, Flex, Skeleton, Typography } from 'antd'
-import type { FC, ReactNode } from 'react'
+import { useRef, type FC, type ReactNode } from 'react'
 
 import { useMe, type WorkspaceRole } from '../../entities/user'
 import { useCurrentWorkspace } from '../../features/workspace'
+import { WorkspaceDangerZone } from '../../features/workspace-settings'
 import { useTranslation } from '../../shared/i18n'
 import { PageHeader, Tag, type TagProps } from '../../shared/ui'
 import styles from './WorkspaceSettingsPage.module.css'
@@ -39,7 +40,7 @@ interface PermissionSectionConfig {
   noAccessKey: 'settings.workspace.team.noAccess' | 'settings.workspace.billing.noAccess'
 }
 
-// ADR 0002 §11 permissions; Danger Zone (ui#300) is deferred to follow-up PR #303.
+// ADR 0002 §11 permissions; Danger Zone (ui#300) is rendered below.
 // ADR 0002 §11.1 gives view access for balance and plans to Owner, Admin, Billing and Member;
 // mutating billing actions (recharging, changing card/plan) are restricted to owner/admin/billing.
 const PERMISSION_SECTIONS: readonly PermissionSectionConfig[] = [
@@ -63,6 +64,7 @@ const PERMISSION_SECTIONS: readonly PermissionSectionConfig[] = [
 
 export const WorkspaceSettingsPage: FC = () => {
   const { t } = useTranslation()
+  const titleRef = useRef<HTMLHeadingElement>(null)
   const { current } = useCurrentWorkspace()
   const { data, isPending, isError, isFetching, refetch } = useMe()
 
@@ -133,13 +135,20 @@ export const WorkspaceSettingsPage: FC = () => {
             </Card>
           )
         })}
+
+        <WorkspaceDangerZone
+          onDeleted={() => {
+            titleRef.current?.focus()
+          }}
+          workspace={current}
+        />
       </>
     )
   }
 
   return (
     <Flex vertical gap="large">
-      <PageHeader title={t('settings.workspace.title')} />
+      <PageHeader title={t('settings.workspace.title')} titleRef={titleRef} />
       {content}
     </Flex>
   )

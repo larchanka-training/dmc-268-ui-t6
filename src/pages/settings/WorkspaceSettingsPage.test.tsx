@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { App } from 'antd'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -18,6 +19,7 @@ const BILLING_PLACEHOLDER = /здесь будут отображаться ба
 const BILLING_NO_ACCESS =
   /управление тарифом и пополнение баланса доступны ролям owner, admin и billing/i
 const READ_ONLY_NOTICE = /доступ только для чтения: роль в воркспейсе не назначена/i
+const NON_OWNER_REASON = /только владелец воркспейса \(owner\) может удалить его/i
 
 function buildMe(workspaces: unknown[]) {
   return MeSchema.parse({
@@ -31,7 +33,11 @@ function buildMe(workspaces: unknown[]) {
 
 function renderWithClient(client: QueryClient) {
   function Wrapper({ children }: { children: ReactNode }) {
-    return <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    return (
+      <QueryClientProvider client={client}>
+        <App>{children}</App>
+      </QueryClientProvider>
+    )
   }
   return render(<WorkspaceSettingsPage />, { wrapper: Wrapper })
 }
@@ -195,13 +201,16 @@ describe('WorkspaceSettingsPage', () => {
     expect(screen.queryByText(/баланс и тариф/i)).toBeNull()
   })
 
-  it('renders general workspace info and does not include Danger Zone', () => {
+  it('renders general workspace info and active Danger Zone for owner', () => {
     renderPage({ role: 'owner', workspaceName: 'Acme Corp' })
     expect(screen.getByRole('heading', { name: /настройки workspace/i })).toBeDefined()
     expect(screen.getByText('Acme Corp')).toBeDefined()
     expect(screen.getByText(MOCK_WORKSPACE_ID)).toBeDefined()
     expect(screen.getByText('98765')).toBeDefined()
-    expect(screen.queryByText(/опасная зона/i)).toBeNull()
+    expect(screen.getByText(/опасная зона/i)).toBeDefined()
+    expect(
+      screen.getByRole('button', { name: 'Удалить этот воркспейс' }).hasAttribute('disabled'),
+    ).toBe(false)
   })
 
   it('displays full access for owner role across team and billing sections', () => {
@@ -216,7 +225,7 @@ describe('WorkspaceSettingsPage', () => {
     expect(screen.queryByText(READ_ONLY_NOTICE)).toBeNull()
   })
 
-  it('displays admin permissions with both team and billing accessible', () => {
+  it('displays admin permissions with team, billing accessible and Danger Zone restricted', () => {
     renderPage({ role: 'admin' })
     expect(screen.getByText(/администратор/i)).toBeDefined()
     expect(screen.getByText(TEAM_PLACEHOLDER)).toBeDefined()
@@ -224,9 +233,13 @@ describe('WorkspaceSettingsPage', () => {
     expect(screen.getByText(BILLING_PLACEHOLDER)).toBeDefined()
     expect(screen.queryByText(BILLING_NO_ACCESS)).toBeNull()
     expect(screen.queryByText(READ_ONLY_NOTICE)).toBeNull()
+    expect(
+      screen.getByRole('button', { name: 'Удалить этот воркспейс' }).hasAttribute('disabled'),
+    ).toBe(true)
+    expect(screen.getByText(NON_OWNER_REASON)).toBeDefined()
   })
 
-  it('displays billing permissions: billing accessible, team restricted', () => {
+  it('displays billing permissions: billing accessible, team and Danger Zone restricted', () => {
     renderPage({ role: 'billing' })
     expect(screen.getByText(/биллинг/i)).toBeDefined()
     expect(screen.getByText(TEAM_NO_ACCESS)).toBeDefined()
@@ -234,9 +247,13 @@ describe('WorkspaceSettingsPage', () => {
     expect(screen.getByText(BILLING_PLACEHOLDER)).toBeDefined()
     expect(screen.queryByText(BILLING_NO_ACCESS)).toBeNull()
     expect(screen.queryByText(READ_ONLY_NOTICE)).toBeNull()
+    expect(
+      screen.getByRole('button', { name: 'Удалить этот воркспейс' }).hasAttribute('disabled'),
+    ).toBe(true)
+    expect(screen.getByText(NON_OWNER_REASON)).toBeDefined()
   })
 
-  it('displays member permissions: team restricted, billing view accessible per ADR 0002 §11.1', () => {
+  it('displays member permissions: team and Danger Zone restricted, billing view accessible per ADR 0002 §11.1', () => {
     renderPage({ role: 'member' })
     expect(screen.getByText(/участник \(member\)/i)).toBeDefined()
     expect(screen.getByText(TEAM_NO_ACCESS)).toBeDefined()
@@ -244,6 +261,10 @@ describe('WorkspaceSettingsPage', () => {
     expect(screen.getByText(BILLING_PLACEHOLDER)).toBeDefined()
     expect(screen.queryByText(BILLING_NO_ACCESS)).toBeNull()
     expect(screen.queryByText(READ_ONLY_NOTICE)).toBeNull()
+    expect(
+      screen.getByRole('button', { name: 'Удалить этот воркспейс' }).hasAttribute('disabled'),
+    ).toBe(true)
+    expect(screen.getByText(NON_OWNER_REASON)).toBeDefined()
   })
 
   it('reads role from the currently selected workspace instead of workspaces[0]', () => {
@@ -280,7 +301,7 @@ describe('WorkspaceSettingsPage', () => {
     ['null role', { role: null }],
     ['omitted role (undefined)', { omitRole: true }],
     ['unknown role fallback', { role: 'future_custom_role' }],
-  ])('handles %s safely in read-only mode', (_label, opts) => {
+  ])('handles %s safely in read-only mode with disabled Danger Zone', (_label, opts) => {
     renderPage(opts)
     expect(screen.getByText(/только чтение/i)).toBeDefined()
     expect(screen.getByText(READ_ONLY_NOTICE)).toBeDefined()
@@ -288,5 +309,8 @@ describe('WorkspaceSettingsPage', () => {
     expect(screen.queryByText(TEAM_PLACEHOLDER)).toBeNull()
     expect(screen.getByText(BILLING_PLACEHOLDER)).toBeDefined()
     expect(screen.queryByText(BILLING_NO_ACCESS)).toBeNull()
+    expect(
+      screen.getByRole('button', { name: 'Удалить этот воркспейс' }).hasAttribute('disabled'),
+    ).toBe(true)
   })
 })
