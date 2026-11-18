@@ -62,6 +62,13 @@ describe('endpoints', () => {
     })
   })
 
+  it('builds the workspace delete endpoint', () => {
+    expect(endpoints.workspaces.delete('ws-123')).toEqual({
+      method: 'DELETE',
+      path: '/workspaces/ws-123',
+    })
+  })
+
   it('resolves a URL against a base with a trailing slash', () => {
     expect(resolveUrl('/api/', endpoints.stream())).toBe('/api/stream')
   })
