@@ -1,0 +1,28 @@
+name: Markdown links
+
+# Relative links and anchors in the tracked Markdown of docs/, .agents/ and AGENTS.md must resolve
+# (#270). Every pull request, without a paths filter: moving or deleting any file can break a link
+# to it. The script is the same in dmc-268-api-t6 (.agents/README.md § Sync map). Not a required
+# check of ruleset `main`.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  md-links:
+    name: Markdown links
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The script is stdlib only: the runner's python3 runs it.
+      - name: Check relative links
+        run: python3 .github/scripts/check_md_links.py
