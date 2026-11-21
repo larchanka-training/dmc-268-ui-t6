@@ -78,6 +78,27 @@ instructions. Rules and `AGENTS.md` come only from the base commit, so a pull re
 change the rules it is reviewed with. This lowers the risk of prompt injection but cannot rule it
 out, so treat the review as advice from a teammate.
 
+### What workspace roles exist and what can they do?
+
+Workspaces support four roles:
+
+- **Owner**: Full workspace control. Can invite and remove members, assign any role including Owner, manage subscription plans and billing, and configure repository settings.
+- **Admin**: Workspace administration. Can invite and remove team members (except the Owner), manage repositories and integrations, and manage billing. Cannot assign or revoke the Owner role.
+- **Billing**: Financial management. Can manage subscription plans, payment methods, auto-recharge, and top up balance. Cannot change repository settings, rules, or team access.
+- **Member**: Standard team member. Can view runs and findings (with GitHub repository access) and trigger or restart reviews. Cannot manage members, billing, or workspace settings.
+
+For the full permissions matrix across all workspace actions, see [Workspace settings](/features#workspace-settings).
+
+### Why does workspace settings show Read-only access?
+
+When your user role has not been assigned by the backend (for example, before server-side role
+assignment is deployed), workspace settings falls back to a read-only fail-safe mode.
+
+In this mode, the settings page shows a warning banner and a **Read only** tag. You can safely
+view workspace details and repository settings, while restricted actions remain protected with
+informative notices. Once your role is assigned on the server, full permissions for your role
+become active automatically.
+
 ## Dates and time
 
 ### Which timezone does the dashboard use?
@@ -121,6 +142,8 @@ Each GitHub App installation is its own workspace: your personal account and eve
 where the app is installed are separate ones. The current workspace is shown above your user menu
 in the sidebar. If you have more than one, click it and pick another. The choice is kept in this
 browser. It does not filter runs or repositories: those pages still show everything you can access.
+Switching workspaces updates the active workspace context in [Workspace settings](/features#workspace-settings),
+where you can view the selected workspace's ID, installation ID, team access, and role permissions.
 
 ## Troubleshooting
 
