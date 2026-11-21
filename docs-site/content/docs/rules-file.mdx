@@ -134,6 +134,33 @@ applies. Both files together must fit in 12,000 tokens.
 </Accordion>
 </Accordions>
 
+## Rule links in comments
+
+When a GitHub line comment reports a finding based on `.review/rules.md`, its last line links to
+the lines of the rule:
+
+```text
+Rule: [.review/rules.md#L<start>-L<end>](https://github.com/<owner>/<repo>/blob/<base-sha>/.review/rules.md?plain=1#L<start>-L<end>)
+```
+
+The link opens `.review/rules.md` as it is in the commit your pull request is based on, the
+version the review used. `?plain=1` opens the file as text, so GitHub can highlight the lines. If
+your pull request changes `.review/rules.md`, the link shows the rules before your change.
+
+<Accordions>
+<Accordion title="When there is no link">
+
+The review is posted as usual, without the link, when:
+
+- The finding is in the review body, not in a line comment, see
+  [The review has no line comments](/faq#the-review-has-no-line-comments).
+- The finding is based on the root `AGENTS.md`, on the built-in guidelines, or on no rule.
+- Reviewer could not tie the finding to lines of `.review/rules.md`.
+- The repository is on GitLab or Bitbucket.
+
+</Accordion>
+</Accordions>
+
 ## Templates
 
 Ready files to start from, one folder per template, are in the
