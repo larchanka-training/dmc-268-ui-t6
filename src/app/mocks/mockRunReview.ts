@@ -76,6 +76,7 @@ function verdictDetail(session: RunSession, verdict: Verdict): RunDetail {
     verdict,
     severityCounts: counts,
     budget: null,
+    dataPurged: false,
   }
 }
 
@@ -233,6 +234,7 @@ export function buildMockRunDetail(session: RunSession): RunDetail {
       verdict: null,
       severityCounts: { critical: 1, high: 0, medium: 0, low: 0, info: 0 },
       budget: null,
+      dataPurged: false,
     }
   }
 
@@ -260,6 +262,7 @@ export function buildMockRunDetail(session: RunSession): RunDetail {
         tokenLimit: 100000,
         costLimitUsd: 5,
       },
+      dataPurged: false,
     }
   }
 
@@ -278,6 +281,7 @@ export function buildMockRunDetail(session: RunSession): RunDetail {
     verdict: null,
     severityCounts: { ...NO_SEVERITY_COUNTS },
     budget: null,
+    dataPurged: false,
   }
 }
 
