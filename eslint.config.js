@@ -159,6 +159,23 @@ export default tseslint.config(
     },
   },
 
+  // ui#175: complexity limits for the app code, the thresholds of the api repo (api#566:
+  // complexity 10, max_args 5, max_lines 50). The legacy that exceeds them is listed in
+  // eslint-suppressions.json; a new violation fails `pnpm lint`. A test file has no function
+  // length limit: a `describe` callback is long by design.
+  {
+    files: ['src/**/*.{ts,tsx,mts,cts,jsx}'],
+    rules: {
+      complexity: ['error', 10],
+      'max-params': ['error', 5],
+      'max-lines-per-function': ['error', { max: 50, skipBlankLines: true, skipComments: true }],
+    },
+  },
+  {
+    files: ['src/**/*.test.{ts,tsx,mts,cts,jsx}'],
+    rules: { 'max-lines-per-function': 'off' },
+  },
+
   // Stories export a meta object and story objects next to components, which is what Storybook
   // expects and what `only-export-components` forbids; they are never part of the app bundle.
   {

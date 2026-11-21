@@ -1,0 +1,310 @@
+{
+  "reason": "Dead code on main when the check was introduced (ui#175, 10.11.2026). New findings fail pnpm lint.",
+  "findings": [
+    {
+      "type": "duplicates",
+      "file": "docs-site/components/mdx.tsx",
+      "symbol": "getMDXComponents|useMDXComponents"
+    },
+    {
+      "type": "duplicates",
+      "file": "src/App.tsx",
+      "symbol": "App|default"
+    },
+    {
+      "type": "exports",
+      "file": "docs-site/components/mdx.tsx",
+      "symbol": "useMDXComponents"
+    },
+    {
+      "type": "exports",
+      "file": "src/features/repository-settings/index.ts",
+      "symbol": "RAG_LABEL"
+    },
+    {
+      "type": "exports",
+      "file": "src/features/repository-settings/index.ts",
+      "symbol": "ragHint"
+    },
+    {
+      "type": "exports",
+      "file": "src/features/repository-settings/index.ts",
+      "symbol": "ragIndexView"
+    },
+    {
+      "type": "exports",
+      "file": "src/features/repository-settings/index.ts",
+      "symbol": "ragNoAccessText"
+    },
+    {
+      "type": "exports",
+      "file": "src/shared/ui/index.ts",
+      "symbol": "RV_FONT_MONO"
+    },
+    {
+      "type": "exports",
+      "file": "src/shared/ui/index.ts",
+      "symbol": "RV_FONT_SANS"
+    },
+    {
+      "type": "exports",
+      "file": "src/widgets/diff-viewer/index.ts",
+      "symbol": "InlineComment"
+    },
+    {
+      "type": "exports",
+      "file": "src/widgets/repository-list/index.ts",
+      "symbol": "accessRefreshLoadingText"
+    },
+    {
+      "type": "exports",
+      "file": "src/widgets/repository-list/index.ts",
+      "symbol": "accessRefreshTimeoutActionText"
+    },
+    {
+      "type": "exports",
+      "file": "src/widgets/repository-list/index.ts",
+      "symbol": "accessRefreshTimeoutPrompt"
+    },
+    {
+      "type": "exports",
+      "file": "src/widgets/run-inspector/index.ts",
+      "symbol": "ActionTree"
+    },
+    {
+      "type": "exports",
+      "file": "src/widgets/run-inspector/index.ts",
+      "symbol": "RunHeader"
+    },
+    {
+      "type": "nsExports",
+      "file": "src/app/providers/index.ts",
+      "symbol": "providers.queryClient"
+    },
+    {
+      "type": "nsExports",
+      "file": "src/shared/i18n/index.ts",
+      "symbol": "i18nModule.DEFAULT_LANGUAGE"
+    },
+    {
+      "type": "nsExports",
+      "file": "src/shared/i18n/index.ts",
+      "symbol": "i18nModule.getInitialLanguage"
+    },
+    {
+      "type": "nsExports",
+      "file": "src/shared/i18n/index.ts",
+      "symbol": "i18nModule.isLanguage"
+    },
+    {
+      "type": "types",
+      "file": "src/entities/diff/model/schemas.ts",
+      "symbol": "DiffLineType"
+    },
+    {
+      "type": "types",
+      "file": "src/entities/metrics/model/schemas.ts",
+      "symbol": "MetricsRange"
+    },
+    {
+      "type": "types",
+      "file": "src/entities/review/model/schemas.ts",
+      "symbol": "Category"
+    },
+    {
+      "type": "types",
+      "file": "src/entities/review/model/schemas.ts",
+      "symbol": "Side"
+    },
+    {
+      "type": "types",
+      "file": "src/entities/run/model/schemas.ts",
+      "symbol": "Effort"
+    },
+    {
+      "type": "types",
+      "file": "src/entities/run/model/schemas.ts",
+      "symbol": "Engine"
+    },
+    {
+      "type": "types",
+      "file": "src/entities/run/model/schemas.ts",
+      "symbol": "PullRequestRef"
+    },
+    {
+      "type": "types",
+      "file": "src/entities/run/model/schemas.ts",
+      "symbol": "ReviewSummary"
+    },
+    {
+      "type": "types",
+      "file": "src/entities/run/model/schemas.ts",
+      "symbol": "RunLlmOperation"
+    },
+    {
+      "type": "types",
+      "file": "src/entities/run/model/schemas.ts",
+      "symbol": "RunTrigger"
+    },
+    {
+      "type": "types",
+      "file": "src/entities/run/model/schemas.ts",
+      "symbol": "RunUsage"
+    },
+    {
+      "type": "types",
+      "file": "src/entities/user/model/schemas.ts",
+      "symbol": "userApi.AuthSession"
+    },
+    {
+      "type": "types",
+      "file": "src/features/bitbucket-connections/model/schemas.ts",
+      "symbol": "BitbucketConnectionList"
+    },
+    {
+      "type": "types",
+      "file": "src/features/bitbucket-connections/model/schemas.ts",
+      "symbol": "BitbucketConnectResponse"
+    },
+    {
+      "type": "types",
+      "file": "src/features/bitbucket-connections/model/schemas.ts",
+      "symbol": "BitbucketDiscoveryResponse"
+    },
+    {
+      "type": "types",
+      "file": "src/features/repository-settings/index.ts",
+      "symbol": "AutoReviewSwitchProps"
+    },
+    {
+      "type": "types",
+      "file": "src/features/repository-settings/index.ts",
+      "symbol": "RagSectionProps"
+    },
+    {
+      "type": "types",
+      "file": "src/features/repository-settings/index.ts",
+      "symbol": "RepositorySettingsFormProps"
+    },
+    {
+      "type": "types",
+      "file": "src/shared/api/client.ts",
+      "symbol": "RefreshResponse"
+    },
+    {
+      "type": "types",
+      "file": "src/shared/ui/index.ts",
+      "symbol": "CodeBlockProps"
+    },
+    {
+      "type": "types",
+      "file": "src/shared/ui/index.ts",
+      "symbol": "DataTableProps"
+    },
+    {
+      "type": "types",
+      "file": "src/shared/ui/index.ts",
+      "symbol": "DesignSystemProviderProps"
+    },
+    {
+      "type": "types",
+      "file": "src/shared/ui/index.ts",
+      "symbol": "ErrorBoundaryProps"
+    },
+    {
+      "type": "types",
+      "file": "src/shared/ui/index.ts",
+      "symbol": "FilePathProps"
+    },
+    {
+      "type": "types",
+      "file": "src/shared/ui/index.ts",
+      "symbol": "InfoHintProps"
+    },
+    {
+      "type": "types",
+      "file": "src/shared/ui/index.ts",
+      "symbol": "LogoProps"
+    },
+    {
+      "type": "types",
+      "file": "src/shared/ui/index.ts",
+      "symbol": "NavMenuItem"
+    },
+    {
+      "type": "types",
+      "file": "src/shared/ui/index.ts",
+      "symbol": "NavMenuProps"
+    },
+    {
+      "type": "types",
+      "file": "src/shared/ui/index.ts",
+      "symbol": "PageHeaderProps"
+    },
+    {
+      "type": "types",
+      "file": "src/shared/ui/index.ts",
+      "symbol": "ProgressStepsProps"
+    },
+    {
+      "type": "types",
+      "file": "src/shared/ui/index.ts",
+      "symbol": "ProgressStepState"
+    },
+    {
+      "type": "types",
+      "file": "src/shared/ui/index.ts",
+      "symbol": "RowButtonProps"
+    },
+    {
+      "type": "types",
+      "file": "src/shared/ui/index.ts",
+      "symbol": "RvPalette"
+    },
+    {
+      "type": "types",
+      "file": "src/shared/ui/index.ts",
+      "symbol": "RvThemeMode"
+    },
+    {
+      "type": "types",
+      "file": "src/shared/ui/index.ts",
+      "symbol": "SegmentedProps"
+    },
+    {
+      "type": "types",
+      "file": "src/shared/ui/index.ts",
+      "symbol": "SpinnerProps"
+    },
+    {
+      "type": "types",
+      "file": "src/widgets/diff-viewer/index.ts",
+      "symbol": "DiffViewerState"
+    },
+    {
+      "type": "types",
+      "file": "src/widgets/diff-viewer/index.ts",
+      "symbol": "DiffViewType"
+    },
+    {
+      "type": "types",
+      "file": "src/widgets/repository-list/index.ts",
+      "symbol": "RepositoryListProps"
+    },
+    {
+      "type": "types",
+      "file": "src/widgets/repository-rules/index.ts",
+      "symbol": "RulesStatusPanelProps"
+    },
+    {
+      "type": "types",
+      "file": "src/widgets/repository-rules/index.ts",
+      "symbol": "RulesStatusViewProps"
+    },
+    {
+      "type": "types",
+      "file": "src/widgets/run-inspector/index.ts",
+      "symbol": "RunInspectorState"
+    }
+  ]
+}

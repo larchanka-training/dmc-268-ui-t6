@@ -1,0 +1,395 @@
+{
+  "src/app/mocks/mockRunReview.test.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/app/mocks/mockRunReview.ts": {
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/app/mocks/mockTransport.ts": {
+    "complexity": {
+      "count": 4
+    },
+    "max-lines-per-function": {
+      "count": 2
+    }
+  },
+  "src/app/providers/runStreamConnect.page.fixture.tsx": {
+    "complexity": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/app/providers/runStreamConnect.ts": {
+    "complexity": {
+      "count": 2
+    },
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/app/routes.tsx": {
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/entities/diff/lib/commentKey.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/entities/repository/api/index.ts": {
+    "complexity": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 2
+    }
+  },
+  "src/entities/run/api/runStreamParse.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/entities/run/lib/duoActions.fixture.ts": {
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/entities/run/lib/runProgress.test.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/entities/run/lib/runProgress.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/features/auth/lib/authCallbackErrors.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/features/auth/model/store.ts": {
+    "complexity": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 2
+    }
+  },
+  "src/features/auth/ui/LoginButton.tsx": {
+    "complexity": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/features/auth/ui/UserMenu.tsx": {
+    "complexity": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/features/bitbucket-connections/lib/bitbucketErrorMessage.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/features/bitbucket-connections/lib/useFocusHandoff.ts": {
+    "complexity": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 2
+    }
+  },
+  "src/features/bitbucket-connections/ui/BitbucketConnectionsPanel.tsx": {
+    "complexity": {
+      "count": 4
+    },
+    "max-lines-per-function": {
+      "count": 4
+    }
+  },
+  "src/features/finding-filters/model/useFindingFiltersParams.ts": {
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/features/finding-filters/model/useQueryText.ts": {
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/features/finding-filters/ui/FindingFiltersBar.tsx": {
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/features/repository-settings/lib/branchMask.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/features/repository-settings/lib/ragIndexView.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/features/repository-settings/ui/AutoReviewSwitch.tsx": {
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/features/repository-settings/ui/RagSection.tsx": {
+    "complexity": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/features/repository-settings/ui/RepositorySettingsForm.tsx": {
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/features/workspace/ui/WorkspaceSwitcher.tsx": {
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/pages/analytics/AnalyticsPage.tsx": {
+    "complexity": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/pages/analytics/ui/DurationByDay.tsx": {
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/pages/analytics/ui/FindingsByDay.tsx": {
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/pages/audit/AuditPage.tsx": {
+    "complexity": {
+      "count": 2
+    },
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/pages/auth/CallbackPage.tsx": {
+    "max-lines-per-function": {
+      "count": 2
+    }
+  },
+  "src/pages/login/HeroGlass.tsx": {
+    "complexity": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 2
+    }
+  },
+  "src/pages/login/LoginPage.tsx": {
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/pages/playground/PlaygroundPage.tsx": {
+    "complexity": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/pages/repositories/RepositoriesPage.tsx": {
+    "complexity": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/pages/repositories/RepositorySettingsPage.tsx": {
+    "complexity": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/pages/repositories/lib/formatError.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/pages/repositories/lib/useRagIndexPolling.ts": {
+    "complexity": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/pages/runs/RunDetailPage.tsx": {
+    "complexity": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/pages/runs/RunsPage.tsx": {
+    "complexity": {
+      "count": 2
+    },
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/shared/api/client.ts": {
+    "complexity": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/shared/ui/CodeEditor/CodeEditor.tsx": {
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/shared/ui/DataTable/DataTable.tsx": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/shared/ui/PageLoader/PageLoader.tsx": {
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/shared/ui/docs/Overview.stories.tsx": {
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/shared/ui/stories/Modal.stories.tsx": {
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/shared/ui/theme/buildTheme.test.ts": {
+    "complexity": {
+      "count": 4
+    }
+  },
+  "src/shared/ui/theme/buildTheme.ts": {
+    "max-lines-per-function": {
+      "count": 3
+    }
+  },
+  "src/widgets/app-layout/ui/AppSidebar.tsx": {
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/widgets/diff-viewer/lib/diffTheme.test.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/widgets/diff-viewer/ui/DiffViewer.tsx": {
+    "complexity": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/widgets/diff-viewer/ui/InlineComment.tsx": {
+    "complexity": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/widgets/diff-viewer/ui/RunDiff.tsx": {
+    "complexity": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/widgets/onboarding/ui/OnboardingChecklist.tsx": {
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/widgets/repository-list/ui/RepositoryList.tsx": {
+    "complexity": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/widgets/repository-rules/ui/RulesStatusDetails.tsx": {
+    "complexity": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/widgets/repository-rules/ui/RulesStatusPanel.tsx": {
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/widgets/run-inspector/ui/ActionTree.tsx": {
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/widgets/run-inspector/ui/RunControls.tsx": {
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/widgets/run-inspector/ui/RunHeader.tsx": {
+    "complexity": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "src/widgets/run-inspector/ui/RunInspector.tsx": {
+    "complexity": {
+      "count": 1
+    }
+  }
+}
