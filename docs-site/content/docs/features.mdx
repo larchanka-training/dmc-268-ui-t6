@@ -1,6 +1,6 @@
 ---
 title: Features
-description: The dashboard, repository settings and the code index.
+description: The dashboard, workspace settings, repository settings and the code index.
 icon: Settings2
 ---
 
@@ -18,6 +18,64 @@ browser.
 <RunsListMock />
 
 <RunDetailMock />
+
+## Workspace settings
+
+Open <AppLink path="/settings">**Settings**</AppLink> in the sidebar to view workspace configuration,
+manage team access, and review billing details for the active workspace.
+
+### General information
+
+The **General** section displays the essential identity and access details of the current workspace:
+
+- **Workspace name**: The display name of the workspace.
+- **Workspace ID**: The unique identifier of the workspace, with a one-click copy button.
+- **GitHub App Installation ID**: The numeric installation identifier of the GitHub App for this workspace.
+- **Your role**: Your active role badge: **Owner**, **Admin**, **Billing**, **Member**, or **Read only**.
+
+### Team and access
+
+The **Team and access** section manages teammates, invitations, and role assignments.
+Full member management is planned under upcoming updates.
+
+Access is restricted by workspace role:
+- **Owner** and **Admin** can view and manage workspace members.
+- Teammates with **Billing** or **Member** roles see an access notice explaining that team and member management is available only to the Owner and Admins of the workspace.
+
+### Billing and plan
+
+The **Billing and plan** section covers subscription tiers, usage, and payment methods.
+Full billing self-service is planned under upcoming updates.
+
+Access is restricted by workspace role:
+- **Owner**, **Admin**, and **Billing** roles can view usage, manage the subscription plan, and top up balance.
+- Teammates with the **Member** role see an access notice explaining that subscription management and balance top-up are available to Owner, Admin, and Billing roles.
+
+### Role permissions matrix
+
+Workspace capabilities follow the role permissions model defined in ADR 0002 §11:
+
+| Action | Owner | Admin | Billing | Member |
+| --- | --- | --- | --- | --- |
+| View usage, balance, and plan | Yes | Yes | Yes | Yes |
+| View runs, diffs, and findings | With GitHub repo access | With GitHub repo access | With GitHub repo access | With GitHub repo access |
+| Trigger and restart reviews | Yes | Yes | No | Yes |
+| Top up balance, manage payment cards | Yes | Yes | Yes | No |
+| Manage subscription plan, auto-recharge, VAT ID | Yes | Yes | Yes\* | No |
+| Manage repository settings, rules, and RAG | Yes | Yes | No | No |
+| Manage integrations (GitLab, Bitbucket) | Yes | Yes | No | No |
+| Invite, edit, and remove team members | Yes | Yes (except Owner) | No | No |
+| Assign and revoke Owner role | Yes (min 1 Owner) | No | No | No |
+
+\* Downgrading to Starter with >5 active repositories requires Owner or Admin to select the 5 repositories.
+
+### Read-only fail-safe mode
+
+When `workspaces[].role` is not assigned by the backend (for example, prior to the deployment of server-side role support), the page automatically activates a read-only fail-safe mode:
+
+- A top warning notice states: *Read-only access: your workspace role is not assigned.*
+- The role badge shows **Read only**.
+- Restricted sections show access notices explaining the necessary roles, allowing you to safely review workspace information without errors or broken navigation.
 
 ## Repository settings
 
