@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { RouterProvider } from 'react-router/dom'
 
-import { RootErrorFallback } from './app/layouts'
+import { NetworkStatusNotice, RootErrorFallback } from './app/layouts'
 import { QueryProvider, UiProvider } from './app/providers'
 import { createAppRouter } from './app/routes'
 import { useAuthStore } from './features/auth'
@@ -43,6 +43,7 @@ function AppContent({ router }: AppProps) {
     <UiProvider>
       <QueryProvider>
         <RouterProvider router={activeRouter} />
+        <NetworkStatusNotice />
       </QueryProvider>
     </UiProvider>
   )
