@@ -56,7 +56,7 @@ index 1a2b3c4..5d6e7f8 100644
  })
 `
 
-// Same tag look as SEVERITY_TAG in src/widgets/diff-viewer/ui/InlineComment.tsx.
+// Same tag look as SEVERITY_TAG in src/entities/review/lib/severityBadge.ts.
 type Severity = 'high' | 'medium'
 const SEVERITY: Record<
   Severity,
