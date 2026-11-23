@@ -20,7 +20,6 @@ describe('TraceTree', () => {
     expect(screen.getByText('#1 post_review')).toBeTruthy()
     const tree = container.querySelector('.ant-tree')
     expect(tree?.classList.contains('mine')).toBe(true)
-    expect(styles.trace).toBeTruthy()
     expect(tree?.classList.contains(styles.trace ?? '')).toBe(true)
   })
 

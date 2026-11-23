@@ -284,7 +284,6 @@ export function buildTheme(mode: RvThemeMode, options: BuildThemeOptions = {}): 
       },
       Message: { boxShadow: p.popoverShadow },
       Tooltip: { colorBgSpotlight: p.text, colorTextLightSolid: p.bg },
-      Descriptions: { labelColor: p.text2, itemPaddingBottom: 10 },
       Tree: {
         nodeSelectedBg: p.selected,
         nodeHoverBg: p.hover,
