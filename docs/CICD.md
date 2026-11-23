@@ -60,7 +60,7 @@ flowchart TD
 
 ### Обновление пакетов в runtime и диагностика CVE
 
-Все три образа используют GitHub Actions cache для стадии `build`; `no-cache-filters: runtime` заставляет Buildx каждый раз выполнять стадию `runtime`, включая неизменённую команду `RUN apk update && apk upgrade --no-cache …`. Поэтому все три Dockerfile должны сохранять имя `AS runtime`: при переименовании стадии нужно изменить и фильтр в workflow. Стадия `build` остаётся доступной для кэша, если её входные данные не изменились. Цена этого выбора, включая новый digest как обычный исход сборки, описана в §5. `apk upgrade` обновляет пакеты из настроенного Alpine-репозитория в целом. Образ UI собран на `1.30-alpine-slim` и списка пакетов не имеет: в этой базе нет `curl`, `tiff`, `libexpat` и `brotli-libs`, а `apk add` доустановил бы их. У лендинга и документации явный список `apk add --upgrade` сейчас содержит `pcre2`, `tiff`, `libexpat>=2.10.0-r0`, `brotli-libs` и `curl`. Нижняя граница версии `libexpat` прерывает сборку, если исправленная версия недоступна; остальные имена без ограничения версии сами по себе не доказывают наличие исправления. Новый пакет добавляйте в список только при подтверждённой необходимости, которую не покрывает `apk upgrade`; задавайте минимальную исправленную версию, если сборка должна падать при её отсутствии.
+Все три образа используют GitHub Actions cache для стадии `build`; `no-cache-filters: runtime` заставляет Buildx каждый раз выполнять стадию `runtime`, включая неизменённую команду `RUN apk update && apk upgrade --no-cache …`. Поэтому все три Dockerfile должны сохранять имя `AS runtime`: при переименовании стадии нужно изменить и фильтр в workflow. Стадия `build` остаётся доступной для кэша, если её входные данные не изменились. Цена этого выбора, включая новый digest как обычный исход сборки, описана в §5. `apk upgrade` обновляет пакеты из настроенного Alpine-репозитория в целом. Все три образа (UI, лендинг и документация) собраны на базе `1.30-alpine-slim` и списка пакетов не имеют: в этой базе нет `curl`, `tiff`, `libexpat` и `brotli-libs`, а `apk add` доустановил бы их. Ни один из контейнеров ими не пользуется (healthcheck везде идёт через busybox `wget`). Команда `RUN apk update && apk upgrade --no-cache && rm -rf /var/cache/apk/*` обновляет пакеты базового образа и сразу очищает кэш индексов `apk`, не оставляя лишних файлов в слое. Пакет добавляют отдельным `apk add` в `Dockerfile` только при подтверждённой необходимости, с обоснованием в PR.
 
 Если Trivy всё ещё находит исправленную CVE в пакете базового образа, проверьте в логе **Docker image build**, что под шагом `RUN apk update …` стадии `runtime` есть вывод самого `apk`, например `OK: … distinct packages available` и, когда пакеты обновились, строки обновления. Отсутствия `CACHED` недостаточно: слой из кэша может показывать только `extracting sha256:…` без вывода команды. После загрузки artifact-образа, как в job сканирования (`gunzip -c docker-image.tar.gz | docker load`), проверьте установленную версию, например:
 
@@ -175,7 +175,7 @@ GET /health
 
 ### 4.1 Лендинг
 
-Образ — `landing/Dockerfile` (контекст сборки — корень репозитория, там lockfile workspace): `pnpm --dir landing build`, затем `nginxinc/nginx-unprivileged:1.30-alpine` (у UI — вариант `-slim`) с обновлением пакетов из §1, пользователем `nginx` и портом `8080`. Пакет в GHCR — `ghcr.io/<owner>/dmc-268-ui-t6-landing`, теги как у UI (§5).
+Образ — `landing/Dockerfile` (контекст сборки — корень репозитория, там lockfile workspace): `pnpm --dir landing build`, затем `nginxinc/nginx-unprivileged:1.30-alpine-slim` с обновлением пакетов из §1, пользователем `nginx` и портом `8080`. Пакет в GHCR — `ghcr.io/<owner>/dmc-268-ui-t6-landing`, теги как у UI (§5).
 
 ```http
 GET /health
@@ -196,7 +196,7 @@ GET /config.json
 
 ### 4.2 Документация
 
-Пользовательская документация (`docs-site/`, Fumadocs на Next.js, #173) живёт на хосте лендинга под `/docs`, своего домена у неё нет. Образ — `docs-site/Dockerfile` (контекст сборки — корень репозитория: lockfile workspace и `src/`, из которого макеты дашборда берут стили и компоненты): `pnpm --dir docs-site build` со статическим экспортом (`output: 'export'`, `basePath: '/docs'`), затем тот же `nginxinc/nginx-unprivileged:1.30-alpine`, что у лендинга. Файлы лежат в `/usr/share/nginx/html/docs`, конфиг — `docker/docs/nginx.conf`. Пакет в GHCR — `ghcr.io/<owner>/dmc-268-ui-t6-docs`, теги как у UI (§5).
+Пользовательская документация (`docs-site/`, Fumadocs на Next.js, #173) живёт на хосте лендинга под `/docs`, своего домена у неё нет. Образ — `docs-site/Dockerfile` (контекст сборки — корень репозитория: lockfile workspace и `src/`, из которого макеты дашборда берут стили и компоненты): `pnpm --dir docs-site build` со статическим экспортом (`output: 'export'`, `basePath: '/docs'`), затем тот же `nginxinc/nginx-unprivileged:1.30-alpine-slim`, что у UI и лендинга. Файлы лежат в `/usr/share/nginx/html/docs`, конфиг — `docker/docs/nginx.conf`. Пакет в GHCR — `ghcr.io/<owner>/dmc-268-ui-t6-docs`, теги как у UI (§5).
 
 ```http
 GET /health          (внутри контейнера, для compose healthcheck)
