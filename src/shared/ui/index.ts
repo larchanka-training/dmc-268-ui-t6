@@ -24,6 +24,8 @@ export {
 } from './icons/icons'
 export { cx } from './lib/cx'
 export { useDisabledButtonClass } from './lib/useDisabledButtonClass'
+export { LinkButton } from './LinkButton/LinkButton'
+export type { LinkButtonProps } from './LinkButton/LinkButton'
 export { Logo } from './Logo/Logo'
 export type { LogoProps } from './Logo/Logo'
 export { NavMenu } from './NavMenu/NavMenu'

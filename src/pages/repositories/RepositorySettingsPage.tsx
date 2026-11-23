@@ -1,15 +1,8 @@
 import { RightOutlined } from '@ant-design/icons'
 import { useIsMutating } from '@tanstack/react-query'
 import { Alert, App, Breadcrumb, Button, Empty, Flex, Skeleton } from 'antd'
-import { useCallback, useEffect, useRef, useState, type FC, type ReactNode } from 'react'
-import {
-  Link,
-  useBlocker,
-  useHref,
-  useLinkClickHandler,
-  useParams,
-  type BlockerFunction,
-} from 'react-router'
+import { useCallback, useEffect, useRef, useState, type FC } from 'react'
+import { Link, useBlocker, useParams, type BlockerFunction } from 'react-router'
 
 import {
   RepositoryIdSchema,
@@ -29,22 +22,11 @@ import {
   type RepositorySettingsFormHandle,
 } from '../../features/repository-settings'
 import { useTranslation } from '../../shared/i18n'
-import { PageHeader } from '../../shared/ui'
+import { LinkButton, PageHeader } from '../../shared/ui'
 import { VCS_PROVIDER_LABEL } from '../../shared/model/provider'
 import { RulesStatusPanel } from '../../widgets/repository-rules'
 import { formatErrorMessage } from './lib/formatError'
 import { useRagIndexPolling } from './lib/useRagIndexPolling'
-
-/** A button that is a real link: it opens in a new tab and navigates without a page load. */
-const LinkButton: FC<{ to: string; children: ReactNode }> = ({ to, children }) => {
-  const href = useHref(to)
-  const handleClick = useLinkClickHandler<HTMLAnchorElement | HTMLButtonElement>(to)
-  return (
-    <Button href={href} onClick={handleClick}>
-      {children}
-    </Button>
-  )
-}
 
 /**
  * What stands above the auto-review switch about the values of the form: `stale` — the request
