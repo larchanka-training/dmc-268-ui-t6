@@ -15,10 +15,6 @@
   object-fit: contain;
 }
 
-.notice {
-  font-size: var(--rv-fs-xs);
-}
-
 .snippetRow {
   width: 100%;
 }

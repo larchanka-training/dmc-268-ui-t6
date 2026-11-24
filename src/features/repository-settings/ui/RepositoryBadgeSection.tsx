@@ -55,9 +55,7 @@ export const RepositoryBadgeSection: FC<RepositoryBadgeSectionProps> = ({ provid
           />
         )}
       </div>
-      <Text className={styles.notice} type="secondary">
-        {t('settings.badge.publicOnlyNotice')}
-      </Text>
+      <Text type="secondary">{t('settings.badge.publicOnlyNotice')}</Text>
       <Flex align="center" className={styles.snippetRow} gap={8}>
         <CodeBlock
           aria-label={t('settings.badge.snippetLabel')}

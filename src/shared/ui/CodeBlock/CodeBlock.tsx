@@ -5,7 +5,7 @@ import styles from './CodeBlock.module.css'
 
 export interface CodeBlockProps extends Pick<
   HTMLAttributes<HTMLPreElement>,
-  'role' | 'tabIndex' | 'aria-label'
+  'role' | 'aria-label'
 > {
   children: ReactNode
   className?: string
