@@ -29,6 +29,7 @@ import {
   type RunSession,
 } from '../../entities/run'
 import { ApiError, apiClient } from '../../shared/api/client'
+import { listAgentTokens, revokeAgentToken } from '../../features/auth'
 import { endpoints } from '../../shared/api/endpoints'
 import { validationErrorLocations } from '../../shared/api/validationError'
 import { mockRepositories, mockSummaryOnlyRun } from './app-state'
@@ -43,6 +44,20 @@ import {
 } from './mockTransport'
 
 describe('initMockTransport', () => {
+  it('lists, revokes, and resets agent tokens in mock mode', async () => {
+    initMockTransport()
+    const [token] = await listAgentTokens()
+    expect(token?.repository).toBe('demo/repository')
+    if (!token) throw new Error('Missing mock agent token')
+
+    await revokeAgentToken(token.id)
+    expect(await listAgentTokens()).toEqual([])
+    await expect(revokeAgentToken(token.id)).rejects.toMatchObject({ status: 404 })
+
+    initMockTransport()
+    expect(await listAgentTokens()).toEqual([token])
+  })
+
   it.each([
     ['queued', '001'],
     ['running', '002'],
