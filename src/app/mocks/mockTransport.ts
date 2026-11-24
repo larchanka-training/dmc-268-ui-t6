@@ -63,7 +63,7 @@ const MOCK_AGENT_TOKENS: AgentToken[] = [
     id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     repository: 'demo/repository',
     createdAt: '2026-11-01T10:00:00Z',
-    expiresAt: '2026-11-15T10:00:00Z',
+    expiresAt: '2099-11-15T10:00:00Z',
   },
 ]
 let agentTokens: AgentToken[] = structuredClone(MOCK_AGENT_TOKENS)

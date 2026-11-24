@@ -8,8 +8,9 @@ it('uses the configured App and app origin for the copied instruction', () => {
     'https://app.example.com/dashboard',
   )
 
-  expect(instruction).toContain('https://github.com/apps/dmc268-t6-reviewer/installations/new')
-  expect(instruction).toContain('https://app.example.com/api/agent/instructions')
+  expect(instruction).toBe(
+    'Connect AI Code Reviewer to this GitHub repository. If needed, ask me to install its GitHub App at https://github.com/apps/dmc268-t6-reviewer/installations/new. Then read and follow https://app.example.com/api/agent/instructions. Ask me to approve GitHub access, confirm the review settings, and select a test PR for the first review.',
+  )
 })
 
 it.each([

@@ -159,7 +159,7 @@
 .agentLabel {
   display: block;
   margin-bottom: 8px;
-  color: #cbd5e1;
+  color: var(--text-lead);
   font-size: 14px;
 }
 
@@ -198,7 +198,7 @@
   display: block;
   min-height: 20px;
   margin-top: 4px;
-  color: #cbd5e1;
+  color: var(--text-lead);
   font-size: 12px;
 }
 

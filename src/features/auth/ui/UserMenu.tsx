@@ -72,9 +72,10 @@ export const UserMenu: FC<UserMenuProps> = ({ extraItems, compact = false }) => 
           // to the items of a menu inside a folded sidebar (it reads the fold from the Sider), which
           // this dropdown is, though its own items are never folded.
           tooltip: false,
-          // The menu closes on a choice and the focus goes back to the button that opened it,
-          // but only after the key press is over: focused right away, the button would receive
-          // the rest of the same Enter and open the menu again.
+          // The menu closes on a choice and the focus goes back to the button that opened it
+          // after the key press is over (except for `agent-tokens`, which opens the tokens dialog
+          // and relies on its `onClose` to restore focus to the trigger when dismissed): focused
+          // right away, the button would receive the rest of the same Enter and reopen the menu.
           onClick: ({ key }) => {
             setOpen(false)
             window.setTimeout(() => {
