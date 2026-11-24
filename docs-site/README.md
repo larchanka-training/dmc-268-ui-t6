@@ -62,7 +62,8 @@ when missing). The single list of pictures and their widths lives in
 To add a new mockup:
 
 1. Register its name and dimensions in `components/dashboard/mock-names.ts`.
-2. Implement the component in `components/dashboard/mock-screen.tsx`.
+2. Write the component in `components/dashboard/` (a settings block goes to `settings-blocks.tsx`)
+   and register it in `SCREEN` or `SNIPPET` of `components/dashboard/mock-screen.tsx`.
 3. Export the mockup wrapper in `components/mockups/index.tsx`.
 4. Embed it in the relevant MDX documentation page.
 5. Take the pictures with `pnpm --dir docs-site shots` and commit `components/mockups/screens.json`

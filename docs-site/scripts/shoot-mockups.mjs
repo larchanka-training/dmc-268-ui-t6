@@ -37,7 +37,6 @@ import { MOCK_SCALE, MOCK_SHOTS } from '../components/dashboard/mock-names.ts'
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const OUT_DIR = path.join(ROOT, 'public', 'screens')
 const MANIFEST = path.join(ROOT, 'components', 'mockups', 'screens.json')
-const SCALE = MOCK_SCALE
 const WEBP_QUALITY = 90
 
 const require = createRequire(import.meta.url)
@@ -214,7 +213,7 @@ async function main() {
     for (const shot of MOCK_SHOTS) {
       const page = await browser.newPage({
         viewport: { width: shot.width, height: shot.height ?? 800 },
-        deviceScaleFactor: SCALE,
+        deviceScaleFactor: MOCK_SCALE,
         colorScheme: 'dark',
         reducedMotion: 'reduce',
       })
@@ -274,7 +273,7 @@ async function main() {
   console.log(`Wrote ${path.relative(ROOT, MANIFEST)}`)
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (import.meta.main) {
   main().catch((error) => {
     console.error(error)
     process.exit(1)
