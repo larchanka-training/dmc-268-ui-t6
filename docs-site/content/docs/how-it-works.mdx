@@ -113,8 +113,9 @@ These changes cannot be fully checked and leave the review partial:
   ignored, a lock file, build output or binary: it exceeds the read limit. On GitHub this includes
   a binary file over 1 MiB, such as a large image: its content is not read, so it is not confirmed
   as binary.
-- An empty new file on Bitbucket Cloud, or on GitLab ([not yet available in the dashboard](/faq#does-it-work-with-gitlab)):
-  neither provider supplies independent evidence that it is a regular file.
+- An empty new file on Bitbucket Cloud, or on GitLab (
+  [not yet available in the dashboard](/faq#does-it-work-with-gitlab)): neither provider supplies
+  independent evidence that it is a regular file.
 
 With more than 3,000 changed lines, Reviewer reviews only the file list: no line comments, and
 the dashboard shows no verdict. Such a run has the `summary-only` tag in **Runs**, and its
@@ -123,9 +124,9 @@ no file diff went to the model.
 
 Up to that size, if nothing is left to review except the changes listed above as leaving the
 review partial, or a file whose path Reviewer does not support, the model is not called. The
-review is posted with no findings and no verdict, and its `AI Review` check is
-neutral and says so in the title. If every changed file is a verified exclusion, the
-run is skipped instead, see the [FAQ](/faq#a-run-was-skipped).
+review is posted with no findings and no verdict, and its `AI Review` check is neutral and says
+so in the title. If every changed file is a verified exclusion, the run is skipped instead, see
+the [FAQ](/faq#a-run-was-skipped).
 
 </Accordion>
 </Accordions>
