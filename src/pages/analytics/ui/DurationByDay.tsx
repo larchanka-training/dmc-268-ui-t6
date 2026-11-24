@@ -1,11 +1,10 @@
 import type { JSX } from 'react'
 
 import { formatDuration, useTranslation } from '../../../shared/i18n'
-import { cx } from '../../../shared/ui'
-import helpStyles from '../../../shared/ui/styles/helpTarget.module.css'
+import { cx, helpTargetClass, MetricTooltip } from '../../../shared/ui'
 import { useChartRovingFocus } from '../lib/useChartRovingFocus'
 import styles from './DurationByDay.module.css'
-import { ChartHeading, MetricTooltip } from './MetricTooltip'
+import { ChartHeading } from './ChartHeading'
 
 interface DayDuration {
   day: string
@@ -83,7 +82,7 @@ export function DurationByDay(props: {
             <MetricTooltip key={point.day} title={tooltip}>
               <circle
                 aria-label={point.day}
-                className={cx(styles.point, helpStyles.helpTarget)}
+                className={cx(styles.point, helpTargetClass)}
                 cx={String(point.x)}
                 cy={String(point.y)}
                 r="3"

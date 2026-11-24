@@ -6,12 +6,18 @@ import { useMetricsSummary, type MetricsSummary } from '../../entities/metrics'
 import { useRepositories } from '../../entities/repository'
 import { useAnalyticsFilterParams } from '../../features/analytics-filter'
 import { formatDuration, formatNumber, formatUsd, useTranslation } from '../../shared/i18n'
-import { cx, DataTable, ErrorBoundary, PageHeader, Segmented } from '../../shared/ui'
-import helpStyles from '../../shared/ui/styles/helpTarget.module.css'
+import {
+  cx,
+  DataTable,
+  ErrorBoundary,
+  helpTargetClass,
+  MetricTooltip,
+  PageHeader,
+  Segmented,
+} from '../../shared/ui'
 import styles from './AnalyticsPage.module.css'
 import { DurationByDay } from './ui/DurationByDay'
 import { FindingsByDay } from './ui/FindingsByDay'
-import { MetricTooltip } from './ui/MetricTooltip'
 import { TodayBudget } from './ui/TodayBudget'
 
 function finishedRuns(summary: MetricsSummary): number {
@@ -23,7 +29,7 @@ function Tile(props: { label: string; value: string; tooltip: string }): JSX.Ele
   return (
     <div className={styles.tile}>
       <MetricTooltip title={props.tooltip}>
-        <dt className={cx(styles.term, helpStyles.helpTarget)} tabIndex={0}>
+        <dt className={cx(styles.term, helpTargetClass)} tabIndex={0}>
           {props.label}
         </dt>
       </MetricTooltip>

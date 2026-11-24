@@ -28,8 +28,8 @@ export const Default: Story = {
 
 export const MetricValue: Story = {
   render: () => (
-    <MetricTooltip title="Число критических находок (уязвимости и критические сбои)">
-      <span style={{ cursor: 'help', fontWeight: 600, fontSize: 20 }}>42</span>
+    <MetricTooltip title="Число критических находок (дают вердикт «Блокирующие») за выбранный период">
+      <span tabIndex={0}>42</span>
     </MetricTooltip>
   ),
 }

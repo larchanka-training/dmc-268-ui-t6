@@ -560,10 +560,10 @@ describe('AnalyticsPage', () => {
     const root = join(process.cwd(), 'src/pages/analytics')
     const findingsCss = readFileSync(join(root, 'ui/FindingsByDay.module.css'), 'utf8')
     const durationCss = readFileSync(join(root, 'ui/DurationByDay.module.css'), 'utf8')
-    const tooltipCss = readFileSync(join(root, 'ui/MetricTooltip.module.css'), 'utf8')
+    const headingCss = readFileSync(join(root, 'ui/ChartHeading.module.css'), 'utf8')
     const pageCss = readFileSync(join(root, 'AnalyticsPage.module.css'), 'utf8')
     const helpTargetCss = readFileSync(
-      join(process.cwd(), 'src/shared/ui/styles/helpTarget.module.css'),
+      join(process.cwd(), 'src/shared/ui/MetricTooltip/MetricTooltip.module.css'),
       'utf8',
     )
 
@@ -571,12 +571,12 @@ describe('AnalyticsPage', () => {
     expect(helpTargetCss).toContain('outline: 2px solid var(--rv-link);')
     expect(helpTargetCss).toContain('cursor: help;')
 
-    const allCss = [findingsCss, durationCss, tooltipCss, pageCss, helpTargetCss].join('\n')
-    expect(allCss).toContain('var(--rv-critical)')
-    expect(allCss).toContain('var(--rv-high)')
-    expect(allCss).toContain('var(--rv-warning)')
-    expect(allCss).toContain('var(--rv-link)')
-    expect(allCss).toContain('var(--rv-accent)')
+    for (const color of ['--rv-critical', '--rv-high', '--rv-warning', '--rv-link']) {
+      expect(findingsCss).toContain(`fill: var(${color});`)
+    }
+    expect(durationCss).toContain('var(--rv-accent)')
+
+    const allCss = [findingsCss, durationCss, headingCss, pageCss, helpTargetCss].join('\n')
     expect(allCss).not.toMatch(/#[0-9a-fA-F]{3,8}\b/)
   })
 
@@ -591,6 +591,7 @@ describe('AnalyticsPage', () => {
     assert(tilesList)
     const criticalDt = screen.getByText('Критические')
     expect(criticalDt.getAttribute('tabindex')).toBe('0')
+    expect(criticalDt.className).toContain('helpTarget')
     const criticalTile = criticalDt.closest('div')
     assert(criticalTile)
     expect(criticalTile.getAttribute('tabindex')).toBeNull()
@@ -604,7 +605,7 @@ describe('AnalyticsPage', () => {
       ['Pull request: Блокирующие', /вердиктом «Блокирующие».*за выбранный период/],
       ['Pull request: Требуют внимания', /вердиктом «Требуют внимания».*за выбранный период/],
       ['Pull request: Чистые', /вердиктом «Чистые».*за выбранный период/],
-      ['Pull request: Без вердикта', /без вердикта.*за выбранный период/],
+      ['Pull request: Без вердикта', /без вердикта.*проверка неполная.*за выбранный период/],
       ['Критические', /критических находок.*за выбранный период/],
       ['Высокие', /высокой важности.*за выбранный период/],
       ['Средние', /средней важности.*за выбранный период/],
@@ -705,46 +706,54 @@ describe('AnalyticsPage', () => {
     const findingsCaption = await screen.findByRole('button', { name: 'Находки по дням' })
     fireEvent.mouseEnter(findingsCaption)
     expect(
-      await screen.findByText(/число находок за день по четырём категориям.*не сравнимы/i),
+      await screen.findByText(
+        /по четырём категориям: Безопасность, Дефект, Производительность и Стиль\..*не сравнимы/i,
+      ),
     ).toBeTruthy()
     fireEvent.mouseLeave(findingsCaption)
     await waitForElementToBeRemoved(() =>
-      screen.queryByText(/число находок за день по четырём категориям.*не сравнимы/i),
+      screen.queryByText(
+        /по четырём категориям: Безопасность, Дефект, Производительность и Стиль\..*не сравнимы/i,
+      ),
     )
 
     fireEvent.focus(findingsCaption)
     expect(
-      await screen.findByText(/число находок за день по четырём категориям.*не сравнимы/i),
+      await screen.findByText(
+        /по четырём категориям: Безопасность, Дефект, Производительность и Стиль\..*не сравнимы/i,
+      ),
     ).toBeTruthy()
     fireEvent.blur(findingsCaption)
     await waitForElementToBeRemoved(() =>
-      screen.queryByText(/число находок за день по четырём категориям.*не сравнимы/i),
+      screen.queryByText(
+        /по четырём категориям: Безопасность, Дефект, Производительность и Стиль\..*не сравнимы/i,
+      ),
     )
 
     const durationCaption = screen.getByRole('button', { name: 'Средняя длительность по дням' })
     fireEvent.mouseEnter(durationCaption)
     expect(
       await screen.findByText(
-        /среднюю длительность успешных прогонов.*не сравнимы.*значения в секундах.*разрыв линии/i,
+        /значения в секундах.*разрыв линии означает, что в этот день не было успешных прогонов/i,
       ),
     ).toBeTruthy()
     fireEvent.mouseLeave(durationCaption)
     await waitForElementToBeRemoved(() =>
       screen.queryByText(
-        /среднюю длительность успешных прогонов.*не сравнимы.*значения в секундах.*разрыв линии/i,
+        /значения в секундах.*разрыв линии означает, что в этот день не было успешных прогонов/i,
       ),
     )
 
     fireEvent.focus(durationCaption)
     expect(
       await screen.findByText(
-        /среднюю длительность успешных прогонов.*не сравнимы.*значения в секундах.*разрыв линии/i,
+        /значения в секундах.*разрыв линии означает, что в этот день не было успешных прогонов/i,
       ),
     ).toBeTruthy()
     fireEvent.blur(durationCaption)
     await waitForElementToBeRemoved(() =>
       screen.queryByText(
-        /среднюю длительность успешных прогонов.*не сравнимы.*значения в секундах.*разрыв линии/i,
+        /значения в секундах.*разрыв линии означает, что в этот день не было успешных прогонов/i,
       ),
     )
   })
@@ -761,7 +770,6 @@ describe('AnalyticsPage', () => {
     const halfMaxBar = screen.getByRole('graphics-symbol', { name: '2026-10-26: Дефект' })
     assert(halfMaxBar)
     expect(Number(halfMaxBar.getAttribute('height'))).toBeCloseTo(98, 2)
-    expect(halfMaxBar.getAttribute('class')).toContain('bar')
     expect(halfMaxBar.getAttribute('class')).toContain('correctness')
     expect(halfMaxBar.getAttribute('class')).toContain('helpTarget')
   })

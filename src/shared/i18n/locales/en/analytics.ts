@@ -57,19 +57,19 @@ export const analytics = {
   pullsAttentionTooltip:
     'Count of pull requests with Attention verdict (only medium or low findings) over the selected period',
   pullsCleanTooltip:
-    'Count of pull requests with Clean verdict (no findings above info) over the selected period',
+    'Count of pull requests with Clean verdict (a complete review, no findings above info) over the selected period',
   pullsNoVerdictTooltip:
-    'Count of pull requests without a verdict (runs that failed, were cancelled, or skipped) over the selected period',
+    'Count of pull requests without a verdict (the run failed, was cancelled or skipped; the review was partial or of the file list only) over the selected period',
   severityCriticalTooltip:
-    'Count of Critical findings (vulnerabilities and fatal defects blocking release) over the selected period',
+    'Count of Critical findings (they make the verdict Blocking) over the selected period',
   severityHighTooltip:
-    'Count of High findings (serious bugs and significant logic risks) over the selected period',
+    'Count of High findings (they make the verdict Blocking) over the selected period',
   severityMediumTooltip:
-    'Count of Medium findings (moderate issues and potential defects) over the selected period',
+    'Count of Medium findings (the verdict is Attention when nothing is higher) over the selected period',
   severityLowTooltip:
-    'Count of Low findings (minor issues and stylistic remarks) over the selected period',
+    'Count of Low findings (the verdict is Attention when nothing is higher) over the selected period',
   severityInfoTooltip:
-    'Count of Info findings (recommendations, tips, and notes) over the selected period',
+    'Count of Info findings (they do not affect the verdict) over the selected period',
   averageDurationTooltip: 'Average duration of Succeeded review runs over the selected period',
   tokensInTooltip: 'Total input tokens over the selected period',
   tokensOutTooltip: 'Total output tokens over the selected period',

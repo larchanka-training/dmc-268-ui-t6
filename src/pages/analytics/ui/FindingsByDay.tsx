@@ -1,10 +1,9 @@
 import type { JSX } from 'react'
 
 import { useTranslation } from '../../../shared/i18n'
-import { cx } from '../../../shared/ui'
-import helpStyles from '../../../shared/ui/styles/helpTarget.module.css'
+import { cx, helpTargetClass, MetricTooltip } from '../../../shared/ui'
 import styles from './FindingsByDay.module.css'
-import { ChartHeading, MetricTooltip } from './MetricTooltip'
+import { ChartHeading } from './ChartHeading'
 import { useChartRovingFocus } from '../lib/useChartRovingFocus'
 
 const CATEGORIES = [
@@ -108,7 +107,7 @@ export function FindingsByDay(props: {
           <MetricTooltip key={bar.key} title={bar.tooltipTitle}>
             <rect
               aria-label={bar.ariaLabel}
-              className={cx(bar.className, styles.bar, helpStyles.helpTarget)}
+              className={cx(bar.className, helpTargetClass)}
               height={String(bar.height)}
               role="graphics-symbol"
               width={String(bar.width)}
