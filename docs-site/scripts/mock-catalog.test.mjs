@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
@@ -86,7 +86,8 @@ test('resolveInside rejects directory traversal and allows legitimate filenames'
   assert.equal(resolveInside(baseDir, '..'), null)
   assert.equal(resolveInside(baseDir, 'a/../../x'), null)
 
-  // `path.isAbsolute(rel)` prevents escaping via Windows drive letters or absolute paths
+  // Windows only: `path.isAbsolute(rel)` catches a path on another drive. CI runs on Linux and
+  // never reaches this branch.
   if (path.sep === '\\') {
     assert.equal(resolveInside(baseDir, 'C:\\escaped'), null)
   }
@@ -102,10 +103,14 @@ test('resolveInside rejects directory traversal and allows legitimate filenames'
 
 test('serveStatic handles directory traversal as 404 and malformed URI as 400', async () => {
   const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'servestatic-test-'))
-  const server = await serveStatic(tmpDir, '/docs', 0)
+  const outDir = path.join(tmpDir, 'out')
+  await mkdir(outDir)
+  // Lies next to outDir: without the guard the first request answers 200.
+  await writeFile(path.join(tmpDir, 'secret.txt'), 'secret')
+  const server = await serveStatic(outDir, '/docs', 0)
   const port = server.address().port
   try {
-    const resTraversal = await fetch(`http://127.0.0.1:${port}/docs/..%2f..%2fx`)
+    const resTraversal = await fetch(`http://127.0.0.1:${port}/docs/..%2fsecret.txt`)
     assert.equal(resTraversal.status, 404)
 
     const resMalformed = await fetch(`http://127.0.0.1:${port}/docs/%E0%A4%A`)

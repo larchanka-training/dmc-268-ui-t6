@@ -59,6 +59,15 @@ server instead (`http://localhost:3000` or `http://localhost:3000/docs`; the bas
 when missing). The single list of pictures and their widths lives in
 `components/dashboard/mock-names.ts`.
 
+To add a new mockup:
+
+1. Register its name and dimensions in `components/dashboard/mock-names.ts`.
+2. Implement the component in `components/dashboard/mock-screen.tsx`.
+3. Export the mockup wrapper in `components/mockups/index.tsx`.
+4. Embed it in the relevant MDX documentation page.
+5. Take the pictures with `pnpm --dir docs-site shots` and commit `components/mockups/screens.json`
+   together with the new `.webp` image.
+
 ## Status badges
 
 `<StatusBadge />` from `components/status-badge.tsx` marks what does not work yet:

@@ -103,10 +103,10 @@ const MIME = {
 }
 
 /**
- * Resolves a decoded relative subpath within `outDir`.
- * Returns the absolute path if it stays strictly inside `outDir`, or `null` if `inside` is null,
- * escapes `outDir` (directory traversal), or is an absolute path. Path resolution and separator
- * behavior depend on the host operating system (`path.sep`).
+ * Resolves `inside` relative to `outDir`.
+ * Returns the path when it is `outDir` itself or lies under it (a leading separator in
+ * `inside` is relative to `outDir`), and `null` when `inside` is `null` or the path
+ * leaves `outDir`; on Windows that includes another drive.
  *
  * @param {string} outDir - Base directory that resolved paths must stay within.
  * @param {string | null} inside - Decoded relative subpath to resolve.
