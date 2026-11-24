@@ -21,13 +21,14 @@ browser.
 
 ## Workspace settings
 
-<StatusBadge /> Workspace settings will appear in the sidebar. The page will show workspace
-configuration, identity details, and upcoming team and billing management for the active workspace.
+<StatusBadge /> A **Settings** item will appear in the sidebar and open the **Workspace settings**
+page. The page will show workspace configuration, identity details, and upcoming team and billing
+management for the active workspace.
 
 ### General
 
-<StatusBadge /> The **General** section will display the essential identity and access details
-of the current workspace. Every role sees this section, also in the read-only mode:
+<StatusBadge /> The **General** section will display the essential identity and access details of
+the current workspace. Every role will see it, also in the read-only mode. It will list:
 
 - **Workspace name**: The display name of the workspace.
 - **Workspace ID**: The unique identifier of the workspace, with a one-click copy button.
@@ -42,8 +43,10 @@ of the current workspace. Every role sees this section, also in the read-only mo
 assignments. Full member management is planned under upcoming updates.
 
 Access will be restricted by workspace role:
-- **Owner** and **Admin** can view and manage workspace members.
-- Teammates with **Billing** or **Member** roles see an access notice explaining that team
+
+- **Owner** and **Admin** will be able to manage workspace members; an Admin cannot change an
+  Owner.
+- Teammates with **Billing** or **Member** roles will see an access notice explaining that team
   management is available only to the Owner and Admins of the workspace.
 
 ### Billing and plan
@@ -52,10 +55,12 @@ Access will be restricted by workspace role:
 methods. Full billing self-service is planned under upcoming updates.
 
 Access will be structured by workspace role:
+
 - All roles (**Owner**, **Admin**, **Billing**, and **Member**) will be able to view workspace
   usage, balance, and active plan.
 - Managing subscriptions, payment cards, auto-recharge, and balance top-ups will be restricted to
-  **Owner**, **Admin**, and **Billing** roles.
+  **Owner**, **Admin**, and **Billing** roles (see the
+  [Role permissions matrix](/features#role-permissions-matrix) for Starter plan details).
 
 ### Role permissions matrix
 
@@ -86,9 +91,9 @@ every member with GitHub access to the repository.
 <StatusBadge /> If the server does not send your role, or sends one the dashboard does not know,
 workspace settings will fall back to a read-only fail-safe mode with **Member** permissions:
 
-- A read-only notice informs the user that their workspace role is unavailable.
-- The role badge shows **Read only**.
-- Allows safely reviewing workspace identity details without errors or broken navigation.
+- A read-only notice will inform the user that their workspace role is unavailable.
+- The role badge will show **Read only**.
+- You will still be able to review the workspace identity details.
 
 ## Repository settings
 
