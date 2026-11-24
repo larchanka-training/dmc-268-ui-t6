@@ -74,16 +74,12 @@ export const AgentTokensDialog: FC<AgentTokensDialogProps> = ({ onClose }) => {
                       onClick={
                         revoke.isPending
                           ? undefined
-                          : (event) => {
-                              const trigger = event.currentTarget
+                          : () => {
                               modal.confirm({
                                 title: t('layout.userMenu.agentTokens.confirm'),
                                 afterClose: () => {
                                   window.setTimeout(() => {
-                                    if (
-                                      document.activeElement === document.body ||
-                                      document.activeElement === trigger
-                                    )
+                                    if (!focusContentRef.current?.contains(document.activeElement))
                                       focusContentRef.current?.focus()
                                   }, 0)
                                 },

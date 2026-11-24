@@ -89,7 +89,7 @@ describe('AgentTokensDialog', () => {
     expect(await screen.findByText(TOKEN.repository)).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: 'Отозвать' }))
     fireEvent.click(confirmation().getByRole('button', { name: 'Отмена' }))
-    // jsdom does not run this confirm's afterClose motion; browser smoke covers focus restoration.
+    // jsdom does not run this confirm's afterClose motion; focus after it is checked by hand in a browser (see How to verify).
     await waitFor(() => {
       expect(document.activeElement).toBe(
         screen.getByText(TOKEN.repository).closest('[tabindex="-1"]'),
@@ -178,6 +178,42 @@ describe('AgentTokensDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Отозвать' }))
     fireEvent.click(confirmation().getByRole('button', { name: 'Отозвать' }))
     expect(await screen.findByText('Не удалось отозвать токен агента')).toBeDefined()
+    queryClient.clear()
+  })
+
+  it('leaves the focus on the dialog close button after the list refresh', async () => {
+    vi.spyOn(agentTokensApi, 'listAgentTokens')
+      .mockResolvedValueOnce([TOKEN, OTHER_TOKEN])
+      .mockResolvedValue([OTHER_TOKEN])
+    let finishRevoke: (() => void) | undefined
+    vi.spyOn(agentTokensApi, 'revokeAgentToken').mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finishRevoke = resolve
+        }),
+    )
+    const queryClient = renderDialog()
+
+    expect(await screen.findByText(TOKEN.repository)).toBeDefined()
+    const [button] = screen.getAllByRole('button', { name: 'Отозвать' })
+    if (!button) throw new Error('Revoke button is missing')
+    fireEvent.click(button)
+    fireEvent.click(confirmation().getByRole('button', { name: 'Отозвать' }))
+    await waitFor(() => {
+      expect(button.getAttribute('aria-disabled')).toBe('true')
+    })
+    const closeButton = [...document.querySelectorAll<HTMLElement>('.ant-modal-close')].find(
+      (element) => !element.closest('.ant-modal-confirm'),
+    )
+    if (!closeButton) throw new Error('Tokens dialog close button is missing')
+    closeButton.focus()
+    expect(document.activeElement).toBe(closeButton)
+    finishRevoke?.()
+    await waitFor(() => {
+      expect(screen.queryByText(TOKEN.repository)).toBeNull()
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(document.activeElement).toBe(closeButton)
     queryClient.clear()
   })
 })
