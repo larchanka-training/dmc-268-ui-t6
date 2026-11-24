@@ -101,6 +101,8 @@ export const WorkspaceSettingsPage: FC = () => {
     content = <Alert showIcon title={t('settings.workspace.noWorkspace')} type="info" />
   } else {
     const role = current.role ?? null
+    // ADR 0002 §11.2 п. 3
+    const effectiveRole: WorkspaceRole = role ?? 'member'
     const roleMeta = role ? ROLE_META[role] : READ_ONLY_ROLE_META
 
     content = (
@@ -129,7 +131,6 @@ export const WorkspaceSettingsPage: FC = () => {
         </Card>
 
         {PERMISSION_SECTIONS.map((section) => {
-          const effectiveRole: WorkspaceRole = role ?? 'member'
           const hasAccess = section.allowedRoles.includes(effectiveRole)
           return (
             <Card key={section.key} title={t(section.titleKey)}>
@@ -149,9 +150,9 @@ export const WorkspaceSettingsPage: FC = () => {
   }
 
   return (
-    <Flex vertical gap="large">
+    <div className={styles.page}>
       <PageHeader title={t('settings.workspace.title')} />
       {content}
-    </Flex>
+    </div>
   )
 }
