@@ -22,16 +22,16 @@ import {
 import { setMockAuthAdapter, useAuthStore } from '../../features/auth'
 import type { BitbucketConnectionItem } from '../../features/bitbucket-connections'
 import {
+  DeleteWorkspaceRequestSchema,
+  WORKSPACE_NAME_MISMATCH_DETAIL,
+} from '../../features/workspace-settings'
+import {
   ApiError,
   setAccessToken,
   setMockTransport,
   type MockTransportHandler,
 } from '../../shared/api/client'
 import { USE_MOCKS } from '../../shared/config/env'
-import {
-  DeleteWorkspaceRequestSchema,
-  WORKSPACE_NAME_MISMATCH_DETAIL,
-} from '../../features/workspace-settings'
 import { applyRunUpdated } from '../providers/runStreamConnect'
 import { SAMPLE_FILE_A_LINES, SAMPLE_PATCHES } from '../../shared/fixtures/sample.patch'
 import {
@@ -420,20 +420,22 @@ function handleMockTransport(
     const workspaceId = workspaceDeleteMatch[1]
     const ws = mockUserWorkspaces.find((w) => w.id === workspaceId)
     if (!ws) {
-      throw new ApiError(404, 'Not Found', { detail: 'workspace_not_found' })
+      // Contract api#554 / app/main.py: detail is 'workspace not found'
+      throw new ApiError(404, 'Not Found', { detail: 'workspace not found' })
     }
     if (ws.role !== 'owner') {
-      throw new ApiError(403, 'Forbidden', { detail: 'workspace_owner_required' })
+      // Contract api#554 / app/main.py: detail is 'only workspace owner can delete workspace'
+      throw new ApiError(403, 'Forbidden', { detail: 'only workspace owner can delete workspace' })
     }
     const parsed = DeleteWorkspaceRequestSchema.safeParse(options.body)
     if (!parsed.success) {
-      throw new ApiError(422, 'Unprocessable Entity', {
-        detail: parsed.error.issues.map((issue) => ({
-          loc: ['body', ...issue.path],
+      throw unprocessable(
+        parsed.error.issues.map((issue) => ({
+          loc: ['body', ...issue.path.map((p) => (typeof p === 'symbol' ? String(p) : p))],
           msg: issue.message,
           type: issue.code,
         })),
-      })
+      )
     }
     if (parsed.data.confirmation_name !== ws.name) {
       throw new ApiError(422, 'Unprocessable Entity', { detail: WORKSPACE_NAME_MISMATCH_DETAIL })

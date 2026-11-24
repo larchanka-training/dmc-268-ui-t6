@@ -7,13 +7,8 @@
   margin-bottom: 4px;
 }
 
-.confirmSection {
-  margin-top: 16px;
-}
-
 .modalFooter {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
-  margin-top: 24px;
 }

@@ -53,7 +53,7 @@ antd, TanStack Query и jsdom — патчи от 2026-09-24.
 | Ф-25 | SSE: одна инвалидация префикса прогона и объединение целей в пределах разобранного чанка (§2)                                                                        | Перекрывающиеся ключи отменяли и повторяли HTTP-запросы; следующий чанк сохраняет отмену старого refetch ради свежих данных (Refs ui#161).                                                                                    |
 | Ф-26 | Язык интерфейса: i18next, словари `en`/`ru` в `src/shared/i18n`, английский по умолчанию; переключатель: `features/language` (меню профиля, рядом с темой)           | #182: продукт открывается по-английски, выбор языка сохраняется (`dmc_language`). Полноту `ru` проверяет `check-types`, кириллицу вне словарей отклоняет `pnpm lint`; тесты идут на RU (`src/test/setup.ts`).                 |
 | Ф-27 | Текущий workspace: один источник `useCurrentWorkspace` (`features/workspace`); в Zustand и localStorage (`dmc_current_workspace`) — только выбранный id              | ui#207: список — запрос `['auth', 'me']` (Ф-7), текущий вычисляется при рендере; выбор общий на всё приложение, как тема и язык, поэтому стор не в виджете (§2). Стор экспортируется для тестов страниц (§2).                 |
-| Ф-28 | Настройки workspace: маршрут `/settings` (ленивый), пункт меню в `AppSidebar` и матрица ролей ADR 0002 §11                                                           | ui#304: единый экран для команды и биллинга (Danger Zone убран до ui#300); чтение роли из `workspaces[].role` `/auth/me` (придёт в api#373, до него fail-safe режим «только чтение», §9).                                     |
+| Ф-28 | Настройки workspace: маршрут `/settings` (ленивый), пункт меню в `AppSidebar` и матрица ролей ADR 0002 §11                                                           | ui#304: единый экран для команды, биллинга и Danger Zone (удаление workspace по ui#300 / ADR 0003); чтение роли из `workspaces[].role` `/auth/me` (придёт в api#373, до него fail-safe режим «только чтение», §9).            |
 
 Ф-11 уточнено 2026-09-24 (#49): TypeScript поднят 5.9.3 → 6.0.3. Потолок — именно 6.0.x, а не
 «6.x»: у TypeScript 7.0 нет JS API компилятора, поэтому peer typescript-eslint остаётся
@@ -162,7 +162,7 @@ flowchart TD
 | Журнал прогонов (`/audit`)                       | `entities/run`, `features/audit-filter`, `pages/audit`                                                  |
 | Дашборд качества (`/analytics`)                  | `entities/metrics`, `features/analytics-filter`, `pages/analytics`                                      |
 | Песочница правил (`/playground`)                 | `entities/repository`, `widgets/repository-rules`, `pages/playground`                                   |
-| Настройки workspace (`/settings`)                | `entities/user`, `features/workspace`, `pages/settings`                                                 |
+| Настройки workspace (`/settings`)                | `entities/user`, `features/workspace`, `features/workspace-settings`, `pages/settings`                  |
 
 Границы срезов ui#93:
 
@@ -2798,7 +2798,7 @@ issue прямо выносит подключение логирования з
 сведения (ID, имя, installation ID и `Tag` роли из `shared/ui`), команду и доступ (плейсхолдер
 под ui#210, доступен Owner и Admin) и баланс и тариф (плейсхолдер под ui#208, просмотр открыт
 всем четырём ролям — Owner, Admin, Billing, Member, а действия по пополнению и тарифам
-ограничены Owner, Admin, Billing по ADR 0002 §11.1); опасная зона вынесена в отдельную задачу ui#300.
+ограничены Owner, Admin, Billing по ADR 0002 §11.1); в секции Danger Zone (ui#300) владелец может удалить workspace с подтверждением по имени через `DeleteWorkspaceModal`.
 Для пользователей без роли (поле отсутствует, `null` или значение вне
 `owner | admin | billing | member`) до выката api#373 по ADR 0002 §11.2 п.3 действуют права Member
 (просмотр общих сведений и баланса/тарифа в режиме «только чтение», управление командой недоступно).

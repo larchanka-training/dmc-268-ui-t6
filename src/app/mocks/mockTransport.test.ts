@@ -1466,7 +1466,7 @@ describe('initMockTransport', () => {
         apiClient(endpoints.workspaces.delete('00000000-0000-0000-0000-000000000000'), {
           body: { confirmation_name: 'does-not-matter' },
         }),
-      ).rejects.toMatchObject({ status: 404 })
+      ).rejects.toMatchObject({ status: 404, data: { detail: 'workspace not found' } })
     })
 
     it('answers 403 when called for a workspace where user is not owner', async () => {
@@ -1474,7 +1474,10 @@ describe('initMockTransport', () => {
         apiClient(endpoints.workspaces.delete('323e4567-e89b-12d3-a456-426614174002'), {
           body: { confirmation_name: 'dmc-team-admin' },
         }),
-      ).rejects.toMatchObject({ status: 403, data: { detail: 'workspace_owner_required' } })
+      ).rejects.toMatchObject({
+        status: 403,
+        data: { detail: 'only workspace owner can delete workspace' },
+      })
     })
 
     it('answers 422 with validation errors when body is invalid or missing confirmation_name', async () => {
@@ -1482,13 +1485,19 @@ describe('initMockTransport', () => {
         apiClient(endpoints.workspaces.delete('123e4567-e89b-12d3-a456-426614174000'), {
           body: { confirmation_name: '' },
         }),
-      ).rejects.toMatchObject({ status: 422 })
+      ).rejects.toMatchObject({
+        status: 422,
+        data: { detail: [{ loc: ['body', 'confirmation_name'] }] },
+      })
 
       await expect(
         apiClient(endpoints.workspaces.delete('123e4567-e89b-12d3-a456-426614174000'), {
           body: {},
         }),
-      ).rejects.toMatchObject({ status: 422 })
+      ).rejects.toMatchObject({
+        status: 422,
+        data: { detail: [{ loc: ['body', 'confirmation_name'] }] },
+      })
     })
 
     it('answers 422 when confirmation_name does not match', async () => {

@@ -1,5 +1,5 @@
 import { Alert, App, Button, Flex, Input, Modal, Typography } from 'antd'
-import { useState, type FC } from 'react'
+import { useEffect, useRef, useState, type FC } from 'react'
 
 import type { Workspace } from '../../../entities/user'
 import { ApiError } from '../../../shared/api/client'
@@ -35,21 +35,40 @@ export const DeleteWorkspaceModal: FC<DeleteWorkspaceModalProps> = ({
   const disabledButtonClass = useDisabledButtonClass()
   const [confirmationInput, setConfirmationInput] = useState('')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const wasDeletedRef = useRef(false)
 
   const deleteMutation = useDeleteWorkspace()
   const isPending = deleteMutation.isPending
 
   const handleClose = () => {
-    if (isPending) return
     setConfirmationInput('')
     setErrorMessage(null)
     onClose()
   }
 
   const isMatch = confirmationInput === workspace.name
+  const confirmBlocked = !isMatch || isPending
+
+  const notifyDeleted = () => {
+    if (!wasDeletedRef.current) return
+    wasDeletedRef.current = false
+    onDeleted?.()
+  }
+
+  // After the last workspace is deleted the page drops the danger zone before `afterClose` runs.
+  const notifyDeletedRef = useRef(notifyDeleted)
+  useEffect(() => {
+    notifyDeletedRef.current = notifyDeleted
+  })
+  useEffect(
+    () => () => {
+      notifyDeletedRef.current()
+    },
+    [],
+  )
 
   const handleConfirm = async () => {
-    if (!isMatch || isPending) return
+    if (confirmBlocked) return
     setErrorMessage(null)
 
     try {
@@ -60,8 +79,8 @@ export const DeleteWorkspaceModal: FC<DeleteWorkspaceModalProps> = ({
       message.success(t('settings.workspace.dangerZone.successNotification'))
       setConfirmationInput('')
       setErrorMessage(null)
+      wasDeletedRef.current = true
       onClose()
-      onDeleted?.()
     } catch (err) {
       if (isWorkspaceNameMismatch(err)) {
         setErrorMessage(t('settings.workspace.dangerZone.nameMismatch'))
@@ -81,6 +100,7 @@ export const DeleteWorkspaceModal: FC<DeleteWorkspaceModalProps> = ({
 
   return (
     <Modal
+      afterClose={notifyDeleted}
       closable={!isPending}
       destroyOnHidden
       // Custom footer layout: keeps confirmation input and action buttons grouped cleanly in document order
@@ -102,7 +122,7 @@ export const DeleteWorkspaceModal: FC<DeleteWorkspaceModalProps> = ({
 
         {errorMessage ? <Alert showIcon title={errorMessage} type="error" /> : null}
 
-        <div className={styles.confirmSection}>
+        <div>
           <Typography.Paragraph>
             {t('settings.workspace.dangerZone.confirmPrompt', { name: workspace.name })}
           </Typography.Paragraph>
@@ -129,12 +149,12 @@ export const DeleteWorkspaceModal: FC<DeleteWorkspaceModalProps> = ({
           </Button>
           <Button
             danger
-            aria-disabled={!isMatch || isPending ? true : undefined}
+            aria-disabled={confirmBlocked ? true : undefined}
             className={isPending ? disabledButtonClass : undefined}
-            disabled={!isMatch && !isPending}
+            disabled={!isMatch}
             loading={isPending}
             onClick={
-              !isMatch || isPending
+              confirmBlocked
                 ? undefined
                 : () => {
                     void handleConfirm()
