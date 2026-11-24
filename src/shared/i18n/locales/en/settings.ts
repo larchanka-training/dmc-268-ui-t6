@@ -179,7 +179,7 @@ export const settings = {
       description: 'View balance, expenses, and plan.',
       noAccess:
         'Subscription management and balance top-up are available to Owner, Admin, and Billing roles.',
-      placeholder: 'Plan details, auto-recharge, and payment methods will be configured here.',
+      placeholder: 'Balance, plan details, and payment methods will be shown here.',
     },
     readOnlyNotice: 'Workspace role is unavailable — read-only access.',
     loadFailed: 'Could not load workspace data.',

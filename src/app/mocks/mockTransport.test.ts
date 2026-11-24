@@ -1436,7 +1436,17 @@ describe('initMockTransport', () => {
     })
 
     it('returns current user with six workspaces covering all role variants parsed through MeSchema', async () => {
-      const me = MeSchema.parse(await apiClient<unknown>(endpoints.auth.me()))
+      const raw = await apiClient<unknown>(endpoints.auth.me())
+      expect((raw as { workspaces: { role?: unknown }[] }).workspaces.map((w) => w.role)).toEqual([
+        'owner',
+        'admin',
+        'billing',
+        'member',
+        undefined,
+        'viewer',
+      ])
+
+      const me = MeSchema.parse(raw)
       expect(me.workspaces).toHaveLength(6)
       expect(me.workspaces.map((w) => w.role)).toEqual([
         'owner',

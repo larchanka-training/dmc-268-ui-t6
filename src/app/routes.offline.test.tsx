@@ -111,3 +111,15 @@ it('/playground sends a signed-out user to the login page', async () => {
   expect(screen.queryByRole('heading', { name: 'PlaygroundPage' })).toBeNull()
   expect(router.state.location.pathname).toBe('/login')
 })
+
+it('/settings sends a signed-out user to the login page', async () => {
+  useAuthStore.setState({ isAuthenticated: false, isLoading: false, isInitialized: true })
+  const router = createMemoryRouter(createRoutes(), { initialEntries: ['/settings'] })
+  routers.push(router)
+
+  render(<App router={router} />)
+
+  expect(await screen.findByRole('heading', { name: 'LoginPage' })).toBeDefined()
+  expect(screen.queryByRole('heading', { name: 'WorkspaceSettingsPage' })).toBeNull()
+  expect(router.state.location.pathname).toBe('/login')
+})
