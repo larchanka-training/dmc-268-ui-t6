@@ -12,7 +12,6 @@
 
 .previewImage {
   display: block;
-  object-fit: contain;
 }
 
 .snippetRow {
