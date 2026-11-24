@@ -24,10 +24,10 @@ browser.
 <StatusBadge /> Workspace settings will appear in the sidebar. The page will show workspace
 configuration, identity details, and upcoming team and billing management for the active workspace.
 
-### General information
+### General
 
 <StatusBadge /> The **General** section will display the essential identity and access details
-of the current workspace:
+of the current workspace. Every role sees this section, also in the read-only mode:
 
 - **Workspace name**: The display name of the workspace.
 - **Workspace ID**: The unique identifier of the workspace, with a one-click copy button.
@@ -69,20 +69,22 @@ roles:
 | Trigger and restart reviews | Yes | Yes | No | Yes |
 | Top up balance, manage payment cards | Yes | Yes | Yes | No |
 | Manage subscription plan, auto-recharge, VAT ID | Yes | Yes | Yes\* | No |
-| Request 14-day refund | Yes | Yes | Yes | No |
+| Request 14-day refund (EU and EEA consumers) | Yes | Yes | Yes | No |
 | Manage repository settings, rules, and RAG | Yes | Yes | No | No\*\* |
 | Manage integrations (GitLab, Bitbucket) | Yes | Yes | No | No\*\* |
 | Invite, edit, and remove team members | Yes | Yes (except Owner) | No | No |
 | Assign and revoke Owner role | Yes (min 1 Owner) | No | No | No |
 
-\* Downgrading to Starter with >5 active repositories requires Owner or Admin to select the 5 repositories.
-\*\* Until the workspace has its first Owner, repository and integration settings stay open to every member with GitHub access to the repository.
+\* Switching to Starter with more than 5 repositories (from Pro, from pay as you go or as a new
+Starter plan) is confirmed only by an Owner or Admin, who picks the 5 repositories.
+
+\*\* Until the workspace has its first Owner, repository and integration settings stay open to
+every member with GitHub access to the repository.
 
 ### Read-only fail-safe mode
 
-<StatusBadge /> When a user's role has not been assigned by the backend (for example, prior to the
-deployment of server-side role support), the page will automatically fall back to a read-only mode
-with **Member** permissions:
+<StatusBadge /> If the server does not send your role, or sends one the dashboard does not know,
+workspace settings will fall back to a read-only fail-safe mode with **Member** permissions:
 
 - A read-only notice informs the user that their workspace role is unavailable.
 - The role badge shows **Read only**.
