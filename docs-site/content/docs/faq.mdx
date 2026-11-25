@@ -86,9 +86,10 @@ For the upcoming permissions model and capabilities across workspace actions, se
 
 ### Why will workspace settings show Read-only access?
 
-If the server does not send your role, or sends one the dashboard does not know, workspace settings
-will fall back to a read-only fail-safe mode with **Member** permissions. See
-[Read-only fail-safe mode](/features#read-only-fail-safe-mode).
+If the server does not send your role, or sends one the dashboard does not know, the **Workspace
+settings** page (`/settings`) will fall back to a strict read-only fail-safe mode (separate from
+**Member** permissions: no mutating settings, billing, or team access, and no triggering or
+restarting reviews). See [Read-only fail-safe mode](/features#read-only-fail-safe-mode).
 
 ## Dates and time
 
