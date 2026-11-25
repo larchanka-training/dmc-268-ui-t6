@@ -414,4 +414,49 @@ describe('WorkspaceDangerZone', () => {
     unmount()
     expect(onDeleted).toHaveBeenCalledTimes(1)
   })
+
+  it('keeps the workspace the dialog was opened for when the current one changes', async () => {
+    const dangerZone = (workspace: Workspace) => (
+      <ConfigProvider theme={{ token: { motion: false } }}>
+        <QueryClientProvider client={queryClient}>
+          <App>
+            <WorkspaceDangerZone workspace={workspace} />
+          </App>
+        </QueryClientProvider>
+      </ConfigProvider>
+    )
+    const { rerender } = render(dangerZone(OWNER_WORKSPACE))
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить этот воркспейс' }))
+    await screen.findByPlaceholderText('acme-corp')
+
+    rerender(
+      dangerZone({
+        ...OWNER_WORKSPACE,
+        id: '423e4567-e89b-12d3-a456-426614174000',
+        name: 'other-corp',
+      }),
+    )
+
+    expect(screen.getByPlaceholderText('acme-corp')).toBeTruthy()
+    expect(screen.queryByPlaceholderText('other-corp')).toBeNull()
+  })
+
+  it('clears the typed name and the error when the dialog is cancelled and opened again', async () => {
+    setMockTransport(() => {
+      throw new ApiError(500, 'Internal Server Error', { detail: 'raw internal trace' })
+    })
+
+    renderWithProviders(<WorkspaceDangerZone workspace={OWNER_WORKSPACE} />)
+    await openAndConfirm('acme-corp')
+    await screen.findByText('Не удалось удалить воркспейс')
+    fireEvent.click(screen.getByRole('button', { name: 'Отмена' }))
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить этот воркспейс' }))
+    const input = await screen.findByPlaceholderText('acme-corp')
+    expect((input as HTMLInputElement).value).toBe('')
+    expect(screen.queryByText('Не удалось удалить воркспейс')).toBeNull()
+  })
 })

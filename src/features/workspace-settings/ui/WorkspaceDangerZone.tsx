@@ -16,6 +16,8 @@ export interface WorkspaceDangerZoneProps {
 export const WorkspaceDangerZone: FC<WorkspaceDangerZoneProps> = ({ workspace, onDeleted }) => {
   const { t } = useTranslation()
   const [modalOpen, setModalOpen] = useState(false)
+  // The dialog deletes the workspace it was opened for, even when the current one changes meanwhile.
+  const [target, setTarget] = useState(workspace)
   const reasonId = useId()
 
   // Fail closed when role is missing or unknown (ADR 0003 / api#373): only explicit Owner can delete.
@@ -37,6 +39,7 @@ export const WorkspaceDangerZone: FC<WorkspaceDangerZoneProps> = ({ workspace, o
               <Button
                 danger
                 onClick={() => {
+                  setTarget(workspace)
                   setModalOpen(true)
                 }}
               >
@@ -62,7 +65,7 @@ export const WorkspaceDangerZone: FC<WorkspaceDangerZoneProps> = ({ workspace, o
         }}
         onDeleted={onDeleted}
         open={modalOpen}
-        workspace={workspace}
+        workspace={target}
       />
     </>
   )

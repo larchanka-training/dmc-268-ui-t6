@@ -77,10 +77,8 @@ export const DeleteWorkspaceModal: FC<DeleteWorkspaceModalProps> = ({
         confirmationName: confirmationInput,
       })
       message.success(t('settings.workspace.dangerZone.successNotification'))
-      setConfirmationInput('')
-      setErrorMessage(null)
       wasDeletedRef.current = true
-      onClose()
+      handleClose()
     } catch (err) {
       if (isWorkspaceNameMismatch(err)) {
         setErrorMessage(t('settings.workspace.dangerZone.nameMismatch'))
