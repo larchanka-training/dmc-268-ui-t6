@@ -9,7 +9,7 @@
   (the last one checks the `pnpm build` output); for a change in `landing/` or
   `docs-site/` (or in `src/`, which `docs-site` imports) also
   `pnpm --dir <package> check-types` and `pnpm --dir <package> build`
-  (`landing` also has `test`).
+  (`landing` and `docs-site` also have `test`).
 - No new dependency without a line in the PR body.
 - Never edit files owned by another open PR without a comment there.
 - User docs (`docs-site/content/docs/`) follow
@@ -27,20 +27,20 @@
 
 <!-- SYNC: commands table mirrored in AGENTS.md § Commands — change both together -->
 
-| Task         | Command                                                     | Source         |
-| ------------ | ----------------------------------------------------------- | -------------- |
-| Install      | `pnpm install` (bootstrap pnpm once: `npm install -g pnpm`) | `package.json` |
-| Dev server   | `pnpm dev`                                                  | `package.json` |
-| Lint         | `pnpm lint`                                                 | `package.json` |
-| Format       | `pnpm format`                                               | `package.json` |
-| Format check | `pnpm format:check`                                         | `package.json` |
-| Typecheck    | `pnpm check-types`                                          | `package.json` |
-| Test         | `pnpm test`                                                 | `package.json` |
-| Build        | `pnpm build`                                                | `package.json` |
-| Bundle check | `pnpm verify:prod-bundle` (after `pnpm build`)              | `package.json` |
-| Storybook    | `pnpm storybook` (static build: `pnpm build-storybook`)     | `package.json` |
-| Landing      | `pnpm --dir landing check-types`, `test`, `build`           | `landing/`     |
-| Docs site    | `pnpm --dir docs-site check-types`, `build` (`dev` to edit) | `docs-site/`   |
+| Task         | Command                                                             | Source         |
+| ------------ | ------------------------------------------------------------------- | -------------- |
+| Install      | `pnpm install` (bootstrap pnpm once: `npm install -g pnpm`)         | `package.json` |
+| Dev server   | `pnpm dev`                                                          | `package.json` |
+| Lint         | `pnpm lint`                                                         | `package.json` |
+| Format       | `pnpm format`                                                       | `package.json` |
+| Format check | `pnpm format:check`                                                 | `package.json` |
+| Typecheck    | `pnpm check-types`                                                  | `package.json` |
+| Test         | `pnpm test`                                                         | `package.json` |
+| Build        | `pnpm build`                                                        | `package.json` |
+| Bundle check | `pnpm verify:prod-bundle` (after `pnpm build`)                      | `package.json` |
+| Storybook    | `pnpm storybook` (static build: `pnpm build-storybook`)             | `package.json` |
+| Landing      | `pnpm --dir landing check-types`, `test`, `build`                   | `landing/`     |
+| Docs site    | `pnpm --dir docs-site check-types`, `test`, `build` (`dev` to edit) | `docs-site/`   |
 
 `pnpm-lock.yaml` is committed; `packageManager` is pinned in `package.json`; Node
 ≥ 22.22.0 is required (`engines` in `package.json`).
@@ -181,6 +181,8 @@ Tests for UI code, on top of §5:
 ## 5. Testing
 
 - Co-located: `src/**/*.test.{ts,tsx}` next to the code it tests.
+- `docs-site/scripts/*.test.mjs` run on Node's built-in runner (`pnpm --dir docs-site test`), not
+  Vitest; add a new file to `docs-site/package.json`'s `test` script.
 - `setupFiles: src/test/setup.ts`; no `globals` — import explicitly:
   `import { describe, it, expect } from 'vitest'`.
 - `afterEach(() => { cleanup() })` in every component test file.
