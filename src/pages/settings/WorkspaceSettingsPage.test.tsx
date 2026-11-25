@@ -71,9 +71,7 @@ function renderPage(options?: {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
   if (status === 'pending') {
-    client.setQueryDefaults(AUTH_ME_QUERY_KEY, {
-      queryFn: () => new Promise<never>(() => undefined),
-    })
+    setMockTransport(() => new Promise<never>(() => undefined))
   } else if (status === 'error') {
     setMockTransport((endpoint) => {
       if (endpoint.path === '/auth/me') {
@@ -279,6 +277,46 @@ describe('WorkspaceSettingsPage', () => {
     expect(screen.getByText(/участник \(member\)/i)).toBeDefined()
     expect(screen.getByText(TEAM_NO_ACCESS)).toBeDefined()
     expect(screen.queryByText(TEAM_PLACEHOLDER)).toBeNull()
+  })
+
+  it.each([
+    {
+      opts: { role: 'owner' as const },
+      label: /владелец \(owner\)/i,
+      tone: 'warning',
+      variant: 'dot',
+    },
+    {
+      opts: { role: 'admin' as const },
+      label: /администратор \(admin\)/i,
+      tone: 'info',
+      variant: 'dot',
+    },
+    {
+      opts: { role: 'billing' as const },
+      label: /биллинг \(billing\)/i,
+      tone: 'success',
+      variant: 'dot',
+    },
+    {
+      opts: { role: 'member' as const },
+      label: /участник \(member\)/i,
+      tone: 'neutral',
+      variant: 'dot',
+    },
+    { opts: { role: null }, label: 'Только чтение', tone: 'neutral', variant: 'outline' },
+    { opts: { omitRole: true }, label: 'Только чтение', tone: 'neutral', variant: 'outline' },
+    {
+      opts: { role: 'future_custom_role' },
+      label: 'Только чтение',
+      tone: 'neutral',
+      variant: 'outline',
+    },
+  ])('renders role tag metadata for $opts', ({ opts, label, tone, variant }) => {
+    renderPage(opts)
+    const tag = screen.getByText(label)
+    expect(tag.getAttribute('data-tone')).toBe(tone)
+    expect(tag.getAttribute('data-variant')).toBe(variant)
   })
 
   it.each([
