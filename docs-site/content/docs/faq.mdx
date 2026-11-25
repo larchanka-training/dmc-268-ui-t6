@@ -4,8 +4,6 @@ description: Access, stored data, cost and fixes for common problems.
 icon: CircleQuestionMark
 ---
 
-import { StatusBadge } from '@/components/status-badge'
-
 ## Access and data
 
 ### Which access does Reviewer need?
@@ -177,7 +175,7 @@ Check these in order:
 | --- | --- |
 | `policy_access_denied`, `policy_revision_unavailable`, `policy_fetch_transient`, `policy_rate_limited` | Reviewer could not read the rules from GitHub; the file itself may be fine. `policy_fetch_transient` and `policy_rate_limited` are retried automatically. Otherwise check the installation, then restart the run. |
 | `policy_...` | The rules file or `AGENTS.md` has a problem, or the rules are too large for the review. The check shows the problem, and the file and line when one file is at fault, see [Rules file](/rules-file#errors-fail-the-run). For `policy_prompt_budget_exceeded`: shorten the rules. |
-| `llm_context_overflow` | The change does not fit in the model context. Split the pull request. <StatusBadge /> When only the review call overflows and the rules fit, the run will not fail: see [The review has no line comments](/faq#the-review-has-no-line-comments). |
+| `llm_context_overflow` | The change does not fit in the model context. Split the pull request. When only the review call overflows and the rules fit, the run does not fail: see [The review has no line comments](/faq#the-review-has-no-line-comments). |
 | `budget_exceeded` | The run hit its spending limit. Split the pull request. |
 | `verification_context_overflow`, `verification_invalid_output`, `verification_unavailable`, `verification_budget_exceeded`, `verification_deadline_exceeded` | The second check of the findings failed, so no findings are posted. `verification_unavailable` is retried automatically, up to 3 attempts. Otherwise restart the run, or split the pull request if it fails again. |
 | `deadline_exceeded` | The run took too long. Restart it. |
@@ -194,13 +192,13 @@ they appear in **Findings outside the diff** and obey the file, severity and sea
 
 Or the findings could not be tied to changed lines; then they are in the review body.
 
-<StatusBadge /> When the rules fit in the model context but no changed file does, or the review call
-itself overflows, Reviewer will post a review without findings and line comments instead of failing
-the run. The run will be `succeeded` and the check neutral, titled `AI-ревью: проверка неполная`
-(review incomplete). Under **What to check:** the review body will name the files under
+When the rules fit in the model context but no changed file does, or the review call itself
+overflows, Reviewer posts a review without findings and line comments instead of failing the run.
+The run is `succeeded` and the check is neutral, titled `AI-ревью: проверка неполная` (review
+incomplete). Under **What to check:** the review body names the files under
 `Не проверено — модель получила не весь patch` (not checked: the model got only part of the patch):
-up to 5 names, fewer when the body is long or file names are hidden, and always the count. These
-files were not reviewed; split the pull request to have them checked.
+up to 5 names, fewer when the body is long, and always the count. These files were not reviewed;
+split the pull request to have them checked.
 
 ### Checked files says the list is not shown
 
