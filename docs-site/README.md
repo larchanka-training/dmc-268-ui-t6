@@ -52,7 +52,8 @@ The script takes all pictures every time; commit only the ones that changed.
 
 The script builds the static export, serves `out/` under `/docs` with a small built-in server on
 port 3917 (`PORT`), opens every `/docs/mockups/*` page in Chromium at 2x pixel density and saves
-WebP (with `sharp`, which Next.js installs; PNG without it). Playwright is not a dependency here:
+WebP (with `sharp`, which Next.js installs; without it the script writes PNG for a local look,
+commit only WebP). Playwright is not a dependency here:
 `NODE_PATH` points to an install of it. `CHROME_PATH` sets the browser (default
 `/usr/bin/google-chrome`), `SKIP_BUILD=1` serves the last `out/`, and `BASE_URL` uses a running
 server instead (`http://localhost:3000` or `http://localhost:3000/docs`; the base path is added
@@ -64,7 +65,8 @@ To add a new mockup:
 1. Register its name and dimensions in `components/dashboard/mock-names.ts`.
 2. Write the component in `components/dashboard/` (a settings block goes to `settings-blocks.tsx`)
    and register it in `SCREEN` or `SNIPPET` of `components/dashboard/mock-screen.tsx`.
-3. Export the mockup wrapper in `components/mockups/index.tsx`.
+3. Export the mockup wrapper from `components/mockups/index.tsx` and add it to the object
+   returned by `getMDXComponents` in `components/mdx.tsx`.
 4. Embed it in the relevant MDX documentation page.
 5. Take the pictures with `pnpm --dir docs-site shots` and commit `components/mockups/screens.json`
    together with the new `.webp` image.

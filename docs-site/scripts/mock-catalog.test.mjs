@@ -53,6 +53,7 @@ test('mockup catalog matches screens manifest, dimensions, and rendered public i
         `Invalid measured snippet height in screens.json for ${shot.name}`,
       )
     }
+    assert.ok(entry.src.endsWith('.webp'), `${shot.name}: commit WebP, "shots" needs sharp`)
     const asset = path.join(ROOT, 'public', entry.src.replace(/^\/+/, ''))
     assert.ok(existsSync(asset), `Missing generated image for ${shot.name}: ${asset}`)
     const dims = readWebpDimensions(asset)

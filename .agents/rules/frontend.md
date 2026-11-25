@@ -181,6 +181,8 @@ Tests for UI code, on top of §5:
 ## 5. Testing
 
 - Co-located: `src/**/*.test.{ts,tsx}` next to the code it tests.
+- `docs-site/scripts/*.test.mjs` run on Node's built-in runner (`pnpm --dir docs-site test`), not
+  Vitest; add a new file to `docs-site/package.json`'s `test` script.
 - `setupFiles: src/test/setup.ts`; no `globals` — import explicitly:
   `import { describe, it, expect } from 'vitest'`.
 - `afterEach(() => { cleanup() })` in every component test file.
