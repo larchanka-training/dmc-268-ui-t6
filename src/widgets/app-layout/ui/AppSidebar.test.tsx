@@ -386,4 +386,17 @@ describe('AppSidebar tooltips', () => {
     const analyticsNav = screen.getByRole('navigation', { name: 'Разделы' })
     expect(within(analyticsNav).getByText('Песочница').hasAttribute('aria-current')).toBe(false)
   })
+
+  it('highlights Settings on /settings', () => {
+    vi.mocked(isMockMode).mockReturnValue(false)
+    renderWithQuery(<AppSidebar currentPath="/settings" onNavigate={vi.fn()} />)
+    const nav = screen.getByRole('navigation', { name: 'Разделы' })
+    expect(within(nav).getByText('Настройки').getAttribute('aria-current')).toBe('page')
+    expect(screen.getByRole('link', { name: 'Настройки' }).getAttribute('href')).toBe('/settings')
+    const links = within(nav).getAllByRole('link')
+    const names = links.map((link) => link.textContent)
+    const sandboxIdx = names.indexOf('Песочница')
+    expect(sandboxIdx).toBeGreaterThanOrEqual(0)
+    expect(names.indexOf('Настройки')).toBe(sandboxIdx + 1)
+  })
 })

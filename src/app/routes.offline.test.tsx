@@ -31,6 +31,7 @@ vi.mock('../pages/review/ReviewRedirect', () => pageModule('ReviewRedirect'))
 vi.mock('../pages/audit/AuditPage', () => pageModule('AuditPage'))
 vi.mock('../pages/analytics/AnalyticsPage', () => pageModule('AnalyticsPage'))
 vi.mock('../pages/playground/PlaygroundPage', () => pageModule('PlaygroundPage'))
+vi.mock('../pages/settings/WorkspaceSettingsPage', () => pageModule('WorkspaceSettingsPage'))
 
 const originalAuth = useAuthStore.getState()
 const routers: ReturnType<typeof createMemoryRouter>[] = []
@@ -73,6 +74,7 @@ it.each([
   { path: '/audit', page: 'AuditPage', signedIn: true, inLayout: true },
   { path: '/analytics', page: 'AnalyticsPage', signedIn: true, inLayout: true },
   { path: '/playground', page: 'PlaygroundPage', signedIn: true, inLayout: true },
+  { path: '/settings', page: 'WorkspaceSettingsPage', signedIn: true, inLayout: true },
 ])(
   '$path: shows the notice offline and opens the page when the network returns',
   async ({ path, page, signedIn, inLayout }) => {
@@ -107,5 +109,17 @@ it('/playground sends a signed-out user to the login page', async () => {
 
   expect(await screen.findByRole('heading', { name: 'LoginPage' })).toBeDefined()
   expect(screen.queryByRole('heading', { name: 'PlaygroundPage' })).toBeNull()
+  expect(router.state.location.pathname).toBe('/login')
+})
+
+it('/settings sends a signed-out user to the login page', async () => {
+  useAuthStore.setState({ isAuthenticated: false, isLoading: false, isInitialized: true })
+  const router = createMemoryRouter(createRoutes(), { initialEntries: ['/settings'] })
+  routers.push(router)
+
+  render(<App router={router} />)
+
+  expect(await screen.findByRole('heading', { name: 'LoginPage' })).toBeDefined()
+  expect(screen.queryByRole('heading', { name: 'WorkspaceSettingsPage' })).toBeNull()
   expect(router.state.location.pathname).toBe('/login')
 })
