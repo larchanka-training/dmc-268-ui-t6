@@ -59,7 +59,7 @@ export const analytics = {
   pullsCleanTooltip:
     'Count of pull requests with Clean verdict (a complete review, no findings above info) over the selected period',
   pullsNoVerdictTooltip:
-    'Count of pull requests without a verdict (the run failed, was cancelled or skipped; the review was partial or of the file list only) over the selected period',
+    'Count of pull requests without a verdict (the run failed, was cancelled or skipped; the review was partial with no findings above info; the review was of the file list only) over the selected period',
   severityCriticalTooltip:
     'Count of Critical findings (they make the verdict Blocking) over the selected period',
   severityHighTooltip:

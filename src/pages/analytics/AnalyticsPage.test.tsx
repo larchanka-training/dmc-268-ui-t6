@@ -598,23 +598,47 @@ describe('AnalyticsPage', () => {
     expect(criticalTile.getAttribute('aria-labelledby')).toBeNull()
 
     const tiles = [
-      ['Прогоны: Успешные', /статусом «Успешные» за выбранный период/],
-      ['Прогоны: С ошибкой', /статусом «С ошибкой» за выбранный период/],
-      ['Прогоны: Отменённые', /статусом «Отменённые» за выбранный период/],
-      ['Прогоны: Пропущенные', /статусом «Пропущенные» за выбранный период/],
-      ['Pull request: Блокирующие', /вердиктом «Блокирующие».*за выбранный период/],
-      ['Pull request: Требуют внимания', /вердиктом «Требуют внимания».*за выбранный период/],
-      ['Pull request: Чистые', /вердиктом «Чистые».*за выбранный период/],
-      ['Pull request: Без вердикта', /без вердикта.*проверка неполная.*за выбранный период/],
-      ['Критические', /критических находок.*за выбранный период/],
-      ['Высокие', /высокой важности.*за выбранный период/],
-      ['Средние', /средней важности.*за выбранный период/],
-      ['Низкие', /низкой важности.*за выбранный период/],
-      ['Информационные', /информационных находок.*за выбранный период/],
-      ['Средняя длительность', /по успешным прогонам за выбранный период/i],
-      ['Токены на входе', /входных токенов за выбранный период/],
-      ['Токены на выходе', /выходных токенов за выбранный период/],
-      ['Стоимость', /стоимость в долларах США.*за выбранный период/],
+      ['Прогоны: Успешные', 'Число прогонов ревью со статусом «Успешные» за выбранный период'],
+      ['Прогоны: С ошибкой', 'Число прогонов ревью со статусом «С ошибкой» за выбранный период'],
+      ['Прогоны: Отменённые', 'Число прогонов ревью со статусом «Отменённые» за выбранный период'],
+      [
+        'Прогоны: Пропущенные',
+        'Число прогонов ревью со статусом «Пропущенные» за выбранный период',
+      ],
+      [
+        'Pull request: Блокирующие',
+        'Число pull request с вердиктом «Блокирующие» (хотя бы одна находка critical или high) за выбранный период',
+      ],
+      [
+        'Pull request: Требуют внимания',
+        'Число pull request с вердиктом «Требуют внимания» (только находки medium или low) за выбранный период',
+      ],
+      [
+        'Pull request: Чистые',
+        'Число pull request с вердиктом «Чистые» (полная проверка, нет находок выше info) за выбранный период',
+      ],
+      [
+        'Pull request: Без вердикта',
+        'Число pull request без вердикта (прогон с ошибкой, отменён или пропущен; проверка неполная и без находок выше info; проверка только по списку файлов) за выбранный период',
+      ],
+      ['Критические', 'Число критических находок (дают вердикт «Блокирующие») за выбранный период'],
+      [
+        'Высокие',
+        'Число находок высокой важности (дают вердикт «Блокирующие») за выбранный период',
+      ],
+      [
+        'Средние',
+        'Число находок средней важности (без более важных дают вердикт «Требуют внимания») за выбранный период',
+      ],
+      [
+        'Низкие',
+        'Число находок низкой важности (без более важных дают вердикт «Требуют внимания») за выбранный период',
+      ],
+      ['Информационные', 'Число информационных находок (на вердикт не влияют) за выбранный период'],
+      ['Средняя длительность', 'Средняя длительность по успешным прогонам за выбранный период'],
+      ['Токены на входе', 'Суммарное число входных токенов за выбранный период'],
+      ['Токены на выходе', 'Суммарное число выходных токенов за выбранный период'],
+      ['Стоимость', 'Суммарная стоимость в долларах США (USD) за выбранный период'],
     ] as const
     expect(tilesList.querySelectorAll('dt')).toHaveLength(tiles.length)
 
@@ -633,11 +657,12 @@ describe('AnalyticsPage', () => {
     }
 
     // Verify closing tile tooltip on Escape (AC5)
+    const criticalHelp = tiles[8][1]
     fireEvent.focus(criticalDt)
-    expect(await screen.findByText(/критических находок.*за выбранный период/)).toBeTruthy()
+    expect(await screen.findByText(criticalHelp)).toBeTruthy()
     fireEvent.keyDown(criticalDt, { key: 'Escape' })
     await waitFor(() => {
-      expect(screen.queryByText(/критических находок.*за выбранный период/)).toBeNull()
+      expect(screen.queryByText(criticalHelp)).toBeNull()
     })
   })
 
@@ -700,62 +725,35 @@ describe('AnalyticsPage', () => {
   })
 
   it('explains chart axes, period scaling, units, and line gaps via caption buttons on focus and hover', async () => {
+    const FINDINGS_HELP =
+      'График показывает число находок за день по четырём категориям: Безопасность, Дефект, Производительность и Стиль. Шкала строится от максимума выбранного периода, поэтому графики разных периодов по высоте не сравнимы.'
+    const DURATION_HELP =
+      'График показывает среднюю длительность успешных прогонов за день. Шкала строится от максимума выбранного периода, поэтому графики разных периодов по высоте не сравнимы. Значения в секундах; в подсказке точки — минуты и секунды. Линия соединяет дни с успешными прогонами; разрыв линии означает, что в этот день не было успешных прогонов.'
+
     stubThreeDaySeries()
     renderPage()
 
     const findingsCaption = await screen.findByRole('button', { name: 'Находки по дням' })
     fireEvent.mouseEnter(findingsCaption)
-    expect(
-      await screen.findByText(
-        /по четырём категориям: Безопасность, Дефект, Производительность и Стиль\..*не сравнимы/i,
-      ),
-    ).toBeTruthy()
+    expect(await screen.findByText(FINDINGS_HELP)).toBeTruthy()
     fireEvent.mouseLeave(findingsCaption)
-    await waitForElementToBeRemoved(() =>
-      screen.queryByText(
-        /по четырём категориям: Безопасность, Дефект, Производительность и Стиль\..*не сравнимы/i,
-      ),
-    )
+    await waitForElementToBeRemoved(() => screen.queryByText(FINDINGS_HELP))
 
     fireEvent.focus(findingsCaption)
-    expect(
-      await screen.findByText(
-        /по четырём категориям: Безопасность, Дефект, Производительность и Стиль\..*не сравнимы/i,
-      ),
-    ).toBeTruthy()
+    expect(await screen.findByText(FINDINGS_HELP)).toBeTruthy()
     fireEvent.blur(findingsCaption)
-    await waitForElementToBeRemoved(() =>
-      screen.queryByText(
-        /по четырём категориям: Безопасность, Дефект, Производительность и Стиль\..*не сравнимы/i,
-      ),
-    )
+    await waitForElementToBeRemoved(() => screen.queryByText(FINDINGS_HELP))
 
     const durationCaption = screen.getByRole('button', { name: 'Средняя длительность по дням' })
     fireEvent.mouseEnter(durationCaption)
-    expect(
-      await screen.findByText(
-        /значения в секундах.*разрыв линии означает, что в этот день не было успешных прогонов/i,
-      ),
-    ).toBeTruthy()
+    expect(await screen.findByText(DURATION_HELP)).toBeTruthy()
     fireEvent.mouseLeave(durationCaption)
-    await waitForElementToBeRemoved(() =>
-      screen.queryByText(
-        /значения в секундах.*разрыв линии означает, что в этот день не было успешных прогонов/i,
-      ),
-    )
+    await waitForElementToBeRemoved(() => screen.queryByText(DURATION_HELP))
 
     fireEvent.focus(durationCaption)
-    expect(
-      await screen.findByText(
-        /значения в секундах.*разрыв линии означает, что в этот день не было успешных прогонов/i,
-      ),
-    ).toBeTruthy()
+    expect(await screen.findByText(DURATION_HELP)).toBeTruthy()
     fireEvent.blur(durationCaption)
-    await waitForElementToBeRemoved(() =>
-      screen.queryByText(
-        /значения в секундах.*разрыв линии означает, что в этот день не было успешных прогонов/i,
-      ),
-    )
+    await waitForElementToBeRemoved(() => screen.queryByText(DURATION_HELP))
   })
 
   it('scales bars to period max and omits zero-value categories from rendering', async () => {

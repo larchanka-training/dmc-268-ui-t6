@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { Button } from 'antd'
 
+import { helpTargetClass } from './helpTargetClass'
 import { MetricTooltip } from './MetricTooltip'
 
 const meta: Meta<typeof MetricTooltip> = {
@@ -29,7 +30,9 @@ export const Default: Story = {
 export const MetricValue: Story = {
   render: () => (
     <MetricTooltip title="Число критических находок (дают вердикт «Блокирующие») за выбранный период">
-      <span tabIndex={0}>42</span>
+      <span className={helpTargetClass} tabIndex={0}>
+        42
+      </span>
     </MetricTooltip>
   ),
 }

@@ -527,6 +527,7 @@ Storybook; не добавлять экранную логику перепис�
 | InputNumber, Switch, Checkbox, Radio                  | токены                                                        |
 | Button                                                | токены и `antd.css` (кнопка опасного действия с рамкой)       |
 | Modal, Tooltip, Alert, Skeleton, Empty, Card, message | токены                                                        |
+| MetricTooltip                                         | обёртка `Tooltip`: наведение и фокус, `Esc` закрывает antd    |
 | Popover                                               | токены и общая обёртка `InfoHint` с клавиатурным управлением  |
 | Descriptions, Collapse, Layout, Avatar, List, Result  | токены                                                        |
 | Typography                                            | токены и `antd.css` (радиус `code` в тексте)                  |
@@ -543,7 +544,6 @@ Storybook; не добавлять экранную логику перепис�
 | Tag                                                   | свой компонент, `Tag` из Ant Design не используется           |
 | Spin                                                  | индикатор заменён на наш `Spinner` (кольцо) через провайдер   |
 | PageLoader                                            | свой компонент, кольцо в нём — наш `Spinner`                  |
-| MetricTooltip                                         | обёртка `Tooltip`: наведение и фокус, `Esc` закрывает antd    |
 
 У каждого компонента из таблицы есть история в Storybook в разделе «Ant Design» или
 «Свои компоненты». Истории «Ant Design/Segmented» используют общую именованную обёртку.
