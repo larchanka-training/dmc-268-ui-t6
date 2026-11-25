@@ -78,6 +78,18 @@ instructions. Rules and `AGENTS.md` come only from the base commit, so a pull re
 change the rules it is reviewed with. This lowers the risk of prompt injection but cannot rule it
 out, so treat the review as advice from a teammate.
 
+### What workspace roles will exist and what will they do?
+
+Workspaces will support four roles: **Owner**, **Admin**, **Billing**, and **Member**.
+For the upcoming permissions model and capabilities across workspace actions, see the
+[Role permissions matrix](/features#role-permissions-matrix).
+
+### Why will workspace settings show Read-only access?
+
+If the server does not send your role, or sends one the dashboard does not know, the **Workspace
+settings** page (`/settings`) will open in a read-only mode. See
+[Read-only fail-safe mode](/features#read-only-fail-safe-mode).
+
 ## Dates and time
 
 ### Which timezone does the dashboard use?
