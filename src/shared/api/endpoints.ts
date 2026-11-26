@@ -18,6 +18,24 @@ export const endpoints = {
     update: (id: string): Endpoint => ({ method: 'PATCH', path: `/repos/${id}` }),
     rulesStatus: (id: string): Endpoint => ({ method: 'GET', path: `/repos/${id}/rules-status` }),
   },
+  gitlab: {
+    discover: (workspaceId: string): Endpoint => ({
+      method: 'POST',
+      path: `/workspaces/${workspaceId}/gitlab/discovery`,
+    }),
+    connections: (workspaceId: string): Endpoint => ({
+      method: 'GET',
+      path: `/workspaces/${workspaceId}/gitlab/connections`,
+    }),
+    connect: (workspaceId: string): Endpoint => ({
+      method: 'POST',
+      path: `/workspaces/${workspaceId}/gitlab/connections`,
+    }),
+    disconnect: (workspaceId: string, installationId: string): Endpoint => ({
+      method: 'DELETE',
+      path: `/workspaces/${workspaceId}/gitlab/connections/${installationId}`,
+    }),
+  },
   bitbucket: {
     discover: (workspaceId: string): Endpoint => ({
       method: 'POST',

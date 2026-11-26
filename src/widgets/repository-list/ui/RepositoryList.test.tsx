@@ -149,6 +149,39 @@ describe('RepositoryList', () => {
     expect(screen.queryByRole('link', { name: /GitHub App к private-space/i })).toBeNull()
   })
 
+  it('shows a GitLab repository with its connection status and no GitHub App action on that row', () => {
+    mockSlug = 'test-bot'
+    const first = mockRepos[0]
+    if (!first) throw new Error('missing repository fixture')
+    const gitlab: Repository = {
+      ...first,
+      id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+      provider: 'gitlab',
+      fullName: 'group/review-me',
+      url: 'https://gitlab.com/group/review-me',
+      connectionStatus: 'awaiting_webhook',
+      installationAvailable: false,
+    }
+    render(
+      <RepositoryList
+        settingsHref={settingsHref}
+        onSyncAccess={vi.fn()}
+        repositories={[first, gitlab]}
+      />,
+    )
+    expect(screen.getByText('GitLab')).toBeTruthy()
+    expect(screen.getByText('Ожидает webhook')).toBeTruthy()
+    const gitlabLink = screen.getByRole('link', { name: 'group/review-me' })
+    expect(gitlabLink.getAttribute('href')).toBe('https://gitlab.com/group/review-me')
+    const row = gitlabLink.closest('tr')
+    if (!row) throw new Error('GitLab row missing')
+    expect(within(row).queryByRole('link', { name: /GitHub App/i })).toBeNull()
+    expect(within(row).queryByRole('link', { name: /установить github app/i })).toBeNull()
+    expect(within(row).queryByRole('link', { name: /подключить github-репозиторий/i })).toBeNull()
+    expect(screen.getByRole('link', { name: /подключить github-репозиторий/i })).toBeTruthy()
+    expect(screen.getByRole('link', { name: first.fullName })).toBeTruthy()
+  })
+
   it('names the settings column for table navigation', () => {
     render(
       <RepositoryList
@@ -620,7 +653,7 @@ describe('RepositoryList', () => {
     render(<RepositoryList settingsHref={settingsHref} onSyncAccess={vi.fn()} repositories={[]} />)
     expect(
       screen.getByText(
-        'Репозитории ещё не подключены. Для GitHub установите GitHub App или добавьте репозитории в существующую установку, затем нажмите «Обновить доступ». Для Bitbucket Cloud используйте блок «Bitbucket Cloud» ниже.',
+        'Репозитории ещё не подключены. Для GitHub установите GitHub App или добавьте репозитории в существующую установку, затем нажмите «Обновить доступ». Для GitLab и Bitbucket Cloud используйте блоки ниже.',
       ),
     ).toBeDefined()
   })

@@ -107,6 +107,98 @@ describe('RepositoriesPage', () => {
     expect(requests).not.toContain(
       '/workspaces/11111111-1111-4111-8111-111111111111/bitbucket/connections',
     )
+    expect(requests).not.toContain(
+      '/workspaces/11111111-1111-4111-8111-111111111111/gitlab/connections',
+    )
+  })
+
+  it('removes a disconnected GitLab repository and leaves the GitHub repository', async () => {
+    const workspaceId = '11111111-1111-4111-8111-111111111111'
+    const installationId = '22222222-2222-4222-8222-222222222222'
+    const githubId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    const gitlabId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+    const github: Repository = {
+      provider: 'github',
+      id: githubId,
+      fullName: 'org/github-repo',
+      url: 'https://github.com/org/github-repo',
+      defaultBranch: 'main',
+      enabled: true,
+      defaultEngine: 'fast',
+      waitForCi: 'auto',
+      maxComments: 10,
+      reviewEvent: 'COMMENT',
+      branchFilter: [],
+      severityThreshold: 'all',
+      installationAvailable: true,
+      ragEnabled: false,
+      ragIndex: disabledRagIndex,
+    }
+    const gitlab: Repository = {
+      ...github,
+      provider: 'gitlab',
+      id: gitlabId,
+      fullName: 'group/review-me',
+      url: 'https://gitlab.com/group/review-me',
+      connectionStatus: 'active',
+    }
+    let removed = false
+    const calls: string[] = []
+    useAuthStore.setState({ isAuthenticated: true })
+    setMockTransport((endpoint) => {
+      calls.push(`${endpoint.method} ${endpoint.path}`)
+      if (endpoint.path === '/auth/me') {
+        return {
+          id: 1,
+          login: 'reviewer',
+          name: 'Reviewer',
+          avatarUrl: null,
+          workspaces: [{ id: workspaceId, name: 'Private team', installationId: 1 }],
+        }
+      }
+      if (endpoint.path === '/repos') return removed ? [github] : [github, gitlab]
+      if (endpoint.path.startsWith('/runs?')) return { items: [], nextCursor: null }
+      if (endpoint.path === `/workspaces/${workspaceId}/gitlab/connections`) {
+        return {
+          connections: removed
+            ? []
+            : [
+                {
+                  id: installationId,
+                  repositoryId: gitlabId,
+                  projectId: 42,
+                  pathWithNamespace: 'group/review-me',
+                  status: 'active',
+                  webhookUrl: `https://api.example.test/webhooks/gitlab/${installationId}`,
+                },
+              ],
+        }
+      }
+      if (
+        endpoint.method === 'DELETE' &&
+        endpoint.path === `/workspaces/${workspaceId}/gitlab/connections/${installationId}`
+      ) {
+        removed = true
+        return null
+      }
+      throw new Error(`Unexpected request ${endpoint.method} ${endpoint.path}`)
+    })
+    renderWithClient(<RepositoriesPage />)
+    expect(await screen.findByRole('link', { name: 'org/github-repo' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'group/review-me' })).toBeTruthy()
+    expect(screen.getByText('Webhook активен')).toBeTruthy()
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Portal workspace GitLab' }))
+    fireEvent.click(screen.getByText('Private team'))
+    fireEvent.click(await screen.findByRole('button', { name: 'Отключить group/review-me' }))
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Отключить' }))
+    await waitFor(() => {
+      expect(screen.queryByRole('link', { name: 'group/review-me' })).toBeNull()
+    })
+    expect(screen.getByRole('link', { name: 'org/github-repo' })).toBeTruthy()
+    expect(calls).toContain(
+      `DELETE /workspaces/${workspaceId}/gitlab/connections/${installationId}`,
+    )
   })
 
   it('shows first steps after account and repository load, then resolves run status', async () => {

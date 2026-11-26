@@ -15,7 +15,7 @@ export const repositories = {
     'After you install the GitHub App on a new account, click "Refresh access": GitHub opens, then you come back here. A repository can take a few minutes to appear',
   installUnavailable: 'Installation is unavailable: VITE_GITHUB_APP_SLUG is not set',
   empty:
-    'No repositories are connected yet. For GitHub, install the GitHub App or add repositories to an existing installation, then click "Refresh access". For Bitbucket Cloud, use the panel below.',
+    'No repositories are connected yet. For GitHub, install the GitHub App or add repositories to an existing installation, then click "Refresh access". For GitLab and Bitbucket Cloud, use the panels below.',
   searchPlaceholder: 'Search by name...',
   filter: {
     label: 'Repository filter',
@@ -23,6 +23,10 @@ export const repositories = {
     active: 'Active ({{count}})',
   },
   nothingFound: 'Nothing found',
+  connectionStatus: {
+    awaiting_webhook: 'Awaiting webhook',
+    active: 'Webhook active',
+  },
   columns: {
     branch: 'Branch',
     engine: 'Engine',

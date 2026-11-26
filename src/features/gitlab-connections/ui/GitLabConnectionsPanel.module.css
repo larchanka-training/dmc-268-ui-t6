@@ -1,0 +1,18 @@
+.panel {
+  display: grid;
+  gap: 12px;
+}
+
+.field {
+  display: grid;
+  gap: 4px;
+  max-width: 360px;
+}
+
+.workspaceSelect {
+  width: 100%;
+}
+
+.tokenField {
+  max-width: 360px;
+}

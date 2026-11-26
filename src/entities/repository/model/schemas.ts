@@ -67,6 +67,9 @@ export const RepositorySchema = z.object({
   installationAvailable: z.boolean(),
   ragEnabled: z.boolean(),
   ragIndex: RagIndexSchema,
+  // GitLab connection on GET /api/repos (api#375). Omitted or null for other providers.
+  // z.object drops unknown keys, so the list cannot show this until it is declared.
+  connectionStatus: z.enum(['awaiting_webhook', 'active']).nullable().optional(),
 })
 export type Repository = z.infer<typeof RepositorySchema>
 
