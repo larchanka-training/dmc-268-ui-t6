@@ -47,4 +47,39 @@ export const analytics = {
   limit: 'Daily limit',
   limitUnset: 'Limit not set',
   paused: 'The daily budget is used up, reviews are paused until 00:00 UTC',
+  // Tooltips for tiles
+  runsSucceededTooltip: 'Count of review runs with Succeeded status over the selected period',
+  runsFailedTooltip: 'Count of review runs with Failed status over the selected period',
+  runsCancelledTooltip: 'Count of review runs with Cancelled status over the selected period',
+  runsSkippedTooltip: 'Count of review runs with Skipped status over the selected period',
+  pullsBlockingTooltip:
+    'Count of pull requests with Blocking verdict (at least one critical or high finding) over the selected period',
+  pullsAttentionTooltip:
+    'Count of pull requests with Attention verdict (only medium or low findings) over the selected period',
+  pullsCleanTooltip:
+    'Count of pull requests with Clean verdict (a complete review, no findings above info) over the selected period',
+  pullsNoVerdictTooltip:
+    'Count of pull requests without a verdict (the run failed, was cancelled or skipped; the review was partial with no findings above info; the review was of the file list only) over the selected period',
+  severityCriticalTooltip:
+    'Count of Critical findings (they make the verdict Blocking) over the selected period',
+  severityHighTooltip:
+    'Count of High findings (they make the verdict Blocking) over the selected period',
+  severityMediumTooltip:
+    'Count of Medium findings (the verdict is Attention when nothing is higher) over the selected period',
+  severityLowTooltip:
+    'Count of Low findings (the verdict is Attention when nothing is higher) over the selected period',
+  severityInfoTooltip:
+    'Count of Info findings (they do not affect the verdict) over the selected period',
+  averageDurationTooltip: 'Average duration of Succeeded review runs over the selected period',
+  tokensInTooltip: 'Total input tokens over the selected period',
+  tokensOutTooltip: 'Total output tokens over the selected period',
+  costTooltip: 'Total cost in USD over the selected period',
+  // Findings count plural
+  findingsCount_one: '{{count}} finding',
+  findingsCount_other: '{{count}} findings',
+  // Tooltips for charts
+  findingsByDayHelp:
+    'Shows findings count per day (UTC) across four categories: {{security}}, {{correctness}}, {{performance}}, and {{style}}. The scale is based on the maximum of the selected period, so charts of different periods are not comparable by height.',
+  durationByDayHelp:
+    'Shows the average duration of successful runs per day (UTC). The scale is based on the maximum of the selected period, so charts of different periods are not comparable by height. Values in seconds; data point tooltips show minutes and seconds. The line connects days with successful runs; gaps indicate days without successful runs.',
 }

@@ -2,9 +2,17 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  waitForElementToBeRemoved,
+  within,
+} from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, assert, describe, expect, it, vi } from 'vitest'
 
 import { disabledRagIndex } from '../../entities/repository'
 import type { MetricsSummary } from '../../entities/metrics'
@@ -210,11 +218,11 @@ describe('AnalyticsPage', () => {
     expect(tile('Токены на выходе')).toBe('4')
     expect(screen.getByRole('heading', { name: 'Числа по дням' })).toBeTruthy()
     expect(screen.getByRole('table')).toBeTruthy()
-    const titles = [...container.querySelectorAll('title')].map((node) => node.textContent)
-    expect(titles).toContain('Безопасность 2')
-    expect(titles).toContain('Дефект 7')
-    expect(titles).toContain('Стиль 8')
-    expect(titles).toContain('4')
+    expect(container.querySelectorAll('title')).toHaveLength(0)
+    const findingsGroup = screen.getByRole('group', { name: 'Находки по дням' })
+    expect(findingsGroup.querySelectorAll('rect')).toHaveLength(6)
+    const durationGroup = screen.getByRole('group', { name: 'Средняя длительность по дням' })
+    expect(durationGroup.querySelectorAll('circle')).toHaveLength(2)
     for (const name of ['Безопасность', 'Дефект', 'Производительность', 'Стиль']) {
       expect(screen.getAllByText(name).length).toBeGreaterThan(0)
     }
@@ -247,8 +255,8 @@ describe('AnalyticsPage', () => {
       expect(screen.getAllByText('Не удалось загрузить этот блок, обновите страницу')).toHaveLength(
         1,
       )
-      expect(screen.queryByRole('img', { name: failed })).toBeNull()
-      const otherFigure = screen.getByRole('img', { name: other }).closest('figure')
+      expect(screen.queryByRole('group', { name: failed })).toBeNull()
+      const otherFigure = screen.getByRole('group', { name: other }).closest('figure')
       expect(stub?.parentElement).toBe(otherFigure?.parentElement)
       expect(stub?.[side]).toBe(otherFigure)
       expect(screen.getByText('Критические')).toBeTruthy()
@@ -319,7 +327,7 @@ describe('AnalyticsPage', () => {
     )
     const { container } = renderPage()
     expect(await screen.findByText(EMPTY_PERIOD)).toBeTruthy()
-    expect(container.querySelector('svg[role="img"]')).toBeNull()
+    expect(container.querySelector('svg[role="group"]')).toBeNull()
     expect(screen.queryByRole('heading', { name: 'Числа по дням' })).toBeNull()
     expect(screen.queryByRole('table')).toBeNull()
     expect(screen.queryByText('Критические')).toBeNull()
@@ -548,18 +556,318 @@ describe('AnalyticsPage', () => {
     expect(row.textContent).not.toContain('<1')
   })
 
-  it('paints series with theme tokens and no hex', () => {
+  it('paints series with theme tokens, shared helpTarget :focus-visible rule, and no hex', () => {
     const root = join(process.cwd(), 'src/pages/analytics')
-    const css = [
-      readFileSync(join(root, 'ui/FindingsByDay.module.css'), 'utf8'),
-      readFileSync(join(root, 'ui/DurationByDay.module.css'), 'utf8'),
-      readFileSync(join(root, 'AnalyticsPage.module.css'), 'utf8'),
-    ].join('\n')
-    expect(css).toContain('var(--rv-critical)')
-    expect(css).toContain('var(--rv-high)')
-    expect(css).toContain('var(--rv-warning)')
-    expect(css).toContain('var(--rv-link)')
-    expect(css).toContain('var(--rv-accent)')
-    expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b/)
+    const findingsCss = readFileSync(join(root, 'ui/FindingsByDay.module.css'), 'utf8')
+    const durationCss = readFileSync(join(root, 'ui/DurationByDay.module.css'), 'utf8')
+    const headingCss = readFileSync(join(root, 'ui/ChartHeading.module.css'), 'utf8')
+    const pageCss = readFileSync(join(root, 'AnalyticsPage.module.css'), 'utf8')
+    const helpTargetCss = readFileSync(
+      join(process.cwd(), 'src/shared/ui/MetricTooltip/MetricTooltip.module.css'),
+      'utf8',
+    )
+
+    expect(helpTargetCss).toMatch(/\.helpTarget:focus-visible\b/)
+    expect(helpTargetCss).toContain('outline: 2px solid var(--rv-link);')
+    expect(helpTargetCss).toContain('cursor: help;')
+
+    for (const color of ['--rv-critical', '--rv-high', '--rv-warning', '--rv-link']) {
+      expect(findingsCss).toContain(`fill: var(${color});`)
+    }
+    expect(durationCss).toContain('var(--rv-accent)')
+
+    const allCss = [findingsCss, durationCss, headingCss, pageCss, helpTargetCss].join('\n')
+    expect(allCss).not.toMatch(/#[0-9a-fA-F]{3,8}\b/)
+  })
+
+  it('shows tooltips explaining all 17 tiles on focus and hover, and closes on Escape', async () => {
+    stubFetch((url) =>
+      url.pathname.endsWith('/repos')
+        ? { status: 200, body: [REPO] }
+        : { status: 200, body: summary() },
+    )
+    renderPage()
+    const tilesList = (await screen.findByText('Критические')).closest('dl')
+    assert(tilesList)
+    const criticalDt = screen.getByText('Критические')
+    expect(criticalDt.getAttribute('tabindex')).toBe('0')
+    expect(criticalDt.className).toContain('helpTarget')
+    const criticalTile = criticalDt.closest('div')
+    assert(criticalTile)
+    expect(criticalTile.getAttribute('tabindex')).toBeNull()
+    expect(criticalTile.getAttribute('aria-labelledby')).toBeNull()
+
+    const tiles = [
+      ['Прогоны: Успешные', 'Число прогонов ревью со статусом «Успешные» за выбранный период'],
+      ['Прогоны: С ошибкой', 'Число прогонов ревью со статусом «С ошибкой» за выбранный период'],
+      ['Прогоны: Отменённые', 'Число прогонов ревью со статусом «Отменённые» за выбранный период'],
+      [
+        'Прогоны: Пропущенные',
+        'Число прогонов ревью со статусом «Пропущенные» за выбранный период',
+      ],
+      [
+        'Pull request: Блокирующие',
+        'Число pull request с вердиктом «Блокирующие» (хотя бы одна находка critical или high) за выбранный период',
+      ],
+      [
+        'Pull request: Требуют внимания',
+        'Число pull request с вердиктом «Требуют внимания» (только находки medium или low) за выбранный период',
+      ],
+      [
+        'Pull request: Чистые',
+        'Число pull request с вердиктом «Чистые» (полная проверка, нет находок выше info) за выбранный период',
+      ],
+      [
+        'Pull request: Без вердикта',
+        'Число pull request без вердикта (прогон с ошибкой, отменён или пропущен; проверка неполная и без находок выше info; проверка только по списку файлов) за выбранный период',
+      ],
+      ['Критические', 'Число критических находок (дают вердикт «Блокирующие») за выбранный период'],
+      [
+        'Высокие',
+        'Число находок высокой важности (дают вердикт «Блокирующие») за выбранный период',
+      ],
+      [
+        'Средние',
+        'Число находок средней важности (без более важных дают вердикт «Требуют внимания») за выбранный период',
+      ],
+      [
+        'Низкие',
+        'Число находок низкой важности (без более важных дают вердикт «Требуют внимания») за выбранный период',
+      ],
+      ['Информационные', 'Число информационных находок (на вердикт не влияют) за выбранный период'],
+      ['Средняя длительность', 'Средняя длительность по успешным прогонам за выбранный период'],
+      ['Токены на входе', 'Суммарное число входных токенов за выбранный период'],
+      ['Токены на выходе', 'Суммарное число выходных токенов за выбранный период'],
+      ['Стоимость', 'Суммарная стоимость в долларах США (USD) за выбранный период'],
+    ] as const
+    expect(tilesList.querySelectorAll('dt')).toHaveLength(tiles.length)
+
+    for (const [label, expectedText] of tiles) {
+      const term = within(tilesList).getByText(label)
+
+      fireEvent.mouseEnter(term)
+      expect(await screen.findByText(expectedText)).toBeTruthy()
+      fireEvent.mouseLeave(term)
+      await waitForElementToBeRemoved(() => screen.queryByText(expectedText))
+
+      fireEvent.focus(term)
+      expect(await screen.findByText(expectedText)).toBeTruthy()
+      fireEvent.blur(term)
+      await waitForElementToBeRemoved(() => screen.queryByText(expectedText))
+    }
+
+    // Verify closing tile tooltip on Escape (AC5)
+    const criticalHelp = tiles[8][1]
+    fireEvent.focus(criticalDt)
+    expect(await screen.findByText(criticalHelp)).toBeTruthy()
+    fireEvent.keyDown(criticalDt, { key: 'Escape' })
+    await waitFor(() => {
+      expect(screen.queryByText(criticalHelp)).toBeNull()
+    })
+  })
+
+  function stubThreeDaySeries() {
+    stubFetch((url) =>
+      url.pathname.endsWith('/repos')
+        ? { status: 200, body: [REPO] }
+        : {
+            status: 200,
+            body: summary({
+              series: [
+                {
+                  day: '2026-10-25',
+                  findingsByCategory: {
+                    security: 1,
+                    correctness: 9,
+                    performance: 0,
+                    readability: 0,
+                  },
+                  runCount: 2,
+                  averageDurationSeconds: 12.7,
+                  costUsd: 0.2,
+                },
+                {
+                  day: '2026-10-26',
+                  findingsByCategory: {
+                    security: 0,
+                    correctness: 5,
+                    performance: 0,
+                    readability: 0,
+                  },
+                  runCount: 0,
+                  averageDurationSeconds: 0,
+                  costUsd: 0,
+                },
+                {
+                  day: '2026-10-27',
+                  findingsByCategory: {
+                    security: 0,
+                    correctness: 0,
+                    performance: 0,
+                    readability: 2,
+                  },
+                  runCount: 1,
+                  averageDurationSeconds: 125,
+                  costUsd: 0,
+                },
+              ],
+            }),
+          },
+    )
+  }
+
+  it('removes native title and does not make axis line a focus stop', async () => {
+    stubThreeDaySeries()
+    const { container } = renderPage()
+    await screen.findByRole('button', { name: 'Находки по дням' })
+    expect(container.querySelectorAll('title')).toHaveLength(0)
+    expect(container.querySelector('line[tabindex]')).toBeNull()
+  })
+
+  it('explains chart axes, period scaling, units, and line gaps via caption buttons on focus and hover', async () => {
+    const FINDINGS_HELP =
+      'График показывает число находок за день (UTC) по четырём категориям: Безопасность, Дефект, Производительность и Стиль. Шкала строится от максимума выбранного периода, поэтому графики разных периодов по высоте не сравнимы.'
+    const DURATION_HELP =
+      'График показывает среднюю длительность успешных прогонов за день (UTC). Шкала строится от максимума выбранного периода, поэтому графики разных периодов по высоте не сравнимы. Значения в секундах; в подсказке точки — минуты и секунды. Линия соединяет дни с успешными прогонами; разрыв линии означает, что в этот день не было успешных прогонов.'
+
+    stubThreeDaySeries()
+    renderPage()
+
+    const findingsCaption = await screen.findByRole('button', { name: 'Находки по дням' })
+    fireEvent.mouseEnter(findingsCaption)
+    expect(await screen.findByText(FINDINGS_HELP)).toBeTruthy()
+    fireEvent.mouseLeave(findingsCaption)
+    await waitForElementToBeRemoved(() => screen.queryByText(FINDINGS_HELP))
+
+    fireEvent.focus(findingsCaption)
+    expect(await screen.findByText(FINDINGS_HELP)).toBeTruthy()
+    fireEvent.blur(findingsCaption)
+    await waitForElementToBeRemoved(() => screen.queryByText(FINDINGS_HELP))
+
+    const durationCaption = screen.getByRole('button', { name: 'Средняя длительность по дням' })
+    fireEvent.mouseEnter(durationCaption)
+    expect(await screen.findByText(DURATION_HELP)).toBeTruthy()
+    fireEvent.mouseLeave(durationCaption)
+    await waitForElementToBeRemoved(() => screen.queryByText(DURATION_HELP))
+
+    fireEvent.focus(durationCaption)
+    expect(await screen.findByText(DURATION_HELP)).toBeTruthy()
+    fireEvent.blur(durationCaption)
+    await waitForElementToBeRemoved(() => screen.queryByText(DURATION_HELP))
+  })
+
+  it('scales bars to period max and omits zero-value categories from rendering', async () => {
+    stubThreeDaySeries()
+    const { container } = renderPage()
+
+    const findingsGroup = await screen.findByRole('group', { name: 'Находки по дням' })
+    const rects = [...findingsGroup.querySelectorAll('rect')]
+    expect(rects).toHaveLength(4)
+    expect(container.querySelector('rect.performance')).toBeNull()
+
+    const halfMaxBar = screen.getByRole('graphics-symbol', { name: '2026-10-26: Дефект' })
+    assert(halfMaxBar)
+    expect(Number(halfMaxBar.getAttribute('height'))).toBeCloseTo(98, 2)
+    expect(halfMaxBar.getAttribute('class')).toContain('correctness')
+    expect(halfMaxBar.getAttribute('class')).toContain('helpTarget')
+  })
+
+  it('navigates bar columns with roving focus and opens tooltip on focus and hover', async () => {
+    stubThreeDaySeries()
+    renderPage()
+
+    const findingsGroup = await screen.findByRole('group', { name: 'Находки по дням' })
+    const rects = [...findingsGroup.querySelectorAll('rect')]
+    expect(rects.map((node) => node.getAttribute('tabindex'))).toEqual(['0', '-1', '-1', '-1'])
+
+    const halfMaxBar = screen.getByRole('graphics-symbol', { name: '2026-10-26: Дефект' })
+    assert(halfMaxBar)
+
+    fireEvent.mouseEnter(halfMaxBar)
+    expect(await screen.findByText('2026-10-26: Дефект — 5 находок')).toBeTruthy()
+    fireEvent.mouseLeave(halfMaxBar)
+    await waitForElementToBeRemoved(() => screen.queryByText('2026-10-26: Дефект — 5 находок'))
+
+    fireEvent.focus(halfMaxBar)
+    expect(await screen.findByText('2026-10-26: Дефект — 5 находок')).toBeTruthy()
+    fireEvent.blur(halfMaxBar)
+    await waitForElementToBeRemoved(() => screen.queryByText('2026-10-26: Дефект — 5 находок'))
+
+    // Roving ArrowRight moves focus across bars
+    const firstBar = rects[0]
+    assert(firstBar)
+    fireEvent.focus(firstBar)
+    fireEvent.keyDown(firstBar, { key: 'ArrowRight' })
+    await waitFor(() => {
+      expect(rects[1]?.getAttribute('tabindex')).toBe('0')
+    })
+    fireEvent.blur(firstBar)
+  })
+
+  it.each([
+    ['2026-10-25: Безопасность', '2026-10-25: Безопасность — 1 находка'],
+    ['2026-10-27: Стиль', '2026-10-27: Стиль — 2 находки'],
+  ])('shows the count of the bar %s in its plural form', async (name, text) => {
+    stubThreeDaySeries()
+    renderPage()
+    fireEvent.focus(await screen.findByRole('graphics-symbol', { name }))
+    expect(await screen.findByText(text)).toBeTruthy()
+  })
+
+  it('formats point duration with formatDuration and omits zero duration points', async () => {
+    stubThreeDaySeries()
+    renderPage()
+
+    const durationGroup = await screen.findByRole('group', { name: 'Средняя длительность по дням' })
+    const circles = [...durationGroup.querySelectorAll('circle')]
+    expect(circles).toHaveLength(2)
+    expect(circles.map((node) => node.getAttribute('tabindex'))).toEqual(['0', '-1'])
+
+    const fractionalPoint = screen.getByRole('graphics-symbol', { name: '2026-10-25' })
+    assert(fractionalPoint)
+    expect(fractionalPoint.getAttribute('class')).toContain('point')
+    expect(fractionalPoint.getAttribute('class')).toContain('helpTarget')
+
+    const minutePoint = screen.getByRole('graphics-symbol', { name: '2026-10-27' })
+    assert(minutePoint)
+
+    // Hover on point
+    fireEvent.mouseEnter(fractionalPoint)
+    expect(await screen.findByText('2026-10-25: 12 с')).toBeTruthy()
+    fireEvent.mouseLeave(fractionalPoint)
+    await waitForElementToBeRemoved(() => screen.queryByText('2026-10-25: 12 с'))
+
+    // Verify >60s point
+    fireEvent.focus(minutePoint)
+    expect(await screen.findByText('2026-10-27: 2 мин 5 с')).toBeTruthy()
+    fireEvent.blur(minutePoint)
+    await waitForElementToBeRemoved(() => screen.queryByText('2026-10-27: 2 мин 5 с'))
+  })
+
+  it('closes chart tooltips on Escape keydown for both bar columns and duration points', async () => {
+    stubThreeDaySeries()
+    renderPage()
+
+    await screen.findByRole('group', { name: 'Находки по дням' })
+    const halfMaxBar = screen.getByRole('graphics-symbol', { name: '2026-10-26: Дефект' })
+    assert(halfMaxBar)
+
+    // Focus bar column and verify Esc closes it
+    fireEvent.focus(halfMaxBar)
+    expect(await screen.findByText('2026-10-26: Дефект — 5 находок')).toBeTruthy()
+    fireEvent.keyDown(halfMaxBar, { key: 'Escape', code: 'Escape' })
+    await waitFor(() => {
+      expect(screen.queryByText('2026-10-26: Дефект — 5 находок')).toBeNull()
+    })
+
+    // Focus duration point and verify Esc closes it
+    const fractionalPoint = screen.getByRole('graphics-symbol', { name: '2026-10-25' })
+    assert(fractionalPoint)
+    fireEvent.focus(fractionalPoint)
+    expect(await screen.findByText('2026-10-25: 12 с')).toBeTruthy()
+    fireEvent.keyDown(fractionalPoint, { key: 'Escape', code: 'Escape' })
+    await waitFor(() => {
+      expect(screen.queryByText('2026-10-25: 12 с')).toBeNull()
+    })
   })
 })
