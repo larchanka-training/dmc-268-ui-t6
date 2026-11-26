@@ -17,7 +17,7 @@ export const repositories: Translation<typeof en> = {
     'После установки GitHub App на новый аккаунт нажмите «Обновить доступ»: откроется GitHub, затем вы вернётесь сюда. Репозиторий может появиться с задержкой до нескольких минут',
   installUnavailable: 'Инсталляция недоступна: не задан VITE_GITHUB_APP_SLUG',
   empty:
-    'Репозитории ещё не подключены. Для GitHub установите GitHub App или добавьте репозитории в существующую установку, затем нажмите «Обновить доступ». Для Bitbucket Cloud используйте блок «Bitbucket Cloud» ниже.',
+    'Репозитории ещё не подключены. Для GitHub установите GitHub App или добавьте репозитории в существующую установку, затем нажмите «Обновить доступ». Для GitLab и Bitbucket Cloud используйте блоки ниже.',
   searchPlaceholder: 'Поиск по названию...',
   filter: {
     label: 'Фильтр репозиториев',
@@ -25,6 +25,10 @@ export const repositories: Translation<typeof en> = {
     active: 'Активные ({{count}})',
   },
   nothingFound: 'Ничего не найдено',
+  connectionStatus: {
+    awaiting_webhook: 'Ожидает webhook',
+    active: 'Webhook активен',
+  },
   columns: {
     branch: 'Ветка',
     engine: 'Движок',

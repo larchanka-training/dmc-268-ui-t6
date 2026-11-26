@@ -12,6 +12,7 @@ import {
 import { useRunList } from '../../entities/run'
 import { useMe } from '../../entities/user'
 import { BitbucketConnectionsPanel } from '../../features/bitbucket-connections'
+import { GitLabConnectionsPanel } from '../../features/gitlab-connections'
 import { saveAccessRefreshIntent, saveAuthReturnTo, useAuthStore } from '../../features/auth'
 import { useTranslation } from '../../shared/i18n'
 import { RepositoryList, resolveAccessRefreshPresentation } from '../../widgets/repository-list'
@@ -171,6 +172,7 @@ export const RepositoriesPage: FC = () => {
           updatingRepoIds={updatingRepoIds}
         />
       ) : null}
+      {me ? <GitLabConnectionsPanel workspaces={me.workspaces} /> : null}
       {me ? <BitbucketConnectionsPanel workspaces={me.workspaces} /> : null}
     </Flex>
   )

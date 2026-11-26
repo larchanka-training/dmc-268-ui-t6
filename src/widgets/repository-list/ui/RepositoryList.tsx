@@ -266,6 +266,18 @@ export const RepositoryList: FC<RepositoryListProps> = ({
             <Tag className={styles.providerTag} variant="outline">
               {VCS_PROVIDER_LABEL[record.provider]}
             </Tag>
+            {record.connectionStatus ? (
+              <Tag
+                className={styles.providerTag}
+                tone={record.connectionStatus === 'active' ? 'success' : 'warning'}
+              >
+                {t(
+                  record.connectionStatus === 'active'
+                    ? 'repositories.connectionStatus.active'
+                    : 'repositories.connectionStatus.awaiting_webhook',
+                )}
+              </Tag>
+            ) : null}
             {fullTable ? (
               <Text className={styles.repoMeta} type="secondary">
                 {shortName}

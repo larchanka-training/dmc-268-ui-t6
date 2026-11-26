@@ -141,6 +141,29 @@ describe('RepositorySchema', () => {
     expect(parsed).toEqual(validRepo)
   })
 
+  it('keeps a GitLab connection status and accepts a repository that has none', () => {
+    expect(
+      RepositorySchema.parse({
+        ...validRepo,
+        provider: 'gitlab',
+        connectionStatus: 'awaiting_webhook',
+      }).connectionStatus,
+    ).toBe('awaiting_webhook')
+    expect(
+      RepositorySchema.parse({ ...validRepo, provider: 'gitlab', connectionStatus: 'active' })
+        .connectionStatus,
+    ).toBe('active')
+    expect(RepositorySchema.parse({ ...validRepo, provider: 'gitlab' }).connectionStatus).toBe(
+      undefined,
+    )
+    expect(RepositorySchema.parse({ ...validRepo, connectionStatus: null }).connectionStatus).toBe(
+      null,
+    )
+    expect(RepositorySchema.safeParse({ ...validRepo, connectionStatus: 'pending' }).success).toBe(
+      false,
+    )
+  })
+
   it('accepts Bitbucket identity and rejects missing or unknown providers', () => {
     expect(RepositorySchema.parse({ ...validRepo, provider: 'bitbucket' }).provider).toBe(
       'bitbucket',

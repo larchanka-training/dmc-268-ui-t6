@@ -3,6 +3,7 @@ import { audit } from './audit'
 import { auth } from './auth'
 import { bitbucket } from './bitbucket'
 import { common } from './common'
+import { gitlab } from './gitlab'
 import { layout } from './layout'
 import { limitReasons } from './limitReasons'
 import { onboarding } from './onboarding'
@@ -18,6 +19,7 @@ export const en = {
   common,
   auth,
   bitbucket,
+  gitlab,
   layout,
   limitReasons,
   onboarding,
