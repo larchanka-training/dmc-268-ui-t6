@@ -15,6 +15,9 @@ describe('login form glass ceiling', () => {
     const block = { left: 0, top: 0, right: 340, bottom: 220 }
     const noteLine = { left: 22, top: 180, right: 343, bottom: 196 }
     const union = unionRects([block, noteLine])
+    if (union === null) {
+      throw new Error('expected a union of the form block and the note line')
+    }
     expect(insideCeiling({ x: 342, y: 188 }, union)).toBe(true)
     expect(insideCeiling({ x: 345, y: 188 }, union)).toBe(true)
     expect(insideCeiling({ x: 400, y: 188 }, union)).toBe(false)
