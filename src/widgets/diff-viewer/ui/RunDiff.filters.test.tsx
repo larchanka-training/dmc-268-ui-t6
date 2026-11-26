@@ -991,7 +991,7 @@ describe('RunDiff filters: summary-only run', () => {
   it('counts and lists findings only, comments are not part of the set', () => {
     render(summaryOnlyRunDiff(EMPTY_FINDING_FILTERS))
 
-    expect(screen.getByText('Дифф слишком большой')).toBeTruthy()
+    expect(screen.getByText('Построчного ревью нет')).toBeTruthy()
     expect(screen.getByText(counter(3, 3))).toBeTruthy()
     expect(fileNameShown('src/big-one.ts')).toBe(true)
     expect(fileNameShown('src/big-two.ts')).toBe(true)
@@ -1094,7 +1094,7 @@ describe('RunDiff filters: summary-only run', () => {
     expect(fileNameShown('src/big-two.ts')).toBe(true)
     expect(fileNameShown('src/big-one.ts')).toBe(false)
     expectCards(['Big two info'])
-    expect(screen.getByText('Дифф слишком большой')).toBeTruthy()
+    expect(screen.getByText('Построчного ревью нет')).toBeTruthy()
   })
 
   it('a file filter keeps only that list entry and its findings', () => {
