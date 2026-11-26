@@ -104,7 +104,11 @@ describe('GitLab connections panel', () => {
     expect(await screen.findByText(SECRET)).toBeTruthy()
     expect(screen.getByText(/Settings → Webhooks/)).toBeTruthy()
     expect(screen.getByText(WEBHOOK_URL)).toBeTruthy()
-    expect(screen.getByLabelText('Токен доступа GitLab').value).toBe('')
+    const tokenField = screen.getByLabelText('Токен доступа GitLab')
+    if (!(tokenField instanceof HTMLInputElement)) {
+      throw new Error('expected the GitLab token field to be an input')
+    }
+    expect(tokenField.value).toBe('')
     expect(window.location.href).not.toContain(TOKEN)
     expect(window.location.href).not.toContain(SECRET)
     expect(setItem.mock.calls.some(([, value]) => value.includes(TOKEN))).toBe(false)
