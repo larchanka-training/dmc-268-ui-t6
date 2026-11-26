@@ -23,7 +23,9 @@ RUN pnpm run build
 
 # Slim: no curl, no extra nginx modules and their libraries. Nothing in the container uses them
 # (the healthcheck is busybox wget), and each is one more package for Trivy to turn red on.
-FROM nginxinc/nginx-unprivileged:1.30-alpine-slim AS runtime
+# nginx itself comes from nginx.org inside this base. `apk upgrade` cannot see that
+# repository, so the tag is the patch that carries nginx>=1.30.7-r0 (docs/CICD.md §1).
+FROM nginx/nginx-unprivileged:1.30.8-alpine-slim AS runtime
 
 USER root
 # No package list: apk add would install what slim leaves out. apk update stays for its log line

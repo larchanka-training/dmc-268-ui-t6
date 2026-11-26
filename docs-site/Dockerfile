@@ -26,7 +26,9 @@ COPY src ./src
 COPY docs-site ./docs-site
 RUN pnpm --dir docs-site run build
 
-FROM nginxinc/nginx-unprivileged:1.30-alpine AS runtime
+# nginx itself comes from nginx.org inside this base. `apk upgrade` cannot see that
+# repository, so the tag is the patch that carries nginx>=1.30.7-r0 (docs/CICD.md §1).
+FROM nginx/nginx-unprivileged:1.30.8-alpine AS runtime
 
 USER root
 RUN apk update && apk upgrade --no-cache && apk add --no-cache --upgrade pcre2 tiff "libexpat>=2.10.0-r0" brotli-libs curl
