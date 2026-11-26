@@ -425,17 +425,17 @@ describe('WorkspaceDangerZone', () => {
         </QueryClientProvider>
       </ConfigProvider>
     )
-    const { rerender } = render(dangerZone(OWNER_WORKSPACE))
+    const otherWorkspace: Workspace = {
+      ...OWNER_WORKSPACE,
+      id: '423e4567-e89b-12d3-a456-426614174000',
+      name: 'other-corp',
+    }
+    const { rerender } = render(dangerZone(otherWorkspace))
+    rerender(dangerZone(OWNER_WORKSPACE))
     fireEvent.click(screen.getByRole('button', { name: 'Удалить этот воркспейс' }))
     await screen.findByPlaceholderText('acme-corp')
 
-    rerender(
-      dangerZone({
-        ...OWNER_WORKSPACE,
-        id: '423e4567-e89b-12d3-a456-426614174000',
-        name: 'other-corp',
-      }),
-    )
+    rerender(dangerZone(otherWorkspace))
 
     expect(screen.getByPlaceholderText('acme-corp')).toBeTruthy()
     expect(screen.queryByPlaceholderText('other-corp')).toBeNull()
