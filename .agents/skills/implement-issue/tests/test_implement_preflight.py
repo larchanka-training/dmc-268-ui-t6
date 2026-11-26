@@ -512,6 +512,25 @@ def test_visible_lines_skips_fences_comments_and_quotes() -> None:
     assert list(pf.visible_lines(text, skip_quotes=False))[1] == "> quoted"
 
 
+def test_inline_code_comment_opener_does_not_hide_the_rest_of_the_body() -> None:
+    """`<!--` inside a same-line code span is text; a real comment still hides Refs."""
+    prose = "a `<!--` b\nRefs #1\n"
+    assert list(pf.visible_lines(prose, skip_quotes=False)) == ["a `<!--` b", "Refs #1"]
+    assert pf.refs_of("", prose, "o/r") == {("o/r", 1)}
+    longer = "a ``<!--`` b\nRefs #2\n"
+    assert list(pf.visible_lines(longer, skip_quotes=False)) == ["a ``<!--`` b", "Refs #2"]
+    assert pf.refs_of("", longer, "o/r") == {("o/r", 2)}
+    spaced = "see ` <!-- ` next\nRefs #3\n"
+    assert pf.refs_of("", spaced, "o/r") == {("o/r", 3)}
+    hidden = "<!--\nRefs #4\n-->\nRefs #5\n"
+    assert pf.refs_of("", hidden, "o/r") == {("o/r", 5)}
+    assert pf.refs_of("", "<!-- Refs #6 -->\n", "o/r") == set()
+    # No closer on this line: the backtick run is text, so the comment still opens.
+    unclosed = "a `<!--\nRefs #7\n"
+    assert list(pf.visible_lines(unclosed, skip_quotes=False)) == ["a `"]
+    assert pf.refs_of("", unclosed, "o/r") == set()
+
+
 # ─── how a pull request names a part ────────────────────────────────────────
 # The real first lines of the `## What` of ui#177 (Part 1 of api#268) and api#358 (Part 2 of
 # #273): each also mentions another part, as context.

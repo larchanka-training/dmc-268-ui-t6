@@ -83,7 +83,8 @@ more issues has to tie each mention to its issue: `Part K of <ref>`, or `<ref> p
 (`Ч.K`, `часть K`; the ref wrapped as above) in front of it. An untied mention there
 is skipped like a mention of another issue. A pull request that ends up naming more
 than one part counts for each and adds a warning. Lines in fenced code and HTML
-comments never count. A quoted line never counts as a `Refs` line (it does not start
+comments never count. A `<!--` inside a same-line inline code span is not a comment.
+A quoted line never counts as a `Refs` line (it does not start
 with `Refs`), but quotes are not skipped for the first line of `## What`: a pull
 request that opens with a quote is read from the quote.
 
@@ -537,11 +538,65 @@ def fetch_issue(
 
 
 # ─── markdown scanning ──────────────────────────────────────────────────────
+def _inline_code_interiors(line: str) -> list[tuple[int, int]]:
+    """Half-open interiors of CommonMark code spans that close on `line`.
+
+    A backtick run opens a span only when a later run of the same length closes
+    it. A run with no closer on this line is ordinary text: spans are not tracked
+    onto the next line.
+    """
+    interiors: list[tuple[int, int]] = []
+    index = 0
+    limit = len(line)
+    while index < limit:
+        if line[index] != "`":
+            index += 1
+            continue
+        opener = index
+        while index < limit and line[index] == "`":
+            index += 1
+        size = index - opener
+        scan = index
+        matched = False
+        while scan < limit:
+            if line[scan] != "`":
+                scan += 1
+                continue
+            closer = scan
+            while scan < limit and line[scan] == "`":
+                scan += 1
+            if scan - closer != size:
+                continue
+            interiors.append((index, closer))
+            index = scan
+            matched = True
+            break
+        if not matched:
+            # `index` is already just past the unmatched opener.
+            continue
+    return interiors
+
+
+def _html_comment_open(line: str) -> int:
+    """Index of the first `<!--` outside an inline code span, or -1."""
+    interiors = _inline_code_interiors(line)
+    start = 0
+    while True:
+        found = line.find("<!--", start)
+        if found < 0:
+            return -1
+        if any(left <= found < right for left, right in interiors):
+            start = found + 4
+            continue
+        return found
+
+
 def visible_lines(text: str, *, skip_quotes: bool) -> Iterator[str]:
     """The lines of `text` that render as prose: outside fenced code and HTML
     comments (single- and multi-line; the text around a comment stays) and, when
-    `skip_quotes`, outside blockquotes. Shared by every scan below so that all of
-    them see the same text."""
+    `skip_quotes`, outside blockquotes. A `<!--` inside a CommonMark inline code
+    span that opens and closes on the same line does not start a comment. Shared
+    by every scan below so that all of them see the same text."""
     fence: str | None = None  # the opening run of the open fenced block
     in_comment = False
     for raw in text.splitlines():
@@ -560,7 +615,7 @@ def visible_lines(text: str, *, skip_quotes: bool) -> Iterator[str]:
                 else:
                     in_comment, line = False, line[end + 3 :]
             else:
-                start = line.find("<!--")
+                start = _html_comment_open(line)
                 if start < 0:
                     kept.append(line)
                     line = ""
