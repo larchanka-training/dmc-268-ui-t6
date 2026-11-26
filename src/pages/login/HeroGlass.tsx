@@ -7,6 +7,7 @@
 // 4. настройка «уменьшить движение» отслеживается по событию, без хука лендинга.
 import { useEffect, useRef } from 'react'
 
+import { FORM_EDGE_PX, unionRects, type CeilingBox } from './formCeiling'
 import styles from './HeroGlass.module.css'
 
 /**
@@ -40,6 +41,9 @@ const float ANGLE = 0.73;  // slope of the stripes, ~42°, as the former CSS ray
 // so by construction it is no lighter than ramp(0.48) (about #235fe6), 5.2:1 with --rv-text (#f8fafc);
 // the darkest real frames measured in the browser give a minimum of 6.69:1.
 const float SAFE = 0.48;
+// Hard ceiling continues this far past the measured union. Line boxes of the 12px note
+// stick out of the element rects, and the soft feather used to start on those pixels (#313).
+const float TEXT_PAD = ${glslFloat(FORM_EDGE_PX)};
 // uText radii back to the half size of the form block: 0.5 / TEXT_RADIUS
 const vec2 TEXT_HALF = vec2(${glslFloat(0.5 / TEXT_RADIUS.x)}, ${glslFloat(0.5 / TEXT_RADIUS.y)});
 
@@ -146,7 +150,8 @@ void main() {
   // Inside the text block itself (uText radii back to the half size, 24px feather) the cap is at most
   // SAFE, because the elliptic falloff is already weak at the block corners.
   float tm = smoothstep(uDim.z, 0.45, length((px - uText.xy) / uText.zw));
-  float tb = 1.0 - smoothstep(0.0, 24.0, length(max(abs(px - uText.xy) - uText.zw * TEXT_HALF, 0.0)));
+  float outside = length(max(abs(px - uText.xy) - uText.zw * TEXT_HALF, 0.0));
+  float tb = 1.0 - smoothstep(0.0, 24.0, max(outside - TEXT_PAD, 0.0));
   float cap = min(mix(0.9, uDim.y, tm), mix(1.0, SAFE, tb));
   v = smin(v * mix(1.0, uDim.x, tm), vec3(cap), 0.12);
 
@@ -205,6 +210,22 @@ export interface HeroGlassProps {
 }
 
 const LANDING_DIM = [0.72, 0.44, 1.3] as const
+
+/** Element boxes plus each text line. A line can extend past the element that holds it (#313). */
+function textLineRects(selector: string): CeilingBox[] {
+  const root = document.querySelector(selector)
+  if (!root) return []
+  const rects: CeilingBox[] = []
+  for (const child of root.children) rects.push(child.getBoundingClientRect())
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (!node.textContent?.trim()) continue
+    const range = document.createRange()
+    range.selectNodeContents(node)
+    for (const rect of range.getClientRects()) rects.push(rect)
+  }
+  return rects
+}
 
 export function HeroGlass({ textSelector, dim = LANDING_DIM }: HeroGlassProps) {
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -295,23 +316,16 @@ export function HeroGlass({ textSelector, dim = LANDING_DIM }: HeroGlassProps) {
         gl.viewport(0, 0, width, height)
       }
 
-      // Положение блока заголовка внутри канваса: приглушённая зона следует за реальной вёрсткой
+      // Положение текста внутри канваса: дети формы и прямоугольники строк, которые бывают шире блока.
       const box = canvas.getBoundingClientRect()
-      // (объединение его детей: сам блок — контейнер во всю ширину)
-      const rects = Array.from(document.querySelector(textSelector)?.children ?? [], (child) =>
-        child.getBoundingClientRect(),
-      )
-      if (rects.length > 0) {
-        const left = Math.min(...rects.map((rect) => rect.left))
-        const right = Math.max(...rects.map((rect) => rect.right))
-        const top = Math.min(...rects.map((rect) => rect.top))
-        const bottom = Math.max(...rects.map((rect) => rect.bottom))
+      const union = unionRects(textLineRects(textSelector))
+      if (union) {
         gl.uniform4f(
           uText ?? null,
-          (left + right) / 2 - box.left,
-          (top + bottom) / 2 - box.top,
-          (right - left) * TEXT_RADIUS.x,
-          (bottom - top) * TEXT_RADIUS.y,
+          (union.left + union.right) / 2 - box.left,
+          (union.top + union.bottom) / 2 - box.top,
+          (union.right - union.left) * TEXT_RADIUS.x,
+          (union.bottom - union.top) * TEXT_RADIUS.y,
         )
       }
 
