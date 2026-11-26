@@ -45,6 +45,7 @@ describe('CodeBlock', () => {
     expect(pre?.classList.contains('mine')).toBe(true)
     expect(styles.code).toBeTruthy()
     expect(pre?.classList.contains(styles.code ?? '')).toBe(true)
+    expect(pre?.classList.contains(styles.box ?? '')).toBe(false)
     expect(pre?.hasAttribute('tabindex')).toBe(false)
   })
 

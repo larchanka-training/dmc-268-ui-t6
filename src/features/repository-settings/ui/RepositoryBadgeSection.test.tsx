@@ -47,6 +47,7 @@ describe('RepositoryBadgeSection', () => {
     it('renders badge block for github provider', () => {
       renderBadgeSection({ provider: 'github', fullName: 'my-org/my-repo' })
 
+      expect(screen.getByRole('region', { name: 'Бейдж для README' })).toBeTruthy()
       expect(screen.getByText('Бейдж для README')).toBeTruthy()
       expect(
         screen.getByText(/Бейдж показывает статус только для публичных репозиториев/),
@@ -60,6 +61,7 @@ describe('RepositoryBadgeSection', () => {
 
       const snippetBox = screen.getByRole('region', { name: 'Markdown-сниппет' })
       expect(snippetBox).toBeTruthy()
+      expect(snippetBox.className).toContain('_box_')
       expect(snippetBox.textContent).toBe(
         `![Reviewer](${window.location.origin}/api/badges/github/my-org/my-repo.svg)`,
       )
