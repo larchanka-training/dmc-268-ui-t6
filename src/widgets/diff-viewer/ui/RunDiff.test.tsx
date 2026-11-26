@@ -8,6 +8,7 @@ import type { FindingView, ReviewComment } from '../../../entities/review'
 import { RunSessionSchema } from '../../../entities/run'
 import { EMPTY_FINDING_FILTERS } from '../../../features/finding-filters'
 import { SAMPLE_PATCH_A, SAMPLE_PATCHES } from '../../../shared/fixtures/sample.patch'
+import { i18n } from '../../../shared/i18n'
 import filePathStyles from '../../../shared/ui/FilePath/FilePath.module.css'
 import {
   countDiffSideLines,
@@ -99,14 +100,30 @@ describe('RunDiff', () => {
       <RunDiff findings={[]} files={files} summaryOnly={run.summaryOnly} />,
     )
 
-    expect(screen.getByText('Дифф слишком большой')).toBeTruthy()
-    expect(
-      screen.getByText('Больше 3 000 строк — показан только список файлов, построчного ревью нет.'),
-    ).toBeTruthy()
+    expect(screen.getByText('Построчного ревью нет')).toBeTruthy()
+    expect(screen.getByText('Показан только список файлов, построчного ревью нет.')).toBeTruthy()
+    expect(screen.queryByText('Дифф слишком большой')).toBeNull()
+    expect(screen.queryByText(/Больше 3\s*000 строк/)).toBeNull()
+    expect(screen.queryByText(/3,000/)).toBeNull()
     expect(screen.getByText('src/big-one.ts')).toBeTruthy()
     expect(screen.getByText('src/big-two.ts')).toBeTruthy()
     expect(screen.queryByText('Без диффа')).toBeNull()
     expect(container.querySelectorAll('.diff-line')).toHaveLength(0)
+  })
+
+  it('states the summary-only limit in English without a line count', async () => {
+    await i18n.changeLanguage('en')
+    const files = diffApi.diff.response.parse(SUMMARY_ONLY_DIFF_WIRE).map(fromPatch)
+
+    render(<RunDiff findings={[]} files={files} summaryOnly />)
+
+    expect(screen.getByText('No line-by-line review')).toBeTruthy()
+    expect(
+      screen.getByText('Only the file list is shown, and there is no line-by-line review.'),
+    ).toBeTruthy()
+    expect(screen.queryByText(/3,000/)).toBeNull()
+    expect(screen.queryByText('The diff is too large')).toBeNull()
+    expect(screen.queryByText(/diff > 3,000 lines/)).toBeNull()
   })
 
   it('sets the summary-only file names as FilePath, in the monospace font (DS §8, #239 D9)', () => {
@@ -135,7 +152,7 @@ describe('RunDiff', () => {
     expect(screen.getAllByText('src/a.ts').length).toBeGreaterThan(0)
     expect(screen.getAllByText('README.md').length).toBeGreaterThan(0)
     expect(container.querySelectorAll('.diff-line').length).toBeGreaterThan(0)
-    expect(screen.queryByText('Дифф слишком большой')).toBeNull()
+    expect(screen.queryByText('Построчного ревью нет')).toBeNull()
   })
 
   it('enables syntax highlighting while total diff lines stay within the sync budget', () => {
@@ -543,6 +560,6 @@ describe('RunDiff', () => {
     expect(screen.getByText('Без диффа')).toBeTruthy()
     expect(screen.getAllByText('src/a.ts').length).toBeGreaterThan(0)
     expect(container.querySelectorAll('.diff-line').length).toBeGreaterThan(0)
-    expect(screen.queryByText('Дифф слишком большой')).toBeNull()
+    expect(screen.queryByText('Построчного ревью нет')).toBeNull()
   })
 })

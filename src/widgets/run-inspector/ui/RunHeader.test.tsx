@@ -3,6 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import type { RunSession } from '../../../entities/run'
+import { i18n } from '../../../shared/i18n'
 import { RunHeader } from './RunHeader'
 import styles from './RunHeader.module.css'
 
@@ -256,7 +257,9 @@ describe('RunHeader PR metadata', () => {
     expect(screen.queryByText('Находки')).toBeNull()
     expect(screen.queryByText('critical: 0')).toBeNull()
     if (run.summaryOnly) {
-      expect(screen.getByText('Summary-only прогон (дифф > 3 000 строк)')).toBeTruthy()
+      expect(screen.getByText('Summary-only прогон (без построчного ревью)')).toBeTruthy()
+      expect(screen.queryByText(/3\s*000/)).toBeNull()
+      expect(screen.queryByText(/3,000/)).toBeNull()
     }
   })
 
@@ -420,8 +423,18 @@ describe('RunHeader limit reason', () => {
 
   it('keeps the summary-only line', () => {
     render(<RunHeader now={NOW} run={{ ...baseRun, summaryOnly: true }} />)
-    expect(screen.getByText('Summary-only прогон (дифф > 3 000 строк)')).toBeTruthy()
+    expect(screen.getByText('Summary-only прогон (без построчного ревью)')).toBeTruthy()
+    expect(screen.queryByText(/3\s*000/)).toBeNull()
+    expect(screen.queryByText(/3,000/)).toBeNull()
     expect(screen.queryByTestId('run-limit-reason')).toBeNull()
+  })
+
+  it('does not reduce an English summary-only caption to the line limit', async () => {
+    await i18n.changeLanguage('en')
+    render(<RunHeader now={NOW} run={{ ...baseRun, summaryOnly: true }} />)
+    expect(screen.getByText('Summary-only run (no line-by-line review)')).toBeTruthy()
+    expect(screen.queryByText(/3,000/)).toBeNull()
+    expect(screen.queryByText(/diff > 3,000 lines/)).toBeNull()
   })
 })
 
