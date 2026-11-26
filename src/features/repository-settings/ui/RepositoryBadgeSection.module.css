@@ -1,0 +1,24 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 560px;
+}
+
+.previewContainer {
+  display: flex;
+  align-items: center;
+}
+
+.previewImage {
+  display: block;
+}
+
+.snippetRow {
+  width: 100%;
+}
+
+.snippetBox {
+  flex: 1;
+  min-width: 0;
+}
