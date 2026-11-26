@@ -1,9 +1,10 @@
 import { Alert, Button, Card, Flex, Skeleton, Typography } from 'antd'
 import type { ParseKeys } from 'i18next'
-import type { FC, JSX, ReactNode } from 'react'
+import { useRef, type FC, type JSX, type ReactNode } from 'react'
 
 import { useMe, type WorkspaceRole } from '../../entities/user'
 import { useCurrentWorkspace } from '../../features/workspace'
+import { WorkspaceDangerZone } from '../../features/workspace-settings'
 import { useTranslation } from '../../shared/i18n'
 import { PageHeader, Tag, type TagProps } from '../../shared/ui'
 import styles from './WorkspaceSettingsPage.module.css'
@@ -76,6 +77,7 @@ const PERMISSION_SECTIONS: readonly PermissionSectionConfig[] = [
 
 export const WorkspaceSettingsPage: FC = () => {
   const { t } = useTranslation()
+  const titleRef = useRef<HTMLHeadingElement>(null)
   const { current } = useCurrentWorkspace()
   const { data, isPending, isError, isFetching, refetch } = useMe()
 
@@ -145,13 +147,20 @@ export const WorkspaceSettingsPage: FC = () => {
             </Card>
           )
         })}
+
+        <WorkspaceDangerZone
+          onDeleted={() => {
+            titleRef.current?.focus()
+          }}
+          workspace={current}
+        />
       </>
     )
   }
 
   return (
     <div className={styles.page}>
-      <PageHeader title={t('settings.workspace.title')} />
+      <PageHeader title={t('settings.workspace.title')} titleRef={titleRef} />
       {content}
     </div>
   )

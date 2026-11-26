@@ -22,6 +22,10 @@ import {
 import { setMockAuthAdapter, useAuthStore } from '../../features/auth'
 import type { BitbucketConnectionItem } from '../../features/bitbucket-connections'
 import {
+  DeleteWorkspaceRequestSchema,
+  WORKSPACE_NAME_MISMATCH_DETAIL,
+} from '../../features/workspace-settings'
+import {
   ApiError,
   setAccessToken,
   setMockTransport,
@@ -87,6 +91,52 @@ const MOCK_BITBUCKET_REPOSITORIES = [
     htmlUrl: 'https://bitbucket.org/demo-bitbucket/second-repo',
   },
 ] as const
+
+interface MockWorkspace {
+  id: string
+  name: string
+  installationId: number
+  role?: string | null
+}
+
+const DEFAULT_MOCK_USER_WORKSPACES: readonly MockWorkspace[] = [
+  {
+    id: '123e4567-e89b-12d3-a456-426614174000',
+    name: 'larchanka-training',
+    installationId: 12345,
+    role: 'owner',
+  },
+  {
+    id: '323e4567-e89b-12d3-a456-426614174002',
+    name: 'dmc-team-admin',
+    installationId: 23456,
+    role: 'admin',
+  },
+  {
+    id: '423e4567-e89b-12d3-a456-426614174003',
+    name: 'dmc-finance',
+    installationId: 34567,
+    role: 'billing',
+  },
+  {
+    id: '223e4567-e89b-12d3-a456-426614174001',
+    name: `GitHub: ${mockCurrentUser.login}`,
+    installationId: 67890,
+    role: 'member',
+  },
+  {
+    id: '523e4567-e89b-12d3-a456-426614174004',
+    name: 'dmc-no-role',
+    installationId: 45678,
+  },
+  {
+    id: '623e4567-e89b-12d3-a456-426614174005',
+    name: 'dmc-unknown-role',
+    installationId: 56789,
+    role: 'viewer',
+  },
+]
+let mockUserWorkspaces: MockWorkspace[] = structuredClone([...DEFAULT_MOCK_USER_WORKSPACES])
 let bitbucketConnections: BitbucketConnectionItem[] = []
 let bitbucketToken: string | null = null
 let bitbucketCredentialGeneration = 1
@@ -365,6 +415,34 @@ function handleMockTransport(
 
   const queryStart = endpoint.path.indexOf('?')
   const pathname = queryStart === -1 ? endpoint.path : endpoint.path.slice(0, queryStart)
+  const workspaceDeleteMatch = /^\/workspaces\/([^/]+)$/.exec(pathname)
+  if (workspaceDeleteMatch && endpoint.method === 'DELETE') {
+    const workspaceId = workspaceDeleteMatch[1]
+    const ws = mockUserWorkspaces.find((w) => w.id === workspaceId)
+    if (!ws) {
+      // Contract api#554 / app/main.py: detail is 'workspace not found'
+      throw new ApiError(404, 'Not Found', { detail: 'workspace not found' })
+    }
+    if (ws.role !== 'owner') {
+      // Contract api#554 / app/main.py: detail is 'only workspace owner can delete workspace'
+      throw new ApiError(403, 'Forbidden', { detail: 'only workspace owner can delete workspace' })
+    }
+    const parsed = DeleteWorkspaceRequestSchema.safeParse(options.body)
+    if (!parsed.success) {
+      throw unprocessable(
+        parsed.error.issues.map((issue) => ({
+          loc: ['body', ...issue.path.map((p) => (typeof p === 'symbol' ? String(p) : p))],
+          msg: issue.message,
+          type: issue.code,
+        })),
+      )
+    }
+    if (parsed.data.confirmation_name !== ws.name) {
+      throw new ApiError(422, 'Unprocessable Entity', { detail: WORKSPACE_NAME_MISMATCH_DETAIL })
+    }
+    mockUserWorkspaces = mockUserWorkspaces.filter((w) => w.id !== workspaceId)
+    return null
+  }
   const bitbucketMatch = /^\/workspaces\/([^/]+)\/bitbucket\/(.*)$/.exec(pathname)
   if (bitbucketMatch) {
     const [, workspaceId, suffix] = bitbucketMatch
@@ -618,43 +696,7 @@ function handleMockTransport(
   if (endpoint.path === '/auth/me' && endpoint.method === 'GET') {
     return {
       ...mockCurrentUser,
-      workspaces: [
-        {
-          id: '123e4567-e89b-12d3-a456-426614174000',
-          name: 'larchanka-training',
-          installationId: 12345,
-          role: 'owner',
-        },
-        {
-          id: '323e4567-e89b-12d3-a456-426614174002',
-          name: 'dmc-team-admin',
-          installationId: 23456,
-          role: 'admin',
-        },
-        {
-          id: '423e4567-e89b-12d3-a456-426614174003',
-          name: 'dmc-finance',
-          installationId: 34567,
-          role: 'billing',
-        },
-        {
-          id: '223e4567-e89b-12d3-a456-426614174001',
-          name: `GitHub: ${mockCurrentUser.login}`,
-          installationId: 67890,
-          role: 'member',
-        },
-        {
-          id: '523e4567-e89b-12d3-a456-426614174004',
-          name: 'dmc-no-role',
-          installationId: 45678,
-        },
-        {
-          id: '623e4567-e89b-12d3-a456-426614174005',
-          name: 'dmc-unknown-role',
-          installationId: 56789,
-          role: 'viewer',
-        },
-      ],
+      workspaces: structuredClone(mockUserWorkspaces),
     }
   }
 
@@ -893,6 +935,7 @@ export function initMockTransport(): void {
 
   repositories = structuredClone(mockRepositories)
   runSessions = structuredClone(mockRunsListPage.items)
+  mockUserWorkspaces = structuredClone([...DEFAULT_MOCK_USER_WORKSPACES])
   bitbucketConnections = []
   bitbucketToken = null
   bitbucketCredentialGeneration = 1

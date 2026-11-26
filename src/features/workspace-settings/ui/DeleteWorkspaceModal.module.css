@@ -1,0 +1,14 @@
+.warningList {
+  margin: 8px 0 0 16px;
+  padding: 0;
+}
+
+.warningList li {
+  margin-bottom: 4px;
+}
+
+.modalFooter {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}

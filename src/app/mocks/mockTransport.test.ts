@@ -29,6 +29,7 @@ import {
   type RunListPage,
   type RunSession,
 } from '../../entities/run'
+import { WORKSPACE_NAME_MISMATCH_DETAIL } from '../../features/workspace-settings'
 import { ApiError, apiClient } from '../../shared/api/client'
 import { endpoints } from '../../shared/api/endpoints'
 import { validationErrorLocations } from '../../shared/api/validationError'
@@ -1456,6 +1457,75 @@ describe('initMockTransport', () => {
         undefined,
         undefined,
       ])
+    })
+  })
+
+  describe('workspaces deletion', () => {
+    it('answers 404 for an unknown workspace', async () => {
+      await expect(
+        apiClient(endpoints.workspaces.delete('00000000-0000-0000-0000-000000000000'), {
+          body: { confirmation_name: 'does-not-matter' },
+        }),
+      ).rejects.toMatchObject({ status: 404, data: { detail: 'workspace not found' } })
+    })
+
+    it('answers 403 when called for a workspace where user is not owner', async () => {
+      await expect(
+        apiClient(endpoints.workspaces.delete('323e4567-e89b-12d3-a456-426614174002'), {
+          body: { confirmation_name: 'dmc-team-admin' },
+        }),
+      ).rejects.toMatchObject({
+        status: 403,
+        data: { detail: 'only workspace owner can delete workspace' },
+      })
+    })
+
+    it('answers 422 with validation errors when body is invalid or missing confirmation_name', async () => {
+      await expect(
+        apiClient(endpoints.workspaces.delete('123e4567-e89b-12d3-a456-426614174000'), {
+          body: { confirmation_name: '' },
+        }),
+      ).rejects.toMatchObject({
+        status: 422,
+        data: { detail: [{ loc: ['body', 'confirmation_name'] }] },
+      })
+
+      await expect(
+        apiClient(endpoints.workspaces.delete('123e4567-e89b-12d3-a456-426614174000'), {
+          body: {},
+        }),
+      ).rejects.toMatchObject({
+        status: 422,
+        data: { detail: [{ loc: ['body', 'confirmation_name'] }] },
+      })
+    })
+
+    it('answers 422 when confirmation_name does not match', async () => {
+      await expect(
+        apiClient(endpoints.workspaces.delete('123e4567-e89b-12d3-a456-426614174000'), {
+          body: { confirmation_name: 'wrong-name' },
+        }),
+      ).rejects.toMatchObject({ status: 422, data: { detail: WORKSPACE_NAME_MISMATCH_DETAIL } })
+    })
+
+    it('deletes the workspace when confirmation_name matches and removes it from /auth/me', async () => {
+      const beforeMe = await apiClient<{ workspaces: { id: string }[] }>(endpoints.auth.me())
+      expect(beforeMe.workspaces.some((w) => w.id === '123e4567-e89b-12d3-a456-426614174000')).toBe(
+        true,
+      )
+
+      const result = await apiClient(
+        endpoints.workspaces.delete('123e4567-e89b-12d3-a456-426614174000'),
+        {
+          body: { confirmation_name: 'larchanka-training' },
+        },
+      )
+      expect(result).toBeNull()
+
+      const afterMe = await apiClient<{ workspaces: { id: string }[] }>(endpoints.auth.me())
+      expect(afterMe.workspaces.some((w) => w.id === '123e4567-e89b-12d3-a456-426614174000')).toBe(
+        false,
+      )
     })
   })
 })
