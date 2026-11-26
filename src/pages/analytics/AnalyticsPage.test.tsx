@@ -677,8 +677,8 @@ describe('AnalyticsPage', () => {
                 {
                   day: '2026-10-25',
                   findingsByCategory: {
-                    security: 4,
-                    correctness: 6,
+                    security: 1,
+                    correctness: 9,
                     performance: 0,
                     readability: 0,
                   },
@@ -726,9 +726,9 @@ describe('AnalyticsPage', () => {
 
   it('explains chart axes, period scaling, units, and line gaps via caption buttons on focus and hover', async () => {
     const FINDINGS_HELP =
-      'График показывает число находок за день по четырём категориям: Безопасность, Дефект, Производительность и Стиль. Шкала строится от максимума выбранного периода, поэтому графики разных периодов по высоте не сравнимы.'
+      'График показывает число находок за день (UTC) по четырём категориям: Безопасность, Дефект, Производительность и Стиль. Шкала строится от максимума выбранного периода, поэтому графики разных периодов по высоте не сравнимы.'
     const DURATION_HELP =
-      'График показывает среднюю длительность успешных прогонов за день. Шкала строится от максимума выбранного периода, поэтому графики разных периодов по высоте не сравнимы. Значения в секундах; в подсказке точки — минуты и секунды. Линия соединяет дни с успешными прогонами; разрыв линии означает, что в этот день не было успешных прогонов.'
+      'График показывает среднюю длительность успешных прогонов за день (UTC). Шкала строится от максимума выбранного периода, поэтому графики разных периодов по высоте не сравнимы. Значения в секундах; в подсказке точки — минуты и секунды. Линия соединяет дни с успешными прогонами; разрыв линии означает, что в этот день не было успешных прогонов.'
 
     stubThreeDaySeries()
     renderPage()
@@ -802,6 +802,16 @@ describe('AnalyticsPage', () => {
       expect(rects[1]?.getAttribute('tabindex')).toBe('0')
     })
     fireEvent.blur(firstBar)
+  })
+
+  it.each([
+    ['2026-10-25: Безопасность', '2026-10-25: Безопасность — 1 находка'],
+    ['2026-10-27: Стиль', '2026-10-27: Стиль — 2 находки'],
+  ])('shows the count of the bar %s in its plural form', async (name, text) => {
+    stubThreeDaySeries()
+    renderPage()
+    fireEvent.focus(await screen.findByRole('graphics-symbol', { name }))
+    expect(await screen.findByText(text)).toBeTruthy()
   })
 
   it('formats point duration with formatDuration and omits zero duration points', async () => {

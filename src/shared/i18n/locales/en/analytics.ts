@@ -79,7 +79,7 @@ export const analytics = {
   findingsCount_other: '{{count}} findings',
   // Tooltips for charts
   findingsByDayHelp:
-    'Shows findings count per day across four categories: {{security}}, {{correctness}}, {{performance}}, and {{style}}. The scale is based on the maximum of the selected period, so charts of different periods are not comparable by height.',
+    'Shows findings count per day (UTC) across four categories: {{security}}, {{correctness}}, {{performance}}, and {{style}}. The scale is based on the maximum of the selected period, so charts of different periods are not comparable by height.',
   durationByDayHelp:
-    'Shows the average duration of successful runs per day. The scale is based on the maximum of the selected period, so charts of different periods are not comparable by height. Values in seconds; data point tooltips show minutes and seconds. The line connects days with successful runs; gaps indicate days without successful runs.',
+    'Shows the average duration of successful runs per day (UTC). The scale is based on the maximum of the selected period, so charts of different periods are not comparable by height. Values in seconds; data point tooltips show minutes and seconds. The line connects days with successful runs; gaps indicate days without successful runs.',
 }
