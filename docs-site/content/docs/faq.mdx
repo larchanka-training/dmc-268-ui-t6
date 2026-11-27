@@ -4,6 +4,8 @@ description: Access, stored data, cost and fixes for common problems.
 icon: CircleQuestionMark
 ---
 
+import { StatusBadge } from '@/components/status-badge'
+
 ## Access and data
 
 ### Which access does Reviewer need?
@@ -180,6 +182,7 @@ Check these in order:
 | `verification_context_overflow`, `verification_invalid_output`, `verification_unavailable`, `verification_budget_exceeded`, `verification_deadline_exceeded` | The second check of the findings failed, so no findings are posted. `verification_unavailable` is retried automatically, up to 3 attempts. Otherwise restart the run, or split the pull request if it fails again. |
 | `deadline_exceeded` | The run took too long. Restart it. |
 | `github_forbidden` | The GitHub App lost access to the repository. Check the installation. |
+| `bitbucket_request_budget_exceeded`, `bitbucket_response_budget_exceeded` | Mandatory Bitbucket Cloud reads exceeded the per-attempt HTTP request or response-size budget. Split a large pull request. <StatusBadge /> Soon: when the budget is reached only while loading optional repository context, the run completes and adds an `Ограничение контекста` note to the summary — see [The review shows a Bitbucket context limit note](/faq#the-review-shows-a-bitbucket-context-limit-note). |
 
 Temporary model and GitHub errors are retried automatically. If every attempt fails, restart the
 run later.
@@ -207,6 +210,15 @@ review body at all: the run is [skipped](/faq#a-run-was-skipped).
 
 Rules are read from the base commit, so merge the change first. Rules in plain words guide the
 model; they do not guarantee a finding wherever they apply.
+
+### The review shows a Bitbucket context limit note
+
+<StatusBadge /> For Bitbucket Cloud pull requests, each attempt enforces per-attempt HTTP request and response-size budgets, with a separate tighter cap on optional repository context (for example, up to 400 of the 800 per-attempt HTTP requests). When the optional-context budget is reached while loading repository trees, related files, or RAG context, Reviewer does not fail the run: it completes the review using the diff and any extra context already collected, and adds an `**Ограничение контекста:**` line to the review summary ending with `Часть дополнительного контекста репозитория в ревью не попала.` after one (or both) of these sentences:
+
+- `Лимит запросов к Bitbucket для ревью исчерпан.` — the optional-context HTTP request limit was reached (`bitbucket_request_budget_exceeded`).
+- `Исчерпан бюджет ответов Bitbucket для одного прогона.` — the optional-context response byte budget was reached (`bitbucket_response_budget_exceeded`).
+
+If the per-attempt budget is reached while reading mandatory pull request data (metadata, commits, diff, or `.review/rules.md`), the run fails instead — see [A run failed](/faq#a-run-failed). To avoid hitting these limits, split large pull requests.
 
 ### A page says there is no network connection
 

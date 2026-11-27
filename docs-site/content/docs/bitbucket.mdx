@@ -42,6 +42,8 @@ If you reconnect an already connected repository, the portal does not show its o
 
 Open a pull request, then follow the review in <AppLink path="/runs">**Runs**</AppLink>. A Bitbucket repository starts review without waiting for CI: its **CI waiting** setting is **Never**. The read-only **Verdict** field shows **Comments and commit status**. The reviewer posts findings as inline Bitbucket comments, one summary, and a separate commit status for the reviewed head. It cannot request changes through a GitHub-style review event. Suggested patches appear as **comment text for manual application**; the portal does not offer one-click application in Bitbucket.
 
+<StatusBadge /> If optional repository context reads reach the optional-context Bitbucket HTTP request or response-size budget, Reviewer completes the run using the diff and already collected context and adds an `Ограничение контекста` note to the review summary; if mandatory reads hit the per-attempt budget, the run fails ([FAQ](/faq#the-review-shows-a-bitbucket-context-limit-note)).
+
 To stop one repository, choose its `Disconnect {workspace}/{repository}` button, confirm the named portal workspace and repository, and remove that repository's webhook in Bitbucket. Other repositories under the same connection remain active. Replacing the shared API token is an explicit **Update API token** action. If you rotate a repository's webhook secret, update its webhook in Bitbucket using the new one-time secret.
 
 </Step>
